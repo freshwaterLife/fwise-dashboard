@@ -295,6 +295,70 @@ FW_COPY <- list(
     # Repeatable block controls
     add_target      = "Add another target",
     check_action    = "Check my answers",
+
+    # ---- "Check my answers" ---------------------------------------------------
+    # HELPFUL, NOT PUNITIVE. A contributor is doing us a favour by filling this
+    # in. The wording says what is missing and why it is worth having, and never
+    # implies they have done something wrong.
+    #
+    # HARD vs SOFT is the important distinction. Hard errors block sending
+    # because the record would be unusable without them. Soft warnings NEVER
+    # block: a great many real attempts are ongoing, unmeasured or unpublished,
+    # and refusing those records would bias the database towards tidy ones.
+    check = list(
+      heading_clear  = "This all looks good",
+      body_clear     = paste(
+        "Everything needed is filled in. Have a last read through below, then",
+        "send it."
+      ),
+      heading_errors_one  = "One thing needs your attention",
+      heading_errors_many = "{n} things need your attention",
+      body_errors    = paste(
+        "These are marked in the form as well. Select one to jump straight to",
+        "it."
+      ),
+      heading_notes  = "Worth adding if you have it",
+      body_notes     = paste(
+        "None of these stop you sending. They are the fields that make a record",
+        "more useful to someone planning their own attempt, so add them if you",
+        "can and leave them if you cannot."
+      ),
+      review_heading = "Your answers",
+
+      # Hard errors
+      e_site_name    = "The site needs a name.",
+      e_country      = "Choose the country the site is in.",
+      e_latitude     = "Place a pin on the map, or type a latitude between -90 and 90.",
+      e_longitude    = "Place a pin on the map, or type a longitude between -180 and 180.",
+      e_regime       = "Say whether the water is still or flowing.",
+      e_waterbody    = "Choose the kind of waterbody treated.",
+      e_area_unit    = "You gave a size for the area treated, so we need its unit.",
+      e_target_taxa  = "Choose the kind of animal the eradication targeted.",
+      e_target_sp    = "Name the species targeted. If it is not in the list, type it in.",
+      e_start_year   = "Give the year the eradication attempt began, between 1500 and {year}.",
+      e_end_year     = "The end year must be between 1500 and {max_year}.",
+      e_end_before   = "The attempt cannot have ended before it began. Check the two years.",
+      e_driver       = "Choose the main reason the eradication was carried out.",
+      e_method       = "Choose the main method used.",
+      e_outcome      = "Choose the outcome.",
+      e_contact_name = "We need a contact name so the review team can follow up.",
+      e_contact_mail = "We need a contact email so the review team can follow up.",
+      e_contact_bad  = "That does not look like an email address.",
+      e_second_mail  = "The second contact's email does not look like an email address.",
+      e_consent      = "Confirm you are happy for us to use this before sending.",
+
+      # Soft warnings
+      w_end_year     = "No end year. Leave it blank if the attempt is still going - many are.",
+      w_area         = "No size for the area treated. Even a rough figure helps people judge scale.",
+      w_invasion     = "No year of invasion. Useful for showing how long a problem ran before anyone acted.",
+      w_beneficiary  = "No beneficiary species. What the eradication was meant to help is one of the most useful things you can record.",
+      w_reference    = "No reference or link. A DOI, URL or citation is what lets someone check the record.",
+      w_verification = "No note on how the outcome was verified. Useful even when the answer is that it was not.",
+      w_duration     = "No duration. Helps others plan the effort involved.",
+      w_method_desc  = "No description of the approach. This is the field practitioners say they read first.",
+      w_old_year     = "A start year of {year} is unusually early. Worth a second look."
+    ),
+
     send_note       = "Required fields are marked with an asterisk.",
     add_species     = "Add another species",
     add_method      = "Add another method",

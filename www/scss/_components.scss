@@ -236,6 +236,40 @@
   color: $fw-ink-muted;
 }
 
+// ---- "Check my answers" ----------------------------------------------------
+// Three states, distinguished by BORDER AND HEADING as well as colour. Colour
+// alone would fail the colourblind-safety requirement, and these three carry the
+// difference between "you must fix this" and "you might like to add this".
+
+.fw-check {
+  border-radius: $fw-radius-card;
+  padding: $fw-space-3;
+  margin-block-end: $fw-space-3;
+  border-inline-start: 4px solid;
+
+  h3 { margin-block: 0 $fw-space-1; font-size: $fw-size-h3; }
+  p  { margin-block: 0 $fw-space-2; color: $fw-ink-muted; }
+  p:last-child { margin-block-end: 0; }
+
+  // Wong vermilion and amber, the same values the charts use for failure and
+  // for caution, so a colour means the same thing everywhere in the app.
+  &--errors { border-color: #D55E00; background: rgba(#D55E00, 0.06); }
+  &--notes  { border-color: #E69F00; background: rgba(#E69F00, 0.06); }
+  &--clear  { border-color: #009E73; background: rgba(#009E73, 0.06); }
+
+  &__list {
+    margin: 0;
+    padding-inline-start: $fw-space-3;
+    display: grid;
+    gap: $fw-space-1;
+  }
+
+  &__item a {
+    color: inherit;
+    text-underline-offset: 2px;
+  }
+}
+
 // ---- Dot motif -------------------------------------------------------------
 // The one decorative device in the app. Data present and data missing: most
 // dots sit at low opacity, a handful at full strength. Used behind the hero and

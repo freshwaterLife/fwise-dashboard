@@ -45,8 +45,8 @@ FW_TIPS <- list(
   invasive_taxa = "What kind of animal this target is. One group per target: if the eradication went after more than one, add another target below.",
   species      = "Common and scientific name, for example Common carp (Cyprinus carpio). Search by either. If your species is not listed, type it in and our review team will add it.",
   invasion_year = "The year the invasion happened, if it is known.",
-  start_year   = "The year the eradication began.",
-  end_year     = "The year the attempt was confirmed ended. Leave it blank if the work is ongoing.",
+  start_year   = "The year the eradication attempt began.",
+  end_year     = "The year the eradication attempt ended. Leave it blank if the work is ongoing, which many attempts are.",
   duration     = "Estimated total duration of the intervention, in days.",
   driver       = "The main reason the eradication was carried out.",
   benefit_taxa = "What kind of species the eradication was meant to help.",
@@ -260,10 +260,10 @@ fw_step_timeline_ui <- function(ns, choices) {
              "When did the invasion happen? (year)", tooltip = FW_TIPS$invasion_year,
              input_id = ns("invasion_year")),
     fw_field(fw_num_input(ns("start_year"), min = 1500, max = this_year),
-             "Year the eradication began", required = TRUE,
+             "Year the eradication attempt began", required = TRUE,
              tooltip = FW_TIPS$start_year, input_id = ns("start_year")),
     fw_field(fw_num_input(ns("end_year"), min = 1500, max = this_year + 20),
-             "Year the attempt was confirmed ended",
+             "Year the eradication attempt ended",
              help = "Leave blank if the work is ongoing.",
              tooltip = FW_TIPS$end_year, input_id = ns("end_year")),
     fw_field(fw_num_input(ns("duration_days"), min = 0),
@@ -286,7 +286,15 @@ fw_step_benefit_ui <- function(ns, choices) {
                    "Please describe the group that benefited", multiple = TRUE),
 
     tags$h3("Beneficiary species"),
-    div(id = ns("benefit_rows")),
+    # Row 1 is rendered HERE, not inserted by the server, for the same reason as
+    # the invasive targets above: insertUI on a container the page has not
+    # painted yet is what used to make a section arrive empty or doubled.
+    #
+    # It also makes the two roles behave the same. A contributor met an inline
+    # species box for the invasive target and an empty space plus an "Add"
+    # button for the beneficiary, which reads as the beneficiary being an
+    # afterthought rather than as it being optional.
+    div(id = ns("benefit_rows"), fw_species_row(ns, 1L, choices, "benefit")),
     actionButton(ns("add_beneficiary"), fw_t("contribute", "add_beneficiary"),
                  class = "btn btn-outline-primary btn-sm")
   )
@@ -502,6 +510,9 @@ fw_target_row <- function(ns, index, choices) {
 fw_species_row <- function(ns, index, choices, kind = "benefit") {
   row_id <- paste0(kind, "_row_", index)
   input_id <- paste0(kind, "_species_", index)
+  # Row 1 has no Remove control, matching fw_target_row(). Removing the only row
+  # would leave the section with a heading, an Add button and nothing to look at.
+  first <- index == 1
 
   div(
     id = ns(row_id),
@@ -517,13 +528,15 @@ fw_species_row <- function(ns, index, choices, kind = "benefit") {
     ),
     div(
       class = "fw-repeat-row__remove",
-      # "Remove" is the LABEL. With label = NULL and the word passed
-      # positionally it landed in actionButton's `width`, which threw
-      # '"Remove" is not a valid CSS unit' the moment a second row rendered.
-      actionButton(ns(paste0("remove_", kind, "_", index)),
-                   label = "Remove",
-                   class = "btn btn-outline-primary btn-sm",
-                   `aria-label` = paste(fw_t("contribute", "remove_row"), index))
+      if (!first) {
+        # "Remove" is the LABEL. With label = NULL and the word passed
+        # positionally it landed in actionButton's `width`, which threw
+        # '"Remove" is not a valid CSS unit' the moment a second row rendered.
+        actionButton(ns(paste0("remove_", kind, "_", index)),
+                     label = "Remove",
+                     class = "btn btn-outline-primary btn-sm",
+                     `aria-label` = paste(fw_t("contribute", "remove_row"), index))
+      }
     )
   )
 }

@@ -51,10 +51,10 @@ mod_contribute_server <- function(id, data, choices) {
     # screen, so removing a row in the middle does not renumber the others.
     rows <- reactiveValues(
       target  = 1L,
-      benefit = integer(0),
+      benefit = 1L,
       method  = 1L
     )
-    next_index <- reactiveValues(target = 2L, benefit = 1L, method = 2L)
+    next_index <- reactiveValues(target = 2L, benefit = 2L, method = 2L)
 
     # ---- The conditional section ----------------------------------------------
 
@@ -214,6 +214,89 @@ mod_contribute_server <- function(id, data, choices) {
            fw_is_email(input$secondary_contact_email))
     })
 
+    # ---- "Check my answers" ---------------------------------------------------
+
+    # ONE source of truth for what is wrong with the form. all_valid() answers
+    # "may this be sent"; this answers "what, specifically, and where". Both read
+    # the same conditions, and the check below is what keeps them honest: every
+    # hard error here corresponds to a clause of all_valid(), so the button
+    # cannot report a clean form that the send gate then refuses.
+    #
+    # HARD blocks sending. SOFT never does. A great many real attempts are
+    # ongoing, unmeasured or unpublished, and refusing those records would bias
+    # the database towards the tidy ones - which is precisely the reporting bias
+    # the caveats warn readers about.
+    fw_check <- function() {
+      msg <- function(key, ...) {
+        out <- fw_t("contribute", "check", key)
+        subs <- list(...)
+        for (nm in names(subs)) out <- sub(paste0("{", nm, "}"), subs[[nm]], out, fixed = TRUE)
+        out
+      }
+      errors <- list(); notes <- list()
+      err  <- function(id, m) errors <<- c(errors, list(list(id = id, msg = m)))
+      note <- function(id, m) notes  <<- c(notes,  list(list(id = id, msg = m)))
+
+      # ---- Hard: the record is unusable without these ----
+      if (!filled("site_name"))      err("site_name", msg("e_site_name"))
+      if (!filled("country"))        err("country",   msg("e_country"))
+      if (!in_range("latitude",  -90,  90))  err("latitude",  msg("e_latitude"))
+      if (!in_range("longitude", -180, 180)) err("longitude", msg("e_longitude"))
+      if (!filled("water_regime"))   err("water_regime",   msg("e_regime"))
+      if (!filled("waterbody_type")) err("waterbody_type", msg("e_waterbody"))
+      if (filled("area_treated") && !filled("area_unit"))
+        err("area_unit", msg("e_area_unit"))
+      if (!filled("target_taxa_1"))    err("target_taxa_1",    msg("e_target_taxa"))
+      if (!filled("target_species_1")) err("target_species_1", msg("e_target_sp"))
+
+      if (!in_range("start_year", 1500, this_year))
+        err("start_year", msg("e_start_year", year = this_year))
+      if (filled("end_year")) {
+        if (!in_range("end_year", 1500, this_year + 20)) {
+          err("end_year", msg("e_end_year", max_year = this_year + 20))
+        } else if (filled("start_year") &&
+                   suppressWarnings(as.numeric(input$end_year)) <
+                   suppressWarnings(as.numeric(input$start_year))) {
+          err("end_year", msg("e_end_before"))
+        }
+      }
+      if (!filled("driver"))   err("driver",   msg("e_driver"))
+      if (!filled("method_1")) err("method_1", msg("e_method"))
+      if (!filled("outcome"))  err("outcome",  msg("e_outcome"))
+
+      if (!filled("primary_contact_name"))
+        err("primary_contact_name", msg("e_contact_name"))
+      if (!filled("primary_contact_email")) {
+        err("primary_contact_email", msg("e_contact_mail"))
+      } else if (!fw_is_email(input$primary_contact_email)) {
+        err("primary_contact_email", msg("e_contact_bad"))
+      }
+      if (filled("secondary_contact_email") &&
+          !fw_is_email(input$secondary_contact_email))
+        err("secondary_contact_email", msg("e_second_mail"))
+
+      if (!isTRUE(input$consent_data_use)) err("consent_data_use", msg("e_consent"))
+
+      # ---- Soft: worth having, never required ----
+      if (!filled("end_year"))       note("end_year",      msg("w_end_year"))
+      if (!filled("area_treated"))   note("area_treated",  msg("w_area"))
+      if (!filled("invasion_year"))  note("invasion_year", msg("w_invasion"))
+      if (!any(vapply(rows$benefit, function(i) filled(paste0("benefit_species_", i)),
+                      logical(1))))
+        note("benefit_species_1", msg("w_beneficiary"))
+      if (!filled("reference"))      note("reference",     msg("w_reference"))
+      if (!filled("verification"))   note("verification",  msg("w_verification"))
+      if (!filled("duration_days"))  note("duration_days", msg("w_duration"))
+      if (!filled("method_description"))
+        note("method_description", msg("w_method_desc"))
+      # Not an error: the earliest attempt on record is 1934, but an older one is
+      # possible and we would rather have it flagged than refused.
+      if (in_range("start_year", 1500, 1900))
+        note("start_year", msg("w_old_year", year = as.integer(input$start_year)))
+
+      list(errors = errors, notes = notes)
+    }
+
     # ---- Stages ---------------------------------------------------------------
 
     output$stage <- renderUI({
@@ -270,6 +353,49 @@ mod_contribute_server <- function(id, data, choices) {
 
     bind_target_row(1L)
 
+    #' Narrow every beneficiary species picker to the groups selected
+    #'
+    #' The same treatment the invasive targets get, so the two roles behave
+    #' identically. It differs in one way that follows from the form's shape: a
+    #' target carries its own group, so each row narrows independently, whereas
+    #' beneficiaries share one multi-select for the whole section. The list is
+    #' therefore the UNION of the selected groups, not one group's.
+    #'
+    #' Client-side, like the targets: the whole list is already in the browser,
+    #' so this is a list swap rather than a search round trip. Anything the
+    #' contributor typed in themselves is carried across, otherwise changing the
+    #' group after naming a species would silently discard it.
+    narrow_benefit_rows <- function(indices) {
+      taxa <- input$beneficiary_taxa %||% character(0)
+      taxa <- taxa[nzchar(taxa) & taxa != FW_OTHER]
+
+      lst <- if (length(taxa) == 0) {
+        choices$species_by_taxa[[FW_ALL]]
+      } else {
+        picked <- unlist(choices$species_by_taxa[taxa], use.names = FALSE)
+        # Keep the frequency order of the full list rather than the order the
+        # groups happened to be selected in.
+        keep <- choices$species_by_taxa[[FW_ALL]] %in% picked
+        choices$species_by_taxa[[FW_ALL]][keep]
+      }
+      if (!length(lst)) lst <- choices$species_by_taxa[[FW_ALL]]
+
+      for (i in indices) {
+        id <- paste0("benefit_species_", i)
+        current <- input[[id]] %||% ""
+        this <- if (nzchar(current) && !current %in% lst) c(current, lst) else lst
+        # The leading blank stays, for the same reason as everywhere else: a
+        # selectize handed a list with no empty first entry selects the first
+        # item by itself the moment the list is replaced.
+        updateSelectizeInput(session, id, choices = c("", this),
+                             selected = current, server = FALSE)
+      }
+    }
+
+    observeEvent(input$beneficiary_taxa, ignoreInit = TRUE, ignoreNULL = FALSE, {
+      narrow_benefit_rows(rows$benefit)
+    })
+
     # Narrow the waterbody types to the regime. Still water should not be
     # offered "River", and flowing water should not be offered "Lake".
     observeEvent(input$water_regime, ignoreInit = TRUE, {
@@ -308,6 +434,11 @@ mod_contribute_server <- function(id, data, choices) {
       rows$benefit <- c(rows$benefit, i)
       next_index$benefit <- i + 1L
       fw_bind_remove(session, ns, input, i, "benefit", rows)
+      # A new row starts narrowed to whatever groups are already chosen, rather
+      # than showing all 390 species until the contributor touches the group box
+      # again.
+      narrow_benefit_rows(i)
+      fw_announce(session, paste("Beneficiary species", i, "added."))
     })
 
     observeEvent(input$add_method, {
@@ -361,28 +492,104 @@ mod_contribute_server <- function(id, data, choices) {
 
     # ---- Review ---------------------------------------------------------------
 
+    # Turning on the in-place highlighting is a SIDE EFFECT of asking, not of
+    # rendering, so it happens in its own observer. A renderUI that also enabled
+    # validators would fire them again on every invalidation.
+    observeEvent(input$check_answers, {
+      for (nm in names(step_validators)) fw_touch_step(nm)
+      iv_consent$enable()
+      res <- fw_check()
+      fw_announce(session, if (length(res$errors) == 0) {
+        fw_t("contribute", "check", "heading_clear")
+      } else {
+        sub("{n}", length(res$errors),
+            fw_t("contribute", "check", "heading_errors_many"), fixed = TRUE)
+      })
+    })
+
+    # Jump to a named field from the check list. The browser does the scrolling;
+    # the server only says which field.
+    observeEvent(input$goto_field, {
+      session$sendCustomMessage("fw-scroll-to-field", ns(input$goto_field))
+    })
+
     # bindEvent, so this renders when asked for and never while typing.
     output$review_summary <- bindEvent(renderUI({
+      res <- fw_check()
+      n_err <- length(res$errors)
+
+      item <- function(x, kind) {
+        tags$li(
+          class = paste0("fw-check__item fw-check__item--", kind),
+          # An actionLink per row would leave a dead observer behind every time
+          # this panel re-rendered. One input, carrying which field was asked
+          # for, is the same pattern the networking pager uses.
+          tags$a(
+            href = "#",
+            onclick = sprintf(
+              "Shiny.setInputValue('%s', '%s', {priority:'event'}); return false;",
+              ns("goto_field"), x$id
+            ),
+            x$msg
+          )
+        )
+      }
+
+      errors_block <- if (n_err > 0) {
+        div(
+          class = "fw-check fw-check--errors", role = "alert",
+          h3(if (n_err == 1) fw_t("contribute", "check", "heading_errors_one")
+             else sub("{n}", n_err, fw_t("contribute", "check", "heading_errors_many"),
+                      fixed = TRUE)),
+          p(fw_t("contribute", "check", "body_errors")),
+          tags$ul(class = "fw-check__list",
+                  lapply(res$errors, item, kind = "error"))
+        )
+      } else {
+        div(
+          class = "fw-check fw-check--clear", role = "status",
+          h3(fw_t("contribute", "check", "heading_clear")),
+          p(fw_t("contribute", "check", "body_clear"))
+        )
+      }
+
+      notes_block <- if (length(res$notes) > 0) {
+        div(
+          class = "fw-check fw-check--notes",
+          h3(fw_t("contribute", "check", "heading_notes")),
+          p(fw_t("contribute", "check", "body_notes")),
+          tags$ul(class = "fw-check__list",
+                  lapply(res$notes, item, kind = "note"))
+        )
+      }
+
       rec <- assemble_record()
       shown <- Filter(function(x) nzchar(x), lapply(rec, function(v) {
         if (is.null(v) || length(v) == 0) return("")
         paste(as.character(v), collapse = "; ")
       }))
-      if (length(shown) == 0) return(p("Nothing entered yet."))
 
-      div(
-        class = "fw-table-scroll",
-        style = "margin-block-start: 1rem;",
-        tags$table(
-          class = "fw-table",
-          tags$tbody(
-            lapply(names(shown), function(k) {
-              tags$tr(tags$th(scope = "row", fw_prettify_key(k)),
-                      tags$td(shown[[k]]))
-            })
+      answers <- if (length(shown) == 0) {
+        p(class = "fw-caption", "Nothing entered yet.")
+      } else {
+        tagList(
+          h3(fw_t("contribute", "check", "review_heading")),
+          div(
+            class = "fw-table-scroll",
+            tags$table(
+              class = "fw-table",
+              tags$tbody(
+                lapply(names(shown), function(k) {
+                  tags$tr(tags$th(scope = "row", fw_prettify_key(k)),
+                          tags$td(shown[[k]]))
+                })
+              )
+            )
           )
         )
-      )
+      }
+
+      div(style = "margin-block-start: 1rem;", errors_block, notes_block, answers)
     }), input$check_answers)
 
     # ---- Assemble and send ----------------------------------------------------

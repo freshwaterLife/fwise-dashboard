@@ -79,6 +79,47 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   ok("stage is done", stage(), "done")
 })
 
+cat("\n-- check my answers: hard errors block, soft warnings never do --\n")
+testServer(mod_contribute_server, args = list(data = d, choices = ch), {
+  strip <- function(x) gsub("\\s+", " ", gsub("<[^>]*>", " ", as.character(x$html %||% x)))
+  session$setInputs(consent_data_use = TRUE, email_private = FALSE, start = 1)
+
+  session$setInputs(check_answers = 1)
+  ok("empty form reports errors",
+     grepl("need your attention", strip(output$review_summary)), TRUE)
+
+  # Every REQUIRED field, and deliberately no optional ones.
+  session$setInputs(
+    site_name = "Test Tarn", country = "Norway", latitude = 59.88, longitude = 10.53,
+    water_regime = "Lentic", waterbody_type = "Pond",
+    target_taxa_1 = "Fish", target_species_1 = "Common carp (Cyprinus carpio)",
+    start_year = 2009, driver = "Fisheries", method_1 = "Rotenone",
+    outcome = "Successful", primary_contact_name = "A Tester",
+    primary_contact_email = "tester@example.org")
+  session$setInputs(check_answers = 2)
+  h <- strip(output$review_summary)
+  ok("required-only form reports clear", grepl("This all looks good", h), TRUE)
+  ok("soft warnings are still shown",    grepl("Worth adding if you have it", h), TRUE)
+  # THE POINT OF THE SPLIT. A record with no end year, no size, no beneficiary
+  # and no reference is a real record - most ongoing attempts look like this.
+  # Blocking it would bias the database towards the tidy ones.
+  ok("soft warnings do not block sending", all_valid(), TRUE)
+
+  session$setInputs(end_year = 2005, check_answers = 3)
+  ok("end before start is a hard error",
+     grepl("cannot have ended before it began", strip(output$review_summary)), TRUE)
+  ok("and blocks sending", all_valid(), FALSE)
+
+  session$setInputs(end_year = 2011, check_answers = 4)
+  ok("clears once corrected",
+     grepl("This all looks good", strip(output$review_summary)), TRUE)
+
+  session$setInputs(start_year = 1650, check_answers = 5)
+  ok("implausible year is a note, not an error",
+     grepl("unusually early", strip(output$review_summary)), TRUE)
+  ok("and does not block sending", all_valid(), TRUE)
+})
+
 cat("\n-- non-chemical path --\n")
 testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   session$setInputs(consent_data_use=TRUE, start=1, method_1="Netting / Trapping")

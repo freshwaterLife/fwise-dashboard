@@ -282,6 +282,16 @@ fw_form_script <- function(ns) {
       // Bootstrap 5 name, not the .has-error on the container that older
       // versions used - so the first of those is where the contributor needs to
       // be. The timeout lets the messages render before we look for them.
+      // Jump to one named field, from the 'Check my answers' list.
+      Shiny.addCustomMessageHandler('fw-scroll-to-field', function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var field = el.closest('.fw-field') || el;
+        field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        var focusable = field.querySelector('input:not([type=hidden]), select, textarea');
+        if (focusable) focusable.focus({ preventScroll: true });
+      });
+
       Shiny.addCustomMessageHandler('fw-scroll-to-error', function (formId) {
         var form = document.getElementById(formId);
         if (!form) return;
