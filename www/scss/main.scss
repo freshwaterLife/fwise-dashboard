@@ -1,0 +1,158 @@
+// main.scss
+// Entry point. Order matters: tokens define the variables, base sets the
+// element defaults, components draw the interface.
+
+@import "tokens";
+
+// ---- Fonts -----------------------------------------------------------------
+// Self-hosted so the app renders correctly with the network blocked. No CDN
+// request is made for type at any point. Latin subset only, because all of the
+// app's copy is Latin and the other subsets would quadruple the payload for
+// glyphs that never render.
+
+@font-face {
+  font-family: "Ubuntu";
+  src: url("../fonts/ubuntu-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Ubuntu";
+  src: url("../fonts/ubuntu-500.woff2") format("woff2");
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Ubuntu";
+  src: url("../fonts/ubuntu-700.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Ubuntu Mono";
+  src: url("../fonts/ubuntu-mono-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Ubuntu Mono";
+  src: url("../fonts/ubuntu-mono-700.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+
+// ---- Base ------------------------------------------------------------------
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: $fw-font-body;
+  font-size: $fw-size-body;
+  font-weight: $fw-weight-regular;
+  line-height: $fw-leading-body;
+  color: $fw-abyss;
+  background-color: $fw-silt;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: $fw-font-body;
+  // Headings sit at 500, not 700. The one exception is the hero, which sets its
+  // own weight. Bold headings everywhere would push the tone towards lobbying.
+  font-weight: $fw-weight-medium;
+  line-height: $fw-leading-heading;
+  color: $fw-deep;
+  margin-block: 0 $fw-space-2;
+  text-wrap: balance;
+}
+
+h1 { font-size: $fw-size-h1; }
+h2 { font-size: $fw-size-h2; }
+h3 { font-size: $fw-size-h3; }
+h4 { font-size: $fw-size-lead; }
+
+// Step the scale down on narrow screens. At 375px the desktop sizes wrap a
+// three-word heading onto three lines, which reads as broken rather than bold.
+@media (max-width: 480px) {
+  h1 { font-size: 1.7rem; }
+  h2 { font-size: 1.4rem; }
+  h3 { font-size: 1.2rem; }
+}
+
+p { margin-block: 0 $fw-space-2; }
+
+// Text runs the full width of whatever contains it. Width is a decision the
+// container makes, not something a paragraph does to itself, so nothing here
+// caps a measure. Where a narrow column genuinely reads better, opt in with
+// .fw-measure on the containing block rather than reintroducing a global cap.
+.fw-prose {
+  > p, > ul, > ol { max-width: 100%; }
+}
+
+.fw-measure { max-width: $fw-measure; }
+
+a {
+  // $fw-primary is the true brand teal but does not meet 4.5:1 as text, so links
+  // use $fw-deep. See the contrast note in _tokens.scss.
+  color: $fw-deep;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+
+  &:hover { color: $fw-primary; }
+}
+
+// Numerals only. Ubuntu Mono column-aligns figures so they can be scanned; it is
+// never used for labels or body text.
+.fw-num {
+  font-family: $fw-font-mono;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+small, .fw-caption {
+  font-size: $fw-size-caption;
+  color: $fw-ink-muted;
+}
+
+// ---- Focus -----------------------------------------------------------------
+// The browser default is replaced, never merely removed. 3px at an offset, in a
+// colour verified at 3:1 against both the page and card backgrounds.
+
+:focus-visible {
+  outline: 3px solid $fw-shallow;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+// Belt and braces for older engines that do not support :focus-visible.
+:focus:not(:focus-visible) { outline: none; }
+
+// Skip link, revealed on focus only.
+.fw-skip-link {
+  position: absolute;
+  left: $fw-space-2;
+  // Far enough up that its shadow clears the top of the page too. At -4rem a
+  // sliver of the shadow showed above the navbar on every screen.
+  top: -8rem;
+  z-index: 2000;
+  padding: $fw-space-1 $fw-space-2;
+  background: $fw-paper;
+  color: $fw-deep;
+  border-radius: $fw-radius-input;
+  box-shadow: $fw-shadow-raised;
+  transition: top $fw-motion-fast $fw-easing;
+
+  &:focus { top: $fw-space-2; }
+}
+
+// ---- Motion ----------------------------------------------------------------
+// Everything animated in this app responds to a user action. There is no
+// page-load or scroll motion and no count-ups anywhere.
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@import "components";

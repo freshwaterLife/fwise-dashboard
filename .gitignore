@@ -1,0 +1,38 @@
+# R session artefacts
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+.Rproj.user/
+
+# Credentials. Never commit these.
+.Renviron
+*.json
+# ...but these are configuration, not credentials, and Connect Cloud needs them.
+!manifest.json
+!renv.lock
+# metadata.json carries the release date and row counts and is published data,
+# not a secret. Without this negation the blanket *.json above swallows it
+# silently and the footer's "last updated" line has nothing to read.
+!metadata.json
+
+# Local scratch. The local submission fallback lands here.
+# Ignore the CONTENTS rather than the directory itself: git cannot re-include a
+# file whose parent directory is excluded, so "dev/" would defeat the negations.
+dev/*
+# ...except these two, which the code refers to and which are useful to the next
+# person. _tokens.scss cites check_contrast.R by name, so ignoring it would leave
+# that reference dangling.
+!dev/check_contrast.R
+!dev/smoke_test.R
+
+# renv library is reconstructed from renv.lock, so it is not committed.
+renv/library/
+renv/local/
+renv/cellar/
+renv/staging/
+renv/python/
+renv/sandbox/
+
+# macOS
+.DS_Store

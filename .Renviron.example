@@ -1,0 +1,28 @@
+# .Renviron.example
+# Copy this to .Renviron and fill in the values you need. .Renviron is
+# gitignored and must never be committed.
+#
+# The app runs with NONE of these set: it falls back to the local data in
+# data/schema/ and writes submissions to dev/submissions_local.csv.
+
+# ---- Data source -------------------------------------------------------------
+# Where the six star-schema CSVs are read from. Leave unset to use the local
+# data/schema/ directory. In production, point it at the raw GitHub URL of the
+# directory holding the CSVs, with NO trailing slash, so the client can publish
+# new data without redeploying the app.
+# FW_DATA_URL=https://raw.githubusercontent.com/ORG/REPO/main/data/schema
+
+# ---- Submission backend ------------------------------------------------------
+# "local" (default) appends to dev/submissions_local.csv. No credentials needed.
+# "sheets" writes to the private review Sheet. NOT YET TESTED - see the README.
+# FW_SUBMIT_BACKEND=local
+
+# The submissions Sheet. Required only when FW_SUBMIT_BACKEND=sheets.
+# FW_SHEET_ID=1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789
+# FW_SHEET_TAB=submissions
+
+# The Google service account key, as the ENTIRE JSON on one line. Required only
+# when FW_SUBMIT_BACKEND=sheets. Never point this at a file in the repository and
+# never commit a real value. On Posit Connect Cloud this is set as a variable in
+# the deployment settings, not in a file.
+# FW_GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"REPLACE_ME","private_key":"-----BEGIN PRIVATE KEY-----\nTHIS_IS_NOT_A_REAL_KEY\n-----END PRIVATE KEY-----\n","client_email":"fwise-writer@example.iam.gserviceaccount.com"}

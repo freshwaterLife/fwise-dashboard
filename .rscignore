@@ -1,0 +1,7 @@
+# Files excluded from the Posit Connect Cloud deployment bundle.
+#
+# dev/ is gitignored, so anything listed from it in manifest.json would be a file
+# Connect Cloud cannot find in the repository, and the deploy would fail.
+dev
+.Renviron
+.Renviron.example
