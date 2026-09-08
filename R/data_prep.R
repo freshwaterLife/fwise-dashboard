@@ -25,6 +25,122 @@ suppressPackageStartupMessages({
 
 source(file.path("R", "config.R"))
 
+# ==============================================================================
+# PERMANENT IDENTIFIERS
+# ==============================================================================
+#
+# An id, once assigned, is NEVER reassigned. That is the whole contract, and
+# everything below exists to keep it.
+#
+# WHY IT MATTERS. attempt_id, species_id and contact_id are the join key for QA
+# writeback, for Zenodo versioning, and for linking an attempt to its reference.
+# An id that moved between rebuilds would silently corrupt all three - not with
+# an error, but with rows quietly pointing at the wrong thing.
+#
+# WHAT THIS REPLACES. Ids used to be row positions: sprintf("FW%04d",
+# row_number()) for attempts, and for species and contacts a row number assigned
+# AFTER an alphabetical sort. So adding one species beginning with "A" shifted the
+# id of every species after it, and re-sorting the export renumbered everything.
+#
+# HOW IT WORKS NOW. A registry in fwise-data/id_registry/ maps a natural key to
+# the id it was given. A rebuild looks each row up, reuses the id it already has,
+# and mints a new one only for a genuinely new row. The registry is committed, so
+# it is as durable as the data.
+#
+# A pure hash of row content was the alternative and was rejected: it re-mints an
+# id whenever QA corrects any field feeding it, which is the same fragility
+# wearing a different hat.
+
+# Ambiguous characters are left out - no I, O, 0 or 1 - because these ids get
+# read aloud, retyped and pasted into spreadsheets by people.
+FW_ID_ALPHABET <- c(as.character(2:9), setdiff(LETTERS, c("I", "O")))
+
+#' Mint n ids that collide with nothing already in use
+#'
+#' Format: PREFIX-YYYYMMDD-XXXXXX, e.g. FW-20260908-7K3QX9. The date is when the
+#' id was first assigned, so ids sort roughly by when a record entered FWISE.
+fw_mint_ids <- function(prefix, n, exclude = character(0), date = Sys.Date()) {
+  if (n == 0) return(character(0))
+  stamp <- format(date, "%Y%m%d")
+  out <- character(0)
+  # 32^6 is about a billion, so this loop effectively never runs twice. It is
+  # here so that a collision is impossible rather than merely unlikely.
+  while (length(out) < n) {
+    cand <- replicate(n - length(out), paste0(
+      prefix, "-", stamp, "-",
+      paste(sample(FW_ID_ALPHABET, 6, replace = TRUE), collapse = "")
+    ))
+    out <- setdiff(unique(c(out, cand)), exclude)
+  }
+  out[seq_len(n)]
+}
+
+fw_registry_path <- function(name) {
+  file.path(FW_DATA_DIR, "id_registry", paste0(name, ".csv"))
+}
+
+#' Resolve natural keys to permanent ids, minting only what is new
+#'
+#' @param natural_key character vector, one per row, already disambiguated so
+#'   that two different records never share a key.
+#' @param prefix "FW", "SP" or "CO".
+#' @param registry_name file stem under fwise-data/id_registry/.
+#' @return ids aligned to natural_key.
+fw_assign_ids <- function(natural_key, prefix, registry_name) {
+  path <- fw_registry_path(registry_name)
+
+  reg <- if (file.exists(path)) {
+    read_csv(path, col_types = cols(.default = col_character()), progress = FALSE)
+  } else {
+    tibble(natural_key = character(), id = character(), first_seen = character())
+  }
+
+  known <- setNames(reg$id, reg$natural_key)
+  ids <- unname(known[natural_key])
+
+  new_keys <- unique(natural_key[is.na(ids)])
+  if (length(new_keys) > 0) {
+    new_ids <- fw_mint_ids(prefix, length(new_keys), exclude = reg$id)
+    lookup <- setNames(new_ids, new_keys)
+    ids[is.na(ids)] <- unname(lookup[natural_key[is.na(ids)]])
+
+    # Appended, never rewritten. Existing rows keep their position and their id.
+    reg <- bind_rows(reg, tibble(
+      natural_key = new_keys, id = new_ids,
+      first_seen  = format(Sys.Date())
+    ))
+    dir.create(dirname(path), showWarnings = FALSE, recursive = TRUE)
+    write_csv(reg, path, na = "")
+    message("  ", registry_name, ": minted ", length(new_ids), " new id(s)")
+  }
+
+  # The invariant, checked rather than trusted. If a key ever resolves to an id
+  # other than the one the registry holds, the build stops here rather than
+  # shipping silently renumbered data.
+  check <- setNames(reg$id, reg$natural_key)[natural_key]
+  if (!identical(unname(check), ids)) {
+    stop("Registry conflict in ", registry_name,
+         ": a natural key resolved to a different id than the registry holds.",
+         call. = FALSE)
+  }
+  ids
+}
+
+#' Make a natural key unique by numbering repeats
+#'
+#' Two rows CAN legitimately share every identifying field: the Quailing Pool
+#' rows are two separate rotenone treatments of the same pool in the same year,
+#' distinguishable only by their free-text method description. Numbering the
+#' repeats keeps their ids apart without dragging a paragraph of prose into the
+#' key, where a QA typo would re-mint the id.
+#'
+#' The residual risk is that reordering two rows that share a key would swap
+#' their ids. That affects 4 rows in 914, and populating the source `Key` column
+#' from key_backfill.csv removes it entirely.
+fw_disambiguate <- function(key) {
+  paste0(key, "#", ave(seq_along(key), key, FUN = seq_along))
+}
+
 fw_build_schema <- function() {
 
 
@@ -42,11 +158,24 @@ fw_build_schema <- function() {
 
   # ---- Attempt identifiers -----------------------------------------------------
 
-  # The source `Key` column is empty in this export, so identifiers are generated
-  # from row position. This means ids are stable only while the source row order is
-  # stable. If the client starts populating `Key`, switch to using it here so that
-  # ids survive a re-sort.
-  raw <- raw |> mutate(attempt_id = sprintf("FW%04d", row_number()))
+  # `Key` is the source spreadsheet's own identifier and is authoritative wherever
+  # it is filled in. It is empty on every row of this export, so the natural-key
+  # registry carries the load until the client pastes key_backfill.csv into the
+  # master sheet. After that this branch takes over and the natural key stops
+  # mattering. See the PERMANENT IDENTIFIERS block at the top of this file.
+  attempt_key <- fw_disambiguate(paste(
+    raw$`Location Name`, raw$Country,
+    raw$`Latitude (decimal degrees)`, raw$`Longitude (decimal degrees)`,
+    raw$`Eradication Start Year`, raw$`Primary Method`,
+    raw$`Eradication End Year`, raw$Outcome,
+    raw$`Invasive Species Eradicated 1`, raw$`Area Treated (size)`,
+    sep = "|"
+  ))
+
+  from_registry <- fw_assign_ids(attempt_key, "FW", "attempt_ids")
+  raw <- raw |> mutate(
+    attempt_id = if_else(!is.na(Key) & nzchar(Key), Key, from_registry)
+  )
 
   # ---- Country, region, continent, ISO3 ----------------------------------------
 
@@ -182,9 +311,14 @@ fw_build_schema <- function() {
       family          = most_common(family),
       .groups = "drop"
     ) |>
-    arrange(coalesce(scientific_name, raw_name)) |>
+    # NOT SORTED. Sorting here is what used to make species_id positional: an
+    # alphabetical arrange followed by row_number() meant one new species
+    # beginning with "A" renumbered every species after it. Display order is the
+    # reader's concern and belongs in data_load.R, not in the id.
     mutate(
-      species_id = sprintf("SP%04d", row_number()),
+      # The species name IS the natural key - it is already what the group_by
+      # above collapses on, so there is nothing else to build a key from.
+      species_id = fw_assign_ids(raw_name, "SP", "species_ids"),
       # Not present in this export. The client's taxonomy work will fill these in;
       # the columns exist now so the contract does not change when it does.
       iucn_status  = NA_character_,
@@ -271,8 +405,11 @@ fw_build_schema <- function() {
                             str_to_lower(redact) %in% c("yes", "true", "y", "1")),
       .groups = "drop"
     ) |>
-    arrange(contact_name, organisation) |>
-    mutate(contact_id = sprintf("CO%04d", row_number())) |>
+    # NOT SORTED, for the same reason as species above.
+    mutate(contact_id = fw_assign_ids(
+      paste(contact_name, coalesce(organisation, ""), sep = "|"),
+      "CO", "contact_ids"
+    )) |>
     # `country` on the contact dimension stays empty on purpose. Country is derived
     # from the attempts a contact is attached to, because a contact can be active
     # in more than one. See fw_contacts_summary() in data_load.R.
@@ -347,6 +484,11 @@ fw_build_schema <- function() {
       reference      = `Eradication Reference`,
       reference_link = `Eradication Link`,
       source         = Source,
+      # Collected by the contribute form and previously dropped here, so a
+      # contributor's note had nowhere to land. Empty on all 914 existing rows;
+      # the column has to exist before new submissions can fill it. It is a Notes
+      # field, so it is record-detail content and NEVER a filter.
+      notes_for_fwise = `Notes for FWISE`,
       primary_contact_id,
       secondary_contact_id,
       # Everything already in the database has passed the client's review.
@@ -369,6 +511,24 @@ fw_build_schema <- function() {
   orphans <- setdiff(attempt_species$attempt_id, attempt$attempt_id)
   if (length(orphans) > 0) stop("Orphaned attempt_species rows: ", length(orphans))
 
+  # ---- Close the loop back to the source ---------------------------------------
+
+  # A pasteable Key column for the client's master spreadsheet, in source row
+  # order with enough context to check the alignment by eye before pasting. Once
+  # `Key` is populated the natural-key registry becomes a fallback and the
+  # duplicate-row caveat in fw_disambiguate() goes away.
+  key_backfill <- tibble(
+    source_row     = seq_len(nrow(raw)),
+    Key            = attempt$attempt_id,
+    `Location Name`= raw$`Location Name`,
+    Country        = raw$Country,
+    `Eradication Start Year` = raw$`Eradication Start Year`
+  )
+  dir.create(file.path(FW_DATA_DIR, "id_registry"),
+             showWarnings = FALSE, recursive = TRUE)
+  write_csv(key_backfill, file.path(FW_DATA_DIR, "id_registry", "key_backfill.csv"),
+            na = "")
+
   # ---- Write -------------------------------------------------------------------
 
   dir.create(FW_SCHEMA_DIR, showWarnings = FALSE, recursive = TRUE)
@@ -379,6 +539,7 @@ fw_build_schema <- function() {
   write_csv(attempt_method, file.path(FW_SCHEMA_DIR, "attempt_method.csv"), na = "")
   write_csv(contact, file.path(FW_SCHEMA_DIR, "contact.csv"), na = "")
 
+  message("\nid registry: ", file.path(FW_DATA_DIR, "id_registry"))
   message("\nWritten to ", FW_SCHEMA_DIR, ":")
   for (f in c("attempt", "species", "attempt_species", "method", "attempt_method", "contact")) {
     d <- get(f)

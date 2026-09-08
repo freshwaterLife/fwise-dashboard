@@ -217,6 +217,32 @@ would quietly remove records from the map.
   `Fish`, not to slot *n*. Getting this wrong silently assigns fish families to
   crayfish.
 
+### Identifiers are permanent
+
+`attempt_id`, `species_id` and `contact_id` are **minted once and never
+reassigned**. Format is `FW-20260908-7K3QX9`: a prefix, the date the id was first
+assigned, and a random suffix drawn from an alphabet with no `I`, `O`, `0` or `1`
+in it, because these get read aloud and retyped by people.
+
+`../fwise-data/id_registry/` holds the crosswalk that guarantees it. A rebuild
+looks each row up there, reuses the id it already has, and mints a new one only
+for a genuinely new row. **Do not hand-edit those files.**
+
+This replaced ids that were row positions — `FW0001` from `row_number()`, and for
+species and contacts a row number assigned *after* an alphabetical sort. Adding
+one species beginning with "A" renumbered every species after it, and re-sorting
+the export renumbered everything. Since those ids are the join key for QA
+writeback, Zenodo versioning and reference linkage, that silently corrupted all
+three.
+
+`R/data_prep.R` also writes `id_registry/key_backfill.csv`, a pasteable `Key`
+column for the client's master spreadsheet. Once `Key` is populated it becomes
+authoritative and the natural-key registry is only a fallback.
+
+If you change how the natural key is built, **every row looks new** and every id
+is re-minted. The build's registry check will not save you — it only catches a
+key resolving to a *different* id, not a key that no longer matches anything.
+
 ### Serving data without redeploying
 
 Set `FW_DATA_URL` to the raw GitHub URL of a directory holding the six CSVs (no
