@@ -227,6 +227,15 @@
   }
 }
 
+// The Networking page's coverage note. Sits between the summary strip and the
+// table, saying what the directory does NOT cover. Quiet on purpose - it is a
+// qualification of the numbers above it, not a warning.
+.fw-coverage-note {
+  max-width: 68ch;
+  margin-block: -$fw-space-1 $fw-space-2;
+  color: $fw-ink-muted;
+}
+
 // ---- Dot motif -------------------------------------------------------------
 // The one decorative device in the app. Data present and data missing: most
 // dots sit at low opacity, a handful at full strength. Used behind the hero and

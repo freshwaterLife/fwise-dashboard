@@ -87,6 +87,6 @@ FW_FEATURES <- list(
   explore_built  = FALSE,
   plan_built     = FALSE,
   contribute_built = TRUE,
-  contacts_built = TRUE,
+  networking_built = TRUE,
   about_built    = FALSE
 )

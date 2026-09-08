@@ -81,7 +81,7 @@ ui <- page_navbar(
   nav_panel(fw_t("nav", "explore"),    value = "explore",    mod_explore_ui("explore")),
   nav_panel(fw_t("nav", "plan"),       value = "plan",       mod_plan_ui("plan")),
   nav_panel(fw_t("nav", "contribute"), value = "contribute", mod_contribute_ui("contribute")),
-  nav_panel(fw_t("nav", "contacts"),   value = "contacts",   mod_contacts_ui("contacts")),
+  nav_panel(fw_t("nav", "networking"), value = "networking", mod_networking_ui("networking")),
   nav_panel(fw_t("nav", "about"),      value = "about",      mod_about_ui("about")),
 
   footer = fw_footer(FW_LAST_UPDATED, FW_IN_REVIEW)
@@ -95,7 +95,7 @@ server <- function(input, output, session) {
   mod_explore_server("explore", FW_DATA)
   mod_plan_server("plan", FW_DATA)
   mod_contribute_server("contribute", FW_DATA, FW_CHOICES)
-  mod_contacts_server("contacts", FW_DATA)
+  mod_networking_server("networking", FW_DATA)
   mod_about_server("about", FW_DATA)
 
   # Cross-page links (the stub actions, the hero buttons) set this rather than

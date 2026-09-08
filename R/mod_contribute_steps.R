@@ -36,11 +36,11 @@ FW_TIPS <- list(
   location     = "Click the map to drop a pin, or type coordinates directly. Either way the two boxes stay in step with the map.",
   waterbody    = "The kind of waterbody treated. Choose the closest match, or Other (specify) if none fits.",
   water_regime = "Still water is lentic, such as a lake or pond. Flowing water is lotic, such as a river or stream.",
-  area         = "The size of the area treated. Hectares are usual for still water, kilometres for flowing water.",
+  area         = "The size of the area treated. Hectares are usual for still water, kilometers for flowing water.",
   area_notes   = "Anything that qualifies the figure, for example five golf-course ponds.",
-  depth        = "Average or estimated depth in metres.",
-  volume       = "Estimated volume in cubic metres. An exact figure is preferred, but an estimate is far better than nothing.",
-  max_flow     = "Maximum flow in cubic metres per second.",
+  depth        = "Average or estimated depth in meters.",
+  volume       = "Estimated volume in cubic meters. An exact figure is preferred, but an estimate is far better than nothing.",
+  max_flow     = "Maximum flow in cubic meters per second.",
   water_temp   = "Water temperature in degrees Celsius. Use the notes box if it varied, for example if the surface and the bottom of a lake differed.",
   invasive_taxa = "What kind of animal this target is. One group per target: if the eradication went after more than one, add another target below.",
   species      = "Common and scientific name, for example Common carp (Cyprinus carpio). Search by either. If your species is not listed, type it in and our review team will add it.",
@@ -57,7 +57,7 @@ FW_TIPS <- list(
   labour       = "Effort required, in person-days. If you only have a range, put it in and we will work with it.",
   cost         = "We are not looking for a full breakdown, but an estimate helps build a picture of costs so funders and practitioners can benchmark interventions.",
   toxin_conc   = "Target concentration of the chemical in mg/L. A text box rather than a number, because the value can vary over a treatment.",
-  neutralising = "The neutralising agent used, if any.",
+  neutralising = "The neutralizing agent used, if any.",
   outcome      = "Eradication means the complete and permanent removal of the population (Genovesi 2005). You can record an attempt as successful without formal proof of absence; our review team records that distinction separately, so answer as you see it.",
   verification = "How the outcome was verified, and any notes on it.",
   reference    = "A link or citation for the underlying evidence. A DOI or URL is ideal.",
@@ -199,7 +199,7 @@ fw_step_waterbody_ui <- function(ns, choices) {
       # The unit becomes required once a value is entered. Enforced in the
       # validator rather than here, so the message appears next to the field.
       fw_field(fw_select(ns("area_unit"), choices$area_unit), "Unit",
-               help = "Hectares for still water, kilometres for flowing water.",
+               help = "Hectares for still water, kilometers for flowing water.",
                input_id = ns("area_unit"))
     ),
     fw_field(fw_area_input(ns("area_notes"), placeholder = "e.g. five golf-course ponds"),
@@ -336,12 +336,12 @@ fw_step_chemical_ui <- function(ns, choices) {
              "Notes on the measured concentration, if different",
              input_id = ns("conc_measured_notes")),
     fw_field(fw_select(ns("neutralising_agent"), choices$neutralising_agent),
-             "Neutralising agent used, if any", tooltip = FW_TIPS$neutralising,
+             "Neutralizing agent used, if any", tooltip = FW_TIPS$neutralising,
              input_id = ns("neutralising_agent")),
     fw_other_panel(ns, "neutralising_agent", "neutralising_agent_other",
-                   "Please name the neutralising agent"),
+                   "Please name the neutralizing agent"),
     fw_field(fw_area_input(ns("neutralising_notes"), rows = 2),
-             "Notes on the neutralising agent", input_id = ns("neutralising_notes"))
+             "Notes on the neutralizing agent", input_id = ns("neutralising_notes"))
   )
 }
 

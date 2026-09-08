@@ -291,7 +291,7 @@ fw_attempts_wide <- function(data) {
 #' them, so country and continent are list columns rather than single values.
 #'
 #' REDACTION: where email_public is FALSE the address is replaced with NA here,
-#' before the data reaches any session. The contacts page reads only from this
+#' before the data reaches any session. The Networking page reads only from this
 #' function, so a redacted address never enters the browser and cannot be
 #' recovered from anything served to it.
 fw_contacts_summary <- function(data) {

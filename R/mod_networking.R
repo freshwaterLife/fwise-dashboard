@@ -1,9 +1,10 @@
-# mod_contacts.R
-# BUILT. The contacts page.
+# mod_networking.R
+# BUILT. The Networking page.
 #
-# This page exists to make people reach out to each other. Networking is one of
-# the client's stated year-one success measures, so it is treated as a feature
-# rather than a directory listing.
+# THE NAME IS THE POINT. This was "Contacts", which described a static address
+# book. The page exists to make people reach out to each other - networking is
+# one of the client's stated year-one success measures - so it is named for the
+# thing it is meant to cause rather than for the table it happens to contain.
 #
 # LAYOUT DECISION. Filters plus a summary count strip, rather than a collapsible
 # table grouped by continent and country. With 237 contacts spread over 29
@@ -19,23 +20,23 @@
 library(shiny)
 library(dplyr)
 
-mod_contacts_ui <- function(id) {
+mod_networking_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    fw_page_header(fw_t("contacts", "title"), fw_t("contacts", "description")),
+    fw_page_header(fw_t("networking", "title"), fw_t("networking", "description")),
     tags$main(
       id = "fw-main",
       fw_section(
         fw_container(
-          div(class = "fw-prose", p(class = "fw-lead", fw_t("contacts", "intro"))),
+          div(class = "fw-prose", p(class = "fw-lead", fw_t("networking", "intro"))),
 
           div(
             class = "fw-filters",
-            selectInput(ns("continent"), fw_t("contacts", "filter_continent"),
+            selectInput(ns("continent"), fw_t("networking", "filter_continent"),
                         choices = NULL, selectize = FALSE),
-            selectInput(ns("country"), fw_t("contacts", "filter_country"),
+            selectInput(ns("country"), fw_t("networking", "filter_country"),
                         choices = NULL, selectize = FALSE),
-            textInput(ns("search"), fw_t("contacts", "filter_search"),
+            textInput(ns("search"), fw_t("networking", "filter_search"),
                       placeholder = "")
           ),
           div(
@@ -45,6 +46,7 @@ mod_contacts_ui <- function(id) {
           ),
 
           uiOutput(ns("summary")),
+          uiOutput(ns("coverage")),
 
           # The page-size control lives in the static UI, NOT inside the pager's
           # uiOutput. A select rebuilt by renderUI comes back at its default, so
@@ -55,7 +57,7 @@ mod_contacts_ui <- function(id) {
             div(
               class = "fw-table-toolbar__size",
               tags$label(class = "form-label", `for` = ns("page_size"),
-                         fw_t("contacts", "page_size")),
+                         fw_t("networking", "page_size")),
               selectInput(ns("page_size"), label = NULL,
                           choices = FW_CONTACTS_PAGE_SIZES,
                           selected = FW_CONTACTS_PAGE_SIZES[1],
@@ -70,8 +72,8 @@ mod_contacts_ui <- function(id) {
 
           div(
             class = "fw-panel fw-prose",
-            h2(fw_t("contacts", "outro_heading")),
-            p(fw_t("contacts", "outro")),
+            h2(fw_t("networking", "outro_heading")),
+            p(fw_t("networking", "outro")),
             tags$a(
               class = "btn btn-primary",
               # Built at click time rather than served as a mailto, for the same
@@ -79,9 +81,9 @@ mod_contacts_ui <- function(id) {
               href = "#",
               onclick = sprintf(
                 "window.location.href='mail'+'to:'+%s; return false;",
-                jsonlite_quote(fw_t("contacts", "outro_email"))
+                jsonlite_quote(fw_t("networking", "outro_email"))
               ),
-              fw_t("contacts", "outro_action")
+              fw_t("networking", "outro_action")
             )
           )
         )
@@ -94,7 +96,7 @@ mod_contacts_ui <- function(id) {
 # the served markup as a mailto href.
 jsonlite_quote <- function(x) paste0("'", gsub("'", "\\\\'", x), "'")
 
-mod_contacts_server <- function(id, data) {
+mod_networking_server <- function(id, data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -110,12 +112,12 @@ mod_contacts_server <- function(id, data) {
 
     updateSelectInput(
       session, "continent",
-      choices = c(stats::setNames(list(""), fw_t("contacts", "filter_all")),
+      choices = c(stats::setNames(list(""), fw_t("networking", "filter_all")),
                   stats::setNames(as.list(all_continents), all_continents))
     )
     updateSelectInput(
       session, "country",
-      choices = c(stats::setNames(list(""), fw_t("contacts", "filter_all")),
+      choices = c(stats::setNames(list(""), fw_t("networking", "filter_all")),
                   stats::setNames(as.list(all_countries), all_countries))
     )
 
@@ -131,7 +133,7 @@ mod_contacts_server <- function(id, data) {
       selected <- if (input$country %in% countries) input$country else ""
       updateSelectInput(
         session, "country",
-        choices = c(stats::setNames(list(""), fw_t("contacts", "filter_all")),
+        choices = c(stats::setNames(list(""), fw_t("networking", "filter_all")),
                     stats::setNames(as.list(countries), countries)),
         selected = selected
       )
@@ -162,6 +164,36 @@ mod_contacts_server <- function(id, data) {
       out
     })
 
+    # WHAT THIS PAGE DOES NOT COVER, stated on the page itself.
+    #
+    # The directory is contact-grained, so an attempt with nobody attached is
+    # invisible here rather than shown as a gap - which reads as full coverage
+    # unless the page says otherwise. Two thirds of attempts are reachable and a
+    # fifth have no contact at all, so "otherwise" matters.
+    #
+    # Computed from the loaded data rather than written into the copy, so it
+    # cannot drift when the client's contact cleaning lands.
+    output$coverage <- renderUI({
+      contact_ids <- contacts$contact_id[!is.na(contacts$contact_email)]
+      reachable <- sum(
+        data$attempt$primary_contact_id   %in% contact_ids |
+        data$attempt$secondary_contact_id %in% contact_ids
+      )
+      no_contact <- sum(is.na(data$attempt$primary_contact_id) &
+                        is.na(data$attempt$secondary_contact_id))
+
+      text <- fw_t("networking", "coverage")
+      for (r in list(
+        c("{reachable}",  fw_fmt_num(reachable)),
+        c("{total}",      fw_fmt_num(nrow(data$attempt))),
+        c("{no_email}",   fw_fmt_num(sum(is.na(contacts$contact_email)))),
+        c("{contacts}",   fw_fmt_num(nrow(contacts))),
+        c("{no_contact}", fw_fmt_num(no_contact))
+      )) text <- sub(r[1], r[2], text, fixed = TRUE)
+
+      p(class = "fw-caption fw-coverage-note", text)
+    })
+
     output$summary <- renderUI({
       f <- filtered()
       div(
@@ -169,15 +201,15 @@ mod_contacts_server <- function(id, data) {
         role = "status",
         div(class = "fw-summary-strip__item",
             span(class = "fw-summary-strip__value", fw_fmt_num(nrow(f))),
-            span(class = "fw-summary-strip__label", fw_t("contacts", "summary_contacts"))),
+            span(class = "fw-summary-strip__label", fw_t("networking", "summary_contacts"))),
         div(class = "fw-summary-strip__item",
             span(class = "fw-summary-strip__value",
                  fw_fmt_num(length(unique(unlist(f$countries))))),
-            span(class = "fw-summary-strip__label", fw_t("contacts", "summary_countries"))),
+            span(class = "fw-summary-strip__label", fw_t("networking", "summary_countries"))),
         div(class = "fw-summary-strip__item",
             span(class = "fw-summary-strip__value",
                  fw_fmt_num(length(unique(unlist(f$continents))))),
-            span(class = "fw-summary-strip__label", fw_t("contacts", "summary_continents")))
+            span(class = "fw-summary-strip__label", fw_t("networking", "summary_continents")))
       )
     })
 
@@ -227,7 +259,7 @@ mod_contacts_server <- function(id, data) {
         class = "fw-pager",
         tags$span(
           class = "fw-pager__status", role = "status",
-          fw_t("contacts", "page_showing"), " ",
+          fw_t("networking", "page_showing"), " ",
           tags$span(class = "fw-num", from), "-", tags$span(class = "fw-num", to),
           " ", fw_t("common", "of"), " ",
           tags$span(class = "fw-num", nrow(filtered()))
@@ -244,14 +276,14 @@ mod_contacts_server <- function(id, data) {
         r <- f[i, ]
         tags$tr(
           tags$td(r$contact_name),
-          tags$td(r$organisation %|na|% fw_t("contacts", "no_organisation")),
+          tags$td(r$organisation %|na|% fw_t("networking", "no_organisation")),
           tags$td(r$country_label),
           tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
           tags$td(fw_contact_action(r$contact_email, r$contact_name)),
           tags$td(
             actionLink(
               ns(paste0("view_", r$contact_id)),
-              fw_t("contacts", "view_attempts"),
+              fw_t("networking", "view_attempts"),
               onclick = sprintf(
                 "Shiny.setInputValue('%s', '%s', {priority:'event'});",
                 ns("view_contact"), r$contact_id
@@ -265,15 +297,15 @@ mod_contacts_server <- function(id, data) {
         class = "fw-table",
         tags$caption(
           class = "fw-visually-hidden",
-          paste(fw_t("contacts", "summary_showing"), nrow(f), fw_t("common", "of"),
-                nrow(filtered()), fw_t("contacts", "summary_contacts"))
+          paste(fw_t("networking", "summary_showing"), nrow(f), fw_t("common", "of"),
+                nrow(filtered()), fw_t("networking", "summary_contacts"))
         ),
         tags$thead(tags$tr(
-          tags$th(scope = "col", fw_t("contacts", "col_name")),
-          tags$th(scope = "col", fw_t("contacts", "col_organisation")),
-          tags$th(scope = "col", fw_t("contacts", "col_country")),
-          tags$th(scope = "col", class = "fw-col-num", fw_t("contacts", "col_attempts")),
-          tags$th(scope = "col", fw_t("contacts", "col_contact")),
+          tags$th(scope = "col", fw_t("networking", "col_name")),
+          tags$th(scope = "col", fw_t("networking", "col_organisation")),
+          tags$th(scope = "col", fw_t("networking", "col_country")),
+          tags$th(scope = "col", class = "fw-col-num", fw_t("networking", "col_attempts")),
+          tags$th(scope = "col", fw_t("networking", "col_contact")),
           tags$th(scope = "col", tags$span(class = "fw-visually-hidden", "Attempts link"))
         )),
         tags$tbody(rows)
@@ -304,7 +336,7 @@ fw_contact_action <- function(email, name) {
     # An empty cell, not a "hidden" badge. A badge advertises that there is
     # something to go looking for.
     return(tags$span(
-      tags$span(class = "fw-visually-hidden", fw_t("contacts", "email_none_label"))
+      tags$span(class = "fw-visually-hidden", fw_t("networking", "email_none_label"))
     ))
   }
   parts <- strsplit(email, "@", fixed = TRUE)[[1]]
@@ -320,7 +352,7 @@ fw_contact_action <- function(email, name) {
       "window.location.href='mail'+'to:'+this.dataset.u+String.fromCharCode(64)",
       "+this.dataset.d; return false;"
     ),
-    fw_t("contacts", "email_action")
+    fw_t("networking", "email_action")
   )
 }
 

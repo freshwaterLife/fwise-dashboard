@@ -28,7 +28,7 @@ FW_COPY <- list(
     explore    = "Explore the data",
     plan       = "Plan an eradication",
     contribute = "Contribute data",
-    contacts   = "Contacts",
+    networking = "Networking",
     about      = "About"
   ),
 
@@ -42,7 +42,7 @@ FW_COPY <- list(
     doi_url       = "#",          # [PLACEHOLDER] awaiting the minted DOI
     github_label  = "Source code on GitHub",
     github_url    = "https://github.com/", # [PLACEHOLDER] awaiting the public repo URL
-    licence       = "Data released under CC BY-NC 4.0 - non-commercial data. Code released under the MIT licence.",
+    licence       = "Data released under CC BY-NC 4.0 - non-commercial data. Code released under the MIT license.",
     logo_alt_fwise = "FWISE, the Freshwater Invasive Species Eradication database",
     logo_alt_wfa   = "Weird Fishes Advisory",
     # Each footer logo links out to the organisation it belongs to.
@@ -61,7 +61,7 @@ FW_COPY <- list(
       "the contacts list."
     ),
     action_contribute = "Contribute data",
-    action_contacts   = "Browse contacts"
+    action_networking = "Find people to talk to"
   ),
 
   common = list(
@@ -119,9 +119,9 @@ FW_COPY <- list(
 
   # ---- Contacts --------------------------------------------------------------
 
-  contacts = list(
-    title = "Contacts",
-    description = "The people behind the records in FWISE.",
+  networking = list(
+    title = "Networking",
+    description = "The people behind the records in FWISE, and how to reach them.",
     # [PLACEHOLDER] framing line, to be replaced with the client's wording
     intro = paste(
       "[PLACEHOLDER] Every record in FWISE has someone behind it. These are the",
@@ -142,8 +142,22 @@ FW_COPY <- list(
 
     filter_continent = "Continent",
     filter_country   = "Country",
-    filter_search    = "Search by name or organisation",
+    filter_search    = "Search by name or organization",
     filter_all       = "All",
+
+    # THE COVERAGE LINE. The page must not imply reach it does not have. Most
+    # records have a named contact; a good many of those have no published
+    # address, and a substantial minority have no contact at all. Saying so is
+    # what stops a visitor concluding that an absent person is a dead end rather
+    # than simply someone we hold no address for. The numbers are computed from
+    # the data, never written down here.
+    coverage = paste(
+      "This directory covers {reachable} of the {total} attempts in FWISE.",
+      "{no_email} of the {contacts} people listed have no published email",
+      "address, and {no_contact} attempts have no contact recorded at all.",
+      "If the person you want is not here, the reference on the attempt itself",
+      "is usually the next best route."
+    ),
 
     summary_contacts     = "contacts",
     summary_countries    = "countries",
@@ -151,7 +165,7 @@ FW_COPY <- list(
     summary_showing      = "Showing",
 
     col_name         = "Name",
-    col_organisation = "Organisation",
+    col_organisation = "Organization",
     col_country      = "Country",
     col_attempts     = "Attempts",
     col_contact      = "Contact",
@@ -317,7 +331,7 @@ FW_COPY <- list(
   )
 )
 
-# Small convenience so modules read as fw_t("contacts", "title") rather than a
+# Small convenience so modules read as fw_t("networking", "title") rather than a
 # chain of dollar signs.
 fw_t <- function(...) {
   path <- c(...)

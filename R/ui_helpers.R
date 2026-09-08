@@ -221,8 +221,8 @@ fw_stub_panel <- function(extra = NULL) {
       ),
       tags$a(
         class = "btn btn-outline-primary",
-        href = "#", onclick = "Shiny.setInputValue('fw_nav_to', 'contacts', {priority:'event'}); return false;",
-        fw_t("stub", "action_contacts")
+        href = "#", onclick = "Shiny.setInputValue('fw_nav_to', 'networking', {priority:'event'}); return false;",
+        fw_t("stub", "action_networking")
       )
     ),
     extra

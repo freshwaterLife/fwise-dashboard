@@ -39,7 +39,7 @@
 #   paper and the exported reports.
 #
 # ATTEMPT DETAIL
-#   The contacts page links here with a contact_id, expecting to land on that
+#   The Networking page links here with a contact_id, expecting to land on that
 #   contact's attempts. That route currently dead-ends on the stub. When this
 #   page is built, read the incoming value and pre-filter to those attempt ids.
 #   fw_contacts_summary() already returns an attempt_ids list column per contact.
@@ -59,7 +59,7 @@ mod_explore_ui <- function(id) {
 mod_explore_server <- function(id, data) {
   moduleServer(id, function(input, output, session) {
 
-    # The contacts page routes here with a contact_id. Until the page is built,
+    # The Networking page routes here with a contact_id. Until the page is built,
     # acknowledge it rather than silently dropping it, so the link does not feel
     # broken to someone testing the flow.
     output$incoming <- renderUI({
@@ -79,7 +79,7 @@ mod_explore_server <- function(id, data) {
   })
 }
 
-# Set by the contacts page, read by the explore page. A tiny shared reactive
+# Set by the Networking page, read by the explore page. A tiny shared reactive
 # value rather than a module return, because the two modules are siblings and
 # neither owns the other.
 .fw_explore_request <- shiny::reactiveVal(NULL)
