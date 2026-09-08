@@ -23,14 +23,18 @@ library(htmltools)
 # read-only and identical for every visitor.
 FW_DATA <- fw_load_data()
 
+# The release metadata that travels with the data. Read once, alongside it.
+FW_META <- fw_load_metadata()
+
 # Dropdown choices come from the data, so the client's ongoing cleaning flows
 # through without a code change.
 FW_CHOICES <- fw_startup_choices(FW_DATA)
 
-FW_LAST_UPDATED <- fw_last_updated(FW_DATA)
+FW_LAST_UPDATED <- fw_last_updated(FW_DATA, FW_META)
 
 message("FWISE startup: ", nrow(FW_DATA$attempt), " attempts, ",
-        nrow(FW_DATA$contact), " contacts, data to ", format(FW_LAST_UPDATED))
+        nrow(FW_DATA$contact), " contacts, released ", format(FW_LAST_UPDATED),
+        ", source ", if (fw_source_is_remote()) "remote" else "local")
 
 # ---- UI ----------------------------------------------------------------------
 

@@ -33,10 +33,19 @@ fw_env <- function(name, default = NULL) {
   if (identical(value, "")) default else value
 }
 
-# In production the star-schema tables can be served from raw GitHub instead of
-# the local data/ directory, so the client can update data without redeploying.
-# Point it at the directory containing the six CSVs, without a trailing slash.
-FW_DATA_URL <- fw_env("FW_DATA_URL", default = NULL)
+# WHERE THE DATA COMES FROM. One variable, two modes, resolved by
+# fw_data_source() in data_load.R:
+#
+#   unset            ../fwise-data/ - the sibling checkout, for development
+#   https://...      a raw GitHub base URL, for Posit Connect Cloud
+#
+# Local development therefore makes NO network calls. That is deliberate: a
+# developer on a train should get the same app as a developer at a desk, and a
+# GitHub outage should not stop local work.
+#
+# Point the remote value at the directory holding metadata.json and schema/, not
+# at schema/ itself. A trailing slash is tolerated.
+FWISE_DATA_SOURCE <- fw_env("FWISE_DATA_SOURCE", default = NULL)
 
 # ---- Data visualisation palette ----------------------------------------------
 

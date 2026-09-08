@@ -39,28 +39,78 @@ fw_col_types <- list(
   contact         = cols(.default = col_character(), email_public = col_logical())
 )
 
+# ---- Where the data comes from -----------------------------------------------
+
+# ONE resolver. Every read in the application goes through fw_data_file(), so
+# there is exactly one place that knows whether the data is on disk or on the far
+# end of an HTTPS request.
+
+#' The root the data is read from
+#'
+#' Unset gives the sibling checkout at ../fwise-data/, which is what local
+#' development uses and means local development makes no network calls at all.
+#' An https:// value is a raw GitHub base URL, which is what Connect Cloud uses
+#' so the client can publish new data without a redeploy.
+fw_data_source <- function() {
+  src <- FWISE_DATA_SOURCE %||% FW_DATA_DIR
+  # A trailing slash is the easiest thing in the world to leave on the end of a
+  # pasted URL, and it produces a "//" that some raw hosts 404 on.
+  sub("/+$", "", src)
+}
+
+fw_source_is_remote <- function(src = fw_data_source()) {
+  grepl("^https?://", src)
+}
+
+#' Resolve one file below the data root
+#'
+#' @param ... path segments, e.g. "schema", "attempt.csv"
+fw_data_file <- function(..., src = fw_data_source()) {
+  parts <- c(...)
+  if (fw_source_is_remote(src)) paste(c(src, parts), collapse = "/")
+  else file.path(src, ...)
+}
+
 #' Load the six star-schema tables
 #'
-#' Reads from the local data/schema/ directory by default. Set FW_DATA_URL to a
-#' directory URL (raw GitHub, no trailing slash) to read from there instead,
-#' which lets the client publish new data without a redeploy.
+#' READ ONCE, AT STARTUP. Not per session and not on a poll. The data changes
+#' quarterly and visibility comes from a deliberate republish, so re-reading it
+#' would spend a request per visitor to discover that nothing had changed.
 #'
 #' @return A named list of six tibbles.
-fw_load_data <- function(source_dir = NULL) {
-  source_dir <- source_dir %||% FW_DATA_URL %||% FW_SCHEMA_DIR
-
+fw_load_data <- function(src = fw_data_source()) {
   tables <- set_names(FW_TABLES) |>
     map(function(nm) {
-      path <- if (grepl("^https?://", source_dir)) {
-        paste0(source_dir, "/", nm, ".csv")
-      } else {
-        file.path(source_dir, paste0(nm, ".csv"))
-      }
-      read_csv(path, col_types = fw_col_types[[nm]], progress = FALSE)
+      read_csv(fw_data_file("schema", paste0(nm, ".csv"), src = src),
+               col_types = fw_col_types[[nm]], progress = FALSE)
     })
 
   fw_validate_data(tables)
   tables
+}
+
+#' The release metadata that travels with the data
+#'
+#' Carries the release date and the row counts as published, so the footer's
+#' "last updated" line states when the data was released rather than inferring it
+#' from a column inside the data. Written by R/data_prep.R on every build, so the
+#' counts cannot drift away from the tables they describe.
+#'
+#' A missing or unreadable file is not fatal - the app is still perfectly usable
+#' without a date in the footer, and failing to boot over it would be a poor
+#' trade.
+fw_load_metadata <- function(src = fw_data_source()) {
+  path <- fw_data_file("metadata.json", src = src)
+  out <- tryCatch(
+    jsonlite::fromJSON(path),
+    error = function(e) {
+      warning("Could not read metadata.json from ", path, ": ",
+              conditionMessage(e), call. = FALSE)
+      NULL
+    }
+  )
+  if (is.null(out)) return(list(release = NA, row_counts = NULL))
+  out
 }
 
 # Fail loudly at startup rather than producing a page with silently missing
@@ -221,7 +271,18 @@ fw_choices <- function(data, table, column) {
 }
 
 #' The date shown in the footer
-fw_last_updated <- function(data) {
+#'
+#' The RELEASE date from metadata.json, not the maximum of a column inside the
+#' data. Those are different things: a release can republish unchanged rows, and
+#' last_updated is a property of a record rather than of the publication. Falls
+#' back to the column if metadata is missing, so the footer degrades to the old
+#' behaviour rather than to nothing.
+fw_last_updated <- function(data, meta = NULL) {
+  release <- meta$release %||% NA
+  if (!is.null(release) && !all(is.na(release)) && nzchar(release[1])) {
+    d <- suppressWarnings(as.Date(release[1]))
+    if (!is.na(d)) return(d)
+  }
   d <- suppressWarnings(max(data$attempt$last_updated, na.rm = TRUE))
   if (is.infinite(d) || is.na(d)) NA else d
 }

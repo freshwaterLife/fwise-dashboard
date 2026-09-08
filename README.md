@@ -245,9 +245,22 @@ key resolving to a *different* id, not a key that no longer matches anything.
 
 ### Serving data without redeploying
 
-Set `FW_DATA_URL` to the raw GitHub URL of a directory holding the six CSVs (no
-trailing slash) and the app reads from there instead of `data/schema/`. That lets
-the client publish new data by pushing a commit, with no redeploy.
+Set `FWISE_DATA_SOURCE` to the raw GitHub base URL of the `fwise-data`
+repository and the app reads from there instead of the sibling checkout. That
+lets the client publish new data by pushing a commit, with no redeploy.
+
+```
+FWISE_DATA_SOURCE=https://raw.githubusercontent.com/ORG/fwise-data/main
+```
+
+Every read goes through `fw_data_file()` in `R/data_load.R`, which is the only
+place that knows whether the data is on disk or at the far end of an HTTPS
+request. **Leave the variable unset locally** and the app makes no network calls.
+
+The data is read **once at startup**, not per session and not on a poll. It
+changes quarterly and visibility comes from a deliberate republish, so re-reading
+would spend a request per visitor to discover nothing had changed. A new release
+reaches users when the app restarts.
 
 ---
 
@@ -283,7 +296,7 @@ copy it to `.Renviron` (gitignored) for local use.
 
 | Variable | Set where | Purpose |
 |---|---|---|
-| `FW_DATA_URL` | Connect Cloud settings | Read the six CSVs from a URL instead of `../fwise-data/schema/` |
+| `FWISE_DATA_SOURCE` | Connect Cloud settings | Where the data is read from. Unset means `../fwise-data/`; an `https://` value is a raw GitHub base URL. Point it at the directory holding `metadata.json` and `schema/`, not at `schema/` itself. |
 
 **Never commit a credential.** `.Renviron` and `*.json` are gitignored, with
 `manifest.json` explicitly re-included because it is configuration rather than a

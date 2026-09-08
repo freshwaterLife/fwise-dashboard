@@ -539,7 +539,32 @@ fw_build_schema <- function() {
   write_csv(attempt_method, file.path(FW_SCHEMA_DIR, "attempt_method.csv"), na = "")
   write_csv(contact, file.path(FW_SCHEMA_DIR, "contact.csv"), na = "")
 
+  # ---- metadata.json -----------------------------------------------------------
+
+  # Written on every build rather than maintained by hand, so the row counts can
+  # never drift away from the tables they describe. The app reads `release` for
+  # the footer's "last updated" line.
+  meta <- list(
+    release       = format(Sys.Date()),
+    source_export = basename(FW_SOURCE_CSV),
+    generated_by  = "R/data_prep.R",
+    generated_at  = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+    row_counts    = list(
+      attempt         = nrow(attempt),
+      species         = nrow(species),
+      attempt_species = nrow(attempt_species),
+      method          = nrow(method),
+      attempt_method  = nrow(attempt_method),
+      contact         = nrow(contact)
+    )
+  )
+  writeLines(
+    jsonlite::toJSON(meta, auto_unbox = TRUE, pretty = TRUE),
+    file.path(FW_DATA_DIR, "metadata.json")
+  )
+
   message("\nid registry: ", file.path(FW_DATA_DIR, "id_registry"))
+  message("metadata:    ", file.path(FW_DATA_DIR, "metadata.json"))
   message("\nWritten to ", FW_SCHEMA_DIR, ":")
   for (f in c("attempt", "species", "attempt_species", "method", "attempt_method", "contact")) {
     d <- get(f)

@@ -6,11 +6,20 @@
 # ../fwise-data/ and writes submissions to dev/submissions_local.csv.
 
 # ---- Data source -------------------------------------------------------------
-# Where the six star-schema CSVs are read from. Leave unset to use the local
-# data/schema/ directory. In production, point it at the raw GitHub URL of the
-# directory holding the CSVs, with NO trailing slash, so the client can publish
-# new data without redeploying the app.
-# FW_DATA_URL=https://raw.githubusercontent.com/ORG/REPO/main/data/schema
+# The ONE variable that says where the data comes from. Two modes:
+#
+#   unset       ../fwise-data/ - the sibling checkout. Local development makes
+#               no network calls at all.
+#   https://... a raw GitHub base URL, for Posit Connect Cloud, so the client can
+#               publish new data by pushing rather than by redeploying.
+#
+# Point it at the directory holding metadata.json and schema/, NOT at schema/
+# itself. A trailing slash is tolerated.
+#
+# Locally you can leave it unset. Setting it explicitly, as below, means the app
+# still finds the data when run from a different working directory.
+# FWISE_DATA_SOURCE=/absolute/path/to/fwise-data
+# FWISE_DATA_SOURCE=https://raw.githubusercontent.com/ORG/fwise-data/main
 
 # ---- Submissions -------------------------------------------------------------
 # There is nothing to configure. Submissions append to dev/submissions_local.csv
