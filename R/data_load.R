@@ -159,7 +159,15 @@ fw_filter_approved <- function(tables) {
 fw_review_count <- function(data) {
   counts <- attr(data, "status_counts")
   in_schema <- if (is.null(counts)) 0L else as.integer(counts[["pending"]])
-  in_inbox  <- tryCatch(nrow(fw_pending_submissions()), error = function(e) 0L)
+
+  # Only submissions NOT yet carried into the schema. A merged submission is
+  # already counted by in_schema above, and counting it here as well would
+  # double it and leave the indicator permanently inflated.
+  inbox <- tryCatch(fw_pending_submissions(), error = function(e) data.frame())
+  in_inbox <- if (nrow(inbox) == 0) 0L
+    else if ("status" %in% names(inbox)) sum(inbox$status == "pending", na.rm = TRUE)
+    else nrow(inbox)
+
   as.integer(in_schema + in_inbox)
 }
 

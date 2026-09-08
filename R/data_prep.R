@@ -498,6 +498,18 @@ fw_build_schema <- function() {
       last_updated   = as.Date("2026-09-06")
     )
 
+  # ---- Source columns deliberately not carried through -------------------------
+  #
+  # `Eradication or Control` is "Eradication" on all 914 rows. Every record in
+  #   FWISE is an eradication attempt, so the column distinguishes nothing.
+  # `Sent` is the client's own workflow state - whether a record has been sent
+  #   somewhere during compilation. It says nothing about the eradication.
+  # `Submission Date` is empty on every row.
+  #
+  # `Key` is not dropped: it is read above, where it takes precedence over the
+  # natural-key registry, and it is empty only until key_backfill.csv is pasted
+  # into the master spreadsheet.
+
   # ---- Validate ----------------------------------------------------------------
 
   stopifnot(

@@ -352,6 +352,44 @@ Every row is auto-populated with a `submission_id`, `status = "pending"` and a
 `submitted_at` timestamp, so the QA and publishing pipeline can work without
 duplicates.
 
+### Testing the submit-review-publish loop locally
+
+`dev/merge_submissions.R` is **temporary scaffolding** so the whole loop can be
+exercised before the production path exists. It is meant to be deleted once the
+form writes to GitHub and QA happens in `fwise-data`.
+
+```bash
+Rscript dev/merge_submissions.R --list      # read-only: what would be merged
+Rscript dev/merge_submissions.R             # merge as pending
+Rscript dev/merge_submissions.R --approve   # merge and approve in one step
+```
+
+The loop:
+
+1. Submit a record through the Contribute page. It lands in
+   `dev/submissions_local.csv`.
+2. Merge it. It enters the schema as **`pending`**, mints ids through the same
+   registry as everything else, and creates any new species, method or contact
+   rows it needs.
+3. Check it is invisible. A pending record must not appear in any dropdown, the
+   Networking directory, the report builder's filters, or an export — while its
+   foreign keys still resolve. That boundary is the thing worth testing.
+4. Approve it: set `status` to `approved` in `fwise-data/schema/attempt.csv`.
+   Restart the app and it appears everywhere.
+
+It is **idempotent** — `submission_id` is the natural key, so re-running merges
+nothing twice — and it marks merged inbox rows as `merged` so the in-review count
+does not count them again once they are in the schema.
+
+It **warns about near-duplicate species**. The picker deliberately lets a
+contributor type a name we do not hold, which means "Arctic charr" arrives as a
+new species when "Arctic char" is already there on 24 attempts: same binomial,
+different common name, two rows. The merge points at it rather than silently
+creating the split.
+
+To discard everything merged, re-run `Rscript R/data_prep.R` — the schema is
+regenerated from the raw export.
+
 ---
 
 ## Environment variables

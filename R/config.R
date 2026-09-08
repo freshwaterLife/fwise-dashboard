@@ -80,13 +80,3 @@ FW_OUTCOME_COLOURS <- c(
 # Coordinates are shown and stored at six decimal places, roughly 0.1m. More
 # precision than that is false confidence for a treated waterbody.
 FW_COORD_DP <- 6
-
-# Feature flags. Flip to TRUE as each page is built out.
-FW_FEATURES <- list(
-  home_built     = FALSE,
-  explore_built  = FALSE,
-  plan_built     = TRUE,
-  contribute_built = TRUE,
-  networking_built = TRUE,
-  about_built    = FALSE
-)

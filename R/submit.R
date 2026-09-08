@@ -233,37 +233,47 @@ fw_collect_submission <- function(input, rows, family_lookup = NULL) {
         v
       }
 
-      # One entry per target: the group, the species, and the family we looked
-      # up for that species. The family is NOT asked for. Contributors were
-      # being made to answer a taxonomy question to which the database already
-      # holds the answer for every species it knows, and "Unknown" is a better
-      # record of the rest than a guess.
-      targets <- lapply(rows$target, function(i) {
-        taxa <- get_in(paste0("target_taxa_", i))
-        if (identical(taxa, FW_OTHER)) {
-          taxa <- get_in(paste0("target_taxa_other_", i))
-        }
-        species <- get_in(paste0("target_species_", i))
-        list(
-          taxa = taxa,
-          species = species,
-          family = if (nzchar(species)) {
-            fw_family_for_species(species, family_lookup)
-          } else ""
-        )
-      })
-      targets <- Filter(function(t) nzchar(t$taxa) || nzchar(t$species), targets)
+      # One entry per row: the group, the species, and the family we looked up
+      # for that species. The family is NOT asked for. Contributors were being
+      # made to answer a taxonomy question to which the database already holds
+      # the answer for every species it knows, and "Unknown" is a better record
+      # of the rest than a guess.
+      #
+      # IDENTICAL FOR BOTH ROLES. Invasive targets and beneficiaries are the
+      # same question asked about two sides of the same eradication, so they are
+      # collected, serialised and rolled up the same way. Beneficiaries used to
+      # carry a bare species name with the group recorded separately for the
+      # whole submission, which lost the pairing between them.
+      collect_pairs <- function(kind, indices) {
+        out <- lapply(indices, function(i) {
+          taxa <- get_in(paste0(kind, "_taxa_", i))
+          if (identical(taxa, FW_OTHER)) {
+            taxa <- get_in(paste0(kind, "_taxa_other_", i))
+          }
+          species <- get_in(paste0(kind, "_species_", i))
+          list(
+            taxa = taxa,
+            species = species,
+            family = if (nzchar(species)) {
+              fw_family_for_species(species, family_lookup)
+            } else ""
+          )
+        })
+        Filter(function(t) nzchar(t$taxa) || nzchar(t$species), out)
+      }
 
-      uniq_field <- function(field) {
-        v <- unique(vapply(targets, function(t) t[[field]], character(1)))
+      targets       <- collect_pairs("target",  rows$target)
+      beneficiaries <- collect_pairs("benefit", rows$benefit)
+
+      # The roll-up columns beside the serialised cell, so a reviewer can filter
+      # the inbox without unpacking it.
+      uniq_field <- function(pairs, field) {
+        v <- unique(vapply(pairs, function(t) t[[field]], character(1)))
         paste(v[nzchar(v)], collapse = "; ")
       }
 
       invasive_species <- fw_serialise_rows(targets, c("taxa", "species", "family"))
-      benefit_species <- fw_serialise_rows(
-        lapply(rows$benefit, function(i) list(name = get_in(paste0("benefit_species_", i)))),
-        "name"
-      )
+      benefit_species  <- fw_serialise_rows(beneficiaries, c("taxa", "species", "family"))
       methods <- fw_serialise_rows(
         lapply(rows$method, function(i) {
           nm <- get_in(paste0("method_", i))
@@ -300,13 +310,13 @@ fw_collect_submission <- function(input, rows, family_lookup = NULL) {
         water_temp_c = get_in("water_temp_c"),
         water_temp_notes = get_in("water_temp_notes"),
 
-        invasive_taxa = uniq_field("taxa"),
+        invasive_taxa = uniq_field(targets, "taxa"),
         # Kept as a column because the inbox layout is stable, but the free-text
         # group now travels inside invasive_taxa itself: it belongs to one
         # target, not to the submission.
         invasive_taxa_other = "",
         invasive_species = invasive_species,
-        invasive_family = uniq_field("family"),
+        invasive_family = uniq_field(targets, "family"),
 
         invasion_year = get_in("invasion_year"),
         start_year = get_in("start_year"),
@@ -315,8 +325,10 @@ fw_collect_submission <- function(input, rows, family_lookup = NULL) {
         driver = get_in("driver"),
         driver_other = get_in("driver_other"),
 
-        beneficiary_taxa = get_in("beneficiary_taxa"),
-        beneficiary_taxa_other = get_in("beneficiary_taxa_other"),
+        # Derived from the beneficiary rows, exactly as invasive_taxa is derived
+        # from the target rows. It is no longer a question of its own.
+        beneficiary_taxa = uniq_field(beneficiaries, "taxa"),
+        beneficiary_taxa_other = "",
         beneficiary_species = benefit_species,
 
         methods = methods,

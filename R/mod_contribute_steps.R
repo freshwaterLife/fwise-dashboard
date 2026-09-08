@@ -279,22 +279,15 @@ fw_step_timeline_ui <- function(ns, choices) {
 fw_step_benefit_ui <- function(ns, choices) {
   tagList(
     fw_step_intro("benefit"),
-    fw_field(fw_select(ns("beneficiary_taxa"), choices$beneficiary_taxa, multiple = TRUE),
-             "What species benefited from the eradication?",
-             tooltip = FW_TIPS$benefit_taxa, input_id = ns("beneficiary_taxa")),
-    fw_other_panel(ns, "beneficiary_taxa", "beneficiary_taxa_other",
-                   "Please describe the group that benefited", multiple = TRUE),
-
-    tags$h3("Beneficiary species"),
-    # Row 1 is rendered HERE, not inserted by the server, for the same reason as
-    # the invasive targets above: insertUI on a container the page has not
-    # painted yet is what used to make a section arrive empty or doubled.
+    # ONE BENEFICIARY AT A TIME, pairing the group with its species, exactly as
+    # the invasive step does. The section-wide group multi-select that used to
+    # sit here left a contributor who answered "Fish, Invertebrate" with
+    # unlabelled species boxes and no way to say which was which.
     #
-    # It also makes the two roles behave the same. A contributor met an inline
-    # species box for the invasive target and an empty space plus an "Add"
-    # button for the beneficiary, which reads as the beneficiary being an
-    # afterthought rather than as it being optional.
-    div(id = ns("benefit_rows"), fw_species_row(ns, 1L, choices, "benefit")),
+    # Row 1 is rendered HERE rather than inserted by the server: insertUI on a
+    # container the page has not painted yet is what used to make a section
+    # arrive empty or doubled.
+    div(id = ns("benefit_rows"), fw_beneficiary_row(ns, 1L, choices)),
     actionButton(ns("add_beneficiary"), fw_t("contribute", "add_beneficiary"),
                  class = "btn btn-outline-primary btn-sm")
   )
@@ -467,64 +460,68 @@ fw_species_picker <- function(input_id, species) {
 
 # ---- Repeatable rows ---------------------------------------------------------
 
-#' One target: the group of animal, and the species within it
+#' ONE row builder for both roles: a group of animal, and the species in it
+#'
+#' Invasive targets and beneficiaries are the SAME question asked about two
+#' sides of the same eradication, so they are the same code. They used to differ:
+#' a target paired its group with its species, while beneficiaries had one
+#' group multi-select for the whole section and separate unlabelled species
+#' boxes. That left a contributor who answered "Fish, Invertebrate" with two
+#' species boxes and no way to say which was which - exactly the problem that
+#' had already been fixed on the invasive side.
 #'
 #' Each row's inputs are namespaced with the row index, so removing row 2 does
 #' not disturb rows 1 and 3. The species list is narrowed to the group by the
-#' server; the family is never asked for, it is derived on submission.
-fw_target_row <- function(ns, index, choices) {
+#' server; the fish family is never asked for, it is derived on submission.
+#'
+#' The only real difference is that a target is REQUIRED and a beneficiary is
+#' not. Every eradication has something it was aimed at; plenty of real records
+#' never recorded what it was meant to help.
+FW_ROW_KINDS <- list(
+  target = list(
+    heading      = "Target",
+    taxa_label   = "What kind of animal was targeted?",
+    taxa_other   = "Please describe the group targeted",
+    species_label = "Which species?",
+    taxa_choices = "invasive_taxa",
+    taxa_tip     = "invasive_taxa",
+    species_tip  = "species",
+    required     = TRUE
+  ),
+  benefit = list(
+    heading      = "Beneficiary",
+    taxa_label   = "What kind of species benefited?",
+    taxa_other   = "Please describe the group that benefited",
+    species_label = "Which species?",
+    taxa_choices = "beneficiary_taxa",
+    taxa_tip     = "benefit_taxa",
+    species_tip  = "benefit_sp",
+    required     = FALSE
+  )
+)
+
+fw_pair_row <- function(ns, index, choices, kind = "target") {
+  cfg   <- FW_ROW_KINDS[[kind]]
   first <- index == 1
-  taxa_id    <- paste0("target_taxa_", index)
-  species_id <- paste0("target_species_", index)
+  taxa_id    <- paste0(kind, "_taxa_", index)
+  species_id <- paste0(kind, "_species_", index)
 
   div(
-    id = ns(paste0("target_row_", index)),
+    id = ns(paste0(kind, "_row_", index)),
     class = "fw-repeat-row fw-repeat-row--stacked",
     div(
-      div(class = "fw-repeat-row__heading", paste("Target", index)),
-      fw_field(fw_select(ns(taxa_id), choices$invasive_taxa),
-               "What kind of animal was targeted?", required = first,
-               tooltip = FW_TIPS$invasive_taxa, input_id = ns(taxa_id)),
-      fw_other_panel(ns, taxa_id, paste0("target_taxa_other_", index),
-                     "Please describe the group targeted"),
+      div(class = "fw-repeat-row__heading", paste(cfg$heading, index)),
+      fw_field(fw_select(ns(taxa_id), choices[[cfg$taxa_choices]]),
+               cfg$taxa_label, required = first && cfg$required,
+               tooltip = FW_TIPS[[cfg$taxa_tip]], input_id = ns(taxa_id)),
+      fw_other_panel(ns, taxa_id, paste0(kind, "_taxa_other_", index),
+                     cfg$taxa_other),
       fw_field(fw_species_picker(ns(species_id), choices$species_by_taxa[[FW_ALL]]),
-               "Which species?", required = first,
-               tooltip = FW_TIPS$species, input_id = ns(species_id),
+               cfg$species_label, required = first && cfg$required,
+               tooltip = FW_TIPS[[cfg$species_tip]], input_id = ns(species_id),
                help = paste("The list narrows to the group above. If your species",
                             "is not there, type it in and our review team will",
                             "add it."))
-    ),
-    div(
-      class = "fw-repeat-row__remove",
-      if (!first) {
-        actionButton(ns(paste0("remove_target_", index)),
-                     label = "Remove",
-                     class = "btn btn-outline-primary btn-sm",
-                     `aria-label` = paste(fw_t("contribute", "remove_row"), index))
-      }
-    )
-  )
-}
-
-#' One beneficiary species row
-fw_species_row <- function(ns, index, choices, kind = "benefit") {
-  row_id <- paste0(kind, "_row_", index)
-  input_id <- paste0(kind, "_species_", index)
-  # Row 1 has no Remove control, matching fw_target_row(). Removing the only row
-  # would leave the section with a heading, an Add button and nothing to look at.
-  first <- index == 1
-
-  div(
-    id = ns(row_id),
-    class = "fw-repeat-row",
-    div(
-      fw_field(
-        fw_species_picker(ns(input_id), choices$species_by_taxa[[FW_ALL]]),
-        label = paste("Beneficiary species", index),
-        required = FALSE,
-        tooltip = FW_TIPS$benefit_sp,
-        input_id = ns(input_id)
-      )
     ),
     div(
       class = "fw-repeat-row__remove",
@@ -540,6 +537,11 @@ fw_species_row <- function(ns, index, choices, kind = "benefit") {
     )
   )
 }
+
+# Kept as thin names because the step builders and questions_text.R read better
+# saying what they are building than passing a string.
+fw_target_row      <- function(ns, index, choices) fw_pair_row(ns, index, choices, "target")
+fw_beneficiary_row <- function(ns, index, choices) fw_pair_row(ns, index, choices, "benefit")
 
 fw_method_row <- function(ns, index, choices) {
   row_id <- paste0("method_row_", index)
@@ -562,7 +564,7 @@ fw_method_row <- function(ns, index, choices) {
     div(
       class = "fw-repeat-row__remove",
       if (!first) {
-        # See the note in fw_species_row(): the word is the label, not a
+        # See the note in fw_pair_row(): the word is the label, not a
         # positional argument that falls through to `icon`.
         actionButton(ns(paste0("remove_method_", index)), label = "Remove",
                      class = "btn btn-outline-primary btn-sm",

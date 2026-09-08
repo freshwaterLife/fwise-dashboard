@@ -324,15 +324,17 @@ mod_contribute_server <- function(id, data, choices) {
     # section arriving empty or doubled. insertUI now only ever ADDS to a
     # container that is already on the page.
 
-    #' Narrow a target's species picker to the group it is targeting
+    #' Narrow a row's species picker to the group that row names
+    #'
+    #' ONE binder for both roles, because they are now the same widget pair.
     #'
     #' Client-side: the whole list is already in the browser, so this is a list
     #' swap rather than a search round trip. A species the contributor typed in
     #' themselves is carried across, otherwise changing the group after naming a
     #' species would silently discard it.
-    bind_target_row <- function(i) {
-      taxa_id    <- paste0("target_taxa_", i)
-      species_id <- paste0("target_species_", i)
+    bind_pair_row <- function(i, kind) {
+      taxa_id    <- paste0(kind, "_taxa_", i)
+      species_id <- paste0(kind, "_species_", i)
 
       observeEvent(input[[taxa_id]], ignoreInit = TRUE, {
         taxa <- input[[taxa_id]] %||% ""
@@ -351,50 +353,8 @@ mod_contribute_server <- function(id, data, choices) {
       invisible(NULL)
     }
 
-    bind_target_row(1L)
-
-    #' Narrow every beneficiary species picker to the groups selected
-    #'
-    #' The same treatment the invasive targets get, so the two roles behave
-    #' identically. It differs in one way that follows from the form's shape: a
-    #' target carries its own group, so each row narrows independently, whereas
-    #' beneficiaries share one multi-select for the whole section. The list is
-    #' therefore the UNION of the selected groups, not one group's.
-    #'
-    #' Client-side, like the targets: the whole list is already in the browser,
-    #' so this is a list swap rather than a search round trip. Anything the
-    #' contributor typed in themselves is carried across, otherwise changing the
-    #' group after naming a species would silently discard it.
-    narrow_benefit_rows <- function(indices) {
-      taxa <- input$beneficiary_taxa %||% character(0)
-      taxa <- taxa[nzchar(taxa) & taxa != FW_OTHER]
-
-      lst <- if (length(taxa) == 0) {
-        choices$species_by_taxa[[FW_ALL]]
-      } else {
-        picked <- unlist(choices$species_by_taxa[taxa], use.names = FALSE)
-        # Keep the frequency order of the full list rather than the order the
-        # groups happened to be selected in.
-        keep <- choices$species_by_taxa[[FW_ALL]] %in% picked
-        choices$species_by_taxa[[FW_ALL]][keep]
-      }
-      if (!length(lst)) lst <- choices$species_by_taxa[[FW_ALL]]
-
-      for (i in indices) {
-        id <- paste0("benefit_species_", i)
-        current <- input[[id]] %||% ""
-        this <- if (nzchar(current) && !current %in% lst) c(current, lst) else lst
-        # The leading blank stays, for the same reason as everywhere else: a
-        # selectize handed a list with no empty first entry selects the first
-        # item by itself the moment the list is replaced.
-        updateSelectizeInput(session, id, choices = c("", this),
-                             selected = current, server = FALSE)
-      }
-    }
-
-    observeEvent(input$beneficiary_taxa, ignoreInit = TRUE, ignoreNULL = FALSE, {
-      narrow_benefit_rows(rows$benefit)
-    })
+    bind_pair_row(1L, "target")
+    bind_pair_row(1L, "benefit")
 
     # Narrow the waterbody types to the regime. Still water should not be
     # offered "River", and flowing water should not be offered "Lake".
@@ -422,7 +382,7 @@ mod_contribute_server <- function(id, data, choices) {
                ui = fw_target_row(ns, i, choices))
       rows$target <- c(rows$target, i)
       next_index$target <- i + 1L
-      bind_target_row(i)
+      bind_pair_row(i, "target")
       fw_bind_remove(session, ns, input, i, "target", rows)
       fw_announce(session, paste("Target", i, "added."))
     })
@@ -430,15 +390,12 @@ mod_contribute_server <- function(id, data, choices) {
     observeEvent(input$add_beneficiary, {
       i <- next_index$benefit
       insertUI(paste0("#", ns("benefit_rows")), where = "beforeEnd",
-               ui = fw_species_row(ns, i, choices, "benefit"))
+               ui = fw_beneficiary_row(ns, i, choices))
       rows$benefit <- c(rows$benefit, i)
       next_index$benefit <- i + 1L
+      bind_pair_row(i, "benefit")
       fw_bind_remove(session, ns, input, i, "benefit", rows)
-      # A new row starts narrowed to whatever groups are already chosen, rather
-      # than showing all 390 species until the contributor touches the group box
-      # again.
-      narrow_benefit_rows(i)
-      fw_announce(session, paste("Beneficiary species", i, "added."))
+      fw_announce(session, paste("Beneficiary", i, "added."))
     })
 
     observeEvent(input$add_method, {

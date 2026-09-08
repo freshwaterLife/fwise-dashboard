@@ -17,7 +17,7 @@ library(htmltools)
 # in the text file. Keep in step with the insertUI targets in mod_contribute.R.
 FW_QUESTION_ROWS <- list(
   target_rows  = function(ns, choices) fw_target_row(ns, 1L, choices),
-  benefit_rows = function(ns, choices) fw_species_row(ns, 1L, choices, "benefit"),
+  benefit_rows = function(ns, choices) fw_beneficiary_row(ns, 1L, choices),
   method_rows  = function(ns, choices) fw_method_row(ns, 1L, choices)
 )
 
