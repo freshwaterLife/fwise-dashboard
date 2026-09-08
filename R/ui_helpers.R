@@ -327,7 +327,15 @@ fw_brand <- function() {
 #' as its own line, rather than sitting above one mark and skewing the pair.
 #' When reversed artwork exists, drop the plaque class and they can sit directly
 #' on the dark ground.
-fw_footer <- function(last_updated) {
+#' The site footer
+#'
+#' @param last_updated the release date from metadata.json
+#' @param in_review how many records are waiting on review. Shown quietly rather
+#'   than as a badge: it is a sign the database is alive and that submissions go
+#'   somewhere, not a call to action. Omitted entirely when there are none, so
+#'   the footer never says "0 records in review", which reads as a broken pipe
+#'   rather than an empty queue.
+fw_footer <- function(last_updated, in_review = 0L) {
   logo <- function(href, src, alt) {
     tags$a(
       href = href, target = "_blank", rel = "noopener noreferrer",
@@ -355,6 +363,14 @@ fw_footer <- function(last_updated) {
           tags$span(class = "fw-num",
                     if (is.na(last_updated)) "-" else format(last_updated, "%d %B %Y"))
         ),
+        if (isTRUE(in_review > 0)) {
+          tags$span(
+            class = "fw-footer__review",
+            tags$span(class = "fw-num", fw_fmt_num(in_review)), " ",
+            if (in_review == 1) fw_t("footer", "in_review_one")
+            else fw_t("footer", "in_review_many")
+          )
+        },
         tags$a(href = fw_t("footer", "doi_url"), fw_t("footer", "doi_label")),
         tags$a(href = fw_t("footer", "github_url"), fw_t("footer", "github_label")),
         tags$span(fw_t("footer", "licence"))

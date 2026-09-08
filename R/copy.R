@@ -34,6 +34,10 @@ FW_COPY <- list(
 
   footer = list(
     last_updated  = "Data last updated",
+    # Deliberately understated. Submissions being reviewed is a sign the database
+    # is alive; it is not a metric and it is not a call to action.
+    in_review_one  = "record in review",
+    in_review_many = "records in review",
     doi_label     = "Zenodo DOI",
     doi_url       = "#",          # [PLACEHOLDER] awaiting the minted DOI
     github_label  = "Source code on GitHub",

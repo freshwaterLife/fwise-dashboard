@@ -86,7 +86,81 @@ fw_load_data <- function(src = fw_data_source()) {
     })
 
   fw_validate_data(tables)
-  tables
+  fw_filter_approved(tables)
+}
+
+# ---- The approval gate -------------------------------------------------------
+
+# The three permitted values. Anything else in the column is a data error and
+# stops the load, because the alternative is a row with a typo in its status
+# quietly becoming invisible - or worse, quietly becoming visible.
+FW_STATUS <- c("pending", "approved", "rejected")
+
+#' Keep only approved data, and everything reachable from it
+#'
+#' THE SUBTLE PART, AND THE EASY ONE TO GET WRONG. It is not enough to filter the
+#' attempt table. A pending submission can introduce a new species, a new method
+#' or a new contact, and those dimension rows sit in the same tables as the
+#' approved ones. Filtering only the fact table leaves them in place, where every
+#' dropdown, every lookup and the whole networking directory would pick them up -
+#' publishing an unreviewed person's name and email on a public site.
+#'
+#' So the filtering is STRUCTURAL rather than a rule each consumer has to
+#' remember. Everything downstream - fw_startup_choices(), fw_species_by_taxa(),
+#' fw_choices(), fw_contacts_summary(), the report builder - is handed a set of
+#' tables that contains nothing unapproved, so it cannot leak even if the person
+#' writing it never thinks about approval at all. A new page added next year
+#' inherits the guarantee for free.
+#'
+#' Foreign keys still resolve, because a dimension row is dropped only when
+#' nothing approved refers to it any more.
+#'
+#' The pre-filter counts are attached as an attribute, for the in-review
+#' indicator. See fw_review_count().
+fw_filter_approved <- function(tables) {
+  bad <- setdiff(unique(tables$attempt$status), c(FW_STATUS, NA))
+  if (length(bad) > 0) {
+    stop("attempt.status holds values that are not ",
+         paste(sQuote(FW_STATUS), collapse = ", "), ": ",
+         paste(sQuote(bad), collapse = ", "),
+         "\nA row with an unrecognised status would be silently included or ",
+         "excluded, so the load stops here.", call. = FALSE)
+  }
+
+  counts <- table(factor(tables$attempt$status, levels = FW_STATUS))
+
+  keep <- tables$attempt |> filter(!is.na(status), status == "approved")
+  ids  <- keep$attempt_id
+
+  attempt_species <- filter(tables$attempt_species, attempt_id %in% ids)
+  attempt_method  <- filter(tables$attempt_method,  attempt_id %in% ids)
+
+  live_contacts <- unique(na.omit(c(keep$primary_contact_id,
+                                    keep$secondary_contact_id)))
+
+  out <- list(
+    attempt         = keep,
+    species         = filter(tables$species, species_id %in% attempt_species$species_id),
+    attempt_species = attempt_species,
+    method          = filter(tables$method,  method_id  %in% attempt_method$method_id),
+    attempt_method  = attempt_method,
+    contact         = filter(tables$contact, contact_id %in% live_contacts)
+  )
+  attr(out, "status_counts") <- counts
+  out
+}
+
+#' How many records are waiting on review
+#'
+#' Two sources, because a submission is in review from the moment it is sent, not
+#' from the moment someone merges it into the schema: rows already carried into
+#' the database as `pending`, plus whatever is sitting in the submissions inbox
+#' and has not been processed at all yet.
+fw_review_count <- function(data) {
+  counts <- attr(data, "status_counts")
+  in_schema <- if (is.null(counts)) 0L else as.integer(counts[["pending"]])
+  in_inbox  <- tryCatch(nrow(fw_pending_submissions()), error = function(e) 0L)
+  as.integer(in_schema + in_inbox)
 }
 
 #' The release metadata that travels with the data
@@ -119,7 +193,8 @@ fw_load_metadata <- function(src = fw_data_source()) {
 fw_validate_data <- function(tables) {
   required <- list(
     attempt = c("attempt_id", "country", "continent", "latitude", "longitude",
-                "outcome", "start_year", "primary_contact_id", "last_updated"),
+                "outcome", "start_year", "primary_contact_id", "status",
+                "last_updated"),
     species = c("species_id", "scientific_name", "common_name", "taxa", "family"),
     attempt_species = c("attempt_id", "species_id", "role"),
     method = c("method_id", "method_name", "method_class"),

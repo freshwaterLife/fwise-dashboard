@@ -492,7 +492,9 @@ fw_build_schema <- function() {
       primary_contact_id,
       secondary_contact_id,
       # Everything already in the database has passed the client's review.
-      status         = "published",
+      # Permitted values are pending | approved | rejected - see FW_STATUS in
+      # data_load.R, which refuses to load anything else.
+      status         = "approved",
       last_updated   = as.Date("2026-09-06")
     )
 

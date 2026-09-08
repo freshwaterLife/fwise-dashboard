@@ -32,6 +32,11 @@ FW_CHOICES <- fw_startup_choices(FW_DATA)
 
 FW_LAST_UPDATED <- fw_last_updated(FW_DATA, FW_META)
 
+# Records waiting on review: pending rows carried into the schema, plus whatever
+# is still sitting in the submissions inbox. Read once at startup like everything
+# else, so it is accurate as of the last republish rather than live.
+FW_IN_REVIEW <- fw_review_count(FW_DATA)
+
 message("FWISE startup: ", nrow(FW_DATA$attempt), " attempts, ",
         nrow(FW_DATA$contact), " contacts, released ", format(FW_LAST_UPDATED),
         ", source ", if (fw_source_is_remote()) "remote" else "local")
@@ -79,7 +84,7 @@ ui <- page_navbar(
   nav_panel(fw_t("nav", "contacts"),   value = "contacts",   mod_contacts_ui("contacts")),
   nav_panel(fw_t("nav", "about"),      value = "about",      mod_about_ui("about")),
 
-  footer = fw_footer(FW_LAST_UPDATED)
+  footer = fw_footer(FW_LAST_UPDATED, FW_IN_REVIEW)
 )
 
 # ---- Server ------------------------------------------------------------------
