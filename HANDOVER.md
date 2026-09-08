@@ -57,7 +57,7 @@ These need someone else before the page can be finished.
 | Final headline and supporting copy | Landing page hero | `R/copy.R` `home$title`, `home$lead` |
 | Per-country invasive fish species file | The landing map's whole point | `fw_country_burden()` in `R/data_load.R` |
 | Case study content, before and after | Landing page | `R/mod_home.R` |
-| Google service account and Sheet | Live submissions | `fw_write_sheets()` in `R/submit.R` |
+| GitHub token for the submissions repo | Live submissions | `fw_write_local()` in `R/submit.R` is the only backend |
 | Zenodo DOI | Footer, About | `R/copy.R` `footer$doi_url` |
 | Public GitHub repository URL | Footer | `R/copy.R` `footer$github_url` |
 | FWISE team email address | Contacts page | `R/copy.R` `contacts$outro_email` |
@@ -266,8 +266,9 @@ families to crayfish.
 
 1. Get the per-country invasive fish file. The landing page's central argument
    depends on it and everything else there is ready.
-2. Wire up the Google Sheet and actually run the Sheets backend. It has never
-   been executed.
+2. Build the GitHub submission write path. The Sheets backend was deleted when
+   submissions moved to GitHub; nothing has replaced it yet, so submissions
+   currently land in a local file only.
 3. Replace the placeholder copy in `R/copy.R`, working down section 3.
 4. Confirm the Weird Fishes Advisory URL behind the footer logo
    (`footer$wfa_url`). The FWISE logo already links to freshwaterlife.org.

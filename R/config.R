@@ -38,10 +38,6 @@ fw_env <- function(name, default = NULL) {
 # Point it at the directory containing the six CSVs, without a trailing slash.
 FW_DATA_URL <- fw_env("FW_DATA_URL", default = NULL)
 
-# Which submission backend to use. "local" is the default and is the only one
-# exercised in this build. See submit.R.
-FW_SUBMIT_BACKEND <- fw_env("FW_SUBMIT_BACKEND", default = "local")
-
 # ---- Data visualisation palette ----------------------------------------------
 
 # Wong (2011) colourblind-safe palette. The associated academic paper uses this,

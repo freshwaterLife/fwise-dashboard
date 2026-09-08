@@ -253,21 +253,19 @@ the client publish new data by pushing a commit, with no redeploy.
 
 ## Submissions
 
-`fw_submit_attempt(record, data)` is the single entry point. The backend is
-chosen by `FW_SUBMIT_BACKEND`.
-
-**Local (`local`, the default) is implemented and tested.** It appends to
+`fw_submit_attempt(record, data)` is the single entry point. It appends to
 `dev/submissions_local.csv`, creating it with headers if absent, and needs no
 credentials.
 
-**Google Sheets (`sheets`) is a stub and has never been run.** The Google Cloud
-service account and the submissions Sheet did not exist when this was built. The
-code is written out in full and is guarded so it is unreachable unless
-`FW_SUBMIT_BACKEND=sheets` and the credential variables are set. Expect to debug
-it the first time it runs against a real Sheet. It authenticates from a JSON
-string in an environment variable, never from a file in the repository.
+**The Google Sheets backend has been removed.** Submissions are moving to GitHub,
+so the Sheets path was deleted rather than left in place as untested code with
+credential handling in its documentation. It had never been run against a real
+Sheet.
 
-The Sheet is a **raw submissions inbox, not the schema**. One flat row per
+**The GitHub write path is not built.** It needs a token that does not exist yet
+and is a separate job. Until it lands, the local file is the whole story.
+
+The inbox is a **raw submissions list, not the schema**. One flat row per
 submission, with the repeatable species, methods and beneficiaries serialised
 into single pipe-delimited cells, because a person reads them in a spreadsheet
 during QA. Normalisation into the star schema happens manually in that review.
@@ -285,11 +283,7 @@ copy it to `.Renviron` (gitignored) for local use.
 
 | Variable | Set where | Purpose |
 |---|---|---|
-| `FW_DATA_URL` | Connect Cloud settings | Read the six CSVs from a URL instead of `data/schema/` |
-| `FW_SUBMIT_BACKEND` | Connect Cloud settings | `local` (default) or `sheets` |
-| `FW_SHEET_ID` | Connect Cloud settings | The submissions Sheet, for the `sheets` backend |
-| `FW_SHEET_TAB` | Connect Cloud settings | Tab name, defaults to `submissions` |
-| `FW_GOOGLE_SERVICE_ACCOUNT_JSON` | Connect Cloud settings | The service account key, as the entire JSON on one line |
+| `FW_DATA_URL` | Connect Cloud settings | Read the six CSVs from a URL instead of `../fwise-data/schema/` |
 
 **Never commit a credential.** `.Renviron` and `*.json` are gitignored, with
 `manifest.json` explicitly re-included because it is configuration rather than a
@@ -415,7 +409,8 @@ The domain is registered with Namecheap and is held by the client.
 
 ## Known limitations
 
-- **The Google Sheets submission backend has never been run.** See
+- **There is no remote submission backend.** Submissions land in a local file
+  only. The GitHub write path needs a token that does not exist yet. See
   [Submissions](#submissions).
 - **`fw_country_burden()` returns a placeholder.** The landing page map is meant
   to contrast the *burden* (invasive fish species per country) against the

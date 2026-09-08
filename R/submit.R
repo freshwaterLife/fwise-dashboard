@@ -1,27 +1,24 @@
 # submit.R
 # The submission write path.
 #
-# There is ONE public function, fw_submit_attempt(record). The backend behind it
-# is chosen by the FW_SUBMIT_BACKEND environment variable, so switching from the
-# local file to Google Sheets is a configuration change and not a rewrite.
+# There is ONE public function, fw_submit_attempt(record), and it writes to
+# dev/submissions_local.csv. It works on a clean machine with no credentials.
 #
-# WHAT IS TESTED. The local backend. It writes to dev/submissions_local.csv and
-# works on a clean machine with no credentials present. This is the default.
+# THE GOOGLE SHEETS BACKEND HAS BEEN REMOVED. Submissions are moving to GitHub,
+# so the Sheets path was deleted rather than left sitting here as untested code
+# with credential handling in its documentation. It had never been run against a
+# real Sheet.
 #
-# WHAT IS NOT TESTED. The Sheets backend. The Google Cloud service account and
-# the submissions Sheet did not exist when this was written, so the code below is
-# a stub: it is written out in full but has never been run against a real Sheet.
-# Treat it as a starting point, not as working code, and expect to debug it once
-# the credentials exist. This is stated again in the README.
+# The GitHub write path is NOT built. It needs a token that does not exist yet
+# and is a separate job. Until it lands, the local file is the whole story.
 #
-# THE SHEET IS A RAW SUBMISSIONS INBOX, NOT THE SCHEMA. One flat row per
+# THE INBOX IS A RAW SUBMISSIONS LIST, NOT THE SCHEMA. One flat row per
 # submission. The repeatable species, methods and beneficiaries are serialised
 # into single pipe-delimited cells because a human reviewer reads them in a
 # spreadsheet during QA. Normalisation into the star schema happens manually in
 # that review, so the column layout is optimised for the reviewer, not for a
 # machine.
 
-library(glue)
 
 # The column order of the submissions inbox. Grouped the way a reviewer reads
 # them rather than the way the app collects them. Adding a field means adding it
@@ -125,11 +122,7 @@ fw_submit_attempt <- function(record, data = NULL) {
   flat <- fw_flatten_record(record)
 
   written <- tryCatch({
-    switch(
-      FW_SUBMIT_BACKEND,
-      "sheets" = fw_write_sheets(flat),
-      fw_write_local(flat)   # "local" and anything unrecognised
-    )
+    fw_write_local(flat)
     TRUE
   }, error = function(e) {
     warning("Submission write failed: ", conditionMessage(e))
@@ -199,12 +192,13 @@ fw_local_submission_path <- function() {
   file.path(FW_DEV_DIR, "submissions_local.csv")
 }
 
-# ---- Local backend (implemented and tested) ----------------------------------
+# ---- The write path ----------------------------------------------------------
 
 #' Append one row to dev/submissions_local.csv, creating it with headers
 #'
-#' The default. Works with no credentials on a clean machine, which is what
-#' makes the app runnable straight after renv::restore().
+#' The only backend. Works with no credentials on a clean machine, which is what
+#' makes the app runnable straight after renv::restore(). Replaced by the GitHub
+#' write path once a token exists.
 fw_write_local <- function(flat) {
   dir.create(FW_DEV_DIR, showWarnings = FALSE, recursive = TRUE)
   path <- fw_local_submission_path()
@@ -220,51 +214,6 @@ fw_write_local <- function(flat) {
   )
   invisible(path)
 }
-
-# ---- Sheets backend (STUB, never run) ----------------------------------------
-
-#' Append one row to the private review Sheet
-#'
-#' NOT TESTED. See the note at the top of this file.
-#'
-#' Guarded so it is unreachable unless FW_SUBMIT_BACKEND is "sheets" AND the
-#' credential variables are present. It authenticates from a JSON string held in
-#' an environment variable, never from a file in the repository, so no
-#' credential is ever committed and none reaches the browser.
-fw_write_sheets <- function(flat) {
-  sheet_id <- fw_env("FW_SHEET_ID")
-  sa_json  <- fw_env("FW_GOOGLE_SERVICE_ACCOUNT_JSON")
-
-  if (is.null(sheet_id) || is.null(sa_json)) {
-    stop("Sheets backend selected but FW_SHEET_ID or ",
-         "FW_GOOGLE_SERVICE_ACCOUNT_JSON is not set.", call. = FALSE)
-  }
-
-  if (!requireNamespace("googlesheets4", quietly = TRUE) ||
-      !requireNamespace("gargle", quietly = TRUE)) {
-    stop("googlesheets4 and gargle are required for the Sheets backend.",
-         call. = FALSE)
-  }
-
-  # The service account JSON arrives as a string in the environment. gargle wants
-  # a path, so it is written to a private temp file and deleted immediately after
-  # authentication, which keeps it off disk for the rest of the process.
-  tmp <- tempfile(fileext = ".json")
-  on.exit(unlink(tmp, force = TRUE), add = TRUE)
-  writeLines(sa_json, tmp)
-  Sys.chmod(tmp, "600")
-
-  googlesheets4::gs4_auth(path = tmp)
-
-  googlesheets4::sheet_append(
-    ss = sheet_id,
-    data = flat,
-    sheet = fw_env("FW_SHEET_TAB", default = "submissions")
-  )
-
-  invisible(TRUE)
-}
-
 
 # ---- Assembling a record from the form ---------------------------------------
 
