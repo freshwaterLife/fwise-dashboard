@@ -85,7 +85,7 @@ FW_COORD_DP <- 6
 FW_FEATURES <- list(
   home_built     = FALSE,
   explore_built  = FALSE,
-  plan_built     = FALSE,
+  plan_built     = TRUE,
   contribute_built = TRUE,
   networking_built = TRUE,
   about_built    = FALSE

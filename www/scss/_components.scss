@@ -270,6 +270,112 @@
   }
 }
 
+// ---- Report builder --------------------------------------------------------
+
+.fw-plan {
+  &__sidebar {
+    .fw-field { margin-block-end: $fw-space-2; }
+    .form-label { font-weight: 500; }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $fw-space-2;
+    align-items: center;
+    margin-block-start: $fw-space-3;
+  }
+
+  &__block {
+    margin-block-start: $fw-space-4;
+
+    h3 { margin-block: 0 $fw-space-1; }
+  }
+
+  // The qualification sits ABOVE the chart. A caveat printed underneath is read
+  // after the reader has already drawn their conclusion from the picture.
+  &__note {
+    max-width: 72ch;
+    margin-block: 0 $fw-space-2;
+    color: $fw-ink-muted;
+    font-size: $fw-size-caption;
+  }
+
+  &__empty,
+  &__zero {
+    border: 1px dashed rgba($fw-line-input, 0.6);
+    border-radius: $fw-radius-card;
+    padding: $fw-space-4;
+    background: $fw-paper;
+  }
+
+  &__download {
+    margin-block-start: $fw-space-4;
+    padding-block-start: $fw-space-3;
+    border-top: 1px solid rgba($fw-line-input, 0.35);
+
+    .fw-caption { margin-block-start: $fw-space-1; max-width: 60ch; }
+  }
+}
+
+// Outcome breakdown. The label and the count are TEXT; the bar is decoration.
+// A reader who cannot separate the colours loses nothing.
+.fw-outcome-bars {
+  display: grid;
+  gap: $fw-space-1;
+  max-width: 44rem;
+
+  &__row {
+    display: grid;
+    grid-template-columns: 7.5rem 1fr auto;
+    gap: $fw-space-2;
+    align-items: center;
+  }
+
+  &__label { font-weight: 500; }
+
+  &__track {
+    background: rgba($fw-line-input, 0.18);
+    border-radius: 3px;
+    height: 14px;
+    overflow: hidden;
+  }
+
+  &__fill { height: 100%; border-radius: 3px; }
+
+  &__value {
+    font-variant-numeric: tabular-nums;
+    color: $fw-ink-muted;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 560px) {
+    &__row { grid-template-columns: 6rem 1fr; }
+    &__value { grid-column: 2; }
+  }
+}
+
+// Caveats. ALWAYS VISIBLE, deliberately not an accordion - the reader who would
+// collapse it is the reader who needs it.
+.fw-caveats {
+  margin-block-start: $fw-space-4;
+  padding: $fw-space-4;
+  border-radius: $fw-radius-card;
+  background: $fw-shoal;
+  color: $fw-abyss;
+
+  h2 { margin-block: 0 $fw-space-2; font-size: $fw-size-h3; }
+  h3 { margin-block: 0 0.25rem; font-size: 1rem; }
+
+  &__block {
+    margin-block-end: $fw-space-2;
+    max-width: 78ch;
+
+    &:last-child { margin-block-end: 0; }
+    p { margin-block: 0 0.5rem; }
+  }
+}
+
 // ---- Dot motif -------------------------------------------------------------
 // The one decorative device in the app. Data present and data missing: most
 // dots sit at low opacity, a handful at full strength. Used behind the hero and

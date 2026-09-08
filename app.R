@@ -93,7 +93,7 @@ server <- function(input, output, session) {
 
   mod_home_server("home", FW_DATA)
   mod_explore_server("explore", FW_DATA)
-  mod_plan_server("plan", FW_DATA)
+  mod_plan_server("plan", FW_DATA, FW_META)
   mod_contribute_server("contribute", FW_DATA, FW_CHOICES)
   mod_networking_server("networking", FW_DATA)
   mod_about_server("about", FW_DATA)

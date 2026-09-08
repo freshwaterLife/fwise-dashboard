@@ -13,8 +13,8 @@ back to **1934**.
 > client can publish new data by pushing there, without touching or redeploying
 > this app. See [How the data layer works](#how-the-data-layer-works).
 
-> **Status: skeleton.** The Contribute and Contacts pages are built. Home,
-> Explore the data, Plan an eradication and About are deliberate stubs with
+> **Status.** Contribute, Networking and Plan an eradication (the report
+> builder) are built. Home, Explore the data and About are deliberate stubs with
 > their intended structure recorded in comments inside each module. See
 > [HANDOVER.md](HANDOVER.md) for exactly what is and is not done.
 
@@ -70,8 +70,11 @@ the machine. On macOS: `brew install gdal geos proj`.
 
 ```bash
 Rscript dev/smoke_test.R      # form gating, validation and the write path
+Rscript dev/plan_test.R       # report builder: gate, states, filters, export
 Rscript dev/check_contrast.R  # every colour pair against WCAG AA
 ```
+
+Both test scripts exit non-zero on failure, so they are usable from CI.
 
 Run `check_contrast.R` after changing **any** colour. It is the thing that
 catches an inaccessible palette before a user does.
@@ -91,6 +94,8 @@ catches an inaccessible palette before a user does.
 │   ├── data_load.R             the data contract, read by every module
 │   ├── data_prep.R             BUILD SCRIPT, not part of the running app
 │   ├── submit.R                the write path, and record assembly
+│   ├── export.R                the export contract. SHARED with the future
+│   │                           Zenodo release, so the two cannot disagree
 │   └── mod_*.R                 one file per page. The contribute page is split
 │                               into mod_contribute.R (server logic),
 │                               mod_contribute_steps.R (section builders) and
@@ -261,6 +266,66 @@ The data is read **once at startup**, not per session and not on a poll. It
 changes quarterly and visibility comes from a deliberate republish, so re-reading
 would spend a request per visitor to discover nothing had changed. A new release
 reaches users when the app restarts.
+
+---
+
+## The report builder
+
+`R/mod_plan.R`, with filters in `mod_plan_filters.R`, rendering in
+`mod_plan_results.R` and the export in `export.R`.
+
+**Results render only when Build report is pressed.** That is a design decision
+before it is a performance one. The client's steer was "controlled, informative,
+not random clicking", and the reason is credibility: a view that redraws under
+the cursor invites someone to land on a narrow, unrepresentative slice by
+accident and then cite it. **Do not make the results reactive to the filters.**
+The gap between changing a filter and seeing a result is the feature.
+
+Three states, all of which must keep working:
+
+| State | When | What it does |
+|---|---|---|
+| Empty | before any build | explains what the page does and what you will get |
+| Zero | filters match nothing | says so plainly and **names which filter to relax** |
+| Results | otherwise | summary, outcomes, map, method comparison, cumulative, table |
+
+**All four outcomes stay visible.** Successful, Failed, Ongoing and Unknown are
+never collapsed into a success rate. Failure teaches as much as success, and
+ongoing attempts show where the next results will come from.
+
+**Rotenone is never a headline.** It is 544 of 914 attempts and is socially
+sensitive. It appears inside the method comparison alongside every other method,
+reached by the user's own filtering. Do not add a hero statistic about it.
+
+**Colour is never the only encoding.** Every chart carries its numbers as text,
+the map labels each marker with its outcome, and the table below holds the same
+information. Colourblind safety is a stated client requirement.
+
+**The caveats panel is always visible**, never an accordion, and the same text
+goes into every export from the same function, so the two cannot say different
+things.
+
+### The export
+
+`fw_export_frame(data, attempt_ids)` is the one flattening function. The filtered
+download and the future full Zenodo dataset are the same call with and without
+ids — if they were built separately they could disagree, and a reader comparing
+a download against the citable dataset would find different numbers with no way
+to tell which was right. `dev/plan_test.R` asserts they agree cell for cell.
+
+Multi-value fields flatten to **semicolon-delimited single columns**. Neither of
+the source's own conventions survives: the eight numbered species columns become
+one column, and the underscore-nested taxa strings become one column. The
+underscore is a legacy convention of the client's spreadsheet; the semicolon is
+the published one, and the Field definitions sheet says so.
+
+`fw_assert_export_safe()` refuses to write a workbook containing an address
+belonging to a contact who asked not to be listed. Applying the redaction is not
+the same as guaranteeing it, and an export is the one place a mistake travels
+outside the building and cannot be recalled.
+
+PDF output is deliberately out of scope: Quarto rendering adds significant
+startup weight on Connect Cloud, and startup time is already a live concern.
 
 ---
 

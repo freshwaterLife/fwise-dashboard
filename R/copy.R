@@ -103,9 +103,100 @@ FW_COPY <- list(
   plan = list(
     title = "Plan an eradication",
     description = paste(
-      "Answer a short set of questions about your site and get a tailored summary",
-      "of comparable attempts, with a report you can share."
-    )
+      "Narrow the database to attempts like yours, then build a report of what",
+      "they did and what happened."
+    ),
+
+    # ---- The empty state, before anything is built ---------------------------
+    # A blank results area with a spinner tells a first-time visitor nothing.
+    # This says what the page is for and what they will get, so the deliberate
+    # Build step reads as a step rather than as the page failing to load.
+    empty_heading = "Build a report",
+    empty_body = paste(
+      "Set the filters on the left to describe the situation you are facing -",
+      "where you are, what species you are dealing with, what methods are open",
+      "to you - then select Build report."
+    ),
+    empty_body2 = paste(
+      "You will get a summary of the matching attempts, a map of where they",
+      "happened, how the methods used compare, and how the record has built up",
+      "over time. You can download the whole selection as a spreadsheet."
+    ),
+    empty_note = paste(
+      "Nothing is filtered out to begin with, so leaving everything set to All",
+      "and building gives you the whole database."
+    ),
+
+    # ---- Zero results --------------------------------------------------------
+    zero_heading = "No attempts match those filters",
+    zero_body = paste(
+      "That combination has nothing in it. This is common and usually says more",
+      "about what has been reported than about what is possible."
+    ),
+    zero_hint_lead = "Try relaxing one of these first:",
+    zero_hint_none = "Try clearing a filter and building again.",
+
+    build   = "Build report",
+    rebuild = "Rebuild with these filters",
+    stale   = "Filters have changed since this report was built.",
+    clear   = "Clear all filters",
+    download = "Download as spreadsheet",
+    download_note = paste(
+      "A spreadsheet of this exact selection, with the field definitions,",
+      "the filters you applied and the caveats on their own sheets."
+    ),
+
+    # ---- Filters -------------------------------------------------------------
+    f_heading   = "Describe your situation",
+    f_continent = "Continent",
+    f_country   = "Country",
+    f_taxa      = "Kind of animal",
+    f_species   = "Invasive species",
+    f_method    = "Method used",
+    f_regime    = "Still or flowing water",
+    f_outcome   = "Outcome",
+    f_years     = "Attempt began between",
+    f_no_year   = "Include attempts with no recorded start year",
+    f_no_year_help = paste(
+      "{n} attempts have no start year. Leaving this ticked keeps them in",
+      "whatever range you choose."
+    ),
+    f_any_note  = "Choosing more than one matches an attempt with any of them.",
+
+    # ---- Results -------------------------------------------------------------
+    r_heading    = "What the matching attempts show",
+    r_attempts   = "attempts",
+    r_countries  = "countries",
+    r_species    = "invasive species",
+    r_methods    = "methods used",
+    r_years      = "year range",
+    r_outcomes   = "Outcomes",
+    r_outcome_note = paste(
+      "All four states are shown. They are not combined into a single success",
+      "rate - see the caveats."
+    ),
+    r_map        = "Where these attempts happened",
+    r_map_note   = paste(
+      "Each marker is labelled with its outcome as well as coloured by it, so",
+      "the outcome never depends on colour alone, and the table below carries",
+      "the same information in text."
+    ),
+    r_map_missing = "{n} of these attempts have no coordinates and are not on the map.",
+    r_method     = "How the methods compare",
+    r_method_note = paste(
+      "Outcome mix within each method, with the number of attempts beside it.",
+      "Methods are not randomly assigned to sites, so this compares the",
+      "situations methods get used in as much as the methods themselves."
+    ),
+    r_cumulative = "How the record has built up",
+    r_cumulative_note = paste(
+      "Cumulative attempts by the year they began. This is a record of",
+      "reporting, so a rise can mean more work or better reporting of it."
+    ),
+    r_table      = "The matching attempts",
+    r_table_note = "The first {n} rows. Download the spreadsheet for all of them.",
+
+    caveats_heading = "Read this alongside the numbers"
   ),
 
   # ---- About -----------------------------------------------------------------
