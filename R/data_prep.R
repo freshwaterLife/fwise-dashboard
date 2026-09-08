@@ -546,11 +546,14 @@ fw_build_schema <- function() {
   # Written on every build rather than maintained by hand, so the row counts can
   # never drift away from the tables they describe. The app reads `release` for
   # the footer's "last updated" line.
+  # NO BUILD TIMESTAMP. A generated_at down to the second dirties this file on
+  # every rebuild even when nothing about the data changed, which is git noise
+  # standing where a real change should be visible. The release DATE is what the
+  # app shows and what a reader needs; when the commit happened is git's job.
   meta <- list(
     release       = format(Sys.Date()),
     source_export = basename(FW_SOURCE_CSV),
     generated_by  = "R/data_prep.R",
-    generated_at  = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
     row_counts    = list(
       attempt         = nrow(attempt),
       species         = nrow(species),

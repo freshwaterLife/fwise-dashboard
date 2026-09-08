@@ -41,10 +41,19 @@ transform, and the submission write path.
 
 ### Not done, and deliberately out of scope
 
-Landing page content, dashboard charts, maps of attempt data, filters and
-cross-filtering, the report generation engine and PDF output, data cleaning,
-taxonomy matching, species image scraping, authentication, and tests beyond the
-smoke check.
+Landing page content, the Explore/Dashboard page, the GitHub submission write
+path, PDF report output, data cleaning, taxonomy matching, species image
+scraping, and authentication.
+
+**PDF output** is deliberately deferred. Quarto rendering adds significant
+startup weight on Connect Cloud and startup time is already a live concern. The
+XLSX export covers the "take this away and cite it" need for now.
+
+**The GitHub submission write path** needs a token that does not exist yet. The
+Google Sheets backend was deleted rather than left as untested code carrying
+credential handling in its docs, so submissions currently land in
+`dev/submissions_local.csv` only. This is the biggest remaining gap before
+launch.
 
 ---
 
@@ -60,10 +69,11 @@ These need someone else before the page can be finished.
 | GitHub token for the submissions repo | Live submissions | `fw_write_local()` in `R/submit.R` is the only backend |
 | Zenodo DOI | Footer, About | `R/copy.R` `footer$doi_url` |
 | Public GitHub repository URL | Footer | `R/copy.R` `footer$github_url` |
-| FWISE team email address | Contacts page | `R/copy.R` `contacts$outro_email` |
+| FWISE team email address | Networking page | `R/copy.R` `networking$outro_email` |
 | Terms of data use | Contribute consent | `R/copy.R` `contribute$consent$terms_url` |
 | Review turnaround time | Confirmation screen | `R/copy.R` `contribute$confirm$followup` |
 | Reversed (light) logo artwork | Footer | would remove the plaque, see 5.6 |
+| `Key` column pasted into the master spreadsheet | Makes ids independent of the natural key | `fwise-data/id_registry/key_backfill.csv` |
 | Weird Fishes Advisory website URL | Footer logo link | `R/copy.R` `footer$wfa_url` |
 | Deployment credentials and domain | Going live | see README |
 
@@ -179,6 +189,34 @@ bundle, without which the manifest lists gitignored files the deploy cannot find
 The brief said `sf` only if genuinely needed. It is: `leaflet` **imports** it, so
 it is a hard dependency rather than optional. It needs GDAL, GEOS and PROJ on the
 deployment host, which lengthens the first Connect Cloud build.
+
+Rechecked when the lockfile was pruned, because `renv.lock` records leaflet's
+`Requirements` as empty and that makes `sf` look like an orphan it would be safe
+to drop. It is not. Reading the installed DESCRIPTIONs instead of the lockfile
+shows `leaflet` hard-imports both `sf` and `raster`, which in turn pull `s2`,
+`units`, `sp` and `terra`. **Do not try to drop them without dropping leaflet.**
+
+### 5.14 Identifiers are minted, not positional
+
+`attempt_id`, `species_id` and `contact_id` used to be row positions, the last
+two assigned after an alphabetical sort. They are now minted once and resolved
+through a committed registry in `fwise-data/id_registry/`. See the README section
+"Identifiers are permanent". The build stops if a natural key ever resolves to a
+different id than the registry holds.
+
+### 5.15 The report builder does not react to its filters
+
+`R/mod_plan.R` gates rendering behind an explicit Build report press. This is
+deliberate design, not an oversight or a performance hack. Making the results
+live would be a one-line change and should not be made.
+
+### 5.16 The approval gate is structural
+
+`fw_filter_approved()` in `data_load.R` removes unapproved rows AND every
+dimension row nothing approved refers to any more, before any module sees the
+data. A new page cannot leak a pending species or contact even if its author
+never thinks about approval. Do not "optimise" this by filtering only the fact
+table.
 
 ### 5.9 Two dev scripts are kept in version control
 
