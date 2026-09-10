@@ -41,34 +41,88 @@ fw_col_types <- list(
 
 # ---- Where the data comes from -----------------------------------------------
 
-# ONE resolver. Every read in the application goes through fw_data_file(), so
-# there is exactly one place that knows whether the data is on disk or on the far
-# end of an HTTPS request.
+# ONE RESOLVER. Every read in the application goes through fw_data_path(), so
+# there is exactly one place that knows whether the data is on disk, on the far
+# end of an authenticated API call, or at a plain URL.
 
-#' The root the data is read from
+#' Which of the three ways the data is reached
 #'
-#' Unset gives the sibling checkout at ../fwise-data/, which is what local
-#' development uses and means local development makes no network calls at all.
-#' An https:// value is a raw GitHub base URL, which is what Connect Cloud uses
-#' so the client can publish new data without a redeploy.
+#' THE TOKEN IS THE SWITCH, and it is the only thing a deployment sets. The
+#' repository and branch are constants in config.R because neither is a secret
+#' and neither varies.
+#'
+#'   local  ../fwise-data/, or whatever path FWISE_DATA_SOURCE names. No network
+#'          calls whatsoever, which is what local development runs on.
+#'   api    the private repository over the GitHub API, using FWISE_DATA_TOKEN.
+#'          This is production. It is also the only mode that can WRITE.
+#'   url    an https:// base read with no credential, for a public mirror.
+#'
+#' FWISE_DATA_SOURCE wins when it is set, so a test deploy can be pointed at a
+#' fork or a local path without a code change. It is not needed in production.
+fw_data_mode <- function() {
+  src <- FWISE_DATA_SOURCE
+  if (!is.null(src)) return(if (grepl("^https?://", src)) "url" else "local")
+  if (!is.null(FWISE_DATA_TOKEN)) return("api")
+  "local"
+}
+
+#' The root of a local or url source
+#'
+#' Meaningless in api mode, where the root is the repository itself.
 fw_data_source <- function() {
   src <- FWISE_DATA_SOURCE %||% FW_DATA_DIR
   # A trailing slash is the easiest thing in the world to leave on the end of a
-  # pasted URL, and it produces a "//" that some raw hosts 404 on.
+  # pasted URL, and it produces a "//" that some hosts 404 on.
   sub("/+$", "", src)
 }
 
-fw_source_is_remote <- function(src = fw_data_source()) {
-  grepl("^https?://", src)
-}
+fw_source_is_remote <- function() fw_data_mode() != "local"
 
-#' Resolve one file below the data root
+#' Resolve one file below the data root, fetching it if it is remote
+#'
+#' Returns something read_csv() and fromJSON() can open: a path on disk, a URL,
+#' or - in api mode - the path of the temporary file the response was streamed
+#' to. Every reader below therefore just opens a path and none of them contains
+#' a second copy of this decision.
+#'
+#' NULL means the file is not there. Some callers treat that as fatal and others
+#' as simply absent, which is why it is a return value rather than an error.
 #'
 #' @param ... path segments, e.g. "schema", "attempt.csv"
-fw_data_file <- function(..., src = fw_data_source()) {
+fw_data_path <- function(...) {
   parts <- c(...)
-  if (fw_source_is_remote(src)) paste(c(src, parts), collapse = "/")
-  else file.path(src, ...)
+  switch(
+    fw_data_mode(),
+    api = fw_gh_download(paste(parts, collapse = "/")),
+    url = paste(c(fw_data_source(), parts), collapse = "/"),
+    local = {
+      path <- file.path(fw_data_source(), ...)
+      if (file.exists(path)) path else NULL
+    }
+  )
+}
+
+#' Why a data file could not be read, in terms of how this app is configured
+#'
+#' Worth the words. A deployment that has not been given a token falls back to
+#' the sibling checkout, which does not exist on the server, and the resulting
+#' "no such file" names a path that means nothing to whoever is reading the log.
+#' This says which mode produced it and what to do about it.
+fw_data_missing <- function(rel) {
+  switch(
+    fw_data_mode(),
+    local = paste0(
+      "Could not read ", rel, " from ", fw_data_source(), ".\n",
+      "The app is in LOCAL mode, reading the sibling checkout. If this is a ",
+      "deployment, that directory does not exist there: set FWISE_DATA_TOKEN so ",
+      "the app reads ", FW_DATA_REPO, " over the GitHub API instead."),
+    api = paste0(
+      "Could not read ", rel, " from ", FW_DATA_REPO, "@", FW_DATA_REF,
+      " over the GitHub API.\n",
+      "The token is working - an unreadable repository would have failed with a ",
+      "clearer message - so the file itself is missing at that ref."),
+    url = paste0("Could not read ", rel, " from ", fw_data_source(), ".")
+  )
 }
 
 #' Load the six star-schema tables
@@ -78,11 +132,13 @@ fw_data_file <- function(..., src = fw_data_source()) {
 #' would spend a request per visitor to discover that nothing had changed.
 #'
 #' @return A named list of six tibbles.
-fw_load_data <- function(src = fw_data_source()) {
+fw_load_data <- function() {
   tables <- set_names(FW_TABLES) |>
     map(function(nm) {
-      read_csv(fw_data_file("schema", paste0(nm, ".csv"), src = src),
-               col_types = fw_col_types[[nm]], progress = FALSE)
+      rel  <- paste0("schema/", nm, ".csv")
+      path <- fw_data_path("schema", paste0(nm, ".csv"))
+      if (is.null(path)) stop(fw_data_missing(rel), call. = FALSE)
+      read_csv(path, col_types = fw_col_types[[nm]], progress = FALSE)
     })
 
   fw_validate_data(tables)
@@ -181,13 +237,14 @@ fw_review_count <- function(data) {
 #' A missing or unreadable file is not fatal - the app is still perfectly usable
 #' without a date in the footer, and failing to boot over it would be a poor
 #' trade.
-fw_load_metadata <- function(src = fw_data_source()) {
-  path <- fw_data_file("metadata.json", src = src)
-  out <- tryCatch(
-    jsonlite::fromJSON(path),
+fw_load_metadata <- function() {
+  out <- tryCatch({
+    path <- fw_data_path("metadata.json")
+    if (is.null(path)) NULL else jsonlite::fromJSON(path)
+  },
     error = function(e) {
-      warning("Could not read metadata.json from ", path, ": ",
-              conditionMessage(e), call. = FALSE)
+      warning("Could not read metadata.json: ", conditionMessage(e),
+              call. = FALSE)
       NULL
     }
   )
@@ -455,8 +512,8 @@ fw_load_iso <- function() {
 #' These sit at the ROOT of the data source, beside metadata.json, rather than
 #' in schema/ - they describe the standard, not this dataset.
 fw_read_lookup <- function(name) {
-  path <- fw_data_file(name)
-  if (!fw_source_is_remote() && !file.exists(path)) return(NULL)
+  path <- fw_data_path(name)
+  if (is.null(path)) return(NULL)
   suppressWarnings(readr::read_csv(path, show_col_types = FALSE,
                                    progress = FALSE))
 }

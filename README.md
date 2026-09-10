@@ -59,8 +59,9 @@ R -e 'shiny::runApp()'
 
 That is the whole setup. **No credentials are required, and the app makes no
 network calls in local development.** With nothing configured it reads
-`../fwise-data/schema/` and writes any submissions to
-`dev/submissions_local.csv`.
+`../fwise-data/schema/` and writes any submissions to `../fwise-data/inbox/`,
+one CSV per submission — the same shape the deployment writes over the API, so
+the QA loop is identical either way.
 
 `renv::restore()` will take a while the first time. `sf` is in the dependency
 list because `leaflet` imports it, and it needs GDAL, GEOS and PROJ present on
@@ -274,17 +275,42 @@ key resolving to a *different* id, not a key that no longer matches anything.
 
 ### Serving data without redeploying
 
-Set `FWISE_DATA_SOURCE` to the raw GitHub base URL of the `fwise-data`
-repository and the app reads from there instead of the sibling checkout. That
-lets the client publish new data by pushing a commit, with no redeploy.
+`fwise-data` is **private**, so an unauthenticated `raw.githubusercontent.com`
+URL returns 404. The app therefore talks to the GitHub contents API, and the
+whole of its production configuration is one environment variable:
 
 ```
-FWISE_DATA_SOURCE=https://raw.githubusercontent.com/ORG/fwise-data/main
+FWISE_DATA_TOKEN=github_pat_...
 ```
 
-Every read goes through `fw_data_file()` in `R/data_load.R`, which is the only
-place that knows whether the data is on disk or at the far end of an HTTPS
-request. **Leave the variable unset locally** and the app makes no network calls.
+Set it and the app reads `freshwaterLife/fwise-data@main` over the API and
+writes submissions back to it. Leave it unset and everything stays on the
+sibling checkout with no network calls at all. **The repository and branch are
+constants in `R/config.R`**, not settings — neither is a secret and neither
+varies, and making them configurable would only add ways to get a deployment
+wrong.
+
+The token is a fine-grained PAT, resource owner `freshwaterLife`, scoped to that
+one repository, with **Contents: Read and write**. Write, not just read, because
+the contribute form commits submissions to `inbox/`. It **expires**, and when it
+does the app stops serving data as well as accepting submissions — so the expiry
+date belongs in a calendar, not just in this file.
+
+Every read goes through `fw_data_path()` in `R/data_load.R` and every GitHub call
+through `R/github.R`, which are the only two places that know the data is not on
+local disk. `fw_data_mode()` resolves one of three modes and the startup log
+names which one it picked, so the first line of a Connect Cloud log tells you
+whether the token was seen:
+
+| mode | when | reads | writes |
+|---|---|---|---|
+| `local` | nothing set | `../fwise-data/` | `../fwise-data/inbox/` |
+| `api` | `FWISE_DATA_TOKEN` set | GitHub API | GitHub API |
+| `url` | `FWISE_DATA_SOURCE` is an `https://` base | plain HTTPS, no credential | not possible |
+
+`FWISE_DATA_SOURCE` still overrides the token if set, so a test deploy can be
+pointed at a fork, a branch or a local path without a code change. It is not
+needed in production.
 
 The data is read **once at startup**, not per session and not on a poll. It
 changes quarterly and visibility comes from a deliberate republish, so re-reading
@@ -433,17 +459,28 @@ Two things to know before editing:
 
 ## Submissions
 
-`fw_submit_attempt(record, data)` is the single entry point. It appends to
-`dev/submissions_local.csv`, creating it with headers if absent, and needs no
-credentials.
+`fw_submit_attempt(record, data)` is the single entry point. Where it writes is
+decided by `fw_data_mode()`: with a token it commits over the GitHub API, without
+one it writes to the local inbox and needs no credentials. **Both produce the
+same thing** — one CSV per submission in `inbox/`, named for its `submission_id`
+— so QA does not care which wrote it.
 
-**The Google Sheets backend has been removed.** Submissions are moving to GitHub,
-so the Sheets path was deleted rather than left in place as untested code with
+**One file per submission, not an append.** The GitHub API has no append: adding
+a row to a shared CSV means reading it, decoding it, appending, and PUTting the
+whole file back quoting the blob SHA it was read at, and two contributors
+pressing Send in the same moment make the second one 409 and need retry logic. A
+file per submission has no read-modify-write at all, and `submission_id` makes it
+idempotent for free.
+
+**A failed GitHub write is reported to the contributor, never quietly written to
+disk instead.** On Connect Cloud the container filesystem is discarded on
+restart, so a local fallback would hand someone a confirmation screen for a
+submission that was already gone.
+
+**The Google Sheets backend has been removed.** Submissions moved to GitHub, so
+the Sheets path was deleted rather than left in place as untested code with
 credential handling in its documentation. It had never been run against a real
 Sheet.
-
-**The GitHub write path is not built.** It needs a token that does not exist yet
-and is a separate job. Until it lands, the local file is the whole story.
 
 The inbox is a **raw submissions list, not the schema**. One flat row per
 submission, with the repeatable species, methods and beneficiaries serialised
@@ -456,9 +493,11 @@ duplicates.
 
 ### Testing the submit-review-publish loop locally
 
-`dev/merge_submissions.R` is **temporary scaffolding** so the whole loop can be
-exercised before the production path exists. It is meant to be deleted once the
-form writes to GitHub and QA happens in `fwise-data`.
+`dev/merge_submissions.R` is now **the QA step**, not scaffolding: pull
+`fwise-data`, run it, review, commit, push, restart the app. It reads
+`inbox/*.csv` and still reads the older `dev/submissions_local.csv` if one is
+present, so submissions made before the GitHub write path landed are not
+stranded.
 
 ```bash
 Rscript dev/merge_submissions.R --list      # read-only: what would be merged
@@ -469,7 +508,7 @@ Rscript dev/merge_submissions.R --approve   # merge and approve in one step
 The loop:
 
 1. Submit a record through the Contribute page. It lands in
-   `dev/submissions_local.csv`.
+   `../fwise-data/inbox/<submission_id>.csv`.
 2. Merge it. It enters the schema as **`pending`**, mints ids through the same
    registry as everything else, and creates any new species, method or contact
    rows it needs.
@@ -480,8 +519,11 @@ The loop:
    Restart the app and it appears everywhere.
 
 It is **idempotent** — `submission_id` is the natural key, so re-running merges
-nothing twice — and it marks merged inbox rows as `merged` so the in-review count
-does not count them again once they are in the schema.
+nothing twice — and it **moves** merged files to `inbox/merged/` so the in-review
+count does not count them again once they are in the schema. Moving rather than
+rewriting a status cell is what lets the app count outstanding submissions with a
+single directory listing instead of opening every file, which over the API would
+be one request per submission.
 
 It **warns about near-duplicate species**. The picker deliberately lets a
 contributor type a name we do not hold, which means "Arctic charr" arrives as a
@@ -501,7 +543,8 @@ copy it to `.Renviron` (gitignored) for local use.
 
 | Variable | Set where | Purpose |
 |---|---|---|
-| `FWISE_DATA_SOURCE` | Connect Cloud settings | Where the data is read from. Unset means `../fwise-data/`; an `https://` value is a raw GitHub base URL. Point it at the directory holding `metadata.json` and `schema/`, not at `schema/` itself. |
+| `FWISE_DATA_TOKEN` | Connect Cloud settings | **The only thing a deployment needs.** A fine-grained GitHub PAT with Contents: Read and write on `freshwaterLife/fwise-data`. Set means read and write over the GitHub API; unset means the local sibling checkout and no network calls. Expires — see "Serving data without redeploying". |
+| `FWISE_DATA_SOURCE` | rarely, for a test deploy | Overrides the above. A path reads that directory; an `https://` base reads over plain HTTPS with no credential and cannot write. Point it at the directory holding `metadata.json` and `schema/`, not at `schema/` itself. |
 
 **Never commit a credential.** `.Renviron` and `*.json` are gitignored, with
 `manifest.json` explicitly re-included because it is configuration rather than a

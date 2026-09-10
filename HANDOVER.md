@@ -35,7 +35,6 @@ These need someone else before the page can be finished.
 | Final headline and supporting copy | Landing page hero | `R/copy.R` `home$title`, `home$lead` |
 | Per-country invasive fish species file | The landing map's whole point | `fw_country_burden()` in `R/data_load.R` |
 | Case study content, before and after | Landing page | `R/mod_home.R` |
-| GitHub token for the submissions repo | Live submissions | `fw_write_local()` in `R/submit.R` is the only backend |
 | Zenodo DOI | Footer, About | `R/copy.R` `footer$doi_url` |
 | Public GitHub repository URL | Footer | `R/copy.R` `footer$github_url` |
 | FWISE team email address | Networking page | `R/copy.R` `networking$outro_email` |
@@ -378,6 +377,50 @@ Two traps, both already sprung once:
   (*Lota lota*, *Ameiurus nebulosus*). The **licence** is mandatory; the credit
   falls back to the source. Twenty species were recovered by that fix alone.
 
+### 5.24 One token, two directions, and the repository is a constant
+
+`fwise-data` is private, so `raw.githubusercontent.com` returns 404 and the
+original plan of a raw base URL cannot work. Both directions go through the
+GitHub contents API instead, in `R/github.R`, which is the only file that knows
+GitHub exists.
+
+**The deployment sets one variable, `FWISE_DATA_TOKEN`.** The repository and
+branch are constants in `config.R`. Neither is secret and neither varies, and an
+env var for each would only add ways to misconfigure a deploy without adding
+anything you could do with it. The token is also the mode switch: set it and the
+app is remote, unset it and local development makes no network calls at all,
+which is the promise `config.R` has always made.
+
+**One token does read and write.** Splitting them was considered and dropped. The
+argument for splitting was that a write-capable token sits in a public-facing
+process, but the submission path is built from a server-minted `submission_id`
+with nothing user-supplied in it, so reaching `schema/attempt.csv` would need the
+token exfiltrated from the process first. The cost of the split — two credentials
+to rotate, two expiry dates — was real and the benefit was not.
+
+**The consequence to write on a calendar: when the token expires the app stops
+serving data, not just submissions.**
+
+### 5.25 Submissions are one file each, and merging moves them
+
+`inbox/<submission_id>.csv`, not an append to a shared inbox. The GitHub API has
+no append: a shared file means read, decode, append, PUT quoting the blob SHA,
+and two contributors pressing Send in the same second make the second one 409.
+One file per submission has no read-modify-write to lose, and `submission_id`
+makes it idempotent for free.
+
+`merge_submissions.R` **moves** merged files to `inbox/merged/` rather than
+rewriting a status cell. That is what lets the in-review count list one directory
+instead of opening every file — which over the API would be a request per
+submission, to render a number.
+
+**A failed GitHub write shows the contributor an error and does not fall back to
+a local file.** On Connect Cloud the container filesystem is discarded on
+restart, so the fallback would print a confirmation screen for a submission that
+had already ceased to exist. That trap was live: `dev` is in `.rscignore`, so the
+old `fw_write_local()` created the directory inside the container, wrote the row,
+returned success, and lost it at the next restart.
+
 ### 5.16 The approval gate is structural
 
 `fw_filter_approved()` in `data_load.R` removes unapproved rows AND every
@@ -443,6 +486,12 @@ arrives as "Unknown" for QA to fill in.
 
 ## 6. Traps worth knowing about
 
+**A private repo answers 404, not 403.** GitHub will not admit that a repository
+a token cannot see exists, so a mis-scoped token — resource owner left as a
+personal account, or the repository not selected — looks exactly like a missing
+file. `fw_gh_message()` in `R/github.R` spells this out in the error rather than
+letting the log say "not found".
+
 **Shiny auto-sources everything in `R/`.** Any file dropped in there runs on
 boot. `R/data_prep.R` was rebuilding the star schema on every app start until its
 body was wrapped in `fw_build_schema()` behind a direct-invocation guard. Give
@@ -474,9 +523,10 @@ families to crayfish.
 
 1. Get the per-country invasive fish file. The landing page's central argument
    depends on it and everything else there is ready.
-2. Build the GitHub submission write path. The Sheets backend was deleted when
-   submissions moved to GitHub; nothing has replaced it yet, so submissions
-   currently land in a local file only.
+2. Watch the first live submission land in `fwise-data/inbox/` and run
+   `dev/merge_submissions.R` against it once, before the webinars. The path is
+   built and tested, but it has not yet been exercised against the real
+   repository with the real token.
 3. Replace the placeholder copy in `R/copy.R`, working down section 3.
 4. Confirm the Weird Fishes Advisory URL behind the footer logo
    (`footer$wfa_url`). The FWISE logo already links to freshwaterlife.org.

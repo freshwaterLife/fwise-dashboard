@@ -10,8 +10,9 @@
 # pushing to that repository without touching, rebuilding or redeploying the app.
 #
 # Nothing in here should ever assume the two are checked out together beyond the
-# development default below. In production the data arrives over HTTPS instead.
-# See fw_data_source() in data_load.R.
+# development default below. In production the data arrives over the GitHub API
+# instead, and submissions are written back the same way. See fw_data_mode() in
+# data_load.R and R/github.R.
 
 FW_ROOT       <- getwd()
 FW_DEV_DIR    <- file.path(FW_ROOT, "dev")
@@ -33,18 +34,36 @@ fw_env <- function(name, default = NULL) {
   if (identical(value, "")) default else value
 }
 
-# WHERE THE DATA COMES FROM. One variable, two modes, resolved by
-# fw_data_source() in data_load.R:
+# WHERE THE DATA COMES FROM.
 #
-#   unset            ../fwise-data/ - the sibling checkout, for development
-#   https://...      a raw GitHub base URL, for Posit Connect Cloud
+# THE DATA REPOSITORY IS A CONSTANT, NOT A SETTING. It is private, it is not
+# going to move, and its name is not a secret. Making it something the client has
+# to type into a deployment console would add a way to get the app wrong without
+# adding anything you can do with it.
+FW_DATA_REPO <- "freshwaterLife/fwise-data"
+FW_DATA_REF  <- "main"
+
+# THE ONE SECRET, and the switch. Set FWISE_DATA_TOKEN and the app reads the
+# repository above over the GitHub API and writes submissions back to it. Leave
+# it unset and everything stays on the local sibling checkout, making no network
+# calls at all - a developer on a train gets the same app as a developer at a
+# desk, and a GitHub outage does not stop local work.
 #
-# Local development therefore makes NO network calls. That is deliberate: a
-# developer on a train should get the same app as a developer at a desk, and a
-# GitHub outage should not stop local work.
+# It is a fine-grained personal access token with Contents: Read and write,
+# resource owner freshwaterLife, scoped to that one repository. IT EXPIRES, and
+# when it does the app stops reading data as well as accepting submissions.
+FWISE_DATA_TOKEN <- fw_env("FWISE_DATA_TOKEN", default = NULL)
+
+# THE OVERRIDE, and it is not needed in production. Set it to point a test deploy
+# at a fork, a branch or a local path without touching code. Three shapes, all
+# resolved by fw_data_mode() in data_load.R:
 #
-# Point the remote value at the directory holding metadata.json and schema/, not
-# at schema/ itself. A trailing slash is tolerated.
+#   unset            the token decides - API if it is set, ../fwise-data/ if not
+#   /some/path       that directory, read as files
+#   https://...      that base URL, read over plain HTTPS with NO credential
+#
+# Point it at the directory holding metadata.json and schema/, not at schema/
+# itself. A trailing slash is tolerated.
 FWISE_DATA_SOURCE <- fw_env("FWISE_DATA_SOURCE", default = NULL)
 
 # ---- Data visualisation palette ----------------------------------------------
