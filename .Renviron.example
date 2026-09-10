@@ -3,27 +3,40 @@
 # gitignored and must never be committed.
 #
 # The app runs with NONE of these set: it falls back to the sibling checkout at
-# ../fwise-data/ and writes submissions to dev/submissions_local.csv.
+# ../fwise-data/ and writes submissions to ../fwise-data/inbox/.
 
-# ---- Data source -------------------------------------------------------------
-# The ONE variable that says where the data comes from. Two modes:
+# ---- The data repository -----------------------------------------------------
+# THE ONE VARIABLE A DEPLOYMENT NEEDS, and the only secret in the project.
 #
-#   unset       ../fwise-data/ - the sibling checkout. Local development makes
-#               no network calls at all.
-#   https://... a raw GitHub base URL, for Posit Connect Cloud, so the client can
-#               publish new data by pushing rather than by redeploying.
+# fwise-data is private, so an unauthenticated raw.githubusercontent.com URL
+# returns 404. Set this to a fine-grained GitHub PAT - resource owner
+# freshwaterLife, scoped to fwise-data, Contents: Read and write - and the app
+# reads the data and writes submissions over the GitHub API.
+#
+# Leave it unset locally. The app then reads ../fwise-data/ and writes
+# submissions to ../fwise-data/inbox/, making no network calls at all.
+#
+# The repository and branch are constants in R/config.R, not variables. Neither
+# is a secret and neither varies.
+# FWISE_DATA_TOKEN=github_pat_...
+
+# ---- Override, not normally needed -------------------------------------------
+# Wins over the token. Use it to point a test deploy at a fork, a branch or a
+# local path without a code change:
+#
+#   /some/path   read that directory
+#   https://...  read that base URL over plain HTTPS with NO credential. Cannot
+#                write, so submissions will fail.
 #
 # Point it at the directory holding metadata.json and schema/, NOT at schema/
 # itself. A trailing slash is tolerated.
 #
-# Locally you can leave it unset. Setting it explicitly, as below, means the app
-# still finds the data when run from a different working directory.
+# Setting it explicitly, as below, means the app still finds the data when run
+# from a different working directory.
 # FWISE_DATA_SOURCE=/absolute/path/to/fwise-data
-# FWISE_DATA_SOURCE=https://raw.githubusercontent.com/ORG/fwise-data/main
 
 # ---- Submissions -------------------------------------------------------------
-# There is nothing to configure. Submissions append to dev/submissions_local.csv
-# and need no credentials.
-#
-# The Google Sheets backend has been REMOVED - submissions are moving to GitHub.
-# The GitHub write path is not built yet; it needs a token that does not exist.
+# Nothing further to configure. FWISE_DATA_TOKEN above covers both directions:
+# submissions are committed to inbox/ in the same repository the data is read
+# from. Without a token they are written to ../fwise-data/inbox/ instead, in the
+# same one-file-per-submission shape, so the QA loop is identical.

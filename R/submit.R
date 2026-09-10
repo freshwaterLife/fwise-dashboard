@@ -1,10 +1,18 @@
 # submit.R
 # The submission write path.
 #
-# There is ONE public function, fw_submit_attempt(record), and it writes to
-# dev/submissions_local.csv. It works on a clean machine with no credentials.
+# There is ONE public function, fw_submit_attempt(record). Where it writes is
+# decided by fw_data_mode(): with a token it commits to the data repository over
+# the GitHub API, without one it writes a file beside the local checkout. Both
+# produce the SAME THING - one CSV per submission, named for its submission id -
+# so QA and dev/merge_submissions.R do not care which one made it.
 #
-# Submissions to GitHub.
+# ONE FILE PER SUBMISSION, not an append to a shared inbox. The reason is the
+# GitHub API: it has no append. Adding a row to a shared file means reading it,
+# decoding it, appending, and PUTting the whole thing back quoting the blob SHA
+# it was read at - and two contributors pressing Send in the same moment make the
+# second one 409 and need retry logic. A file per submission has no
+# read-modify-write at all, and submission_id already makes it idempotent.
 # The column order of the submissions inbox. Grouped the way a reviewer reads
 # them rather than the way the app collects them. Adding a field means adding it
 # here AND in fw_flatten_record().
@@ -106,8 +114,13 @@ fw_submit_attempt <- function(record, data = NULL) {
 
   flat <- fw_flatten_record(record)
 
+  # NO FALLBACK TO THE LOCAL FILE IF THE GITHUB WRITE FAILS. On Connect Cloud
+  # the container filesystem is thrown away on restart, so a fallback would
+  # report success for a submission that is already gone. Telling the
+  # contributor to try again is worth more than a receipt for nothing.
   written <- tryCatch({
-    fw_write_local(flat)
+    where <- fw_write_submission(flat)
+    message("Submission ", record$submission_id, " written to ", where)
     TRUE
   }, error = function(e) {
     warning("Submission write failed: ", conditionMessage(e))
@@ -161,43 +174,97 @@ fw_submission_counts <- function(data, country) {
   )
 }
 
-#' Read back the local pending submissions, if any
+#' Everything sitting in the inbox that nobody has processed
+#'
+#' Feeds the in-review count and the confirmation screen's totals.
+#'
+#' THE TWO MODES RETURN DIFFERENT SHAPES, deliberately. Locally the files are on
+#' disk and reading all of them is free, so full rows come back. Over the API,
+#' reading each file would be one request per submission just to render a
+#' counter, so only the id and the status come back - the name of the file is
+#' enough to count it. fw_submission_counts() already guards on whether a
+#' country column is present, so the per-country figure simply falls to zero in
+#' production rather than costing a request per row.
+#'
+#' Merged submissions are not counted either way, because merging MOVES them to
+#' inbox/merged/ and neither listing recurses.
 fw_pending_submissions <- function() {
-  path <- fw_local_submission_path()
-  if (!file.exists(path)) {
-    return(data.frame())
+  if (fw_data_mode() == "api") {
+    files <- tryCatch(fw_gh_list("inbox"), error = function(e) character(0))
+    files <- files[grepl("\\.csv$", files)]
+    if (length(files) == 0) return(data.frame())
+    return(data.frame(
+      submission_id = sub("\\.csv$", "", files),
+      status = "pending",
+      stringsAsFactors = FALSE
+    ))
   }
-  tryCatch(
-    utils::read.csv(path, stringsAsFactors = FALSE, colClasses = "character"),
-    error = function(e) data.frame()
-  )
+
+  read_one <- function(f) {
+    tryCatch(utils::read.csv(f, stringsAsFactors = FALSE, colClasses = "character"),
+             error = function(e) NULL)
+  }
+
+  dir   <- fw_inbox_dir()
+  files <- if (dir.exists(dir)) list.files(dir, pattern = "\\.csv$", full.names = TRUE)
+           else character(0)
+  rows  <- lapply(files, read_one)
+
+  # The pre-inbox format, kept readable so submissions made before the GitHub
+  # write path landed are not stranded. dev/merge_submissions.R reads it too.
+  legacy <- fw_legacy_inbox_path()
+  if (file.exists(legacy)) rows <- c(rows, list(read_one(legacy)))
+
+  rows <- Filter(Negate(is.null), rows)
+  if (length(rows) == 0) return(data.frame())
+  as.data.frame(dplyr::bind_rows(rows))
 }
 
-fw_local_submission_path <- function() {
+#' Where submissions land when there is no token
+#'
+#' Beside the data checkout rather than in dev/, so the local loop is the same
+#' shape as production: one directory of one-file-per-submission that
+#' merge_submissions.R reads. Falls back to dev/ only when the sibling checkout
+#' is not there at all, which means someone has cloned the app on its own.
+fw_inbox_dir <- function() {
+  if (dir.exists(FW_DATA_DIR)) file.path(FW_DATA_DIR, "inbox")
+  else file.path(FW_DEV_DIR, "inbox")
+}
+
+fw_legacy_inbox_path <- function() {
   file.path(FW_DEV_DIR, "submissions_local.csv")
 }
 
 # ---- The write path ----------------------------------------------------------
 
-#' Append one row to dev/submissions_local.csv, creating it with headers
+#' Write one submission, wherever this deployment writes
 #'
-#' The only backend. Works with no credentials on a clean machine, which is what
-#' makes the app runnable straight after renv::restore(). Replaced by the GitHub
-#' write path once a token exists.
-fw_write_local <- function(flat) {
-  dir.create(FW_DEV_DIR, showWarnings = FALSE, recursive = TRUE)
-  path <- fw_local_submission_path()
-  new_file <- !file.exists(path)
+#' @return a human-readable description of where it went, for the log.
+fw_write_submission <- function(flat) {
+  name <- paste0(flat$submission_id[1], ".csv")
 
-  utils::write.table(
-    flat, path,
-    sep = ",", row.names = FALSE,
-    col.names = new_file,
-    append = !new_file,
-    qmethod = "double",
-    fileEncoding = "UTF-8"
-  )
-  invisible(path)
+  if (fw_data_mode() == "api") {
+    fw_gh_put(
+      paste0("inbox/", name),
+      readr::format_csv(flat),
+      paste0("Submission ", flat$submission_id[1])
+    )
+    return(paste0(FW_DATA_REPO, "/inbox/", name))
+  }
+
+  fw_write_local(flat, name)
+}
+
+#' Write one submission to the local inbox, creating the directory
+#'
+#' The no-credential path. Works on a clean machine, which is what makes the app
+#' runnable straight after renv::restore().
+fw_write_local <- function(flat, name = paste0(flat$submission_id[1], ".csv")) {
+  dir <- fw_inbox_dir()
+  dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+  path <- file.path(dir, name)
+  readr::write_csv(flat, path, na = "")
+  path
 }
 
 # ---- Assembling a record from the form ---------------------------------------

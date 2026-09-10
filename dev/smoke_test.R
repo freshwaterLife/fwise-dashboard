@@ -4,9 +4,11 @@
 #
 #     Rscript dev/smoke_test.R
 #
-# It writes a real row to dev/submissions_local.csv, so delete that file
-# afterwards if you want the confirmation counts to start from the database
-# figure again.
+# It writes a real submission through the real write path and then deletes the
+# file it made, so the sibling data checkout is left as it was found. It asserts
+# against THAT file rather than against whatever is already in the inbox - an
+# earlier version read line 2 of the shared inbox, which passed on a stale row
+# from a previous run and would have gone on passing if the write had broken.
 #
 # NOTE: this file tests the ONE SCROLLING PAGE form. It previously tested a
 # stepped wizard - next_step, step_i(), live_steps() - none of which has existed
@@ -73,8 +75,14 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   session$setInputs(send = 1)
   r <- result()
   ok("submission succeeded", r$success, TRUE)
+
+  written <- file.path(fw_inbox_dir(), paste0(r$submission_id, ".csv"))
+  ok("the submission is on disk where it says it is", file.exists(written), TRUE)
   ok("email_public recorded as yes",
-     grepl("yes", readLines("dev/submissions_local.csv")[2]), TRUE)
+     grepl("yes", readLines(written)[2]), TRUE)
+  # Leave no litter in fwise-data. The row has been checked; keeping it would
+  # inflate the in-review count of whoever runs the app next.
+  unlink(written)
   cat("  counts: total", r$total_attempts, "| Norway", r$country_attempts, "\n")
   ok("stage is done", stage(), "done")
 })

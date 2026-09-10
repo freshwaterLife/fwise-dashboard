@@ -37,9 +37,13 @@ FW_LAST_UPDATED <- fw_last_updated(FW_DATA, FW_META)
 # else, so it is accurate as of the last republish rather than live.
 FW_IN_REVIEW <- fw_review_count(FW_DATA)
 
+# Naming the mode is the first thing to check when a deployment misbehaves: it
+# says in one word whether the token was picked up, and submissions can only be
+# written at all in api mode.
 message("FWISE startup: ", nrow(FW_DATA$attempt), " attempts, ",
         nrow(FW_DATA$contact), " contacts, released ", format(FW_LAST_UPDATED),
-        ", source ", if (fw_source_is_remote()) "remote" else "local")
+        ", mode ", fw_data_mode(),
+        if (fw_data_mode() == "api") paste0(" (", FW_DATA_REPO, "@", FW_DATA_REF, ")") else "")
 
 # ---- UI ----------------------------------------------------------------------
 
