@@ -137,15 +137,21 @@ fw_step_site_ui <- function(ns, choices) {
     fw_step_intro("site"),
     fw_field(fw_text_input(ns("site_name")), "Site name", required = TRUE,
              tooltip = FW_TIPS$site_name, input_id = ns("site_name")),
-    # TODO(alex): the specification asks for "a searchable dropdown of Sovereign
-    # ISO and Location ISO". The simplest reading is implemented: a country
-    # dropdown from data/lookup_country.csv plus a free-text region box. If the
-    # client wants a true two-level ISO picker, the lookup table already carries
-    # iso3 and region and can drive it.
+    # THE TWO-LEVEL ISO PICKER the specification asked for. Country is the full
+    # ISO 3166-1 list with the countries FWISE already holds records for at the
+    # top; region is that country's ISO 3166-2 subdivisions, filled in by the
+    # server once a country is chosen. Both lists are built offline by
+    # dev/build_iso_lookups.R and read from disk - see fw_load_iso().
     fw_field(fw_select(ns("country"), choices$country), "Country", required = TRUE,
              tooltip = FW_TIPS$country, input_id = ns("country")),
-    fw_field(fw_text_input(ns("region")), "Region or state",
-             help = "Optional. Use it where the country alone is not specific enough.",
+    fw_other_panel(ns, "country", "country_other",
+                   "Please name the country or territory"),
+    # Starts empty and is populated from the chosen country. A country with no
+    # subdivisions in the standard, or one typed in by hand, leaves this as free
+    # text - see the observer in mod_contribute.R.
+    fw_field(fw_select(ns("region"), character(0)), "Region or state",
+             help = paste("Optional. Choose the state, province or region, or",
+                          "type one if it is not listed."),
              input_id = ns("region")),
 
     div(

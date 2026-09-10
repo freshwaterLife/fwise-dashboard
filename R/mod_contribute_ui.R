@@ -9,20 +9,29 @@ fw_intro_panel <- function(ns) {
   block <- function(heading, body) {
     tagList(tags$h3(heading), p(body))
   }
+  tagList(
+  # PINNED ABOVE EVERYTHING ELSE. What counts as an eradication, and that FWISE
+  # is about animals rather than plants, decide whether someone should be
+  # filling this form in at all - so they are the first thing on the page,
+  # not the fourth panel down where the old layout had them.
+  fw_preamble(),
+
   div(
     class = "fw-panel fw-prose",
     tags$h2(fw_t("contribute", "intro", "heading")),
     block(fw_t("contribute", "intro", "what_heading"), fw_t("contribute", "intro", "what")),
     block(fw_t("contribute", "intro", "review_heading"), fw_t("contribute", "intro", "review")),
-    block(fw_t("contribute", "intro", "time_heading"), fw_t("contribute", "intro", "time")),
-    block(fw_t("contribute", "intro", "scope_heading"), fw_t("contribute", "intro", "scope")),
     block(fw_t("contribute", "intro", "no_save_heading"), fw_t("contribute", "intro", "no_save")),
+    block(fw_t("contribute", "intro", "time_heading"), fw_t("contribute", "intro", "time")),
 
     div(
       style = "margin-block: 1.5rem;",
       downloadButton(ns("download_questions"),
                      fw_t("contribute", "intro", "download_label"),
                      class = "btn btn-outline-primary"),
+      downloadButton(ns("download_questions_txt"),
+                     fw_t("contribute", "intro", "download_label_txt"),
+                     class = "btn btn-outline-primary btn-sm"),
       div(class = "fw-caption", style = "margin-block-start:.4rem;",
           fw_t("contribute", "intro", "download_hint"))
     ),
@@ -45,6 +54,41 @@ fw_intro_panel <- function(ns) {
                    class = "btn btn-primary")
     )
   )
+  )
+}
+
+#' What counts as an eradication, and what belongs in FWISE
+#'
+#' One definition, one place. Shown at the top of the contribute page and again
+#' on the About page, because a contributor and a reader have to be working from
+#' the same definition for the database to mean anything.
+fw_preamble <- function() {
+  div(
+    class = "fw-preamble",
+    tags$h2(fw_t("contribute", "preamble", "heading")),
+    p(class = "fw-lead",
+      tags$strong(fw_t("contribute", "preamble", "definition")),
+      " - ",
+      tags$em(fw_t("contribute", "preamble", "citation"))),
+    tags$h2(fw_t("contribute", "preamble", "scope_heading")),
+    tags$ul(lapply(fw_t("contribute", "preamble", "scope"),
+                   function(point) tags$li(fw_emphasis(point))))
+  )
+}
+
+#' Render the one piece of markup the copy file is allowed to carry
+#'
+#' FW_COPY is plain text so it stays diffable and easy to hand back to the
+#' client. A couple of sentences need a single word emphasised mid-clause, and
+#' chopping those strings into fragments to wrap in tags$strong() makes them
+#' unreadable at the point they are written. So **this** is understood, nothing
+#' else is, and every part still goes through htmltools' escaping.
+fw_emphasis <- function(text) {
+  parts <- strsplit(text, "**", fixed = TRUE)[[1]]
+  if (length(parts) < 2) return(text)
+  do.call(tagList, lapply(seq_along(parts), function(i) {
+    if (i %% 2 == 0) tags$strong(parts[[i]]) else parts[[i]]
+  }))
 }
 
 #' The whole form, on one page
@@ -321,13 +365,11 @@ fw_confirmation <- function(ns, res) {
 
   div(
     class = "fw-confirm",
-    # The dot motif settling into place. Restrained on purpose: this responds to
-    # the submit action rather than performing on page load, and it is disabled
-    # under prefers-reduced-motion by the global rule.
     fw_confirm_mark(),
     tags$h2(class = "fw-confirm__heading", fw_t("contribute", "confirm", "heading")),
     p(class = "fw-confirm__body", body),
     p(class = "fw-confirm__body", fw_t("contribute", "confirm", "followup")),
+    p(class = "fw-confirm__body", fw_t("contribute", "confirm", "thanks")),
     p(class = "fw-caption",
       "Your reference is ",
       tags$span(class = "fw-num", res$submission_id)),
@@ -341,23 +383,18 @@ fw_confirmation <- function(ns, res) {
   )
 }
 
-#' A small ring of dots, staggered so they settle rather than appear at once
+#' The mark above the confirmation
+#'
+#' [PLACEHOLDER] A frog, standing in until the client picks the real thing -
+#' likely an animated GIF. To swap it, replace the span below with an
+#' tags$img(src = "img/whatever.gif") and keep the class and the aria-label:
+#' the sizing, the centring and the reduced-motion rule all hang off
+#' .fw-confirm__mark, and the label is what a screen reader announces in place
+#' of an image that says nothing on its own.
 fw_confirm_mark <- function() {
-  n <- 12
-  dots <- lapply(seq_len(n), function(i) {
-    angle <- 2 * pi * (i - 1) / n
-    tags$circle(
-      cx = sprintf("%.2f", 48 + 34 * cos(angle)),
-      cy = sprintf("%.2f", 48 + 34 * sin(angle)),
-      r = if (i %% 4 == 0) "5" else "3.2",
-      fill = if (i %% 4 == 0) "var(--fw-primary)" else "var(--fw-shallow)",
-      opacity = if (i %% 4 == 0) "1" else "0.55",
-      style = sprintf("animation-delay: %dms;", (i - 1) * 40)
-    )
-  })
-  tags$svg(
-    class = "fw-confirm__mark", viewBox = "0 0 96 96",
+  tags$span(
+    class = "fw-confirm__mark",
     role = "img", `aria-label` = "Submission received",
-    do.call(tagList, dots)
+    "\U0001F438"
   )
 }

@@ -69,9 +69,9 @@ h4 { font-size: $fw-size-lead; }
 // Step the scale down on narrow screens. At 375px the desktop sizes wrap a
 // three-word heading onto three lines, which reads as broken rather than bold.
 @media (max-width: 480px) {
-  h1 { font-size: 1.7rem; }
-  h2 { font-size: 1.4rem; }
-  h3 { font-size: 1.2rem; }
+  h1 { font-size: 1.8rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
 }
 
 p { margin-block: 0 $fw-space-2; }

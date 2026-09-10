@@ -68,8 +68,6 @@ mod_networking_ui <- function(id) {
           div(class = "fw-table-scroll", uiOutput(ns("table"))),
           uiOutput(ns("pager")),
 
-          fw_dots_divider(),
-
           div(
             class = "fw-panel fw-prose",
             h2(fw_t("networking", "outro_heading")),
@@ -277,6 +275,11 @@ mod_networking_server <- function(id, data) {
         tags$tr(
           tags$td(r$contact_name),
           tags$td(r$organisation %|na|% fw_t("networking", "no_organisation")),
+          # Continent as well as country. Someone looking for "anyone in
+          # Africa" should not have to know which 29 countries are in the
+          # database to find out there are two. Both are derived from the
+          # attempts a contact is attached to - see fw_contacts_summary().
+          tags$td(r$continent_label),
           tags$td(r$country_label),
           tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
           tags$td(fw_contact_action(r$contact_email, r$contact_name)),
@@ -303,6 +306,7 @@ mod_networking_server <- function(id, data) {
         tags$thead(tags$tr(
           tags$th(scope = "col", fw_t("networking", "col_name")),
           tags$th(scope = "col", fw_t("networking", "col_organisation")),
+          tags$th(scope = "col", fw_t("networking", "col_continent")),
           tags$th(scope = "col", fw_t("networking", "col_country")),
           tags$th(scope = "col", class = "fw-col-num", fw_t("networking", "col_attempts")),
           tags$th(scope = "col", fw_t("networking", "col_contact")),
@@ -312,8 +316,8 @@ mod_networking_server <- function(id, data) {
       )
     })
 
-    # Route through to the explore page. That view is not built yet, so the
-    # explore stub acknowledges the request rather than dead-ending.
+    # Route through to the dashboard, which reads the request and narrows to
+    # this person's attempts. See mod_explore.R.
     observeEvent(input$view_contact, {
       fw_set_explore_request(input$view_contact)
       session$sendCustomMessage("fw-nav", "explore")

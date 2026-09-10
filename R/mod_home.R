@@ -25,8 +25,8 @@
 #   - The page order is fixed: headline, then KPIs, then map, then case studies.
 #
 # SECTION 1 - HERO
-#   Full-bleed. $fw-silt background carrying the dot texture (fw_dots_divider()
-#   uses the same motif; the hero wants the .fw-dots background class).
+#   Full-bleed. $fw-silt background carrying the dot texture: put the .fw-dots
+#   class on the hero section.
 #   A bold headline. FW_COPY$home$title is a marked placeholder; the final
 #   wording belongs to the client.
 #   A supporting sentence of one or two lines beneath it.
@@ -83,8 +83,8 @@
 #   landing page still gets the core message. Do not "fix" it by removing one.
 #
 # DOT MOTIF BUDGET
-#   At most two uses on this page (the hero texture and one divider). The motif
-#   appears nowhere else in the app.
+#   The hero texture and nothing else. The dotted divider that used to sit
+#   between sections was removed on client feedback; do not bring it back.
 # ==============================================================================
 
 mod_home_ui <- function(id) {

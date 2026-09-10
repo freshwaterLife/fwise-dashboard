@@ -92,11 +92,11 @@ ui <- page_navbar(
 server <- function(input, output, session) {
 
   mod_home_server("home", FW_DATA)
-  mod_explore_server("explore", FW_DATA)
+  mod_explore_server("explore", FW_DATA, FW_IN_REVIEW)
   mod_plan_server("plan", FW_DATA, FW_META)
   mod_contribute_server("contribute", FW_DATA, FW_CHOICES)
   mod_networking_server("networking", FW_DATA)
-  mod_about_server("about", FW_DATA)
+  mod_about_server("about", FW_DATA, FW_META)
 
   # Cross-page links (the stub actions, the hero buttons) set this rather than
   # each module reaching into the navbar itself.

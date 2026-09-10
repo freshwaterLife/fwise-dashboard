@@ -12,21 +12,37 @@
 # So do not "make the results reactive to the filters". The gap between changing
 # a filter and seeing a result is the feature.
 #
-# WHAT THIS REPLACED. The stub here described a guided questionnaire with outcome
-# deliberately excluded from the questions. Both points are superseded: the
-# client's metrics framework lists outcome among the filters, and the filter
-# panel was chosen over the questionnaire. The reasoning that outcome filtering
-# can produce false optimism has not gone away - it is answered here by keeping
-# all four outcome states visible in every result and by the caveats panel,
-# rather than by hiding the control.
+# NO OUTCOME FILTER ON THIS PAGE. The dashboard has one; this page does not, and
+# that asymmetry is the client's decision, not an oversight. The reasoning
+# (Graden, metrics framework): given their situation - region, species,
+# waterbody type and size - a user planning an eradication should see EVERYTHING
+# that has been tried there and its association with success and failure.
+# Letting them filter to successes only produces false optimism about their own
+# site, and letting them filter to failures is no better. Browsing the evidence
+# base is a different activity, so the control lives there instead.
 #
-# Filters live in mod_plan_filters.R, rendering in mod_plan_results.R, and the
-# export in export.R, which is shared with the future Zenodo release.
+# All four outcome states stay visible in every result regardless, and the
+# caveats panel sits beside them.
+#
+# The filter panel lives in mod_plan_filters.R, the shared filter engine in
+# filters.R, rendering in mod_plan_results.R, and the export in export.R, which
+# is shared with the future Zenodo release.
 
 library(shiny)
 library(bslib)
 library(dplyr)
 
+#' The report builder page
+#'
+#' STACKED, NOT SIDE BY SIDE. The filter panel is the whole width of the page
+#' and the results sit underneath it. The dashboard still uses
+#' fw_sidebar_layout(); this page deliberately does not. See the note at the top
+#' of mod_plan_filters.R for the three reasons, the first of which is that a
+#' reader should answer the questions before they can see any answer.
+#'
+#' The results carry an id because the server scrolls to them on Build. With the
+#' panel above rather than beside, a rebuild otherwise leaves the reader looking
+#' at the controls with no sign that anything happened below the fold.
 mod_plan_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -35,14 +51,9 @@ mod_plan_ui <- function(id) {
       id = "fw-main",
       fw_section(
         fw_container(
-          layout_sidebar(
-            fillable = FALSE,
-            sidebar = sidebar(
-              width = 320, class = "fw-plan__sidebar",
-              uiOutput(ns("filters"))
-            ),
-            uiOutput(ns("results"))
-          )
+          uiOutput(ns("filters")),
+          div(id = ns("results_anchor"), class = "fw-plan__results",
+              uiOutput(ns("results")))
         )
       )
     )
@@ -55,18 +66,21 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
     # Built once from the approved data. fw_load_data() has already removed
     # anything unapproved, so no option list here can leak a pending record.
-    choices <- fw_plan_choices(data)
+    choices <- fw_filter_choices(data)
+    ids <- fw_plan_filter_ids()
 
     output$filters <- renderUI(fw_plan_filters_ui(ns, choices))
 
-    observeEvent(input$clear, {
-      for (nm in c("continent", "country", "taxa", "species", "method",
-                   "regime", "outcome")) {
-        updateSelectizeInput(session, nm, selected = character(0))
-      }
-      updateSliderInput(session, "years",
-                        value = c(choices$year_min, choices$year_max))
-      updateCheckboxInput(session, "include_no_year", value = TRUE)
+    # Driven from the same id list as everything else, so a filter added to
+    # FW_FILTERS is cleared without a second edit here.
+    observeEvent(input$clear, fw_filter_clear(session, ids, choices))
+
+    # The slider's own tick labels are switched off because they pile up over a
+    # 90-year span, so the chosen range is printed in words instead.
+    output$years_readout <- renderText({
+      y <- input$years
+      if (is.null(y)) return("")
+      paste(y[1], fw_t("filters", "range_of"), y[2])
     })
 
     # THE GATE. eventReactive, so nothing below recomputes until Build is
@@ -74,8 +88,8 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # caveats and the download all describe the same selection even if the user
     # goes on to change a control.
     report <- eventReactive(input$build, {
-      f <- fw_plan_filter_state(input)
-      sel <- fw_plan_apply(data, f)
+      f <- fw_filter_state(input, ids)
+      sel <- fw_filter_apply(data, f)
       list(
         filters = f,
         sel     = sel,
@@ -90,19 +104,31 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # against a year range that does not exist yet.
     built <- reactive(!is.null(input$build) && input$build > 0)
 
+    # The results are BELOW the questions now, so a build that lands off screen
+    # looks like a build that did nothing. Scroll to them, and say what happened
+    # in the live region for anyone who is not watching the screen.
+    observeEvent(input$build, {
+      session$sendCustomMessage("fw-scroll-to", ns("results_anchor"))
+      session$sendCustomMessage("fw-announce", sub(
+        "{n}", fw_fmt_num(nrow(report()$sel)),
+        fw_t("plan", "built_announce"), fixed = TRUE
+      ))
+    })
+
     output$results <- renderUI({
       if (!built()) return(fw_plan_empty_ui())
       r <- report()
 
       if (nrow(r$sel) == 0) {
         return(tagList(
-          fw_plan_zero_ui(fw_plan_zero_hints(data, r$filters)),
+          fw_plan_zero_ui(fw_filter_zero_hints(data, r$filters)),
           fw_plan_caveats_ui(data)
         ))
       }
 
       s <- fw_plan_summary(data, r$sel)
       n_no_coords <- sum(is.na(r$sel$latitude) | is.na(r$sel$longitude))
+      n_duration <- sum(!is.na(r$sel$duration_days) & r$sel$duration_days > 0)
 
       tagList(
         h2(fw_t("plan", "r_heading")),
@@ -110,13 +136,13 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
         fw_plan_block(
           fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
-          fw_plan_outcome_ui(r$sel)
+          fw_outcome_bars_ui(r$sel)
         ),
 
         fw_plan_block(
           fw_t("plan", "r_map"), fw_t("plan", "r_map_note"),
           tagList(
-            leaflet::leafletOutput(ns("map"), height = 420),
+            fw_map_output(ns("map")),
             if (n_no_coords > 0) {
               p(class = "fw-caption",
                 sub("{n}", fw_fmt_num(n_no_coords),
@@ -127,7 +153,32 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
         fw_plan_block(
           fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
-          plotly::plotlyOutput(ns("methods"), height = "auto")
+          tagList(
+            # One chart, two questions. "Share" answers how often a method
+            # worked; "count" answers how much evidence stands behind that.
+            div(
+              class = "fw-segmented",
+              radioButtons(
+                ns("method_mode"), label = fw_t("plan", "r_method_mode"),
+                choices = stats::setNames(
+                  c("share", "count"),
+                  c(fw_t("plan", "r_method_share"), fw_t("plan", "r_method_count"))
+                ),
+                selected = "share", inline = TRUE
+              )
+            ),
+            plotly::plotlyOutput(ns("methods"), height = "auto")
+          )
+        ),
+
+        fw_plan_block(
+          fw_t("plan", "r_duration"), fw_t("plan", "r_duration_note"),
+          tagList(
+            plotly::plotlyOutput(ns("duration"), height = "auto"),
+            p(class = "fw-caption",
+              sub("{n}", fw_fmt_num(n_duration),
+                  fw_t("plan", "r_duration_missing"), fixed = TRUE))
+          )
         ),
 
         fw_plan_block(
@@ -137,16 +188,53 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
         fw_plan_block(
           fw_t("plan", "r_table"),
-          sub("{n}", min(FW_PLAN_TABLE_ROWS, nrow(r$export)),
+          sub("{n}", fw_fmt_num(nrow(r$export)),
               fw_t("plan", "r_table_note"), fixed = TRUE),
-          div(class = "fw-table-scroll", fw_plan_table(r$export))
+          tagList(
+            # The page-size select sits HERE, not inside the table's own
+            # uiOutput. A select rebuilt by renderUI comes back at its default,
+            # so a reader's choice of 100 would be thrown away every time they
+            # turned a page. Same lesson as the contacts directory.
+            div(
+              class = "fw-table-toolbar",
+              div(
+                class = "fw-table-toolbar__size",
+                tags$label(class = "form-label", `for` = ns("table_size"),
+                           fw_t("plan", "r_table_size")),
+                selectInput(ns("table_size"), label = NULL,
+                            choices = FW_PLAN_PAGE_SIZES,
+                            selected = FW_PLAN_PAGE_SIZES[1],
+                            selectize = FALSE, width = "auto")
+              )
+            ),
+            div(class = "fw-table-scroll", uiOutput(ns("table_body"))),
+            uiOutput(ns("table_pager"))
+          )
         ),
 
         div(
           class = "fw-plan__download",
-          downloadButton(ns("download"), fw_t("plan", "download"),
-                         class = "btn btn-primary"),
-          p(class = "fw-caption", fw_t("plan", "download_note"))
+          h3(fw_t("plan", "download_heading")),
+          div(
+            class = "fw-plan__download-grid",
+            div(
+              class = "fw-plan__download-option",
+              downloadButton(ns("download"), fw_t("plan", "download"),
+                             class = "btn btn-primary"),
+              p(class = "fw-caption", fw_t("plan", "download_note"))
+            ),
+            div(
+              class = "fw-plan__download-option",
+              # An ordinary downloadHandler. It used to be an actionButton that
+              # asked the browser to photograph every chart before a hidden
+              # download button could be clicked on the reader's behalf; the
+              # HTML report needs no pictures, so all of that is gone. See the
+              # header of R/report_html.R.
+              downloadButton(ns("download_html"), fw_t("plan", "download_html"),
+                             class = "btn btn-primary"),
+              p(class = "fw-caption", fw_t("plan", "download_html_note"))
+            )
+          )
         ),
 
         # ALWAYS VISIBLE, never collapsed. Same text as the export's caveats
@@ -155,15 +243,87 @@ mod_plan_server <- function(id, data, meta = NULL) {
       )
     })
 
-    output$map        <- leaflet::renderLeaflet({ req(built()); fw_plan_map(report()$sel) })
-    output$methods    <- plotly::renderPlotly({ req(built()); fw_plan_method_chart(data, report()$sel) })
-    output$cumulative <- plotly::renderPlotly({ req(built()); fw_plan_cumulative_chart(report()$sel) })
+    output$map <- leaflet::renderLeaflet({ req(built()); fw_plan_map(data, report()$sel) })
+
+    # The mode toggle is the ONE control that redraws without a rebuild. It does
+    # not change the selection, only how the same numbers are drawn, so it does
+    # not undermine the deliberate build step above.
+    output$methods <- plotly::renderPlotly({
+      req(built())
+      fw_chart_method(data, report()$sel, mode = input$method_mode %||% "share")
+    })
+    output$duration   <- plotly::renderPlotly({ req(built()); fw_chart_duration(data, report()$sel) })
+    output$cumulative <- plotly::renderPlotly({ req(built()); fw_chart_cumulative(report()$sel) })
+
+    # ---- The results table's paging -----------------------------------------
+    #
+    # These read report() but do NOT rebuild it, so turning a page or changing
+    # the page size redraws the table alone and leaves the rest of the report
+    # standing.
+
+    per_page <- reactive(as.integer(input$table_size %||% FW_PLAN_PAGE_SIZES[1]))
+
+    # A new report, or a bigger page size, can leave the reader on a page that
+    # no longer exists. Clamping beats an empty table with no explanation.
+    table_page <- reactive({
+      n_pages <- fw_plan_pages(nrow(report()$export), per_page())
+      min(max(1L, as.integer(input$table_page %||% 1L)), n_pages)
+    })
+
+    observeEvent(report(), updateTextInput(session, "table_page", value = 1L),
+                 ignoreInit = TRUE)
+    observeEvent(input$table_size, {
+      session$sendInputMessage("table_page", list(value = 1L))
+    }, ignoreInit = TRUE)
+
+    output$table_body <- renderUI({
+      req(built())
+      fw_plan_table(report()$export, table_page(), per_page())
+    })
+
+    output$table_pager <- renderUI({
+      req(built())
+      n_rows <- nrow(report()$export)
+      n_pages <- fw_plan_pages(n_rows, per_page())
+      from <- (table_page() - 1L) * per_page() + 1L
+      to <- min(n_rows, table_page() * per_page())
+      div(
+        class = "fw-pager",
+        p(class = "fw-caption",
+          sprintf("%s %s-%s %s %s", fw_t("plan", "r_table_showing"),
+                  fw_fmt_num(from), fw_fmt_num(to), fw_t("common", "of"),
+                  fw_fmt_num(n_rows))),
+        fw_page_numbers(ns("table_page"), table_page(), n_pages)
+      )
+    })
 
     output$download <- downloadHandler(
       filename = function() fw_export_filename(),
       content = function(file) {
         r <- report()
         fw_write_workbook(file, data, r$export, r$filters, meta)
+      }
+    )
+
+    # ---- The report ---------------------------------------------------------
+    #
+    # ONE download handler and nothing else. The Word export this replaced took
+    # three steps and a round trip to the browser, because a .docx can only hold
+    # a chart as a picture and only the browser could produce one. The HTML
+    # report carries the plotly figures and the leaflet map as themselves, so
+    # the server builds the whole file on its own.
+    #
+    # method_mode travels with it, so the document shows the method chart in
+    # whichever mode the reader is looking at rather than re-deciding for them.
+    output$download_html <- downloadHandler(
+      filename = function() fw_html_filename(),
+      content = function(file) {
+        r <- report()
+        fw_write_html_report(
+          path = file, data = data, sel = r$sel, export = r$export,
+          filters = r$filters, meta = meta,
+          method_mode = input$method_mode %||% "share"
+        )
       }
     )
   })

@@ -75,13 +75,18 @@ $fw-font-mono: "Ubuntu Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
 // made the default h1 shout. Every step is now roughly 10% closer to the body
 // size, and h1 takes an extra step down on top of that. Set a page-specific
 // heading larger by hand rather than reopening these.
-$fw-size-display: 2.6rem;
-$fw-size-h1:      2rem;
-$fw-size-h2:      1.6rem;
-$fw-size-h3:      1.3rem;
-$fw-size-lead:    1rem;
-$fw-size-body:    1rem;
-$fw-size-caption: 0.8rem;
+//
+// The whole ladder was then stepped UP once, on client feedback that the app
+// read small. Body is 17px rather than 16, and the lead is now genuinely larger
+// than body instead of merely a different colour. $fw-size-body and theme.R's
+// base_font_size are the same number expressed twice - change BOTH.
+$fw-size-display: 2.7rem;
+$fw-size-h1:      2.1rem;
+$fw-size-h2:      1.7rem;
+$fw-size-h3:      1.35rem;
+$fw-size-lead:    1.125rem;
+$fw-size-body:    1.0625rem;  // 17px
+$fw-size-caption: 0.85rem;
 
 $fw-weight-regular: 400;
 $fw-weight-medium:  500;
@@ -110,7 +115,17 @@ $fw-space-7: 6rem;     // 96px
 // gap between a page title and its content big enough to read as a mistake.
 $fw-section-y: $fw-space-4;    // 32px
 
-$fw-container-max: 1180px;
+// THE CONTENT COLUMN IS A PROPORTION, NOT A PIXEL CAP. This used to be
+// 1180px, which meant a 27-inch monitor showed the same column as a 13-inch
+// laptop with a wide empty margin either side, and the app read as a phone
+// page stretched onto a desktop. It is now a share of the viewport, so every
+// page grows with the screen it is on.
+//
+// The floor is what stops that being a bad deal on a phone: at 375px, 95%
+// leaves a 9px gutter, which crowds the card edges against the screen. See
+// .fw-container in _components.scss, where the two are resolved with min().
+$fw-container-width:  95%;
+$fw-container-gutter: $fw-space-3;   // the minimum breathing room either side
 
 // ---- Radius ----------------------------------------------------------------
 
@@ -164,7 +179,7 @@ $fw-easing: cubic-bezier(0.22, 0.61, 0.36, 1); // ease-out
   --fw-radius-input: #{$fw-radius-input};
   --fw-radius-card:  #{$fw-radius-card};
 
-  --fw-container-max: #{$fw-container-max};
+  --fw-container-width: #{$fw-container-width};
 
   --fw-motion-fast: #{$fw-motion-fast};
   --fw-motion-base: #{$fw-motion-base};

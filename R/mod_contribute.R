@@ -366,13 +366,46 @@ mod_contribute_server <- function(id, data, choices) {
       current <- input$waterbody_type %||% ""
       keep <- if (nzchar(current) && current %in% lst) current else ""
       if (nzchar(current) && !nzchar(keep)) {
-        fw_announce(session, paste("The waterbody types have changed to match",
-                                   rg, "water. Please choose again."))
+        fw_announce(session, paste0(
+          "The waterbody types have changed to match ",
+          tolower(fw_regime_label(rg)), ". Please choose again."))
       }
       updateSelectizeInput(
         session, "waterbody_type",
         choices = c(stats::setNames("", "Select..."), lst),
         selected = keep, server = FALSE
+      )
+    })
+
+    # THE REGION PICKER FOLLOWS THE COUNTRY. Choosing Australia narrows this to
+    # the eight Australian states and territories rather than leaving someone to
+    # type "NSW", "N.S.W." or "New South Wales" and hope.
+    #
+    # create = TRUE, always. The ISO subdivision list is not exhaustive for
+    # every purpose - a treated site may sit in a catchment, a county or a
+    # district the standard does not name - and a picker that refuses the true
+    # answer is worse than free text. So this narrows the likely answers without
+    # ever blocking an unlikely one.
+    observeEvent(input$country, ignoreInit = TRUE, {
+      subs <- fw_subdivisions_for(choices, input$country %||% "")
+
+      current <- input$region %||% ""
+      # Keep what they typed if it still applies; a country change that silently
+      # emptied an answered field would lose work without saying so.
+      keep <- if (nzchar(current) && (!length(subs) || current %in% subs)) {
+        current
+      } else {
+        ""
+      }
+      if (nzchar(current) && !nzchar(keep)) {
+        fw_announce(session, paste("The regions have changed to match",
+                                   input$country, ". Please choose again."))
+      }
+      updateSelectizeInput(
+        session, "region",
+        choices = c(stats::setNames("", "Select..."), subs),
+        selected = keep, server = FALSE,
+        options = list(create = TRUE, placeholder = "Select or type...")
       )
     })
 
@@ -415,15 +448,14 @@ mod_contribute_server <- function(id, data, choices) {
     syncing <- reactiveVal(FALSE)
 
     output$picker <- renderLeaflet({
-      # A muted, low-chroma base map so the pin carries all the colour.
-      #
-      # NOTE: CartoDB.Positron is the usual choice here and was the first pick,
-      # but Carto now watermarks keyless requests with "API KEY REQUIRED" across
-      # every tile. Esri.WorldGrayCanvas is equally muted and still keyless. If
-      # the client obtains a Carto key, switch back and pass it through.
+      # THE SAME GROUND AS EVERY OTHER MAP. This used to pick its own basemap -
+      # a lone Esri.WorldGrayCanvas - so a contributor placed their pin on a
+      # different-looking world from the one the dashboard would show it on.
+      # fw_add_basemaps() gives it the shared stack and layer control, which
+      # also means Satellite and Terrain are available for finding a waterbody
+      # by sight, which is exactly what this map is for.
       leaflet(options = leafletOptions(worldCopyJump = TRUE)) |>
-        addProviderTiles("Esri.WorldGrayCanvas",
-                         options = providerTileOptions(noWrap = FALSE)) |>
+        fw_add_basemaps() |>
         setView(lng = 0, lat = 20, zoom = 2)
     })
 
@@ -597,6 +629,16 @@ mod_contribute_server <- function(id, data, choices) {
     # document, so it cannot fall out of step with the form. See
     # R/questions_text.R.
     output$download_questions <- downloadHandler(
+      filename = function() "fwise-submission-questions.docx",
+      contentType = paste0("application/vnd.openxmlformats-officedocument.",
+                           "wordprocessingml.document"),
+      content = function(file) fw_write_questions_docx(file, choices)
+    )
+
+    # The plain-text list stays alongside the Word one. It is the version that
+    # opens on anything, prints predictably, and can be read by a screen reader
+    # without Word - and it costs one handler to keep.
+    output$download_questions_txt <- downloadHandler(
       filename = function() "fwise-submission-questions.txt",
       contentType = "text/plain",
       content = function(file) {

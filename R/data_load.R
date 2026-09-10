@@ -417,6 +417,66 @@ FW_OTHER <- "Other (specify)"
 # rather than "", because R's [[ ]] does not retrieve an empty name.
 FW_ALL <- ".all"
 
+# ---- ISO 3166 ----------------------------------------------------------------
+
+#' The ISO country and subdivision lookups
+#'
+#' Read from disk like every other table - the app makes no network call for
+#' these. Built by dev/build_iso_lookups.R and committed alongside the data.
+#'
+#' DEGRADES RATHER THAN FAILS. If the files are absent - an older data checkout,
+#' say - the form falls back to the countries present in the attempts and offers
+#' a free-text region, which is exactly what it did before these existed. A
+#' missing convenience must not stop someone submitting a record.
+fw_load_iso <- function() {
+  empty <- list(countries = NULL, subdivisions = list())
+
+  countries <- try(fw_read_lookup("lookup_iso3166.csv"), silent = TRUE)
+  if (inherits(countries, "try-error") || is.null(countries)) return(empty)
+
+  subs <- try(fw_read_lookup("lookup_iso3166_2.csv"), silent = TRUE)
+  if (inherits(subs, "try-error") || is.null(subs)) {
+    return(list(countries = countries, subdivisions = list()))
+  }
+
+  named <- subs |>
+    left_join(select(countries, country, iso3), by = "iso3") |>
+    filter(!is.na(country)) |>
+    arrange(country, subdivision_name)
+
+  list(
+    countries = countries,
+    subdivisions = split(named$subdivision_name, named$country)
+  )
+}
+
+#' Read one lookup file from the data source, or NULL if it is not there
+#'
+#' These sit at the ROOT of the data source, beside metadata.json, rather than
+#' in schema/ - they describe the standard, not this dataset.
+fw_read_lookup <- function(name) {
+  path <- fw_data_file(name)
+  if (!fw_source_is_remote() && !file.exists(path)) return(NULL)
+  suppressWarnings(readr::read_csv(path, show_col_types = FALSE,
+                                   progress = FALSE))
+}
+
+#' Countries for the contribute form: recorded ones first, then the rest
+fw_country_choices <- function(data, iso_countries) {
+  recorded <- sort(unique(data$attempt$country))
+  if (is.null(iso_countries)) return(c(recorded, FW_OTHER))
+
+  rest <- setdiff(sort(iso_countries$country), recorded)
+  c(recorded, rest, FW_OTHER)
+}
+
+#' The subdivisions of one country, for the region picker
+fw_subdivisions_for <- function(choices, country) {
+  if (is.null(country) || !nzchar(country)) return(character(0))
+  subs <- choices$subdivision[[country]]
+  if (is.null(subs)) character(0) else subs
+}
+
 #' Build every dropdown's options once, at startup
 #'
 #' Options are derived from the loaded data so the client's ongoing cleaning
@@ -442,13 +502,22 @@ fw_startup_choices <- function(data) {
     sort(union(from_data, from_spec))
   }
 
+  iso <- fw_load_iso()
+
   list(
-    # Countries come from the lookup table, so a contributor can pick a country
-    # that has no attempts recorded yet. That is the whole point of the form.
-    country = sort(unique(data$attempt$country)),
+    # THE FULL ISO 3166-1 LIST, not the 29 countries that happen to have a
+    # record already. Offering only what is in the database is circular: the
+    # form exists to add the countries that are missing from it. Countries that
+    # DO have attempts float to the top, because they are the likely answers,
+    # and "Other (specify)" catches anything the standard does not cover.
+    country = fw_country_choices(data, iso$countries),
+
+    # Keyed by country name, so the region field can narrow to that country's
+    # subdivisions once it is answered. See fw_subdivisions_for().
+    subdivision = iso$subdivisions,
 
     waterbody_type = c(fw_choices(data, "attempt", "waterbody_type"), FW_OTHER),
-    water_regime   = fw_choices(data, "attempt", "water_regime"),
+    water_regime   = fw_regime_choices(fw_choices(data, "attempt", "water_regime")),
     area_unit      = fw_choices(data, "attempt", "area_unit"),
 
     invasive_taxa = c(
@@ -523,14 +592,61 @@ fw_startup_choices <- function(data) {
   )
 }
 
-#' Waterbody types that belong to each water regime
+# THE ONE PLACE THAT SAYS WHICH WATERBODIES FLOW.
+#
+# Read by TWO consumers that used to disagree:
+#   - data_prep.R, which corrects water_regime as the schema is built
+#   - fw_waterbody_by_regime() below, which narrows the contribute form's
+#     waterbody list once "still or flowing" has been answered
+#
+# Before this was shared, the override existed only for the form, so the form
+# knew a tributary flows while the data still filed three of them under Lentic.
+# Anything not named here keeps whatever the source says; anything genuinely
+# missing is covered by "Other (specify)", which is always appended.
+#
+# NOT A REGIME AT ALL. "Multiple" means more than one system was treated, so
+# claiming either regime for it is a statement the record does not support.
+FW_REGIME_BY_TYPE <- c(
+  Canal = "Lotic", Channel = "Lotic", Creek = "Lotic", River = "Lotic",
+  Stream = "Lotic", Tributary = "Lotic",
+  # A spring is a discharge point and a drain is an engineered channel; the
+  # water in both is moving. Both arrived from the source marked Lentic.
+  Spring = "Lotic", Drain = "Lotic",
+  Multiple = NA_character_
+)
+
+FW_LOTIC_ALWAYS <- names(FW_REGIME_BY_TYPE)[
+  !is.na(FW_REGIME_BY_TYPE) & FW_REGIME_BY_TYPE == "Lotic"
+]
+
+# ---- Regime wording ----------------------------------------------------------
+
+# LABELS ONLY. Lentic and Lotic are the STORED vocabulary: they are what sits in
+# attempt.csv, what the data dictionary defines, what the submissions inbox
+# carries and what FW_REGIME_BY_TYPE above is keyed on. A contributor should not
+# have to know the words, so the pickers show plain English and hand back the
+# stored value unchanged. Recoding the column instead would have meant rebuilding
+# the schema and chasing every "Lotic" comparison in the app.
+FW_REGIME_LABELS <- c(Lentic = "Still water", Lotic = "Flowing water")
+
+#' The plain-English wording for a stored regime value
 #'
-#' Derived from the attempts rather than hardcoded, so the client's ongoing
-#' cleaning flows through. The override list exists because a handful of rows are
-#' filed under the wrong regime - three Tributary rows sit under Lentic - and a
-#' contributor who answers "flowing" should still be offered Tributary. Anything
-#' genuinely missing is covered by "Other (specify)", which is always appended.
-FW_LOTIC_ALWAYS <- c("Canal", "Channel", "Creek", "River", "Stream", "Tributary")
+#' Anything the lookup has not been told about passes through as itself, so a
+#' new value appears in the picker rather than silently becoming NA.
+fw_regime_label <- function(x) {
+  out <- unname(FW_REGIME_LABELS[x])
+  ifelse(is.na(out), x, out)
+}
+
+#' Stored regime values, named by what the user should see
+#'
+#' selectizeInput() and radioButtons() both display the NAMES and submit the
+#' VALUES, so this is the whole of the translation.
+fw_regime_choices <- function(values) {
+  stats::setNames(values, fw_regime_label(values))
+}
+
+#' Waterbody types that belong to each water regime
 
 fw_waterbody_by_regime <- function(data) {
   seen <- data$attempt |>

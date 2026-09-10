@@ -308,7 +308,11 @@ fw_questions_text <- function(choices, width = 78) {
     pending <- FALSE
     flush <- function() {
       if (pending) {
-        out <<- c(out, paste0(hang, "Answer: ", strrep("_", 50)))
+        # A BLANK LINE EITHER SIDE OF THE RULE. Without the trailing one the
+        # next question butts straight up against the line you just wrote your
+        # answer on, and a printed copy reads as a wall. This is the whole file
+        # someone fills in away from the screen, so the spacing is the design.
+        out <<- c(out, "", paste0(hang, "Answer: ", strrep("_", 50)), "")
         pending <<- FALSE
       }
     }

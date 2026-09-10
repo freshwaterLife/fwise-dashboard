@@ -74,6 +74,15 @@ Rscript dev/plan_test.R       # report builder: gate, states, filters, export
 Rscript dev/check_contrast.R  # every colour pair against WCAG AA
 ```
 
+Two scripts write into `../fwise-data/` and are the only things in the project
+that touch the network. The **app itself never does.** Run them by hand and
+review the diff before committing:
+
+```bash
+Rscript dev/fetch_species_images.R    # species photos from Wikimedia -> species.csv
+Rscript dev/build_iso_lookups.R       # ISO 3166-1 and -2 -> the two lookup files
+```
+
 Both test scripts exit non-zero on failure, so they are usable from CI.
 
 Run `check_contrast.R` after changing **any** colour. It is the thing that
@@ -93,9 +102,19 @@ catches an inaccessible palette before a user does.
 │   ├── ui_helpers.R            reusable UI components
 │   ├── data_load.R             the data contract, read by every module
 │   ├── data_prep.R             BUILD SCRIPT, not part of the running app
+│   ├── filters.R               ONE filter engine, shared by the report builder
+│   │                           and the dashboard. FW_FILTERS is the registry
+│   ├── charts.R                every plotly figure, shared by both pages
+│   ├── maps.R                  basemaps, markers and popups, shared likewise
+│   ├── species_images.R        the Wikimedia photo cache and its fallback
 │   ├── submit.R                the write path, and record assembly
 │   ├── export.R                the export contract. SHARED with the future
 │   │                           Zenodo release, so the two cannot disagree
+│   ├── questions_text.R        the offline question list, plain text
+│   ├── questions_docx.R        the same list as Word, from the SAME walker
+│   ├── report_html.R           the report builder's document output: one
+│   │                           self-contained HTML file, live charts and
+│   │                           map inside it, printable to PDF
 │   └── mod_*.R                 one file per page. The contribute page is split
 │                               into mod_contribute.R (server logic),
 │                               mod_contribute_steps.R (section builders) and
@@ -104,7 +123,8 @@ catches an inaccessible palette before a user does.
 │   ├── scss/                   _tokens.scss, _components.scss, main.scss
 │   ├── fonts/                  self-hosted Ubuntu woff2
 │   └── img/                    logos and favicon
-├── dev/                        local scratch, gitignored except two scripts
+├── dev/                        local scratch, gitignored except the scripts
+│                               named under "Checking your changes" below
 ├── manifest.json               what Connect Cloud actually deploys from
 ├── renv.lock                   what local development restores from
 └── .Renviron.example           documents every environment variable
@@ -115,7 +135,11 @@ There is deliberately **no `data/` directory here.** It lives one level up:
 ```
 ../fwise-data/
 ├── fwise_2026-09-06.csv        the raw client export, never modified
-├── lookup_country.csv          country to continent, ISO3 and region
+├── lookup_country.csv          maps the EXPORT'S messy country values onto
+│                               clean names. About this dataset
+├── lookup_iso3166.csv          the ISO 3166-1 country list. About the STANDARD.
+│                               Built by dev/build_iso_lookups.R
+├── lookup_iso3166_2.csv        ISO 3166-2 subdivisions, ditto
 ├── metadata.json               release date and row counts
 ├── id_registry/                the permanent id crosswalk - never hand-edit
 └── schema/                     the six star-schema tables, generated
@@ -272,7 +296,16 @@ reaches users when the app restarts.
 ## The report builder
 
 `R/mod_plan.R`, with filters in `mod_plan_filters.R`, rendering in
-`mod_plan_results.R` and the export in `export.R`.
+`mod_plan_results.R`, the spreadsheet export in `export.R` and the HTML report
+in `report_html.R`.
+
+**The questions sit above the report, not beside it.** This page is a form
+followed by its answer. The dashboard keeps its sidebar because browsing *is*
+watching the picture change under the controls; here, a sidebar would put the
+questions and the results side by side and invite reading the results first,
+then working the filters until they say something comfortable. Stacked, there is
+nothing to read until the questions have been answered, and both halves get the
+full width of the page.
 
 **Results render only when Build report is pressed.** That is a design decision
 before it is a performance one. The client's steer was "controlled, informative,
@@ -324,8 +357,77 @@ belonging to a contact who asked not to be listed. Applying the redaction is not
 the same as guaranteeing it, and an export is the one place a mistake travels
 outside the building and cannot be recalled.
 
-PDF output is deliberately out of scope: Quarto rendering adds significant
-startup weight on Connect Cloud, and startup time is already a live concern.
+### The HTML report
+
+`R/report_html.R`. The same report the reader is looking at, on FWISE
+letterhead, as **one self-contained `.html` file**: every stylesheet, script,
+webfont, the logo and the data itself are inlined, so nothing is fetched when
+the file is opened. Around 4 MB, nearly all of it plotly.
+
+**This replaced a Word export.** Both produced a document with the charts in it;
+the difference is what a chart *is* in each format.
+
+- **No round trip to the browser.** A `.docx` can only hold a chart as a
+  picture, and rendering a plotly figure to a PNG server-side needs kaleido
+  (Python) or webshot2 (Chrome), neither of which belongs on Connect Cloud. So
+  the Word route asked the browser to photograph every figure with
+  `Plotly.toImage()`, posted the base64 PNGs back over the websocket into a
+  Shiny input, stashed them server-side and then *clicked a hidden download
+  button* on the reader's behalf. All of that is gone. This is an ordinary
+  `downloadHandler`.
+- **Vector, not a screenshot.** The figures travel as live plotly graphs. They
+  stay crisp at any zoom and at print resolution, and they keep their hover
+  readouts.
+- **The map travels.** Leaflet could never be captured — its tiles are
+  cross-origin and taint the canvas — so the Word file had a country table
+  standing in for it. Here the real map is in the document, with the country
+  table kept beside it for print and for readers with no connection.
+- **The page's own components.** The summary strip, the outcome bars, the
+  attempts table and the caveats panel are the *same functions* the page
+  renders (`fw_plan_summary_ui()`, `fw_outcome_bars_ui()`, `fw_plan_table()`,
+  `fw_plan_caveats_ui()`), under the *same compiled stylesheet*
+  (`fw_html_app_css()` runs the same `main.scss` the app serves). Nothing is
+  translated into Word table primitives, so the report cannot drift away from
+  the screen, and a component restyled in `_components.scss` is restyled in
+  every report built afterwards.
+- **No new infrastructure.** No kaleido, no Python, no webshot2, no headless
+  Chrome, no LaTeX — the same constraint that deferred PDF output in the first
+  place. No new package either: `sass`, `htmltools`, `jsonlite` and `openxlsx`
+  were all already dependencies.
+
+**PDF is the browser's print engine.** The report carries a **Save as PDF**
+button that calls `window.print()`. The `@media print` rules in
+`fw_html_report_css()` are the export: they drop the toolbar, force
+`print-color-adjust: exact` so the outcome bars keep their fills, repeat table
+headers across pages, keep figures and table rows from splitting, and let
+plotly's SVG scale down to the paper width. A bundled `html2pdf.js` or `jsPDF`
+was considered and rejected — both rasterise the DOM to a canvas, which throws
+away the vector output that is half the point of the file.
+
+**The data is inside the report.** Two more buttons hand back the selection as
+a UTF-8 CSV and as the full four-sheet workbook — built by `fw_write_workbook()`,
+the *same* function the spreadsheet button serves, so the copy inside the report
+and the copy downloaded beside it are identical. Both are carried as base64 in
+inert `<script type="application/base64">` elements and handed out as Blobs, which
+is the route that works from a `file://` URL and offline.
+
+**What you see is what you get.** The method chart has a share/count toggle, and
+`input$method_mode` travels into the download, so the document shows whichever
+mode the reader is looking at rather than re-deciding for them. A chart that had
+too little data to draw returns `NULL` and is skipped, heading and all.
+
+Two things to know before editing:
+
+- **`jsonlite::base64_enc()` wraps at 76 characters.** CSS will not parse a
+  newline inside `url()`, so a wrapped data URI keeps its rules and silently
+  loses every inlined image — leaflet's zoom and layer icons come out as empty
+  white boxes with nothing in the console. `fw_html_base64()` strips the
+  wrapping; do not go around it.
+- **Relative URLs do not survive inlining.** `leaflet.css` asks for
+  `images/marker-icon.png` and `main.css` for `../fonts/ubuntu-400.woff2`;
+  pasted into a `<style>` block those resolve against wherever the reader saved
+  the file. `fw_html_inline_css_urls()` rewrites every one of them to a data
+  URI.
 
 ---
 
@@ -455,6 +557,44 @@ Neutral #999999      Emphasis #0072B2  Vermilion #D55E00
 **Never encode data with the interface teals, and never use the Wong colours as
 interface chrome.**
 
+### Width
+
+**Nothing is capped in pixels.** `.fw-container` is the one content-column rule
+and every page uses it. It takes 95% of the viewport, with a floor that keeps a
+24px gutter on a phone, resolved in one `min()` rather than a media query:
+
+```scss
+width: min(95%, calc(100% - 3rem));
+```
+
+`min()` takes whichever is smaller, so at 375px the fixed gutter wins and at
+1920px the proportion does; the crossover happens on its own at around 960px.
+The container used to stop at `max-width: 1180px`, which meant a 27-inch monitor
+showed the same column as a laptop with empty page either side.
+
+The `unquote()` around that value in `_components.scss` is load-bearing: libsass
+has its own `min()` and fails the build trying to compare `95%` with a `calc()`.
+
+**The prose measures went too.** About, the eradication preamble, the citation
+block and the feedback box used to cap their paragraphs at 68–78 `ch`. That is a
+character measure rather than a pixel one and it is normally right, but inside a
+full-width tinted box it left two thirds of the box empty and read as a bug
+rather than as typography.
+
+The honest trade is stated here so nobody re-adds them by accident: **a
+paragraph on About now runs to around 200 characters a line on a 27-inch
+monitor, which is longer than is comfortable to read.** Two ways back, in
+increasing order of effort:
+
+- `.fw-measure` is still in the stylesheet and `$fw-measure` is still a token.
+  Put the class on a block that genuinely reads better narrow.
+- Better: **give the text a narrower box rather than giving a wide box narrower
+  text.** `.fw-caveats__grid` is the worked example — short blocks laid out in
+  `repeat(auto-fit, minmax(26rem, 1fr))`, so the column sets the line length,
+  the panel fills, and nothing is capped. `auto-fit` means the block count is
+  never written down: `fw_caveat_blocks()` parses whatever `fw_caveats()`
+  returns and the grid reflows. About's sections would take the same treatment.
+
 ### Type
 
 Ubuntu throughout, self-hosted in `www/fonts/` as woff2 (latin subset, 67KB for
@@ -541,6 +681,27 @@ The domain is registered with Namecheap and is held by the client.
 - **Both logo files are dark ink for light backgrounds**, and the FWISE lockup is
   not knocked out of its own, so on the dark footer the pair share one white
   plaque at matching height. Reversed artwork would let the plaque go.
+- **Carto now watermarks its keyless tiles.** Every map in the app is currently
+  drawn over "API KEY REQUIRED" repeated across the basemap. `fw_carto_url()`
+  already appends `FWISE_CARTO_KEY` if it is set, so a Carto account fixes it
+  without a code change; the alternative is changing the default ground in
+  `fw_add_basemaps()`. See HANDOVER.md section 5.5, which records a September
+  2026 check that no longer holds.
+- **The report is around 4 MB**, nearly all of it the bundled `plotly.js`. That
+  is the price of interactive vector figures that work with the network down,
+  and it is comparable to the Word file it replaced once that file's PNGs were
+  counted. `plotly::partial_bundle()` would cut it substantially, but the
+  partial bundles are not shipped in the installed package and fetching them
+  would reintroduce a network dependency at build time.
+- **The report has no running header or page numbers.** The letterhead is a
+  block at the top of page one. `@page` margin boxes would give both, but
+  browser support for their content is uneven enough that a header which
+  renders in Chrome and vanishes in Safari is worse than none. See
+  `fw_html_report_css()`.
+- **The map inside the report needs a connection for its tiles.** The markers,
+  popups and legend are in the file; the ground underneath them is not. This is
+  stated on the face of the document, and the attempts-by-country table below
+  it is what remains when the tiles cannot load.
 - Every remaining placeholder and open decision is listed in
   [HANDOVER.md](HANDOVER.md).
 

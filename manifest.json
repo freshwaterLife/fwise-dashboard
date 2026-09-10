@@ -1420,6 +1420,44 @@
         "RemoteSha": "1.4.8"
       }
     },
+    "httr2": {
+      "Source": "CRAN",
+      "Repository": "https://cloud.r-project.org",
+      "description": {
+        "Package": "httr2",
+        "Title": "Perform HTTP Requests and Process the Responses",
+        "Version": "1.3.0",
+        "Authors@R": "c(\n    person(\"Hadley\", \"Wickham\", , \"hadley@posit.co\", role = c(\"aut\", \"cre\")),\n    person(\"Posit Software, PBC\", role = c(\"cph\", \"fnd\")),\n    person(\"Maximilian\", \"Girlich\", role = \"ctb\")\n  )",
+        "Description": "Tools for creating and modifying HTTP requests, then\n    performing them and processing the results. 'httr2' is a modern\n    re-imagining of 'httr' that uses a pipe-based interface and solves\n    more of the problems that API wrapping packages face.",
+        "License": "MIT + file LICENSE",
+        "URL": "https://httr2.r-lib.org, https://github.com/r-lib/httr2",
+        "BugReports": "https://github.com/r-lib/httr2/issues",
+        "Depends": "R (>= 4.1)",
+        "Imports": "cli (>= 3.0.0), curl (>= 6.4.0), glue, lifecycle, magrittr,\nopenssl, R6, rlang (>= 1.3.0), vctrs (>= 0.6.3), withr",
+        "Suggests": "askpass, bench, clipr, covr, digest, docopt, httpuv, jose,\njsonlite, knitr, later (>= 1.4.0), nanonext, otel (>= 0.2.0),\notelsdk (>= 0.2.0), paws.common (>= 0.8.0), promises, rappdirs,\nrmarkdown, testthat (>= 3.1.8), tibble, webfakes (>= 1.4.0),\nxml2",
+        "VignetteBuilder": "knitr",
+        "Config/Needs/website": "tidyverse/tidytemplate",
+        "Config/roxygen2/version": "8.0.0",
+        "Config/testthat/edition": "3",
+        "Config/testthat/parallel": "true",
+        "Config/testthat/start-first": "resp-stream, req-perform",
+        "Encoding": "UTF-8",
+        "NeedsCompilation": "no",
+        "Packaged": "2026-07-13 19:55:02 UTC; hadleywickham",
+        "Author": "Hadley Wickham [aut, cre],\n  Posit Software, PBC [cph, fnd],\n  Maximilian Girlich [ctb]",
+        "Maintainer": "Hadley Wickham <hadley@posit.co>",
+        "Repository": "CRAN",
+        "Date/Publication": "2026-07-13 21:50:06 UTC",
+        "Built": "R 4.5.2; ; 2026-07-13 23:27:58 UTC; unix",
+        "RemoteType": "standard",
+        "RemoteRef": "httr2",
+        "RemotePkgRef": "httr2",
+        "RemoteRepos": "https://cloud.r-project.org",
+        "RemoteReposName": "CRAN",
+        "RemotePkgPlatform": "aarch64-apple-darwin20",
+        "RemoteSha": "1.3.0"
+      }
+    },
     "isoband": {
       "Source": "CRAN",
       "Repository": "https://cloud.r-project.org",
@@ -1894,6 +1932,40 @@
         "RemoteSha": "0.13"
       }
     },
+    "officer": {
+      "Source": "CRAN",
+      "Repository": "https://cloud.r-project.org",
+      "description": {
+        "Type": "Package",
+        "Package": "officer",
+        "Title": "Manipulation of Microsoft Word and PowerPoint Documents",
+        "Version": "0.7.6",
+        "Authors@R": "c(\n    person(\"David\", \"Gohel\", , \"david.gohel@ardata.fr\", role = c(\"aut\", \"cre\")),\n    person(\"Stefan\", \"Moog\", , \"moogs@gmx.de\", role = \"aut\"),\n    person(\"Mark\", \"Heckmann\", , \"heckmann.mark@gmail.com\", role = \"aut\",\n           comment = c(ORCID = \"0000-0002-0736-7417\")),\n    person(\"ArData\", role = \"cph\"),\n    person(\"Frank\", \"Hangler\", , \"frank@plotandscatter.com\", role = \"ctb\",\n           comment = \"function body_replace_all_text\"),\n    person(\"Liz\", \"Sander\", , \"lsander@civisanalytics.com\", role = \"ctb\",\n           comment = \"several documentation fixes\"),\n    person(\"Anton\", \"Victorson\", , \"anton@victorson.se\", role = \"ctb\",\n           comment = \"fixes xml structures\"),\n    person(\"Jon\", \"Calder\", , \"jonmcalder@gmail.com\", role = \"ctb\",\n           comment = \"update vignettes\"),\n    person(\"John\", \"Harrold\", , \"john.m.harrold@gmail.com\", role = \"ctb\",\n           comment = \"function annotate_base\"),\n    person(\"John\", \"Muschelli\", , \"muschellij2@gmail.com\", role = \"ctb\",\n           comment = \"google doc compatibility\"),\n    person(\"Bill\", \"Denney\", , \"wdenney@humanpredictions.com\", role = \"ctb\",\n           comment = c(ORCID = \"0000-0002-5759-428X\", \"function as.matrix.rpptx\")),\n    person(\"Nikolai\", \"Beck\", , \"beck.nikolai@gmail.com\", role = \"ctb\",\n           comment = \"set speaker notes for .pptx documents\"),\n    person(\"Greg\", \"Leleu\", , \"gregoire.leleu@gmail.com\", role = \"ctb\",\n           comment = \"fields functionality in ppt\"),\n    person(\"Majid\", \"Eismann\", role = \"ctb\"),\n    person(\"Wahiduzzaman\", \"Khan\", role = \"ctb\",\n           comment = \"vectorization of remove_slide\"),\n    person(\"Hongyuan\", \"Jia\", , \"hongyuanjia@cqust.edu.cn\", role = \"ctb\",\n           comment = c(ORCID = \"0000-0002-0075-8183\")),\n    person(\"Michael\", \"Stackhouse\", , \"mike.stackhouse@atorusresearch.com\", role = \"ctb\")\n  )",
+        "Description": "Access and manipulate 'Microsoft Word', 'RTF' and 'Microsoft\n    PowerPoint' documents from R.  The package focuses on tabular and\n    graphical reporting from R; it also provides two functions that let\n    users get document content into data objects. A set of functions lets\n    add and remove images, tables and paragraphs of text in new or\n    existing documents.  The package does not require any installation of\n    Microsoft products to be able to write Microsoft files.",
+        "License": "MIT + file LICENSE",
+        "URL": "https://ardata-fr.github.io/officeverse/,\nhttps://davidgohel.github.io/officer/",
+        "BugReports": "https://github.com/davidgohel/officer/issues",
+        "Imports": "cli, dplyr, graphics, grDevices, openssl, R6, ragg, stats,\ntidyr, utils, uuid, xml2 (>= 1.1.0), zip (>= 2.1.0)",
+        "Suggests": "devEMF, doconv (>= 0.3.0), gdtools, ggplot2, knitr, magick,\nrmarkdown, rsvg, mschart, testthat, withr",
+        "Encoding": "UTF-8",
+        "Collate": "'core_properties.R' 'custom_properties.R' 'defunct.R'\n'dev-utils.R' 'docx_add.R' 'docx_comments.R' 'docx_cursor.R'\n'docx_embed_font.R' 'docx_part.R' 'docx_replace.R'\n'docx_section.R' 'docx_settings.R' 'docx_styles.R'\n'docx_utils_funs.R' 'empty_content.R' 'formatting_properties.R'\n'fortify_docx.R' 'fortify_pptx.R' 'knitr_utils.R' 'officer.R'\n'ooxml.R' 'ooxml_block_objects.R' 'ooxml_run_objects.R'\n'openxml_content_type.R' 'openxml_document.R' 'pack_folder.R'\n'ph_location.R' 'post-proc.R' 'ppt_class_dir_collection.R'\n'ppt_classes.R' 'ppt_notes.R' 'ppt_ph_dedupe_layout.R'\n'ppt_ph_manipulate.R' 'ppt_ph_rename_layout.R'\n'ppt_ph_with_methods.R' 'pptx_informations.R'\n'pptx_layout_helper.R' 'pptx_matrix.R' 'utils.R'\n'pptx_slide_manip.R' 'read_docx.R' 'docx_write.R'\n'read_docx_styles.R' 'read_pptx.R' 'read_xlsx.R'\n'relationship.R' 'rtf.R' 'shape_properties.R' 'shorcuts.R'\n'docx_append_context.R' 'utils-xml.R' 'deprecated.R' 'zzz.R'",
+        "Config/roxygen2/version": "8.0.0",
+        "NeedsCompilation": "no",
+        "Packaged": "2026-07-16 13:21:39 UTC; davidgohel",
+        "Author": "David Gohel [aut, cre],\n  Stefan Moog [aut],\n  Mark Heckmann [aut] (ORCID: <https://orcid.org/0000-0002-0736-7417>),\n  ArData [cph],\n  Frank Hangler [ctb] (function body_replace_all_text),\n  Liz Sander [ctb] (several documentation fixes),\n  Anton Victorson [ctb] (fixes xml structures),\n  Jon Calder [ctb] (update vignettes),\n  John Harrold [ctb] (function annotate_base),\n  John Muschelli [ctb] (google doc compatibility),\n  Bill Denney [ctb] (ORCID: <https://orcid.org/0000-0002-5759-428X>,\n    function as.matrix.rpptx),\n  Nikolai Beck [ctb] (set speaker notes for .pptx documents),\n  Greg Leleu [ctb] (fields functionality in ppt),\n  Majid Eismann [ctb],\n  Wahiduzzaman Khan [ctb] (vectorization of remove_slide),\n  Hongyuan Jia [ctb] (ORCID: <https://orcid.org/0000-0002-0075-8183>),\n  Michael Stackhouse [ctb]",
+        "Maintainer": "David Gohel <david.gohel@ardata.fr>",
+        "Repository": "CRAN",
+        "Date/Publication": "2026-07-16 14:10:02 UTC",
+        "Built": "R 4.5.2; ; 2026-07-16 17:54:57 UTC; unix",
+        "RemoteType": "standard",
+        "RemoteRef": "officer",
+        "RemotePkgRef": "officer",
+        "RemoteRepos": "https://cloud.r-project.org",
+        "RemoteReposName": "CRAN",
+        "RemotePkgPlatform": "aarch64-apple-darwin20",
+        "RemoteSha": "0.7.6"
+      }
+    },
     "openssl": {
       "Source": "CRAN",
       "Repository": "https://cloud.r-project.org",
@@ -2316,6 +2388,46 @@
         "RemoteReposName": "CRAN",
         "RemotePkgPlatform": "aarch64-apple-darwin20",
         "RemoteSha": "1.2.2"
+      }
+    },
+    "ragg": {
+      "Source": "CRAN",
+      "Repository": "https://cloud.r-project.org",
+      "description": {
+        "Type": "Package",
+        "Package": "ragg",
+        "Title": "Graphic Devices Based on AGG",
+        "Version": "1.5.2",
+        "Authors@R": "c(\n    person(\"Thomas Lin\", \"Pedersen\", , \"thomas.pedersen@posit.co\", role = c(\"cre\", \"aut\"),\n           comment = c(ORCID = \"0000-0002-5147-4711\")),\n    person(\"Maxim\", \"Shemanarev\", role = c(\"aut\", \"cph\"),\n           comment = \"Author of AGG\"),\n    person(\"Tony\", \"Juricic\", , \"tonygeek@yahoo.com\", role = c(\"ctb\", \"cph\"),\n           comment = \"Contributor to AGG\"),\n    person(\"Milan\", \"Marusinec\", , \"milan@marusinec.sk\", role = c(\"ctb\", \"cph\"),\n           comment = \"Contributor to AGG\"),\n    person(\"Spencer\", \"Garrett\", role = \"ctb\",\n           comment = \"Contributor to AGG\"),\n    person(\"Posit Software, PBC\", role = c(\"cph\", \"fnd\"),\n           comment = c(ROR = \"03wc8by49\"))\n  )",
+        "Maintainer": "Thomas Lin Pedersen <thomas.pedersen@posit.co>",
+        "Description": "Anti-Grain Geometry (AGG) is a high-quality and\n    high-performance 2D drawing library. The 'ragg' package provides a set\n    of graphic devices based on AGG to use as alternative to the raster\n    devices provided through the 'grDevices' package.",
+        "License": "MIT + file LICENSE",
+        "URL": "https://ragg.r-lib.org, https://github.com/r-lib/ragg",
+        "BugReports": "https://github.com/r-lib/ragg/issues",
+        "Imports": "systemfonts (>= 1.0.3), textshaping (>= 0.3.0)",
+        "Suggests": "covr, graphics, grid, testthat (>= 3.0.0)",
+        "LinkingTo": "systemfonts, textshaping",
+        "Config/build/compilation-database": "true",
+        "Config/Needs/website": "ggplot2, devoid, magick, bench, tidyr, ggridges,\nhexbin, sessioninfo, pkgdown, tidyverse/tidytemplate",
+        "Config/testthat/edition": "3",
+        "Config/usethis/last-upkeep": "2025-04-25",
+        "Encoding": "UTF-8",
+        "RoxygenNote": "7.3.3",
+        "SystemRequirements": "freetype2, libpng, libtiff, libjpeg, libwebp,\nlibwebpmux",
+        "NeedsCompilation": "yes",
+        "Packaged": "2026-03-16 07:50:17 UTC; thomas",
+        "Author": "Thomas Lin Pedersen [cre, aut] (ORCID:\n    <https://orcid.org/0000-0002-5147-4711>),\n  Maxim Shemanarev [aut, cph] (Author of AGG),\n  Tony Juricic [ctb, cph] (Contributor to AGG),\n  Milan Marusinec [ctb, cph] (Contributor to AGG),\n  Spencer Garrett [ctb] (Contributor to AGG),\n  Posit Software, PBC [cph, fnd] (ROR: <https://ror.org/03wc8by49>)",
+        "Repository": "CRAN",
+        "Date/Publication": "2026-03-23 08:50:08 UTC",
+        "Built": "R 4.5.2; aarch64-apple-darwin20; 2026-03-23 09:05:47 UTC; unix",
+        "Archs": "ragg.so.dSYM",
+        "RemoteType": "standard",
+        "RemoteRef": "ragg",
+        "RemotePkgRef": "ragg",
+        "RemoteRepos": "https://cloud.r-project.org",
+        "RemoteReposName": "CRAN",
+        "RemotePkgPlatform": "aarch64-apple-darwin20",
+        "RemoteSha": "1.5.2"
       }
     },
     "rappdirs": {
@@ -2918,6 +3030,47 @@
         "RemoteSha": "3.4.3"
       }
     },
+    "systemfonts": {
+      "Source": "CRAN",
+      "Repository": "https://cloud.r-project.org",
+      "description": {
+        "Type": "Package",
+        "Package": "systemfonts",
+        "Title": "System Native Font Finding",
+        "Version": "1.3.2",
+        "Authors@R": "c(\n    person(\"Thomas Lin\", \"Pedersen\", , \"thomas.pedersen@posit.co\", role = c(\"aut\", \"cre\"),\n           comment = c(ORCID = \"0000-0002-5147-4711\")),\n    person(\"Jeroen\", \"Ooms\", , \"jeroen@berkeley.edu\", role = \"aut\",\n           comment = c(ORCID = \"0000-0002-4035-0289\")),\n    person(\"Devon\", \"Govett\", role = \"aut\",\n           comment = \"Author of font-manager\"),\n    person(\"Posit Software, PBC\", role = c(\"cph\", \"fnd\"),\n           comment = c(ROR = \"03wc8by49\"))\n  )",
+        "Description": "Provides system native access to the font catalogue. As font\n    handling varies between systems it is difficult to correctly locate\n    installed fonts across different operating systems. The 'systemfonts'\n    package provides bindings to the native libraries on Windows, macOS\n    and Linux for finding font files that can then be used further by e.g.\n    graphic devices. The main use is intended to be from compiled code but\n    'systemfonts' also provides access from R.",
+        "License": "MIT + file LICENSE",
+        "URL": "https://github.com/r-lib/systemfonts,\nhttps://systemfonts.r-lib.org",
+        "BugReports": "https://github.com/r-lib/systemfonts/issues",
+        "Depends": "R (>= 3.2.0)",
+        "Imports": "base64enc, grid, jsonlite, lifecycle, tools, utils",
+        "Suggests": "covr, farver, ggplot2, graphics, knitr, ragg, rmarkdown,\nsvglite, testthat (>= 2.1.0)",
+        "LinkingTo": "cpp11 (>= 0.2.1)",
+        "VignetteBuilder": "knitr",
+        "Config/build/compilation-database": "true",
+        "Config/Needs/website": "tidyverse/tidytemplate",
+        "Config/usethis/last-upkeep": "2025-04-23",
+        "Encoding": "UTF-8",
+        "RoxygenNote": "7.3.2",
+        "SystemRequirements": "fontconfig, freetype2",
+        "NeedsCompilation": "yes",
+        "Packaged": "2026-03-05 12:24:52 UTC; thomas",
+        "Author": "Thomas Lin Pedersen [aut, cre] (ORCID:\n    <https://orcid.org/0000-0002-5147-4711>),\n  Jeroen Ooms [aut] (ORCID: <https://orcid.org/0000-0002-4035-0289>),\n  Devon Govett [aut] (Author of font-manager),\n  Posit Software, PBC [cph, fnd] (ROR: <https://ror.org/03wc8by49>)",
+        "Maintainer": "Thomas Lin Pedersen <thomas.pedersen@posit.co>",
+        "Repository": "CRAN",
+        "Date/Publication": "2026-03-05 13:10:02 UTC",
+        "Built": "R 4.5.2; aarch64-apple-darwin20; 2026-03-05 13:44:23 UTC; unix",
+        "Archs": "systemfonts.so.dSYM",
+        "RemoteType": "standard",
+        "RemoteRef": "systemfonts",
+        "RemotePkgRef": "systemfonts",
+        "RemoteRepos": "https://cloud.r-project.org",
+        "RemoteReposName": "CRAN",
+        "RemotePkgPlatform": "aarch64-apple-darwin20",
+        "RemoteSha": "1.3.2"
+      }
+    },
     "terra": {
       "Source": "CRAN",
       "Repository": "https://cloud.r-project.org",
@@ -2955,6 +3108,46 @@
         "RemoteReposName": "CRAN",
         "RemotePkgPlatform": "aarch64-apple-darwin20",
         "RemoteSha": "1.9-34"
+      }
+    },
+    "textshaping": {
+      "Source": "CRAN",
+      "Repository": "https://cloud.r-project.org",
+      "description": {
+        "Package": "textshaping",
+        "Title": "Bindings to the 'HarfBuzz' and 'Fribidi' Libraries for Text\nShaping",
+        "Version": "1.0.5",
+        "Authors@R": "c(\n    person(\"Thomas Lin\", \"Pedersen\", , \"thomas.pedersen@posit.co\", role = c(\"cre\", \"aut\"),\n           comment = c(ORCID = \"0000-0002-5147-4711\")),\n    person(\"Posit Software, PBC\", role = c(\"cph\", \"fnd\"),\n           comment = c(ROR = \"03wc8by49\"))\n  )",
+        "Description": "Provides access to the text shaping functionality in the\n    'HarfBuzz' library and the bidirectional algorithm in the 'Fribidi'\n    library. 'textshaping' is a low-level utility package mainly for\n    graphic devices that expands upon the font tool-set provided by the\n    'systemfonts' package.",
+        "License": "MIT + file LICENSE",
+        "URL": "https://github.com/r-lib/textshaping",
+        "BugReports": "https://github.com/r-lib/textshaping/issues",
+        "Depends": "R (>= 3.2.0)",
+        "Imports": "lifecycle, stats, stringi, systemfonts (>= 1.3.0), utils",
+        "Suggests": "covr, grDevices, grid, knitr, rmarkdown, testthat (>= 3.0.0)",
+        "LinkingTo": "cpp11 (>= 0.2.1), systemfonts (>= 1.0.0)",
+        "VignetteBuilder": "knitr",
+        "Config/build/compilation-database": "true",
+        "Config/testthat/edition": "3",
+        "Config/usethis/last-upkeep": "2025-04-23",
+        "Encoding": "UTF-8",
+        "RoxygenNote": "7.3.2",
+        "SystemRequirements": "freetype2, harfbuzz, fribidi",
+        "NeedsCompilation": "yes",
+        "Packaged": "2026-03-06 09:57:58 UTC; thomas",
+        "Author": "Thomas Lin Pedersen [cre, aut] (ORCID:\n    <https://orcid.org/0000-0002-5147-4711>),\n  Posit Software, PBC [cph, fnd] (ROR: <https://ror.org/03wc8by49>)",
+        "Maintainer": "Thomas Lin Pedersen <thomas.pedersen@posit.co>",
+        "Repository": "CRAN",
+        "Date/Publication": "2026-03-06 10:40:02 UTC",
+        "Built": "R 4.5.2; aarch64-apple-darwin20; 2026-03-06 14:22:34 UTC; unix",
+        "Archs": "textshaping.so.dSYM",
+        "RemoteType": "standard",
+        "RemoteRef": "textshaping",
+        "RemotePkgRef": "textshaping",
+        "RemoteRepos": "https://cloud.r-project.org",
+        "RemoteReposName": "CRAN",
+        "RemotePkgPlatform": "aarch64-apple-darwin20",
+        "RemoteSha": "1.0.5"
       }
     },
     "tibble": {
@@ -3215,6 +3408,36 @@
         "RemoteSha": "1.2.6"
       }
     },
+    "uuid": {
+      "Source": "CRAN",
+      "Repository": "https://cloud.r-project.org",
+      "description": {
+        "Package": "uuid",
+        "Version": "1.2-2",
+        "Title": "Tools for Generating and Handling of UUIDs",
+        "Author": "Simon Urbanek [aut, cre, cph] (https://urbanek.org, ORCID:\n    <https://orcid.org/0000-0003-2297-1732>),\n  Theodore Ts'o [aut, cph] (libuuid)",
+        "Maintainer": "Simon Urbanek <Simon.Urbanek@r-project.org>",
+        "Authors@R": "c(person(\"Simon\", \"Urbanek\", role=c(\"aut\",\"cre\",\"cph\"), email=\"Simon.Urbanek@r-project.org\", comment=c(\"https://urbanek.org\", ORCID=\"0000-0003-2297-1732\")), person(\"Theodore\",\"Ts'o\", email=\"tytso@thunk.org\", role=c(\"aut\",\"cph\"), comment=\"libuuid\"))",
+        "Depends": "R (>= 2.9.0)",
+        "Description": "Tools for generating and handling of UUIDs (Universally Unique Identifiers).",
+        "License": "MIT + file LICENSE",
+        "URL": "https://www.rforge.net/uuid",
+        "BugReports": "https://github.com/s-u/uuid/issues",
+        "NeedsCompilation": "yes",
+        "Packaged": "2026-01-23 00:09:28 UTC; rforge",
+        "Repository": "RSPM",
+        "Date/Publication": "2026-01-23 06:40:09 UTC",
+        "Encoding": "UTF-8",
+        "Built": "R 4.5.0; x86_64-pc-linux-gnu; 2026-01-24 04:59:27 UTC; unix",
+        "RemoteType": "standard",
+        "RemoteRef": "uuid",
+        "RemotePkgRef": "uuid",
+        "RemoteRepos": "https://packagemanager.posit.co/cran/latest",
+        "RemoteReposName": "CRAN",
+        "RemotePkgPlatform": "aarch64-apple-darwin20",
+        "RemoteSha": "1.2-2"
+      }
+    },
     "vctrs": {
       "Source": "CRAN",
       "Repository": "https://cloud.r-project.org",
@@ -3436,6 +3659,43 @@
         "RemoteSha": "0.60"
       }
     },
+    "xml2": {
+      "Source": "CRAN",
+      "Repository": "https://cloud.r-project.org",
+      "description": {
+        "Package": "xml2",
+        "Title": "Parse XML",
+        "Version": "1.6.0",
+        "Authors@R": "c(\n    person(\"Hadley\", \"Wickham\", role = \"aut\"),\n    person(\"Jim\", \"Hester\", role = \"aut\"),\n    person(\"Jeroen\", \"Ooms\", email = \"jeroenooms@gmail.com\", role = c(\"aut\", \"cre\")),\n    person(\"Posit Software, PBC\", role = c(\"cph\", \"fnd\")),\n    person(\"R Foundation\", role = \"ctb\",\n           comment = \"Copy of R-project homepage cached as example\")\n  )",
+        "Description": "Bindings to 'libxml2' for working with XML data using a simple, \n    consistent interface based on 'XPath' expressions. Also supports XML schema\n    validation; for 'XSLT' transformations see the 'xslt' package.",
+        "License": "MIT + file LICENSE",
+        "URL": "https://xml2.r-lib.org, https://r-lib.r-universe.dev/xml2",
+        "BugReports": "https://github.com/r-lib/xml2/issues",
+        "Depends": "R (>= 3.6.0)",
+        "Imports": "cli, methods, rlang (>= 1.1.0)",
+        "Suggests": "covr, curl, httr, knitr, mockery, rmarkdown, testthat (>=\n3.2.0), xslt",
+        "VignetteBuilder": "knitr",
+        "Config/Needs/website": "tidyverse/tidytemplate",
+        "Encoding": "UTF-8",
+        "RoxygenNote": "7.3.3",
+        "SystemRequirements": "libxml2: libxml2-dev (deb), libxml2-devel (rpm)",
+        "Collate": "'S4.R' 'as_list.R' 'xml_parse.R' 'as_xml_document.R'\n'classes.R' 'format.R' 'import-standalone-obj-type.R'\n'import-standalone-purrr.R' 'import-standalone-types-check.R'\n'init.R' 'nodeset_apply.R' 'paths.R' 'utils.R' 'xml2-package.R'\n'xml_attr.R' 'xml_children.R' 'xml_document.R' 'xml_find.R'\n'xml_missing.R' 'xml_modify.R' 'xml_name.R' 'xml_namespaces.R'\n'xml_node.R' 'xml_nodeset.R' 'xml_path.R' 'xml_schema.R'\n'xml_serialize.R' 'xml_structure.R' 'xml_text.R' 'xml_type.R'\n'xml_url.R' 'xml_write.R'",
+        "Config/testthat/edition": "3",
+        "NeedsCompilation": "yes",
+        "Packaged": "2026-06-22 13:32:25 UTC; jeroen",
+        "Author": "Hadley Wickham [aut],\n  Jim Hester [aut],\n  Jeroen Ooms [aut, cre],\n  Posit Software, PBC [cph, fnd],\n  R Foundation [ctb] (Copy of R-project homepage cached as example)",
+        "Maintainer": "Jeroen Ooms <jeroenooms@gmail.com>",
+        "Repository": "RSPM",
+        "Date/Publication": "2026-06-22 15:40:02 UTC",
+        "Built": "R 4.5.0; aarch64-apple-darwin20; 2026-06-23 05:08:18 UTC; unix",
+        "RemoteType": "standard",
+        "RemoteRef": "xml2",
+        "RemotePkgRef": "xml2",
+        "RemoteRepos": "https://packagemanager.posit.co/cran/latest",
+        "RemotePkgPlatform": "aarch64-apple-darwin20",
+        "RemoteSha": "1.6.0"
+      }
+    },
     "xtable": {
       "Source": "CRAN",
       "Repository": "https://cloud.r-project.org",
@@ -3530,79 +3790,97 @@
   },
   "files": {
     ".Rprofile": {
-      "checksum": "313b14fa0584504c9e69d7fc2d376186"
+      "checksum": "f8e008f16b69112223d0b4ac73a95420"
     },
     "app.R": {
-      "checksum": "213c41c0cae1f72e5dc522fc01c606f7"
+      "checksum": "c45a8777bfa4ce61b97bd0534fc3f097"
     },
     "HANDOVER.md": {
-      "checksum": "e0b8ee8b34997b134c37df303a6d715c"
+      "checksum": "fa496c34b00542735e0ab7e54841ce2f"
     },
     "LICENSE": {
       "checksum": "6e91ae45f5f62c5162562a7747ef8fbc"
+    },
+    "R/charts.R": {
+      "checksum": "7088ede5cb7d4ab4b761fb93a8f9b396"
     },
     "R/config.R": {
       "checksum": "0214754eea78d71ee025eb0920438631"
     },
     "R/copy.R": {
-      "checksum": "5060dfd5e7219a728c9e0e40f56fa4e8"
+      "checksum": "d92b183768fb794ad37f10b6c8c024c1"
     },
     "R/data_load.R": {
-      "checksum": "225211c9007a422b8f7d218d4ac8bc44"
+      "checksum": "8ee948559df709a760286fd8b45be97b"
     },
     "R/data_prep.R": {
-      "checksum": "8c66972e0018d84d8d36b3d014fbe8a9"
+      "checksum": "7c8859e5d35fa20bf8781770f84b9459"
     },
     "R/export.R": {
-      "checksum": "e0717ef5b9d6a1af2ef0671dd79444b7"
+      "checksum": "484cbb01369aae2e68c348f4f7d53ecb"
+    },
+    "R/filters.R": {
+      "checksum": "d33435419daa5e72ee9a05dacc3f908f"
+    },
+    "R/maps.R": {
+      "checksum": "4b5743008f6bbe2ca04ee2b61dc999c1"
     },
     "R/mod_about.R": {
-      "checksum": "9681e0f9ba72c4656a412b1c921b15fe"
+      "checksum": "8c229e0f55c48a2d85852b39424d4cba"
     },
     "R/mod_contribute_steps.R": {
-      "checksum": "8d15c9ede8c55d00f6655e06e6381030"
+      "checksum": "9ba08f5af5324c961eac1c99f86657f0"
     },
     "R/mod_contribute_ui.R": {
-      "checksum": "1aacf259d20eed0c4b218b415ebe1620"
+      "checksum": "cd5abd83205380341af5cf5b6c495943"
     },
     "R/mod_contribute.R": {
-      "checksum": "875c8cf0b1fd32eb9d8c175a17f05730"
+      "checksum": "38ac2966cfc9339b0751cefe36fb4a2b"
     },
     "R/mod_explore.R": {
-      "checksum": "ed4efa2f6eea3c8cc1c098c5c4651278"
+      "checksum": "6a83ee42e113191835f3d43c7edca6d3"
     },
     "R/mod_home.R": {
-      "checksum": "9b5e2f5d3b76539f75dcfca6b1577fe8"
+      "checksum": "15c9d54a74b53b3253b2735c393ee9f8"
     },
     "R/mod_networking.R": {
-      "checksum": "58b092da681705297360a4c407c7028b"
+      "checksum": "90a29d812eacd07dc0f9d5a8ca5d06e4"
     },
     "R/mod_plan_filters.R": {
-      "checksum": "dd52bc8ef83b830267a17e1d95e05485"
+      "checksum": "f75bbebee5a3bf1b20b289000fdc0e87"
     },
     "R/mod_plan_results.R": {
-      "checksum": "74ad171910c774340ad5cf943bbf4aba"
+      "checksum": "c2d0ad48213141b45a54d91b4a52f9e1"
     },
     "R/mod_plan.R": {
-      "checksum": "72ee71d0912fcb0f9869c3b0b953d518"
+      "checksum": "0db795c6d6e85f4965dfac98c612906f"
+    },
+    "R/questions_docx.R": {
+      "checksum": "93d0321141748c79b55a5bc439069db6"
     },
     "R/questions_text.R": {
-      "checksum": "4dcde07c7a3cba952e34e357df906236"
+      "checksum": "12f7b2d0f563d14405da026e3ba5a557"
+    },
+    "R/report_docx.R": {
+      "checksum": "05640cf1b37826d387b9d8041d3e474a"
+    },
+    "R/species_images.R": {
+      "checksum": "edcc6d7de5120716c339612a05b993d2"
     },
     "R/submit.R": {
-      "checksum": "d3fedf64341f5cfbc1ecb1e6d185e936"
+      "checksum": "dc812d61c1e3a5844fe7db57639f58cc"
     },
     "R/theme.R": {
-      "checksum": "034ab2e24e5dc79d5c5ba8166198b78c"
+      "checksum": "e64c2b4bfaacbf501b9d3db23d7e58ba"
     },
     "R/ui_helpers.R": {
-      "checksum": "1aaa3f053c3b8136360edc923695e4a8"
+      "checksum": "fd77a1879426e9a01a4ddd4325d9c346"
     },
     "README.md": {
-      "checksum": "e9e179e9e3941ee06cfe3488897a50fb"
+      "checksum": "424ce95181e02e8f8fa719564cd6b669"
     },
     "renv.lock": {
-      "checksum": "09a039a9ee493f531149e34aecd0dfcc"
+      "checksum": "467bf9f1509112fb8fea86821f29ef83"
     },
     "www/fonts/ubuntu-400.woff2": {
       "checksum": "6e27639876db7e5665251406484519c5"
@@ -3629,13 +3907,13 @@
       "checksum": "84a5e18a213a7cd3a2a482b8ddaede38"
     },
     "www/scss/_components.scss": {
-      "checksum": "adcdab4cdfdb78d7156aef24d8ce64c6"
+      "checksum": "6140156800ba6b37c082d1e62156e21b"
     },
     "www/scss/_tokens.scss": {
-      "checksum": "8639f92bc594c0cd637e39e89f82fd55"
+      "checksum": "63b116612c5814828caf0b97404e66c8"
     },
     "www/scss/main.scss": {
-      "checksum": "68a3e85edc6b33c1f782bec7c8b8fc85"
+      "checksum": "8dbf0dca03186f2deff049c44433c955"
     }
   },
   "users": null

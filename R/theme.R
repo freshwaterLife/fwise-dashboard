@@ -40,7 +40,10 @@ fw_theme <- function() {
     code_font = font_collection("Ubuntu Mono", "monospace"),
     heading_font = font_collection("Ubuntu", "system-ui", "sans-serif"),
 
-    base_font_size = "1rem",
+    # Kept in step with $fw-size-body in _tokens.scss. Bootstrap sizes its own
+    # controls off this, so leaving it at 1rem while the SCSS moved would
+    # give larger prose next to unchanged form controls.
+    base_font_size = "1.0625rem",
 
     # Colour. `primary` drives Bootstrap's buttons, links and focus states, so it
     # is set to the accessible teal rather than the true brand teal. See the

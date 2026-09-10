@@ -198,10 +198,10 @@ fw_caveats <- function(data) {
   c(
     "HOW SUCCESS IS DEFINED",
     paste(
-      "Success follows Genovesi (2005): the complete and permanent removal of",
-      "all wild populations of a species from a defined area, by a time-limited",
-      "campaign. It is a binary judgement about an attempt, not a measure of",
-      "how well the attempt went."
+      "'Success' follows Genovesi, Piero - Limits and Potentialities of",
+      "Eradication as a Tool for Addressing Biological Invasions: the complete",
+      "and permanent removal of all wild populations of a species from a",
+      "defined area, by a time-limited campaign."
     ),
     "",
     "CLAIMED IS NOT THE SAME AS VALIDATED",
@@ -209,8 +209,7 @@ fw_caveats <- function(data) {
       "An outcome may be recorded as successful without formal proof of absence. ",
       "Of the ", format(successful, big.mark = ","), " attempts recorded as ",
       "successful, ", format(unverified, big.mark = ","), " carry no verification ",
-      "note. Treat the success count as claimed outcomes unless you have checked ",
-      "the verification fields on the rows you are relying on."
+      "note. The success is claimed by the source, not validated by the FWISE team."
     ),
     "",
     "ALL FOUR OUTCOMES CARRY INFORMATION",
@@ -230,32 +229,45 @@ fw_caveats <- function(data) {
       " (", pct(no_end), ") have no end year. Many of the last group are ongoing."
     ),
     "",
-    "SIZES ARE NOT COMPARABLE ACROSS UNITS",
-    paste(
-      "Treated size is recorded in hectares for some attempts and kilometers for",
-      "others, in the area_unit column. An area and a length are different",
-      "quantities. Never total, average or rank the area_treated column without",
-      "splitting it by unit first."
-    ),
-    "",
     "WHAT THIS EVIDENCE BASE ACTUALLY SHOWS",
     paste(
-      "FWISE records where eradication work has been REPORTED, not where it has",
-      "happened. Attempts that were never written up, never published in a",
-      "language or venue the compilers reached, or never shared by the people who",
-      "ran them are absent. Successful attempts are more likely to be written up",
-      "than failed ones. So the geographic spread describes the reporting, and",
-      "the outcome mix is likely to be more favourable than reality. An absence",
-      "in this data is not evidence that nothing happened."
-    ),
-    "",
-    "MULTI-VALUE FIELDS",
-    paste(
-      "Species, taxa and methods are semicolon-delimited lists in a single",
-      "column. Split on '; '. The underscore nesting used in the source",
-      "spreadsheet does not appear here."
+      "FWISE records where eradication work has been REPORTED, and is",
+      "therefore likely subject to reporting bias. Successful attempts are",
+      "more likely to be written up than failed ones. So the geographic spread describes",
+      "the reporting, and the outcome mix is likely to be more favourable than reality.",
+      "An absence in this data is not evidence that nothing happened. We would like to encourage",
+      "practitioners to submit their work, successful or not, so the record can be more complete."
     )
   )
+}
+
+#' The caveats split into titled blocks
+#'
+#' fw_caveats() returns headings, paragraphs and blanks as ONE vector, because
+#' that is what the workbook sheet wants. Every other consumer wants the blocks.
+#' Parsing it in one place means the count is derived wherever it is needed
+#' rather than written down: ADD OR REMOVE A BLOCK IN fw_caveats() AND NOTHING
+#' ELSE HAS TO CHANGE. The panel loops, the grid reflows, and the test below
+#' counts what it finds.
+#'
+#' A heading is the all-caps line; everything under it until the next one is
+#' body text. Blanks are the workbook's row spacing and carry no structure.
+#'
+#' @return a list of list(heading =, body =), in document order.
+fw_caveat_blocks <- function(data) {
+  lines <- fw_caveats(data)
+  blocks <- list(); current <- NULL
+  for (ln in lines) {
+    if (!nzchar(ln)) next
+    if (ln == toupper(ln)) {
+      if (!is.null(current)) blocks <- c(blocks, list(current))
+      current <- list(heading = ln, body = character(0))
+    } else if (!is.null(current)) {
+      current$body <- c(current$body, ln)
+    }
+  }
+  if (!is.null(current)) blocks <- c(blocks, list(current))
+  blocks
 }
 
 # ---- Field definitions -------------------------------------------------------
@@ -332,29 +344,26 @@ fw_text_sheet <- function(lines, heading) {
 #'
 #' Goes into the workbook as its own sheet, so a file that turns up in somebody's
 #' inbox six months later still says what it is a slice of.
+#'
+#' The filter rows are built by fw_filter_summary() from the SAME registry that
+#' draws the controls, so a filter cannot be offered on the page and then be
+#' missing from the spreadsheet that is supposed to record what was selected.
+#' Only the provenance rows above them are written out by hand.
 fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL) {
-  val <- function(x) {
-    if (is.null(x) || length(x) == 0 || all(!nzchar(as.character(x)))) "All"
-    else paste(x, collapse = ", ")
-  }
+  provenance <- list(
+    list(setting = "Generated at (UTC)",
+         value = format(Sys.time(), "%Y-%m-%d %H:%M:%S", tz = "UTC")),
+    list(setting = "Attempts in this extract",
+         value = format(n_rows, big.mark = ",")),
+    list(setting = "Attempts in the database",
+         value = format(n_total, big.mark = ",")),
+    list(setting = "Data release", value = meta$release %||% "unknown")
+  )
+  rows <- c(provenance, fw_filter_summary(filters))
+
   data.frame(
-    Setting = c(
-      "Generated at (UTC)", "Attempts in this extract", "Attempts in the database",
-      "Data release", "Continent", "Country", "Invasive species", "Invasive group",
-      "Method", "Waterbody type", "Outcome", "Start year from", "Start year to",
-      "Attempts with no start year"
-    ),
-    Value = c(
-      format(Sys.time(), "%Y-%m-%d %H:%M:%S", tz = "UTC"),
-      format(n_rows,  big.mark = ","),
-      format(n_total, big.mark = ","),
-      meta$release %||% "unknown",
-      val(filters$continent), val(filters$country),
-      val(filters$species), val(filters$taxa), val(filters$method),
-      val(filters$regime), val(filters$outcome),
-      val(filters$year_from), val(filters$year_to),
-      if (isTRUE(filters$include_no_year)) "Included" else "Excluded"
-    ),
+    Setting = vapply(rows, function(r) r$setting, character(1)),
+    Value   = vapply(rows, function(r) as.character(r$value), character(1)),
     stringsAsFactors = FALSE
   )
 }

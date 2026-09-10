@@ -4,22 +4,7 @@
 # There is ONE public function, fw_submit_attempt(record), and it writes to
 # dev/submissions_local.csv. It works on a clean machine with no credentials.
 #
-# THE GOOGLE SHEETS BACKEND HAS BEEN REMOVED. Submissions are moving to GitHub,
-# so the Sheets path was deleted rather than left sitting here as untested code
-# with credential handling in its documentation. It had never been run against a
-# real Sheet.
-#
-# The GitHub write path is NOT built. It needs a token that does not exist yet
-# and is a separate job. Until it lands, the local file is the whole story.
-#
-# THE INBOX IS A RAW SUBMISSIONS LIST, NOT THE SCHEMA. One flat row per
-# submission. The repeatable species, methods and beneficiaries are serialised
-# into single pipe-delimited cells because a human reviewer reads them in a
-# spreadsheet during QA. Normalisation into the star schema happens manually in
-# that review, so the column layout is optimised for the reviewer, not for a
-# machine.
-
-
+# Submissions to GitHub.
 # The column order of the submissions inbox. Grouped the way a reviewer reads
 # them rather than the way the app collects them. Adding a field means adding it
 # here AND in fw_flatten_record().
@@ -29,7 +14,7 @@ FW_SUBMISSION_COLUMNS <- c(
   # Consent
   "consent_data_use", "email_public",
   # Site
-  "site_name", "country", "region", "latitude", "longitude",
+  "site_name", "country", "country_other", "region", "latitude", "longitude",
   # Waterbody
   "waterbody_type", "waterbody_type_other", "water_regime",
   "area_treated", "area_unit", "area_notes",
@@ -291,7 +276,13 @@ fw_collect_submission <- function(input, rows, family_lookup = NULL) {
         email_public = if (isTRUE(input$email_private)) "no" else "yes",
 
         site_name = get_in("site_name"),
+        # country_other travels BESIDE country rather than replacing it, the
+        # same as waterbody_type and driver. Resolving "Other (specify)" is a
+        # review decision - the reviewer has to decide whether the typed answer
+        # is a country, a territory or a mistake - and doing it here would hide
+        # that the contributor went off-list.
         country   = get_in("country"),
+        country_other = get_in("country_other"),
         region    = get_in("region"),
         latitude  = get_in("latitude"),
         longitude = get_in("longitude"),

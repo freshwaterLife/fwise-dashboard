@@ -55,15 +55,27 @@ fw_page_header <- function(title, description = NULL) {
   )
 }
 
-# ---- The dot motif -----------------------------------------------------------
-
-#' A divider made of the dot field
+#' A filter sidebar beside a results column
 #'
-#' The one decorative device in the app. It carries meaning (data present, data
-#' missing), so it is not treated as ornament. Use it sparingly: at most twice on
-#' the landing page and nowhere else.
-fw_dots_divider <- function() {
-  div(class = "fw-dots-divider", role = "presentation", `aria-hidden` = "true")
+#' Used by the report builder and the dashboard. A CSS grid rather than
+#' bslib::layout_sidebar(), whose width is set in pixels and which brings its own
+#' collapse behaviour; see .fw-layout in _components.scss.
+#'
+#' The sidebar is a real <details>, open by default. Below 900px that lets a
+#' reader fold ten controls away and get to the results in one scroll; above it
+#' the marker is hidden and the panel simply sits beside the content.
+#'
+#' @param summary the disclosure label, shown only on narrow screens
+fw_sidebar_layout <- function(sidebar, main, summary) {
+  div(
+    class = "fw-layout",
+    tags$details(
+      class = "fw-layout__sidebar", open = NA,
+      tags$summary(class = "fw-layout__summary", summary),
+      sidebar
+    ),
+    div(class = "fw-layout__main", main)
+  )
 }
 
 # ---- KPI ---------------------------------------------------------------------
@@ -396,6 +408,25 @@ fw_client_script <- function() {
       });
       Shiny.addCustomMessageHandler('fw-nav', function (value) {
         Shiny.setInputValue('fw_nav_to', value, { priority: 'event' });
+      });
+      // Bring a block into view by id. The report builder uses this after a
+      // build: its results now sit BELOW the questions rather than beside them,
+      // so without this the reader presses Build and nothing visibly happens.
+      // block:'start' rather than 'center' so the results heading lands at the
+      // top of the screen and the reader starts at the beginning of the report.
+      Shiny.addCustomMessageHandler('fw-scroll-to', function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      // The feedback box. The address is assembled here rather than served as
+      // a mailto href, for the same scraping reason as the contacts page, and
+      // the message never reaches the server at all.
+      Shiny.addCustomMessageHandler('fw-mailto', function (msg) {
+        var href = 'mail' + 'to:' + msg.to +
+          '?subject=' + encodeURIComponent(msg.subject) +
+          '&body=' + encodeURIComponent(msg.body);
+        window.location.href = href;
       });
     });
   "))

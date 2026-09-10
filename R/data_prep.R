@@ -24,6 +24,10 @@ suppressPackageStartupMessages({
 })
 
 source(file.path("R", "config.R"))
+# FW_REGIME_BY_TYPE lives in data_load.R so the contribute form and this script
+# read the same lookup. Sourced explicitly because this file runs standalone
+# under Rscript, outside the app's automatic sourcing of R/.
+source(file.path("R", "data_load.R"))
 
 # ==============================================================================
 # PERMANENT IDENTIFIERS
@@ -139,6 +143,75 @@ fw_assign_ids <- function(natural_key, prefix, registry_name) {
 #' from key_backfill.csv removes it entirely.
 fw_disambiguate <- function(key) {
   paste0(key, "#", ave(seq_along(key), key, FUN = seq_along))
+}
+
+#' Correct the water regime where the source contradicts the waterbody type
+#'
+#' `System Simple` comes straight from the client's spreadsheet and a handful of
+#' rows are filed under the wrong regime - every Tributary row arrived as Lentic,
+#' as did Spring and Drain, and "Multiple" arrived claiming a single regime it
+#' cannot have. The corrections live in FW_REGIME_BY_TYPE in data_load.R so that
+#' the contribute form and the data cannot disagree about them.
+#'
+#' Anything not named there keeps whatever the source says. This is a narrow
+#' correction of known contradictions, not a reclassification.
+fw_fix_regime <- function(type, regime) {
+  fixed <- unname(FW_REGIME_BY_TYPE[type])
+  # A type named in the lookup takes the lookup's answer, INCLUDING the NA that
+  # "Multiple" is deliberately given. Everything else falls through unchanged.
+  known <- type %in% names(FW_REGIME_BY_TYPE)
+  out <- ifelse(known, fixed, regime)
+
+  changed <- known & !is.na(regime) & (is.na(out) | out != regime)
+  if (any(changed, na.rm = TRUE)) {
+    tab <- table(paste0(type[changed], ": ", regime[changed], " -> ",
+                        ifelse(is.na(out[changed]), "none", out[changed])))
+    message("Corrected water regime on ", sum(changed, na.rm = TRUE), " rows:")
+    for (k in names(tab)) message("  ", k, "  (", tab[[k]], ")")
+  }
+
+  # Anything still disagreeing is a NEW contradiction the lookup has not been
+  # told about. Warn loudly rather than shipping it: this is exactly how the
+  # Tributary rows went unnoticed the first time.
+  suspect <- !known & !is.na(regime) & !is.na(type) &
+    grepl("creek|river|stream|brook|channel|canal", tolower(type)) &
+    regime == "Lentic"
+  if (any(suspect, na.rm = TRUE)) {
+    warning("Waterbody types that look lotic but are filed as Lentic: ",
+            paste(unique(type[suspect]), collapse = ", "),
+            ". Add them to FW_REGIME_BY_TYPE in data_load.R.", call. = FALSE)
+  }
+  out
+}
+
+#' Carry the resolved species imagery across a rebuild
+#'
+#' Joined on species_id, which is stable across rebuilds because it is assigned
+#' from the species name via the id registry. A species that is new in this
+#' export simply has no cached image yet and gets NA, which is what the app's
+#' live fallback is for.
+fw_carry_species_images <- function(species) {
+  cols <- c("image_url", "image_credit", "image_licence", "image_page_url")
+  blank <- function(x) {
+    for (col in cols) x[[col]] <- NA_character_
+    x
+  }
+
+  path <- file.path(FW_SCHEMA_DIR, "species.csv")
+  if (!file.exists(path)) return(blank(species))
+
+  cached <- readr::read_csv(path, show_col_types = FALSE, progress = FALSE)
+  have <- intersect(cols, names(cached))
+  if (!length(have) || !"species_id" %in% names(cached)) return(blank(species))
+
+  out <- dplyr::left_join(
+    species,
+    dplyr::mutate(dplyr::select(cached, species_id, dplyr::all_of(have)),
+                  dplyr::across(dplyr::all_of(have), as.character)),
+    by = "species_id"
+  )
+  for (col in setdiff(cols, have)) out[[col]] <- NA_character_
+  out
 }
 
 fw_build_schema <- function() {
@@ -319,14 +392,20 @@ fw_build_schema <- function() {
       # The species name IS the natural key - it is already what the group_by
       # above collapses on, so there is nothing else to build a key from.
       species_id = fw_assign_ids(raw_name, "SP", "species_ids"),
-      # Not present in this export. The client's taxonomy work will fill these in;
-      # the columns exist now so the contract does not change when it does.
-      iucn_status  = NA_character_,
-      image_url    = NA_character_,
-      image_credit = NA_character_
+      # Not present in this export. The client's taxonomy work will fill this
+      # in; the column exists now so the contract does not change when it does.
+      iucn_status = NA_character_
     ) |>
+    # THE IMAGE CACHE IS CARRIED FORWARD, NOT REBUILT. dev/fetch_species_images.R
+    # spends twenty minutes of Wikimedia's time resolving these, and they are a
+    # property of the species rather than of the export. Blanking them here -
+    # which is what this block used to do - silently threw that away on every
+    # rebuild and the app went back to placeholder art with no error anywhere.
+    fw_carry_species_images() |>
     select(species_id, scientific_name, common_name, taxa, family,
-           iucn_status, image_url, image_credit, raw_name)
+           iucn_status, image_url, image_credit, image_licence, image_page_url,
+           raw_name)
+
 
   # ---- attempt_species.csv -----------------------------------------------------
 
@@ -454,7 +533,7 @@ fw_build_schema <- function() {
       latitude       = num(`Latitude (decimal degrees)`),
       longitude      = num(`Longitude (decimal degrees)`),
       waterbody_type = System,
-      water_regime   = `System Simple`,
+      water_regime   = fw_fix_regime(System, `System Simple`),
       area_treated   = num(`Area Treated (size)`),
       area_unit      = `Area Treated (unit)`,
       area_notes     = `Area Treated Notes`,
@@ -497,18 +576,6 @@ fw_build_schema <- function() {
       status         = "approved",
       last_updated   = as.Date("2026-09-06")
     )
-
-  # ---- Source columns deliberately not carried through -------------------------
-  #
-  # `Eradication or Control` is "Eradication" on all 914 rows. Every record in
-  #   FWISE is an eradication attempt, so the column distinguishes nothing.
-  # `Sent` is the client's own workflow state - whether a record has been sent
-  #   somewhere during compilation. It says nothing about the eradication.
-  # `Submission Date` is empty on every row.
-  #
-  # `Key` is not dropped: it is read above, where it takes precedence over the
-  # natural-key registry, and it is empty only until key_backfill.csv is pasted
-  # into the master spreadsheet.
 
   # ---- Validate ----------------------------------------------------------------
 
