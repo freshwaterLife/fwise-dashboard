@@ -3078,12 +3078,12 @@
         "Package": "terra",
         "Type": "Package",
         "Title": "Spatial Data Analysis",
-        "Version": "1.9-34",
-        "Date": "2026-06-18",
+        "Version": "1.9-50",
+        "Date": "2026-09-08",
         "Depends": "R (>= 3.5.0), methods",
         "Suggests": "parallel, tinytest, ncdf4, sf (>= 0.9-8), igraph, deldir,\nXML, leaflet (>= 2.2.1), htmlwidgets, future, future.apply",
         "LinkingTo": "Rcpp",
-        "Imports": "Rcpp (>= 1.0-10)",
+        "Imports": "Rcpp (>= 1.0-10), stats",
         "SystemRequirements": "C++17, GDAL (>= 2.2.3), GEOS (>= 3.4.0), PROJ (>=\n4.9.3), TBB, sqlite3",
         "Encoding": "UTF-8",
         "Language": "en-US",
@@ -3093,13 +3093,13 @@
         "URL": "https://rspatial.org/, https://rspatial.github.io/terra/",
         "BugReports": "https://github.com/rspatial/terra/issues",
         "LazyLoad": "yes",
-        "Authors@R": "c(\n\tperson(\"Robert J.\", \"Hijmans\", role=c(\"cre\", \"aut\"),  \n\t\t\temail=\"r.hijmans@gmail.com\", comment=c(ORCID=\"0000-0001-5872-2872\")),\t\t\t\n    person(\"Andrew\", \"Brown\", role=\"aut\", comment=c(ORCID=\"0000-0002-4565-533X\")),\n    person(\"Márcia\", \"Barbosa\", role=\"aut\", comment=c(ORCID=\"0000-0001-8972-7713\")),\n    person(\"Krzysztof\", \"Dyba\", role=\"ctb\", comment=c(ORCID=\"0000-0002-8614-3816\")),\n    person(\"Roger\", \"Bivand\", role=\"ctb\", comment=c(ORCID=\"0000-0003-2392-6140\")),\n    person(\"Michael\", \"Chirico\", role=\"ctb\", comment=c(ORCID=\"0000-0003-0787-087X\")),\n    person(\"Emanuele\", \"Cordano\", role=\"ctb\",comment=c(ORCID=\"0000-0002-3508-5898\")),\n    person(\"Edzer\", \"Pebesma\", role=\"ctb\", comment=c(ORCID=\"0000-0001-8049-7069\")),\n    person(\"Barry\", \"Rowlingson\", role=\"ctb\", comment=c(ORCID=\"0000-0002-8586-6625\")),\n    person(\"Michael D.\", \"Sumner\", role=\"ctb\", comment=c(ORCID=\"0000-0002-2471-7511\")))",
+        "Authors@R": "c(\n\tperson(\"Robert J.\", \"Hijmans\", role=c(\"cre\", \"aut\"),  \n\t\t\temail=\"r.hijmans@gmail.com\", comment=c(ORCID=\"0000-0001-5872-2872\")),\t\t\t\n    person(\"Andrew\", \"Brown\", role=\"aut\", comment=c(ORCID=\"0000-0002-4565-533X\")),\n    person(c(\"A.\", \"Márcia\"), \"Barbosa\", role=\"aut\", comment=c(ORCID=\"0000-0001-8972-7713\")),\n    person(\"Emanuele\", \"Cordano\", role=\"aut\",comment=c(ORCID=\"0000-0002-3508-5898\")),\n    person(\"Krzysztof\", \"Dyba\", role=\"aut\", comment=c(ORCID=\"0000-0002-8614-3816\")),\n    person(\"Roger\", \"Bivand\", role=\"ctb\", comment=c(ORCID=\"0000-0003-2392-6140\")),\n    person(\"Michael\", \"Chirico\", role=\"ctb\", comment=c(ORCID=\"0000-0003-0787-087X\")),\n    person(\"Edzer\", \"Pebesma\", role=\"ctb\", comment=c(ORCID=\"0000-0001-8049-7069\")),\n    person(\"Barry\", \"Rowlingson\", role=\"ctb\", comment=c(ORCID=\"0000-0002-8586-6625\")),\n    person(\"Michael D.\", \"Sumner\", role=\"ctb\", comment=c(ORCID=\"0000-0002-2471-7511\")))",
         "NeedsCompilation": "yes",
-        "Packaged": "2026-06-19 03:43:47 UTC; rhijm",
-        "Author": "Robert J. Hijmans [cre, aut] (ORCID:\n    <https://orcid.org/0000-0001-5872-2872>),\n  Andrew Brown [aut] (ORCID: <https://orcid.org/0000-0002-4565-533X>),\n  Márcia Barbosa [aut] (ORCID: <https://orcid.org/0000-0001-8972-7713>),\n  Krzysztof Dyba [ctb] (ORCID: <https://orcid.org/0000-0002-8614-3816>),\n  Roger Bivand [ctb] (ORCID: <https://orcid.org/0000-0003-2392-6140>),\n  Michael Chirico [ctb] (ORCID: <https://orcid.org/0000-0003-0787-087X>),\n  Emanuele Cordano [ctb] (ORCID: <https://orcid.org/0000-0002-3508-5898>),\n  Edzer Pebesma [ctb] (ORCID: <https://orcid.org/0000-0001-8049-7069>),\n  Barry Rowlingson [ctb] (ORCID: <https://orcid.org/0000-0002-8586-6625>),\n  Michael D. Sumner [ctb] (ORCID:\n    <https://orcid.org/0000-0002-2471-7511>)",
+        "Packaged": "2026-09-08 09:32:19 UTC; rhijm",
+        "Author": "Robert J. Hijmans [cre, aut] (ORCID:\n    <https://orcid.org/0000-0001-5872-2872>),\n  Andrew Brown [aut] (ORCID: <https://orcid.org/0000-0002-4565-533X>),\n  A. Márcia Barbosa [aut] (ORCID:\n    <https://orcid.org/0000-0001-8972-7713>),\n  Emanuele Cordano [aut] (ORCID: <https://orcid.org/0000-0002-3508-5898>),\n  Krzysztof Dyba [aut] (ORCID: <https://orcid.org/0000-0002-8614-3816>),\n  Roger Bivand [ctb] (ORCID: <https://orcid.org/0000-0003-2392-6140>),\n  Michael Chirico [ctb] (ORCID: <https://orcid.org/0000-0003-0787-087X>),\n  Edzer Pebesma [ctb] (ORCID: <https://orcid.org/0000-0001-8049-7069>),\n  Barry Rowlingson [ctb] (ORCID: <https://orcid.org/0000-0002-8586-6625>),\n  Michael D. Sumner [ctb] (ORCID:\n    <https://orcid.org/0000-0002-2471-7511>)",
         "Repository": "CRAN",
-        "Date/Publication": "2026-06-19 15:10:02 UTC",
-        "Built": "R 4.5.2; aarch64-apple-darwin20; 2026-06-19 15:18:11 UTC; unix",
+        "Date/Publication": "2026-09-08 15:50:02 UTC",
+        "Built": "R 4.5.2; aarch64-apple-darwin20; 2026-09-09 09:41:09 UTC; unix",
         "Archs": "terra.so.dSYM",
         "RemoteType": "standard",
         "RemoteRef": "terra",
@@ -3107,7 +3107,7 @@
         "RemoteRepos": "https://cloud.r-project.org",
         "RemoteReposName": "CRAN",
         "RemotePkgPlatform": "aarch64-apple-darwin20",
-        "RemoteSha": "1.9-34"
+        "RemoteSha": "1.9-50"
       }
     },
     "textshaping": {
@@ -3790,13 +3790,13 @@
   },
   "files": {
     ".Rprofile": {
-      "checksum": "f8e008f16b69112223d0b4ac73a95420"
+      "checksum": "894b9ccc56c385527f7f1928b5c09417"
     },
     "app.R": {
-      "checksum": "c45a8777bfa4ce61b97bd0534fc3f097"
+      "checksum": "a622578804bbf349bcf5a068abb59fc3"
     },
     "HANDOVER.md": {
-      "checksum": "fa496c34b00542735e0ab7e54841ce2f"
+      "checksum": "7085ce6b47a1803aa642b20613010179"
     },
     "LICENSE": {
       "checksum": "6e91ae45f5f62c5162562a7747ef8fbc"
@@ -3808,22 +3808,22 @@
       "checksum": "0214754eea78d71ee025eb0920438631"
     },
     "R/copy.R": {
-      "checksum": "d92b183768fb794ad37f10b6c8c024c1"
+      "checksum": "49f03fe6d867c463bd32f2f71817f57f"
     },
     "R/data_load.R": {
-      "checksum": "8ee948559df709a760286fd8b45be97b"
+      "checksum": "fb0a78a4359c497f157d3e72392d8ada"
     },
     "R/data_prep.R": {
-      "checksum": "7c8859e5d35fa20bf8781770f84b9459"
+      "checksum": "3e6d3891f83d0ba9f30598d273377038"
     },
     "R/export.R": {
-      "checksum": "484cbb01369aae2e68c348f4f7d53ecb"
+      "checksum": "5e8fcd540ea6c36513137e94a2d5ff1e"
     },
     "R/filters.R": {
-      "checksum": "d33435419daa5e72ee9a05dacc3f908f"
+      "checksum": "4bbe22c3dda4a70b5404644b1b5d0e97"
     },
     "R/maps.R": {
-      "checksum": "4b5743008f6bbe2ca04ee2b61dc999c1"
+      "checksum": "87db9b299bef4a1e0031d33c4e55dee0"
     },
     "R/mod_about.R": {
       "checksum": "8c229e0f55c48a2d85852b39424d4cba"
@@ -3832,13 +3832,13 @@
       "checksum": "9ba08f5af5324c961eac1c99f86657f0"
     },
     "R/mod_contribute_ui.R": {
-      "checksum": "cd5abd83205380341af5cf5b6c495943"
+      "checksum": "066efca0c8cc346b42787579e7d72a33"
     },
     "R/mod_contribute.R": {
-      "checksum": "38ac2966cfc9339b0751cefe36fb4a2b"
+      "checksum": "3c545be2cb8fdcb461d3f39c0e798cfa"
     },
     "R/mod_explore.R": {
-      "checksum": "6a83ee42e113191835f3d43c7edca6d3"
+      "checksum": "acfb8c1bde68042277f1787e1f518b56"
     },
     "R/mod_home.R": {
       "checksum": "15c9d54a74b53b3253b2735c393ee9f8"
@@ -3850,22 +3850,22 @@
       "checksum": "f75bbebee5a3bf1b20b289000fdc0e87"
     },
     "R/mod_plan_results.R": {
-      "checksum": "c2d0ad48213141b45a54d91b4a52f9e1"
+      "checksum": "48066574821256f7ce0e9dc608c97638"
     },
     "R/mod_plan.R": {
-      "checksum": "0db795c6d6e85f4965dfac98c612906f"
+      "checksum": "55f833fd5eb0f0f824a830c536bbf549"
     },
     "R/questions_docx.R": {
-      "checksum": "93d0321141748c79b55a5bc439069db6"
+      "checksum": "da1d782138670ddf0ba65e569355680d"
     },
     "R/questions_text.R": {
       "checksum": "12f7b2d0f563d14405da026e3ba5a557"
     },
-    "R/report_docx.R": {
-      "checksum": "05640cf1b37826d387b9d8041d3e474a"
+    "R/report_html.R": {
+      "checksum": "5efa8246c0b4c8b5b509393640754de6"
     },
     "R/species_images.R": {
-      "checksum": "edcc6d7de5120716c339612a05b993d2"
+      "checksum": "2b533bda62e10d0d71825f142a843e71"
     },
     "R/submit.R": {
       "checksum": "dc812d61c1e3a5844fe7db57639f58cc"
@@ -3877,10 +3877,37 @@
       "checksum": "fd77a1879426e9a01a4ddd4325d9c346"
     },
     "README.md": {
-      "checksum": "424ce95181e02e8f8fa719564cd6b669"
+      "checksum": "e1b503a6528bde2f95445a3758902d6e"
     },
     "renv.lock": {
-      "checksum": "467bf9f1509112fb8fea86821f29ef83"
+      "checksum": "87deca0ea2d8f687119405673fe7f5b7"
+    },
+    "resources/africa_fiery_redfin.png": {
+      "checksum": "b9949984167288414006c5400b20450a"
+    },
+    "resources/africa_smallmouth_bass_greyscale.png": {
+      "checksum": "862b42907d77e7a851a71c51b24dd779"
+    },
+    "resources/eu_pearl_mussel.png": {
+      "checksum": "9f583454262e8f290ed0b77a261b5121"
+    },
+    "resources/eu_salmon_fluke_greyscale.png": {
+      "checksum": "5da3148756ac3e44b414e48125c942ba"
+    },
+    "resources/la_rainbow_trout_greyscale.png": {
+      "checksum": "0d13d16dd46b8424edf568c655ebc7b4"
+    },
+    "resources/la_valchetta_frog.png": {
+      "checksum": "dfe878f12016918ba7adca9dc0248b63"
+    },
+    "resources/na_apache_trout.png": {
+      "checksum": "f5ad8b0e6b9aea4a14870560098251ee"
+    },
+    "resources/oc_common_carp_greyscale.png": {
+      "checksum": "de10f9ca3e0609bd50ddc240649a3fc6"
+    },
+    "resources/oc_golden_galaxias.png": {
+      "checksum": "4d9c772fbdb51b334149cf29958b98d8"
     },
     "www/fonts/ubuntu-400.woff2": {
       "checksum": "6e27639876db7e5665251406484519c5"
@@ -3907,7 +3934,7 @@
       "checksum": "84a5e18a213a7cd3a2a482b8ddaede38"
     },
     "www/scss/_components.scss": {
-      "checksum": "6140156800ba6b37c082d1e62156e21b"
+      "checksum": "2e5cde799dc52ec0cc729411ec6f1c19"
     },
     "www/scss/_tokens.scss": {
       "checksum": "63b116612c5814828caf0b97404e66c8"
