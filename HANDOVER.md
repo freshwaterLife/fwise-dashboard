@@ -8,52 +8,21 @@ data layer.
 
 ---
 
-## 1. What is built
+## 1. Pages
 
-| Page | State | Notes |
-|---|---|---|
-| Home | **Stub** | Full specification pasted into `R/mod_home.R` as comments |
-| Explore the data | **Stub** | Intended structure in `R/mod_explore.R` |
-| Plan an eradication | **Stub** | Intended structure in `R/mod_plan.R` |
-| Contribute data | **Built** | One scrolling form, eleven sections, built to the field specification |
-| Contacts | **Built** | Reads the real 237-contact table |
-| About | **Stub** | Intended structure in `R/mod_about.R` |
+| Page                | Description                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Home                | Landing page offering case studies, connections to events, and map displaying current work and opportunties.                                                                                                                                                                                                                                                                             |
+| Explore the data    | Dashboard page - users are encouraged to explore and filter the data.                                                                                                                                                                                                                                                                                                                    |
+| Plan an eradication | This outputs data and a simple report for users based on filters they have applied. Idea is that users will use this to understand similar attempts that they might want to plan, or identify contacts in their area to apply to active conservation work. Users apply filters, click build, read, and can download as a spreadsheet or a self-contained HTML report that prints to PDF. |
+| Contribute data     | One scrolling form allowing users to input data on **their** eradication attempt, whether it failed, is ongoing, or successful.                                                                                                                                                                                                                                                          |
+| Networking          | Reads and displays the contact table.                                                                                                                                                                                                                                                                                                                                                    |
+| About               | Project description, citation block, feedback box                                                                                                                                                                                                                                                                                                                                        |
 
-Also built: the design system, navigation and footer, the data layer and its
-transform, and the submission write path.
 
-### Verified working
 
-- `shiny::runApp()` from a clean checkout with no credentials, no errors.
-- All six navigation items with correct active states.
-- The form completes end to end at 375px and writes to
-  `dev/submissions_local.csv`.
-- Send stays disabled until every required field passes; errors are shown *and*
-  announced through a live region.
-- Contacts renders from the real table, rolls up by continent and country, shows
-  attempt counts, and omits redacted emails from the served markup as well as the
-  visible table. Tested by flipping a contact to not-public and confirming
-  neither the address nor its local-part appears anywhere in the rendered HTML.
-- Ubuntu renders from local files with no CDN request.
-- Keyboard focus is visible on every interactive element.
-- `prefers-reduced-motion` disables all motion.
-- Every colour pair meets WCAG AA (`Rscript dev/check_contrast.R`).
 
-### Not done, and deliberately out of scope
 
-Landing page content, the Explore/Dashboard page, the GitHub submission write
-path, PDF report output, data cleaning, taxonomy matching, species image
-scraping, and authentication.
-
-**PDF output** is deliberately deferred. Quarto rendering adds significant
-startup weight on Connect Cloud and startup time is already a live concern. The
-XLSX export covers the "take this away and cite it" need for now.
-
-**The GitHub submission write path** needs a token that does not exist yet. The
-Google Sheets backend was deleted rather than left as untested code carrying
-credential handling in its docs, so submissions currently land in
-`dev/submissions_local.csv` only. This is the biggest remaining gap before
-launch.
 
 ---
 
@@ -90,9 +59,13 @@ All in `R/copy.R` unless stated. Search the file for `[PLACEHOLDER]` to find the
 | `footer$doi_url` | Zenodo DOI, currently `#` |
 | `footer$github_url` | Public repository URL |
 | `footer$wfa_url` | Weird Fishes Advisory website, currently a guess |
-| `contacts$intro` | Framing line at the top of the contacts page |
-| `contacts$outro` | Closing note offering a route to the FWISE team |
-| `contacts$outro_email` | Currently `hello@example.org` |
+| `networking$intro` | Framing line at the top of the networking page |
+| `networking$outro` | Closing note offering a route to the FWISE team |
+| `networking$outro_email` | Currently `hello@example.org` |
+| `about$feedback_email` | Where the About feedback box addresses its mail. Currently `hello@example.org` |
+| `about$method2` | The search strategy and review protocol |
+| `about$team` | The team and contributing partners |
+| `about$citation` | The DOI inside the citation block |
 | `contribute$consent$terms_link_label` / `terms_url` | Full terms of data use |
 | `contribute$confirm$followup` | "within X working days" |
 | `R/data_load.R` `fw_country_burden()` | Placeholder choropleth source |
@@ -108,10 +81,25 @@ There is nothing to replace.
 
 | File | Line | Ambiguity, and the simplest reading implemented |
 |---|---|---|
-| `R/mod_contribute_steps.R` | ~135 | Spec asks for "a searchable dropdown of Sovereign ISO and Location ISO". Implemented as a country dropdown plus a free-text region box. `data/lookup_country.csv` already carries `iso3` and `region` and can drive a true two-level picker if the client wants one |
 | `R/mod_contribute_steps.R` | ~299 | Spec asks for labour effort as "a numeric box with a free-text fallback for ranges". Implemented as one text box, so "20 to 30" is accepted and passed to QA |
 | `R/mod_contribute_steps.R` | ~319 | Spec lists "Measured concentration notes" but no measured concentration *value*. Implemented as specified, notes only. Worth checking this was intended |
-| `R/data_load.R` | ~99 | 35 of 390 species have no parenthetical scientific name (e.g. `Amphipoda`, `Barbus sp.`). The whole string sits in `common_name` and the dropdown label coalesces both fields so nothing is unfindable. The client's QA cleaning should split these properly |
+| `R/data_load.R` | ~232 | 35 of 390 species have no parenthetical scientific name (e.g. `Amphipoda`, `Barbus sp.`). The whole string sits in `common_name` and the dropdown label coalesces both fields so nothing is unfindable. The client's QA cleaning should split these properly |
+
+**Resolved since.** The "Sovereign ISO and Location ISO" ambiguity is closed:
+the country field is now the full ISO 3166-1 list (countries with records first,
+then the rest, then "Other (specify)"), and the region field is that country's
+ISO 3166-2 subdivisions, narrowed as soon as a country is chosen. Both lists are
+built offline by `dev/build_iso_lookups.R` and committed to `fwise-data/`.
+
+The subdivision picker allows free text (`create = TRUE`) on purpose. ISO does
+not name every catchment, county or district a treated site might sit in, and a
+picker that refuses the true answer is worse than a text box.
+
+`lookup_country.csv` was left alone. Its `country_raw` column maps the messy
+values in the client's export ("United States (Hawaii)") and `data_prep.R` hard
+fails on an unmapped one; that file is about *this dataset*, the two new ones are
+about the standard, and conflating them would let a change in the standard alter
+how an existing record parses.
 
 ---
 
@@ -161,12 +149,49 @@ button roles fall back to `--fw-deep` and the brand teal is kept for non-text
 use. The FWISE wordmark indigo `#191044` was deliberately not promoted to a
 token, as that would introduce the second accent hue the brief rules out.
 
-### 5.5 Base map is Esri, not Carto
+### 5.5 Base map is Carto Voyager, with three alternatives
 
-`CartoDB.Positron` is the usual muted choice and was the first pick, but Carto
-now watermarks keyless requests with "API KEY REQUIRED" across every tile.
-Switched to `Esri.WorldGrayCanvas`, equally muted and still keyless. If the client
-obtains a Carto key, switch back.
+Superseded twice, and **now wrong again.** The first pick was `CartoDB.Positron`;
+it was dropped on a claim that Carto watermarks keyless tiles with "API KEY
+REQUIRED". That claim was rechecked on 9 September 2026 and did not hold at the
+time - the unauthenticated `basemaps.cartocdn.com` endpoints returned ordinary
+200 PNG tiles.
+
+**It holds now.** Rechecked on 10 September 2026 by fetching a tile directly and
+by screenshotting the report builder in a real browser: the tiles still return
+200, but "API KEY REQUIRED / carto.com/basemaps/apikey" is drawn diagonally
+across each one, so every map in the app currently reads as broken. The
+200-response check that was used before is not sufficient - **look at the
+pixels.**
+
+Two ways out, and this is a client decision rather than a code one:
+
+- Get a Carto account and set `FWISE_CARTO_KEY`. `fw_carto_url()` already
+  appends it, so this is an environment variable and no code change.
+- Change the default ground in `fw_add_basemaps()`. The Esri layers already
+  wired up there are unwatermarked, but the grey canvas was dropped once on
+  client feedback that it read as drab, so do not swap it back silently.
+
+The grey Esri canvas was then dropped on client feedback that it read as drab.
+`fw_add_basemaps()` in `R/maps.R` now offers four grounds through one layer
+control - Plain (Carto Voyager, default), Water (`Esri.OceanBasemap`), Terrain
+(`Esri.WorldTopoMap`) and Satellite (`Esri.WorldImagery`). Terrain is not
+decoration: the metrics framework asks for it so a reader can eyeball whether a
+waterbody is hydrologically isolated.
+
+`FWISE_CARTO_KEY` is read by `fw_carto_url()` and appended if set, so moving to
+a keyed Carto plan is an environment variable rather than a code change. It is
+unset and does not need to be.
+
+### 5.17 Point maps stay in Web Mercator; choropleths must not
+
+Leaflet renders raster tiles in Web Mercator and nothing else. That is fine for
+the attempt maps - a reader is zooming in on one site, and Mercator says nothing
+false about a dot. It is **not** fine for a country choropleth: Mercator makes
+Greenland and Canada shout and Africa and Indonesia whisper, which inverts the
+gap story the landing page exists to tell. When the burden layer arrives, draw
+it in Equal Earth from a countries GeoJSON rather than adding a choropleth to
+the existing tile maps.
 
 ### 5.6 Footer logos share one white plaque
 
@@ -204,11 +229,154 @@ through a committed registry in `fwise-data/id_registry/`. See the README sectio
 "Identifiers are permanent". The build stops if a natural key ever resolves to a
 different id than the registry holds.
 
-### 5.15 The report builder does not react to its filters
+### 5.22 The report builder is stacked, and its Word output is photographed
+
+Two changes made together, on client feedback, and they are related.
+
+**The filter panel moved from a sidebar to a full-width panel above the
+results.** The report builder is a form followed by its answer. Side by side,
+the questions and the results are visible at once, which invites reading the
+results first and then working the filters until they say something comfortable;
+stacked, there is nothing to read until the questions have been answered. It
+also gives both halves the whole page, which is where the method and duration
+charts were being crushed. `mod_plan.R` scrolls to the results on Build and
+announces the count, because a result below the fold looks like nothing
+happening. **The dashboard keeps its sidebar** - browsing is watching the picture
+change under the controls, so there the controls have to stay in reach.
+
+**The report is one self-contained HTML file, and it replaced a Word export.**
+The constraint that deferred PDF output still holds - kaleido needs Python,
+webshot2 needs Chrome, and neither belongs on this deployment. The Word route
+worked around it by asking the browser to photograph every figure with
+`Plotly.toImage()`, posting the base64 PNGs back into a Shiny input, stashing
+them server-side and clicking a hidden download button on the reader's behalf.
+
+**None of that is needed to put a chart in an HTML file.** The figures travel as
+live plotly widgets and the map as a live leaflet widget, so the download is an
+ordinary `downloadHandler` and the two-beat capture, the stash and the hidden
+button are all gone. Full explanation at the top of `R/report_html.R`.
+
+What follows from the change, all of it a gain rather than a trade:
+
+- **The map is in the document.** It could not be captured for Word - leaflet
+  tiles are cross-origin and taint the canvas - so the Word file had a country
+  table standing in for it. The table is still there, because the map's tile
+  background needs a connection and a printed page wants a list.
+- **The figures are vector and still interactive.** Crisp at any zoom and at
+  print resolution, and they keep their hover readouts.
+- **The report is the page.** The summary strip, outcome bars, attempts table
+  and caveats panel are the same functions the page renders, under the same
+  compiled `main.scss`. There is no second implementation to drift.
+- **The attempts table carries every row**, not the Word file's first forty, and
+  stays upright rather than needing landscape pages.
+- **PDF is the browser's own print engine**, driven by the `@media print` rules
+  in `fw_html_report_css()` and a Save as PDF button. No PDF library is bundled;
+  `html2pdf.js` and `jsPDF` rasterise the DOM, which would throw away the vector
+  output.
+- **The data travels inside the report** - a CSV and the full four-sheet
+  workbook, the latter built by the same `fw_write_workbook()` the spreadsheet
+  button serves.
+- **What you see is what you get.** `input$method_mode` travels into the
+  download, so the method chart appears in whichever mode the reader is looking
+  at.
+
+Two traps that cost real time, both now guarded in code and in `dev/plan_test.R`:
+
+- `jsonlite::base64_enc()` wraps at 76 characters. CSS will not parse a newline
+  inside `url()`, so a wrapped data URI keeps its rules and **silently loses
+  every inlined image**, with nothing in the console. `fw_html_base64()` strips
+  it.
+- Relative URLs inside a stylesheet do not survive being inlined.
+  `fw_html_inline_css_urls()` rewrites them to data URIs.
+
+### 5.23 The content column is a proportion, not a pixel cap
+
+`.fw-container` was `max-width: 1180px`, so above about 1250px the app stopped
+growing and sat as a fixed column with empty page either side. It is now
+`min(95%, calc(100% - 3rem))`: 95% of the viewport, with a floor that keeps a
+24px gutter on a phone, and no media query. Every page uses that one rule, so
+this was a one-line change.
+
+**The prose measures went with it**, which is the part worth a second look. The
+About page, the eradication preamble, the citation block and the feedback box
+capped their paragraphs at 68-78 `ch`. That is a character measure rather than a
+pixel one and is normally the right call, but inside a box that now spans the
+page it left two thirds of the box empty and read as a bug rather than as
+typography.
+
+The cost, stated plainly so nobody reverts it by accident: **an About paragraph
+now runs to roughly 200 characters a line on a 27-inch monitor.** That is longer
+than is comfortable. `.fw-measure` and `$fw-measure` still exist as the opt-in
+way back for a single block.
+
+The better fix, if the client raises it, is not to re-cap the text. It is to give
+the text a narrower BOX rather than giving a wide box narrower text.
+`.fw-caveats__grid` is the worked example - the caveat blocks now lay out in
+`repeat(auto-fit, minmax(26rem, 1fr))`, so the column sets the line length, the
+tinted panel fills completely, and nothing has a max-width at all. The count is
+nowhere in the CSS or the prose: `fw_caveat_blocks()` parses whatever
+`fw_caveats()` returns, so adding or removing a caveat needs no other edit.
+About's sections would take the same treatment.
+
+### 5.15 The report builder does not react to its filters; the dashboard does
 
 `R/mod_plan.R` gates rendering behind an explicit Build report press. This is
 deliberate design, not an oversight or a performance hack. Making the results
 live would be a one-line change and should not be made.
+
+`R/mod_explore.R` is live for the opposite reason: browsing is watching the
+picture change. The two pages look inconsistent and are meant to - and since
+5.22 they no longer share a layout either.
+
+### 5.18 One filter engine, one registry
+
+`R/filters.R` holds `FW_FILTERS` and every function that reads it. The filter
+set used to be enumerated in four independent places - the clear-all vector, the
+state snapshot, the zero-result hints and the workbook's Filters sheet - so
+adding a filter meant four edits and any one could be missed. All four are now
+driven from the registry. **Add a filter there and it appears everywhere.**
+
+### 5.19 The report builder has no outcome filter, on purpose
+
+The dashboard has one; the report builder does not. Graden's reasoning, from the
+metrics framework: given their situation, someone planning an eradication should
+see *everything* tried there and its association with success and failure.
+Filtering to successes only produces false optimism about their own site.
+
+`fw_plan_filter_ids()` is `fw_filter_ids(drop = "outcome")`. `dev/plan_test.R`
+asserts the asymmetry in both directions so it cannot be quietly undone.
+
+### 5.20 No success-rate headline
+
+The metrics framework proposes "X% of attempts lead to successful eradication"
+as a landing and dashboard headline. **Declined, and confirmed with the client.**
+It collides with two standing rules: no single hero statistic on socially
+sensitive methods, and never collapsing the four outcome states into one rate.
+The outcome-stacked visuals carry the same information without inviting someone
+to quote the number on its own. Raise it with Graden before revisiting.
+
+### 5.21 Species photographs are cached, not fetched
+
+`dev/fetch_species_images.R` resolves each species against Wikipedia and
+Wikimedia Commons and writes the URL, credit, licence and file-page link into
+`species.csv`. 308 of 390 resolve; the rest are group names ("Cyprinidae spp."),
+hybrids and subspecies that have no article, and they render a labelled
+placeholder.
+
+The app reads the cache and makes **no** network call for an image it already
+has, which keeps `config.R`'s promise that local development is offline.
+`fw_species_image_fetch()` is a memoised live fallback for a species added since
+the last run.
+
+Two traps, both already sprung once:
+
+- `data_prep.R` used to blank the image columns on every rebuild, silently
+  discarding twenty minutes of Wikimedia's time. `fw_carry_species_images()` now
+  joins them forward. Do not reintroduce a `mutate(image_url = NA)`.
+- The resolver originally required a Commons `Artist` field and skipped anything
+  without one, which threw away properly licensed photographs of common species
+  (*Lota lota*, *Ameiurus nebulosus*). The **licence** is mandatory; the credit
+  falls back to the source. Twenty species were recovered by that fix alone.
 
 ### 5.16 The approval gate is structural
 
@@ -218,10 +386,12 @@ data. A new page cannot leak a pending species or contact even if its author
 never thinks about approval. Do not "optimise" this by filtering only the fact
 table.
 
-### 5.9 Two dev scripts are kept in version control
+### 5.9 Several dev scripts are kept in version control
 
-`dev/` is gitignored, but `dev/check_contrast.R` and `dev/smoke_test.R` are
-re-included. `_tokens.scss` cites the contrast checker by name, so ignoring it
+`dev/` is gitignored, but `dev/check_contrast.R`, `dev/smoke_test.R`,
+`dev/plan_test.R`, `dev/fetch_species_images.R` and `dev/build_iso_lookups.R`
+are re-included. The last two write into `fwise-data/` and are the only things
+in the project that make a network call; the app itself never does. `_tokens.scss` cites the contrast checker by name, so ignoring it
 would leave a dangling reference. This needed `dev/*` rather than `dev/` in the
 gitignore, because git cannot re-include a file whose parent directory is
 excluded.
