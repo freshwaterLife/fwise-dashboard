@@ -180,14 +180,14 @@ mod_networking_server <- function(id, data) {
       no_contact <- sum(is.na(data$attempt$primary_contact_id) &
                         is.na(data$attempt$secondary_contact_id))
 
-      text <- fw_t("networking", "coverage")
-      for (r in list(
-        c("{reachable}",  fw_fmt_num(reachable)),
-        c("{total}",      fw_fmt_num(nrow(data$attempt))),
-        c("{no_email}",   fw_fmt_num(sum(is.na(contacts$contact_email)))),
-        c("{contacts}",   fw_fmt_num(nrow(contacts))),
-        c("{no_contact}", fw_fmt_num(no_contact))
-      )) text <- sub(r[1], r[2], text, fixed = TRUE)
+      text <- fw_fill(
+        fw_t("networking", "coverage"),
+        reachable  = fw_fmt_num(reachable),
+        total      = fw_fmt_num(nrow(data$attempt)),
+        no_email   = fw_fmt_num(sum(is.na(contacts$contact_email))),
+        contacts   = fw_fmt_num(nrow(contacts)),
+        no_contact = fw_fmt_num(no_contact)
+      )
 
       p(class = "fw-caption fw-coverage-note", text)
     })
@@ -310,7 +310,7 @@ mod_networking_server <- function(id, data) {
           tags$th(scope = "col", fw_t("networking", "col_country")),
           tags$th(scope = "col", class = "fw-col-num", fw_t("networking", "col_attempts")),
           tags$th(scope = "col", fw_t("networking", "col_contact")),
-          tags$th(scope = "col", tags$span(class = "fw-visually-hidden", "Attempts link"))
+          tags$th(scope = "col", tags$span(class = "fw-visually-hidden", fw_t("networking", "col_attempts_link")))
         )),
         tags$tbody(rows)
       )
@@ -351,7 +351,7 @@ fw_contact_action <- function(email, name) {
     class = "fw-contact-link",
     `data-u` = parts[1],
     `data-d` = parts[2],
-    `aria-label` = paste("Email", name),
+    `aria-label` = fw_fill(fw_t("a11y", "email_name"), name = name),
     onclick = paste0(
       "window.location.href='mail'+'to:'+this.dataset.u+String.fromCharCode(64)",
       "+this.dataset.d; return false;"

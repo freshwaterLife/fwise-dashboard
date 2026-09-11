@@ -113,22 +113,21 @@ mod_about_server <- function(id, data, meta = NULL) {
 #' Assembled from live counts, with the invitation to be the next contributor
 #' wired to the contribute page rather than written as a dead sentence.
 fw_about_scale <- function(s, n_contributors, ns) {
-  text <- fw_t("about", "scale")
-  for (r in list(
-    c("{attempts}",     fw_fmt_num(s$attempts)),
-    c("{countries}",    fw_fmt_num(s$countries)),
-    c("{contributors}", fw_fmt_num(n_contributors)),
-    c("{species}",      fw_fmt_num(s$species)),
-    c("{year}",         as.character(s$earliest_year))
-  )) text <- sub(r[1], r[2], text, fixed = TRUE)
+  text <- fw_fill(
+    fw_t("about", "scale"),
+    attempts     = fw_fmt_num(s$attempts),
+    countries    = fw_fmt_num(s$countries),
+    contributors = fw_fmt_num(n_contributors),
+    species      = fw_fmt_num(s$species),
+    year         = as.character(s$earliest_year)
+  )
 
   tagList(
     text, " ",
     tags$a(
       href = "#",
       onclick = "Shiny.setInputValue('fw_nav_to','contribute',{priority:'event'}); return false;",
-      sub("{n}", fw_ordinal(n_contributors + 1L),
-          fw_t("about", "scale_action"), fixed = TRUE)
+      fw_fill(fw_t("about", "scale_action"), n = fw_ordinal(n_contributors + 1L))
     )
   )
 }
@@ -137,10 +136,8 @@ fw_about_scale <- function(s, n_contributors, ns) {
 fw_about_citation <- function(meta, s) {
   release <- meta$release %||% format(Sys.Date())
   year <- substr(as.character(release), 1, 4)
-  sub("{year}", year,
-      sub("{release}", as.character(release),
-          sub("{n}", fw_fmt_num(s$attempts),
-              fw_t("about", "citation"), fixed = TRUE), fixed = TRUE), fixed = TRUE)
+  fw_fill(fw_t("about", "citation"), year = year,
+          release = as.character(release), n = fw_fmt_num(s$attempts))
 }
 
 #' Tell us it is wrong

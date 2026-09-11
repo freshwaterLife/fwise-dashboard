@@ -172,166 +172,74 @@ fw_assert_export_safe <- function(x, data) {
 
 # ---- Caveats -----------------------------------------------------------------
 
-#' The caveats, computed from the data rather than written down
+#' The caveats, with their numbers computed from the data
 #'
 #' THE SAME TEXT travels into every export and sits beside every result on the
 #' report builder. That is a requirement, not a nicety: a spreadsheet that turns
 #' up in somebody's inbox six months later has to carry its own qualifications,
 #' because by then nobody remembers what was on screen when it was downloaded.
 #'
-#' The counts are derived so they cannot drift away from the data they describe.
+#' The wording lives in R/copy_export.R as templates; the counts are derived
+#' here and filled in, so they cannot drift away from the data they describe.
 #' A caveat with a stale number in it is worse than no caveat, because it reads
 #' as precision.
-fw_caveats <- function(data) {
+#'
+#' @return a list of list(heading =, body =), in document order. ADD OR REMOVE
+#'   A BLOCK IN THE COPY AND NOTHING ELSE HAS TO CHANGE: the panel loops, the
+#'   grid reflows, and the tests count what they find.
+fw_caveat_blocks <- function(data) {
   a <- data$attempt
   n <- nrow(a)
+  num <- function(x) format(x, big.mark = ",")
   pct <- function(x) paste0(round(100 * x / n), "%")
 
-  successful  <- sum(a$outcome == "Successful", na.rm = TRUE)
-  unverified  <- sum(a$outcome == "Successful" &
-                       (is.na(a$verification_notes) | a$verification_notes == ""),
-                     na.rm = TRUE)
-  no_size     <- sum(is.na(a$area_treated))
-  no_start    <- sum(is.na(a$start_year))
-  no_end      <- sum(is.na(a$end_year))
+  successful <- sum(a$outcome == "Successful", na.rm = TRUE)
+  unverified <- sum(a$outcome == "Successful" &
+                      (is.na(a$verification_notes) | a$verification_notes == ""),
+                    na.rm = TRUE)
+  no_size  <- sum(is.na(a$area_treated))
+  no_start <- sum(is.na(a$start_year))
+  no_end   <- sum(is.na(a$end_year))
 
-  c(
-    "HOW SUCCESS IS DEFINED",
-    paste(
-      "Success here means what Genovesi means by it, in Limits and",
-      "Potentialities of Eradication as a Tool for Addressing Biological",
-      "Invasions: the complete and permanent removal of every wild population",
-      "of a species from a defined area, by a campaign with an end date. Work",
-      "that suppressed a population without removing it is not counted as a",
-      "success, however useful it was."
-    ),
-    "",
-    "CLAIMED IS NOT THE SAME AS VALIDATED",
-    paste0(
-      "An outcome is recorded as the source reported it. Of the ",
-      format(successful, big.mark = ","), " attempts recorded as successful, ",
-      format(unverified, big.mark = ","), " carry no verification note. We have ",
-      "not returned to those sites to confirm absence, and in many cases ",
-      "neither has anyone else."
-    ),
-    "",
-    "WHY THERE IS NO SUCCESS RATE",
-    paste(
-      "The four outcomes are reported separately and are never combined into a",
-      "single figure. A rate needs a denominator, and the honest denominator",
-      "changes with every filter on this page. If you calculate one, state what",
-      "you divided by."
-    ),
-    "",
-    "MISSING VALUES",
-    paste0(
-      "Blanks are absences, not zeros, and they are common. Here, ",
-      format(no_size, big.mark = ","), " attempts (", pct(no_size),
-      ") have no treated size, ", format(no_start, big.mark = ","), " (",
-      pct(no_start), ") have no start year and ", format(no_end, big.mark = ","),
-      " (", pct(no_end), ") have no end year. A good part of that last group is ",
-      "still running."
-    ),
-    "",
-    "WHAT THIS RECORD IS",
-    paste(
-      "This database holds eradication work that has been reported, which is",
-      "not the same as eradication work that has been done. Write-ups favour",
-      "attempts that worked, so the outcome mix here is kinder than reality and",
-      "the map shows where people publish as much as where they act. An empty",
-      "region is not a quiet one. If you have run an attempt, successful or",
-      "not, send it in."
+  lapply(fw_t("export", "caveats"), function(block) {
+    list(
+      heading = block$heading,
+      body = fw_fill(
+        block$body,
+        successful = num(successful), unverified = num(unverified),
+        no_size = num(no_size),   pct_size  = pct(no_size),
+        no_start = num(no_start), pct_start = pct(no_start),
+        no_end = num(no_end),     pct_end   = pct(no_end)
+      )
     )
-  )
+  })
 }
 
-#' The caveats split into titled blocks
+#' The caveats as one flat vector, for the workbook sheet
 #'
-#' fw_caveats() returns headings, paragraphs and blanks as ONE vector, because
-#' that is what the workbook sheet wants. Every other consumer wants the blocks.
-#' Parsing it in one place means the count is derived wherever it is needed
-#' rather than written down: ADD OR REMOVE A BLOCK IN fw_caveats() AND NOTHING
-#' ELSE HAS TO CHANGE. The panel loops, the grid reflows, and the test below
-#' counts what it finds.
-#'
-#' A heading is the all-caps line; everything under it until the next one is
-#' body text. Blanks are the workbook's row spacing and carry no structure.
-#'
-#' @return a list of list(heading =, body =), in document order.
-fw_caveat_blocks <- function(data) {
-  lines <- fw_caveats(data)
-  blocks <- list(); current <- NULL
-  for (ln in lines) {
-    if (!nzchar(ln)) next
-    if (ln == toupper(ln)) {
-      if (!is.null(current)) blocks <- c(blocks, list(current))
-      current <- list(heading = ln, body = character(0))
-    } else if (!is.null(current)) {
-      current$body <- c(current$body, ln)
-    }
+#' Heading in capitals, body, blank line, repeated. Derived from
+#' fw_caveat_blocks() so the two can never say different things.
+fw_caveats <- function(data) {
+  blocks <- fw_caveat_blocks(data)
+  out <- character(0)
+  for (i in seq_along(blocks)) {
+    out <- c(out, toupper(blocks[[i]]$heading), blocks[[i]]$body)
+    if (i < length(blocks)) out <- c(out, "")
   }
-  if (!is.null(current)) blocks <- c(blocks, list(current))
-  blocks
+  out
 }
 
 # ---- Field definitions -------------------------------------------------------
 
 #' The data dictionary that travels with the export
+#'
+#' The definitions live in R/copy_export.R, one per exported column. This only
+#' shapes them into the sheet.
 fw_field_definitions <- function() {
-  d <- function(field, definition) data.frame(Field = field, Definition = definition,
-                                              stringsAsFactors = FALSE)
-  do.call(rbind, list(
-    d("attempt_id", "Permanent identifier for the attempt. Minted once and never reassigned, so it is safe to join on across releases."),
-    d("site_name", "The treated site or waterbody, as the source described it."),
-    d("country", "Country the site sits in. Territories recorded separately appear in region."),
-    d("region", "State, province or territory, where the country alone is not specific enough."),
-    d("continent", "Derived from country and region, so a territory is assigned its own continent."),
-    d("iso3", "ISO 3166-1 alpha-3 country code."),
-    d("latitude", "Decimal degrees, WGS 84. Positive north."),
-    d("longitude", "Decimal degrees, WGS 84. Positive east."),
-    d("waterbody_type", "The kind of waterbody treated, e.g. Lake, Pond, Stream."),
-    d("water_regime", "Lentic (still water) or Lotic (flowing water)."),
-    d("area_treated", "Size of the treated area. NOT COMPARABLE ACROSS UNITS - read area_unit."),
-    d("area_unit", "ha (hectares, an area) or km (kilometers, a length). Do not combine the two."),
-    d("area_notes", "Free text qualifying the size figure."),
-    d("depth_m", "Average or estimated depth, meters."),
-    d("volume_m3", "Estimated volume, cubic meters."),
-    d("max_flow_m3s", "Maximum flow, cubic meters per second. Flowing water only."),
-    d("water_temp_c", "Water temperature, degrees Celsius."),
-    d("invasive_species", "Species targeted, as 'Common name (Scientific name)'. Semicolon-delimited."),
-    d("invasive_taxa", "Broad group of each target, e.g. Fish, Crayfish. Semicolon-delimited."),
-    d("invasion_year", "Year the invasion is recorded as having happened, where known."),
-    d("start_year", "Year the eradication attempt began."),
-    d("end_year", "Year the attempt ended. Blank where the attempt is ongoing."),
-    d("duration_days", "Estimated total duration of the intervention, days."),
-    d("driver", "The main reason the eradication was carried out."),
-    d("beneficiary_species", "Species the eradication was intended to help. Semicolon-delimited. Under-reported - see the caveats."),
-    d("beneficiary_taxa", "Broad group of each beneficiary. Semicolon-delimited."),
-    d("methods", "Methods used, semicolon-delimited. An unordered set, not a ranking."),
-    d("method_classes", "chemical, mechanical or other, for each method used."),
-    d("method_notes", "Free text on how each method was applied."),
-    d("method_description", "A fuller description of the approach at this site."),
-    d("labour_person_days", "Effort required, person-days."),
-    d("cost_estimate", "Estimated cost, where recorded."),
-    d("cost_currency", "Currency of cost_estimate."),
-    d("toxin_conc_mg_l", "Target toxin concentration, mg/L. Chemical methods only."),
-    d("conc_target_notes", "Free text on the target concentration."),
-    d("conc_measured_notes", "Free text on the measured concentration, where it differed."),
-    d("neutralising_agent", "Neutralizing agent used, where any."),
-    d("neutralising_notes", "Free text on the neutralizing agent."),
-    d("outcome", "Successful, Failed, Ongoing or Unknown. See the caveats for the success definition."),
-    d("verification_method", "How the outcome was verified."),
-    d("verification_notes", "Free text on verification. Blank on a successful attempt means the success is claimed rather than validated."),
-    d("reference", "Citation for the underlying evidence."),
-    d("reference_link", "DOI or URL for the reference, where one exists."),
-    d("source", "Where the record came from."),
-    d("primary_contact_name", "Person associated with the attempt."),
-    d("primary_contact_org", "Their organization."),
-    d("primary_contact_email", "Their email, where they agreed to it being listed. Blank means no published address, not no contact."),
-    d("secondary_contact_name", "A second person associated with the attempt."),
-    d("secondary_contact_org", "Their organization."),
-    d("secondary_contact_email", "Their email, where they agreed to it being listed.")
-  ))
+  d <- fw_t("export", "dictionary")
+  out <- data.frame(names(d), unname(d), stringsAsFactors = FALSE)
+  names(out) <- c(fw_t("export", "col_field"), fw_t("export", "col_definition"))
+  out
 }
 
 # ---- Sheets ------------------------------------------------------------------
@@ -355,21 +263,24 @@ fw_text_sheet <- function(lines, heading) {
 #' Only the provenance rows above them are written out by hand.
 fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL) {
   provenance <- list(
-    list(setting = "Generated at (UTC)",
+    list(setting = fw_t("export", "generated_at"),
          value = format(Sys.time(), "%Y-%m-%d %H:%M:%S", tz = "UTC")),
-    list(setting = "Attempts in this extract",
+    list(setting = fw_t("export", "in_extract"),
          value = format(n_rows, big.mark = ",")),
-    list(setting = "Attempts in the database",
+    list(setting = fw_t("export", "in_database"),
          value = format(n_total, big.mark = ",")),
-    list(setting = "Data release", value = meta$release %||% "unknown")
+    list(setting = fw_t("export", "release"),
+         value = meta$release %||% fw_t("export", "release_unknown"))
   )
   rows <- c(provenance, fw_filter_summary(filters))
 
-  data.frame(
-    Setting = vapply(rows, function(r) r$setting, character(1)),
-    Value   = vapply(rows, function(r) as.character(r$value), character(1)),
+  out <- data.frame(
+    vapply(rows, function(r) r$setting, character(1)),
+    vapply(rows, function(r) as.character(r$value), character(1)),
     stringsAsFactors = FALSE
   )
+  names(out) <- c(fw_t("export", "col_setting"), fw_t("export", "col_value"))
+  out
 }
 
 #' Write the workbook
@@ -380,8 +291,8 @@ fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL) {
 fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
   wb <- openxlsx::createWorkbook()
   header <- openxlsx::createStyle(
-    fgFill = FW_COLOURS$deep, fontColour = "#FFFFFF", textDecoration = "bold",
-    halign = "left", border = "bottom", borderColour = FW_COLOURS$deep
+    fgFill = FW_COLOURS$teal_text, fontColour = FW_COLOURS$surface, textDecoration = "bold",
+    halign = "left", border = "bottom", borderColour = FW_COLOURS$teal_text
   )
   add <- function(name, x, widths = "auto") {
     openxlsx::addWorksheet(wb, name)
@@ -390,10 +301,13 @@ fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
     openxlsx::setColWidths(wb, name, cols = seq_len(max(1, ncol(x))), widths = widths)
   }
 
-  add("Attempts", export)
-  add("Caveats", fw_text_sheet(fw_caveats(data), "Caveats and limitations"), widths = 110)
-  add("Field definitions", fw_field_definitions(), widths = c(26, 100))
-  add("Filters applied",
+  sheets <- fw_t("export", "sheets")
+  add(sheets$attempts, export)
+  add(sheets$caveats,
+      fw_text_sheet(fw_caveats(data), fw_t("export", "caveats_heading")),
+      widths = 110)
+  add(sheets$definitions, fw_field_definitions(), widths = c(26, 100))
+  add(sheets$filters,
       fw_filters_sheet(filters, nrow(export), nrow(data$attempt), meta),
       widths = c(30, 60))
 
@@ -403,5 +317,5 @@ fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
 
 #' Filename for a download
 fw_export_filename <- function() {
-  paste0("fwise-attempts_", format(Sys.Date(), "%Y%m%d"), ".xlsx")
+  paste0(fw_t("export", "filename_stem"), format(Sys.Date(), "%Y%m%d"), ".xlsx")
 }

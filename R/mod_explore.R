@@ -108,7 +108,7 @@ fw_explore_full_ui <- function(id) {
               ),
 
               fw_plan_block(
-                fw_t("explore", "waterbody"), fw_t("explore", "waterbody_note"),
+                fw_t("explore", "waterbody"), fw_fill(fw_t("explore", "waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
                 # chart_ PREFIX because "waterbody" and "beneficiary" are
                 # already filter INPUT ids on this page. Inputs and outputs
                 # share one DOM id space, so an output of the same name binds
@@ -122,7 +122,7 @@ fw_explore_full_ui <- function(id) {
               ),
 
               fw_plan_block(
-                fw_t("explore", "invasive"), fw_t("explore", "invasive_note"),
+                fw_t("explore", "invasive"), fw_fill(fw_t("explore", "invasive_note"), n_word = fw_num_word(FW_TOP_N)),
                 plotly::plotlyOutput(ns("invasive"), height = "auto")
               ),
 
@@ -197,8 +197,7 @@ mod_explore_server <- function(id, data, in_review = 0L) {
       if (nrow(contact) == 0) return(NULL)
       div(
         class = "fw-notice", role = "status",
-        span(sub("{name}", contact$contact_name[1],
-                 fw_t("explore", "incoming"), fixed = TRUE)),
+        span(fw_fill(fw_t("explore", "incoming"), name = contact$contact_name[1])),
         actionButton(ns("clear_contact"), fw_t("explore", "incoming_clear"),
                      class = "btn btn-outline-primary btn-sm")
       )
@@ -280,8 +279,7 @@ fw_explore_filters_ui <- function(ns, ch) {
       class = "fw-field fw-field--check",
       checkboxInput(ns("include_no_year"), fw_t("filters", "no_year"),
                     value = TRUE),
-      fw_info(sub("{n}", ch$n_no_year, fw_t("filters", "tip_no_year"),
-                  fixed = TRUE),
+      fw_info(fw_fill(fw_t("filters", "tip_no_year"), n = ch$n_no_year),
               fw_t("filters", "no_year"))
     )
   )

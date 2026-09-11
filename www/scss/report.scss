@@ -1,0 +1,9 @@
+// report.scss
+// Entry file for the standalone HTML report's OWN stylesheet: the page frame,
+// the letterhead, the toolbar and the print rules. The components in the body
+// of the report (summary strip, outcome bars, table, caveats) are styled by
+// main.scss, which the report inlines as well. Compiled by fw_compile_css()
+// with the same tokens from R/brand.R, so the two cannot disagree.
+
+@import "tokens";
+@import "report_frame";

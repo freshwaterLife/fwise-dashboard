@@ -92,8 +92,7 @@ fw_filter_tip <- function(id, ch = NULL) {
   if (is.null(spec$tip)) return(NULL)
   txt <- fw_t("filters", spec$tip)
   if (!is.null(ch)) {
-    txt <- sub("{min}", ch$year_min, txt, fixed = TRUE)
-    txt <- sub("{n}", ch$n_no_year, txt, fixed = TRUE)
+    txt <- fw_fill(txt, min = ch$year_min, n = ch$n_no_year)
   }
   txt
 }
@@ -308,17 +307,21 @@ fw_filter_summary <- function(f) {
     if (!is.null(lab) && length(vals)) vals <- match.fun(lab)(vals)
     rows[[length(rows) + 1L]] <- list(
       setting = fw_filter_label(id),
-      value = if (length(vals)) paste(vals, collapse = FW_MULTI_SEP) else "All"
+      value = if (length(vals)) paste(vals, collapse = FW_MULTI_SEP)
+              else fw_t("export", "filter_all")
     )
   }
   if ("years" %in% ids) {
     rows[[length(rows) + 1L]] <- list(
       setting = fw_filter_label("years"),
-      value = paste0(f$year_from %||% "-", " to ", f$year_to %||% "-")
+      value = paste0(f$year_from %||% fw_t("export", "range_missing"),
+                     fw_t("export", "range_sep"),
+                     f$year_to %||% fw_t("export", "range_missing"))
     )
     rows[[length(rows) + 1L]] <- list(
       setting = fw_t("filters", "no_year"),
-      value = if (isTRUE(f$include_no_year)) "Yes" else "No"
+      value = if (isTRUE(f$include_no_year)) fw_t("export", "filter_yes")
+              else fw_t("export", "filter_no")
     )
   }
   rows

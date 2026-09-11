@@ -25,7 +25,8 @@ fw_plan_summary <- function(data, sel) {
     countries = n_distinct(sel$country),
     species   = n_distinct(inv$species_id),
     methods   = n_distinct(me$method_id),
-    year_span = if (length(years)) paste0(min(years), "-", max(years)) else "-"
+    year_span = if (length(years)) paste0(min(years), "-", max(years))
+                else fw_t("common", "empty_value")
   )
 }
 
@@ -93,7 +94,7 @@ fw_outcome_bars_ui <- function(sel) {
 #' @return NULL when the selection has none of that role, so the calling block
 #'   disappears rather than standing over an empty grid. 107 of 914 attempts
 #'   record no beneficiary at all.
-fw_species_tiles_ui <- function(data, sel, role_name, limit = 10L) {
+fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
   top <- fw_species_top_n(data, sel, role_name, limit)
   if (!nrow(top)) return(NULL)
 
@@ -153,10 +154,7 @@ fw_plan_map <- function(data, sel) {
 
 # ---- Table -------------------------------------------------------------------
 
-# Page sizes offered under the results table. First element is the default.
-# Deliberately its own vector rather than FW_CONTACTS_PAGE_SIZES: a report is
-# read a screen at a time, so it starts smaller than the contacts directory.
-FW_PLAN_PAGE_SIZES <- c(10L, 20L, 50L, 100L)
+# Page sizes come from FW_PLAN_PAGE_SIZES in R/config.R.
 
 #' One page of the matching attempts
 #'
@@ -168,22 +166,26 @@ FW_PLAN_PAGE_SIZES <- c(10L, 20L, 50L, 100L)
 #' the networking side of FWISE - so it travels with the attempt here as well as
 #' in the export.
 fw_plan_table <- function(export, page = 1L, per_page = FW_PLAN_PAGE_SIZES[1]) {
-  cols <- c(site_name = "Site", country = "Country", start_year = "Began",
-            invasive_species = "Invasive species", methods = "Methods",
-            outcome = "Outcome", primary_contact_name = "Contact")
+  cols <- c(site_name = fw_t("plan", "col_site"),
+            country = fw_t("plan", "col_country"),
+            start_year = fw_t("plan", "col_began"),
+            invasive_species = fw_t("plan", "col_species"),
+            methods = fw_t("plan", "col_methods"),
+            outcome = fw_t("plan", "col_outcome"),
+            primary_contact_name = fw_t("plan", "col_contact"))
   have <- cols[names(cols) %in% names(export)]
 
   # Multi-value cells are TRUNCATED HERE, not in the export. An attempt against
   # nine species turns one table row into a fifteen-line block, which pushes the
   # contact column off the side and makes the page unreadable. The full list is
   # one download away and is stated as such under the table.
-  trim <- function(x, keep = 2L) {
+  trim <- function(x, keep = FW_TABLE_CELL_ITEMS) {
     vapply(x, function(v) {
       if (is.na(v) || !nzchar(as.character(v))) return(NA_character_)
       parts <- trimws(strsplit(as.character(v), FW_MULTI_SEP, fixed = TRUE)[[1]])
       if (length(parts) <= keep) return(paste(parts, collapse = ", "))
       paste0(paste(parts[seq_len(keep)], collapse = ", "),
-             " +", length(parts) - keep, " more")
+             fw_fill(fw_t("plan", "more_suffix"), n = length(parts) - keep))
     }, character(1), USE.NAMES = FALSE)
   }
   for (col in intersect(c("invasive_species", "methods"), names(export))) {
@@ -200,7 +202,8 @@ fw_plan_table <- function(export, page = 1L, per_page = FW_PLAN_PAGE_SIZES[1]) {
     tags$tbody(lapply(seq_len(nrow(rows)), function(i) {
       tags$tr(lapply(names(have), function(c) {
         v <- rows[[c]][i]
-        tags$td(if (is.na(v) || !nzchar(as.character(v))) "-" else as.character(v))
+        tags$td(if (is.na(v) || !nzchar(as.character(v))) fw_t("common", "empty_value")
+                else as.character(v))
       }))
     }))
   )

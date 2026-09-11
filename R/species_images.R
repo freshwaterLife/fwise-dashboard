@@ -85,7 +85,7 @@ fw_species_image_cached <- function(species, species_id) {
   # fallback in fw_species_image_fetch() - but a photograph whose licence we
   # cannot state is one we have no business republishing.
   if (is.na(licence)) return(NULL)
-  if (is.na(credit) || !nzchar(credit)) credit <- "Wikimedia Commons"
+  if (is.na(credit) || !nzchar(credit)) credit <- fw_t("species", "credit_fallback")
   list(url = url, credit = credit, licence = licence,
        licence_url = get1("image_licence_url"),
        page_url = get1("image_page_url"))
@@ -149,7 +149,7 @@ fw_species_image_fetch <- function(scientific_name, common_name = NA) {
     # author is recorded. Only the licence is mandatory.
     credit <- strip(meta$Artist$value)
     if (is.na(credit)) credit <- strip(meta$Credit$value)
-    if (is.na(credit)) credit <- "Wikimedia Commons"
+    if (is.na(credit)) credit <- fw_t("species", "credit_fallback")
     licence <- strip(meta$LicenseShortName$value)
     if (is.na(licence)) next
 
@@ -212,7 +212,7 @@ fw_species_figure <- function(img, name) {
     tags$figcaption(
       class = "fw-species-figure__credit",
       out(img$page_url, img$credit),
-      " / ",
+      fw_t("species", "credit_sep"),
       out(fw_licence_url(img$licence_url), img$licence)
     )
   ))

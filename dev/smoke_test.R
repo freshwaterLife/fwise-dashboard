@@ -17,7 +17,8 @@
 # a test here, make sure a failure is loud.
 
 library(shiny)
-source("R/config.R"); source("R/copy.R"); source("R/data_load.R")
+source("R/brand.R"); source("R/config.R"); source("R/copy.R"); source("R/copy_contribute.R")
+source("R/copy_export.R"); source("R/data_load.R")
 for (f in c("ui_helpers.R","theme.R","submit.R","mod_explore.R",
             "mod_contribute_steps.R","mod_contribute.R")) source(file.path("R", f))
 d <- fw_load_data(); ch <- fw_startup_choices(d)

@@ -1,187 +1,58 @@
 // _tokens.scss
-// Colour, type, spacing and radius tokens. Nothing in this file draws anything.
+// Derived tokens only. NOTHING IN THIS FILE IS A LITERAL VALUE.
 //
-// COLOUR PROVENANCE
-// -----------------
-// Every value below is sampled from the two logo files in www/img/, not invented.
+// WHERE THE VALUES ARE. R/brand.R is the single source of every design value:
+// colour, type, spacing, radius, shadow, motion and breakpoints. At startup
+// fw_compile_css() (R/ui_helpers.R) hands fw_sass_variables() to sass::sass()
+// ahead of this stylesheet, so every `$fw-*` variable used below and in
+// _components.scss is already defined by the time this file is read. To change
+// a colour, edit FW_COLOURS in R/brand.R and restart; do not add a value here.
 //
-//   FWISE circle mark      #108978   hue 171.6, sat 0.88   -> $fw-primary
-//   FWISE wordmark         #191044   dark indigo
-//   Weird Fishes Advisory  #00222b   hue 192.6, near-black blue-teal
+// If the compiler stops with "Undefined variable", the token is missing from
+// R/brand.R (or was renamed there and not here). That failure is deliberate:
+// it is what stops a stale fallback in this file quietly disagreeing with the
+// value the app was told to use.
 //
-// The ramp is generated as darker and lighter steps on the circle mark's hue
-// (171.6), desaturating slightly at the dark end so it does not go muddy.
+// The variables available, by prefix (see fw_sass_variables() for the list):
 //
-// RECONCILIATION. Both logos sit together in the footer. $fw-abyss is built on
-// the FWISE hue but lands within 0.01 relative luminance of the Weird Fishes ink
-// (#00222b), and 21 degrees of hue apart at that darkness is imperceptible, so
-// the two read as one family rather than a clash.
+//   $fw-ink $fw-ink-muted                       text
+//   $fw-brand-indigo $fw-brand-teal             the two client values
+//   $fw-teal-text $fw-teal-hover                teal for text and buttons
+//   $fw-teal-tint $fw-teal-wash $fw-teal-light  teal fills, and teal on indigo
+//   $fw-page $fw-surface $fw-sunken             grounds
+//   $fw-border $fw-border-input                 lines
+//   $fw-on-indigo $fw-on-indigo-muted           text on the indigo ground
+//   $fw-data-*                                  the Wong palette. DATA ONLY
+//   $fw-font-body $fw-font-mono                 type
+//   $fw-size-* $fw-weight-* $fw-leading-*       the type scale
+//   $fw-space-1 .. $fw-space-7                  the 8px scale
+//   $fw-radius-input $fw-radius-card $fw-radius-round
+//   $fw-shadow-card $fw-shadow-raised
+//   $fw-motion-fast $fw-motion-base $fw-easing
+//   $fw-bp-xs $fw-bp-sm $fw-bp-md $fw-bp-lg $fw-bp-xl $fw-bp-xl-max
 //
-// The FWISE wordmark indigo (#191044) is deliberately NOT an interface token. It
-// belongs to the logo artwork. Promoting it would introduce the second accent
-// hue the brief rules out.
+// CONTRAST. $fw-brand-teal does not meet 4.5:1 as text on any light surface,
+// so it is reserved for non-text roles and every text or button role uses
+// $fw-teal-text. Do not set body-sized text in $fw-brand-teal. Re-verify with
+// `Rscript dev/check_contrast.R` after changing any colour in R/brand.R.
 //
-// CONTRAST. The true brand teal fails WCAG AA as text: #108978 on $fw-silt is
-// 3.93:1, and white on #108978 is 4.31:1, both under the 4.5:1 floor. Following
-// the brief, $fw-primary is therefore reserved for non-text roles (the dot
-// motif, decorative fills, the active nav marker) and every text or button role
-// that would have used it falls back to $fw-deep instead. Do not set body-sized
-// text in $fw-primary.
-//
-// Re-verify with `Rscript dev/check_contrast.R` after changing any value here.
+// THE 1rem FLOOR. No text that stays on the page may be set below
+// $fw-size-min. $fw-size-popup is the one exemption, for transient overlays
+// (the (i) popovers and the map card) only. If the thing you are sizing does
+// not disappear when the user clicks elsewhere, it is the wrong token.
 
-// ---- Colour ----------------------------------------------------------------
+// ---- Derived ---------------------------------------------------------------
 
-$fw-abyss:     #0a2e29; // darkest surface, footer ground; tuned against #00222b
-$fw-deep:      #0d574c; // headings, links, primary buttons (the accessible teal)
-$fw-primary:   #108978; // SAMPLED from the FWISE circle mark. Non-text roles only
-$fw-shallow:   #1c9484; // hover, progress fill, focus ring
-$fw-shoal:     #c7ede8; // subtle fills, decorative hairlines, disabled surfaces
-$fw-silt:      #f7f4ef; // warm off-white: stops the teal reading clinical
-$fw-paper:     #ffffff;
-$fw-ink-muted: #4a6a64;
+// Surfaces are separated by tone and shadow; a hairline is for lines INSIDE a
+// component (table rows, dividers). It is decorative, so WCAG 1.4.11 does not
+// apply to it. Input borders are interactive boundaries and use
+// $fw-border-input, which does meet 3:1.
+$fw-hairline: 1px solid $fw-border;
 
-// Addition to the brief's token list. $fw-shoal is a decorative hairline and at
-// 1.2:1 on the page it is correctly below the 3:1 floor, because WCAG 1.4.11
-// applies to interactive component boundaries, not to dividers. Input borders
-// ARE interactive boundaries, so they need their own darker token.
-$fw-line-input: #65948d;
+// Section rhythm. One value at every width.
+$fw-section-y: $fw-space-4;
 
-// Wong (2011) colourblind-safe palette. DATA ONLY.
-// These must never be used as interface chrome, and the interface teals above
-// must never encode data. Kept here so charts rendered in CSS can reach them,
-// but R/config.R holds the authoritative copy for plots and maps.
-$fw-data-successful: #009e73;
-$fw-data-failed:     #e69f00;
-$fw-data-ongoing:    #56b4e9;
-$fw-data-unknown:    #cc79a7;
-$fw-data-neutral:    #999999;
-$fw-data-emphasis:   #0072b2;
-$fw-data-vermilion:  #d55e00;
-
-// ---- Type ------------------------------------------------------------------
-
-// Ubuntu throughout. Ubuntu Mono is reserved for numerals in KPI figures,
-// counts, coordinates and record identifiers. It is the "codey" half of the
-// brand and it does real work: it column-aligns numbers so they can be scanned.
-// Never set labels or body text in it.
-$fw-font-body: "Ubuntu", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-               "Helvetica Neue", Arial, sans-serif;
-$fw-font-mono: "Ubuntu Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
-               Consolas, "Liberation Mono", monospace;
-
-// A compressed ladder. The scale used to run on a 1.25 ratio from a 2.44rem h1,
-// which put too much distance between a heading and the body text under it and
-// made the default h1 shout. Every step is now roughly 10% closer to the body
-// size, and h1 takes an extra step down on top of that. Set a page-specific
-// heading larger by hand rather than reopening these.
-//
-// The whole ladder was then stepped UP once, on client feedback that the app
-// read small. Body is 17px rather than 16, and the lead is now genuinely larger
-// than body instead of merely a different colour. $fw-size-body and theme.R's
-// base_font_size are the same number expressed twice - change BOTH.
-$fw-size-display: 2.7rem;
-$fw-size-h1:      2.1rem;
-$fw-size-h2:      1.7rem;
-$fw-size-h3:      1.35rem;
-$fw-size-lead:    1.125rem;
-$fw-size-body:    1.0625rem;  // 17px
-$fw-size-caption: 0.85rem;
-
-$fw-weight-regular: 400;
-$fw-weight-medium:  500;
-$fw-weight-bold:    700;
-
-$fw-leading-body:    1.6;
-$fw-leading-heading: 1.15;
-
-// Body text line length. Text now runs the full width of its container by
-// default, so this is opt-in: put .fw-measure on a block that genuinely reads
-// better narrow. Nothing applies it globally.
-$fw-measure: 68ch;
-
-// ---- Space -----------------------------------------------------------------
-
-// 8px scale.
-$fw-space-1: 0.5rem;   //  8px
-$fw-space-2: 1rem;     // 16px
-$fw-space-3: 1.5rem;   // 24px
-$fw-space-4: 2rem;     // 32px
-$fw-space-5: 3rem;     // 48px
-$fw-space-6: 4rem;     // 64px
-$fw-space-7: 6rem;     // 96px
-
-// Section rhythm. One value at every width: the old 6rem desktop band left a
-// gap between a page title and its content big enough to read as a mistake.
-$fw-section-y: $fw-space-4;    // 32px
-
-// THE CONTENT COLUMN IS A PROPORTION, NOT A PIXEL CAP. This used to be
-// 1180px, which meant a 27-inch monitor showed the same column as a 13-inch
-// laptop with a wide empty margin either side, and the app read as a phone
-// page stretched onto a desktop. It is now a share of the viewport, so every
-// page grows with the screen it is on.
-//
-// The floor is what stops that being a bad deal on a phone: at 375px, 95%
-// leaves a 9px gutter, which crowds the card edges against the screen. See
-// .fw-container in _components.scss, where the two are resolved with min().
-$fw-container-width:  95%;
-$fw-container-gutter: $fw-space-3;   // the minimum breathing room either side
-
-// ---- Radius ----------------------------------------------------------------
-
-// Radius varies by hierarchy on purpose. One radius everywhere flattens the
-// distinction between a control and a container.
-$fw-radius-input: 4px;
-$fw-radius-card:  10px;
-$fw-radius-round: 999px;
-
-// ---- Line and shadow -------------------------------------------------------
-
-// Surfaces are defined by hairline borders and background contrast. A shadow is
-// reserved for things that genuinely float above the page.
-$fw-hairline: 1px solid $fw-shoal;
-
-$fw-shadow-raised: 0 6px 24px rgba(10, 46, 41, 0.16);
-
-// ---- Motion ----------------------------------------------------------------
-
-// Motion only ever responds to a user action. There is no page-load or scroll
-// motion anywhere in this app, and no count-ups: an evidence base whose figures
-// perform their own arrival reads as persuasion.
-$fw-motion-fast: 150ms;
-$fw-motion-base: 200ms;
-$fw-easing: cubic-bezier(0.22, 0.61, 0.36, 1); // ease-out
-
-// ---- Mirror as CSS custom properties ---------------------------------------
-// So that runtime code, inline styles and any future JS can reach the palette
-// without recompiling Sass.
-
-:root {
-  --fw-abyss:     #{$fw-abyss};
-  --fw-deep:      #{$fw-deep};
-  --fw-primary:   #{$fw-primary};
-  --fw-shallow:   #{$fw-shallow};
-  --fw-line-input: #{$fw-line-input};
-  --fw-shoal:     #{$fw-shoal};
-  --fw-silt:      #{$fw-silt};
-  --fw-paper:     #{$fw-paper};
-  --fw-ink-muted: #{$fw-ink-muted};
-
-  --fw-data-successful: #{$fw-data-successful};
-  --fw-data-failed:     #{$fw-data-failed};
-  --fw-data-ongoing:    #{$fw-data-ongoing};
-  --fw-data-unknown:    #{$fw-data-unknown};
-  --fw-data-neutral:    #{$fw-data-neutral};
-
-  --fw-font-body: #{$fw-font-body};
-  --fw-font-mono: #{$fw-font-mono};
-
-  --fw-radius-input: #{$fw-radius-input};
-  --fw-radius-card:  #{$fw-radius-card};
-
-  --fw-container-width: #{$fw-container-width};
-
-  --fw-motion-fast: #{$fw-motion-fast};
-  --fw-motion-base: #{$fw-motion-base};
-  --fw-easing: #{$fw-easing};
-}
+// The content column is a proportion of the viewport ($fw-container-width);
+// this is the smallest gutter it keeps either side on a narrow screen. See
+// .fw-container in _components.scss.
+$fw-container-gutter: $fw-space-3;

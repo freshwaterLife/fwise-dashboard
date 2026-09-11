@@ -109,10 +109,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # in the live region for anyone who is not watching the screen.
     observeEvent(input$build, {
       session$sendCustomMessage("fw-scroll-to", ns("results_anchor"))
-      session$sendCustomMessage("fw-announce", sub(
-        "{n}", fw_fmt_num(nrow(report()$sel)),
-        fw_t("plan", "built_announce"), fixed = TRUE
-      ))
+      session$sendCustomMessage("fw-announce", fw_fill(fw_t("plan", "built_announce"), n = fw_fmt_num(nrow(report()$sel))))
     })
 
     output$results <- renderUI({
@@ -158,8 +155,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
             fw_map_output(ns("map")),
             if (n_no_coords > 0) {
               p(class = "fw-caption",
-                sub("{n}", fw_fmt_num(n_no_coords),
-                    fw_t("plan", "r_map_missing"), fixed = TRUE))
+                fw_fill(fw_t("plan", "r_map_missing"), n = fw_fmt_num(n_no_coords)))
             }
           )
         ),
@@ -176,7 +172,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
         # chart silently never draws. Any chart named after the thing it plots
         # has to clear the filter registry in R/filters.R first.
         fw_plan_block(
-          fw_t("plan", "r_waterbody"), fw_t("plan", "r_waterbody_note"),
+          fw_t("plan", "r_waterbody"), fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
           plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
         ),
 
@@ -212,8 +208,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
         fw_plan_block(
           fw_t("plan", "r_invasive"),
-          sub("{n}", fw_fmt_num(n_invasive), fw_t("plan", "r_invasive_note"),
-              fixed = TRUE),
+          fw_fill(fw_t("plan", "r_invasive_note"), n = fw_fmt_num(n_invasive), n_word = fw_num_word(FW_TOP_N)),
           fw_species_tiles_ui(data, r$sel, "invasive")
         ),
 
@@ -223,8 +218,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
         if (n_beneficiary > 0) {
           fw_plan_block(
             fw_t("plan", "r_beneficiary"),
-            sub("{n}", fw_fmt_num(n_beneficiary),
-                fw_t("plan", "r_beneficiary_note"), fixed = TRUE),
+            fw_fill(fw_t("plan", "r_beneficiary_note"), n = fw_fmt_num(n_beneficiary), n_word = fw_num_word(FW_TOP_N)),
             fw_species_tiles_ui(data, r$sel, "beneficiary")
           )
         },
@@ -239,8 +233,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
           tagList(
             plotly::plotlyOutput(ns("duration"), height = "auto"),
             p(class = "fw-caption",
-              sub("{n}", fw_fmt_num(n_duration),
-                  fw_t("plan", "r_duration_missing"), fixed = TRUE))
+              fw_fill(fw_t("plan", "r_duration_missing"), n = fw_fmt_num(n_duration)))
           )
         ),
 
@@ -251,8 +244,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
         fw_plan_block(
           fw_t("plan", "r_table"),
-          sub("{n}", fw_fmt_num(nrow(r$export)),
-              fw_t("plan", "r_table_note"), fixed = TRUE),
+          fw_fill(fw_t("plan", "r_table_note"), n = fw_fmt_num(nrow(r$export))),
           tagList(
             # The page-size select sits HERE, not inside the table's own
             # uiOutput. A select rebuilt by renderUI comes back at its default,

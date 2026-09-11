@@ -63,12 +63,8 @@ FW_CARTO_ATTRIB <- paste(
   'contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
 )
 
-# Named so the layer control reads as a question the user might actually ask,
-# rather than as a list of vendors.
-FW_BASEMAP_PLAIN  <- "Plain"
-FW_BASEMAP_WATER  <- "Water"
-FW_BASEMAP_TERRAIN <- "Terrain"
-FW_BASEMAP_SATELLITE <- "Satellite"
+# The layer control's names come from fw_t("maps", "basemap_*"): named so it
+# reads as a question the user might ask rather than as a list of vendors.
 
 #' The basemap stack and its layer control
 #'
@@ -79,23 +75,27 @@ FW_BASEMAP_SATELLITE <- "Satellite"
 #'
 #' @param overlays names of overlay groups to list in the control, if any
 fw_add_basemaps <- function(map, overlays = NULL) {
+  plain     <- fw_t("maps", "basemap_plain")
+  water     <- fw_t("maps", "basemap_water")
+  terrain   <- fw_t("maps", "basemap_terrain")
+  satellite <- fw_t("maps", "basemap_satellite")
   map |>
     leaflet::addTiles(
       urlTemplate = fw_carto_url("voyager_nolabels"),
       attribution = FW_CARTO_ATTRIB,
-      group = FW_BASEMAP_PLAIN,
+      group = plain,
       options = leaflet::tileOptions(noWrap = FALSE)
     ) |>
     leaflet::addProviderTiles(
-      "Esri.OceanBasemap", group = FW_BASEMAP_WATER,
+      "Esri.OceanBasemap", group = water,
       options = leaflet::providerTileOptions(noWrap = FALSE)
     ) |>
     leaflet::addProviderTiles(
-      "Esri.WorldTopoMap", group = FW_BASEMAP_TERRAIN,
+      "Esri.WorldTopoMap", group = terrain,
       options = leaflet::providerTileOptions(noWrap = FALSE)
     ) |>
     leaflet::addProviderTiles(
-      "Esri.WorldImagery", group = FW_BASEMAP_SATELLITE,
+      "Esri.WorldImagery", group = satellite,
       options = leaflet::providerTileOptions(noWrap = FALSE)
     ) |>
     # Place labels ride ABOVE the data, so a marker never hides the name of the
@@ -106,8 +106,7 @@ fw_add_basemaps <- function(map, overlays = NULL) {
       options = leaflet::tileOptions(noWrap = FALSE, zIndex = 650)
     ) |>
     leaflet::addLayersControl(
-      baseGroups = c(FW_BASEMAP_PLAIN, FW_BASEMAP_WATER,
-                     FW_BASEMAP_TERRAIN, FW_BASEMAP_SATELLITE),
+      baseGroups = c(plain, water, terrain, satellite),
       overlayGroups = overlays,
       options = leaflet::layersControlOptions(collapsed = TRUE)
     )
@@ -276,7 +275,7 @@ fw_popup_years <- function(start, end) {
   # campaign that began and finished inside one year.
   if (is.na(end) || end <= start) return(as.character(start))
   n <- round(end - start)
-  unit <- if (n == 1) "year" else "years"
+  unit <- if (n == 1) fw_t("maps", "year_one") else fw_t("maps", "year_many")
   paste0(start, "-", end, " (", n, " ", unit, ")")
 }
 
@@ -779,7 +778,10 @@ fw_map_card_js <- function() {
 #' @param live whether popups may reach Wikimedia for an uncached species
 fw_add_attempt_markers <- function(map, data, sel, live = FALSE) {
   pts <- fw_map_points(data, sel)
-  if (!nrow(pts)) return(leaflet::setView(map, 0, 20, zoom = 2))
+  if (!nrow(pts)) {
+    v <- FW_MAP$empty_view
+    return(leaflet::setView(map, v$lng, v$lat, zoom = v$zoom))
+  }
 
   outcome <- ifelse(is.na(pts$outcome), "Unknown", pts$outcome)
   popups <- vapply(seq_len(nrow(pts)), function(i) {
@@ -789,8 +791,9 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE) {
   map |>
     leaflet::addCircleMarkers(
       lng = pts$longitude, lat = pts$latitude,
-      radius = 6, weight = 1.5, opacity = 1, fillOpacity = 0.75,
-      color = "#ffffff",
+      radius = FW_MAP$marker$radius, weight = FW_MAP$marker$weight,
+      opacity = FW_MAP$marker$opacity, fillOpacity = FW_MAP$marker$fill_opacity,
+      color = FW_COLOURS$surface,
       fillColor = unname(FW_OUTCOME_COLOURS[outcome]),
       # NO TOOLTIP. There used to be one naming the site and its outcome,
       # because a record you had to click for was no use to somebody scanning
@@ -801,12 +804,13 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE) {
       # These options only apply if fw_map_card_js() never runs, which is the
       # no-JavaScript case; with it, the popup is unbound and the card is what
       # opens. Kept in step with the card's width all the same.
-      popupOptions = leaflet::popupOptions(maxWidth = 320, minWidth = 260,
+      popupOptions = leaflet::popupOptions(maxWidth = FW_MAP$popup$max_width,
+                                           minWidth = FW_MAP$popup$min_width,
                                            className = "fw-popup-wrap")
     ) |>
     leaflet::addLegend(
       position = "bottomright", colors = unname(FW_OUTCOME_COLOURS),
-      labels = names(FW_OUTCOME_COLOURS), opacity = 0.85,
+      labels = names(FW_OUTCOME_COLOURS), opacity = FW_MAP$legend_opacity,
       title = fw_t("species", "p_outcome")
     ) |>
     leaflet::fitBounds(min(pts$longitude), min(pts$latitude),

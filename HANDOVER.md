@@ -40,7 +40,7 @@ These need someone else before the page can be finished.
 | FWISE team email address | Networking page | `R/copy.R` `networking$outro_email` |
 | Terms of data use | Contribute consent | `R/copy.R` `contribute$consent$terms_url` |
 | Review turnaround time | Confirmation screen | `R/copy.R` `contribute$confirm$followup` |
-| Reversed (light) logo artwork | Footer | would remove the plaque, see 5.6 |
+| Reversed (light) logo artwork | Navbar | would allow an indigo navbar, see 5.6 |
 | `Key` column pasted into the master spreadsheet | Makes ids independent of the natural key | `fwise-data/id_registry/key_backfill.csv` |
 | Weird Fishes Advisory website URL | Footer logo link | `R/copy.R` `footer$wfa_url` |
 | Deployment credentials and domain | Going live | see README |
@@ -137,16 +137,30 @@ The transform stops with a clear error on any country not in the lookup.
 
 ### 5.4 An extra colour token, and the brand teal restricted
 
-`--fw-line-input` (`#65948d`) is an addition to the brief's fixed token list.
-`--fw-shoal` is a decorative hairline at 1.2:1 and is correctly below the 3:1
-floor, since WCAG 1.4.11 governs interactive component boundaries rather than
+`--fw-line-input` (`#6b6486`) is an addition to the brief's fixed token list.
+`--fw-shoal` is a decorative hairline and is correctly below the 3:1 floor,
+since WCAG 1.4.11 governs interactive component boundaries rather than
 dividers. Input borders *are* interactive boundaries and needed their own token.
 
-Separately: the sampled brand teal `#108978` **fails AA as text** (3.93:1 on the
-page, 4.31:1 for white on it). Following the brief's own instruction, text and
+Separately: the brand teal `#0F8B79` **fails AA as text** (3.47:1 on the cream
+page, 4.21:1 for white on it). Following the brief's own instruction, text and
 button roles fall back to `--fw-deep` and the brand teal is kept for non-text
-use. The FWISE wordmark indigo `#191044` was deliberately not promoted to a
-token, as that would introduce the second accent hue the brief rules out.
+use.
+
+> **SUPERSEDED, second round of client feedback.** The note above originally
+> read that the wordmark indigo `#191044` was deliberately *not* promoted to a
+> token, because that would introduce a second accent hue the brief ruled out.
+>
+> The client has since supplied `#0F8B79` and `#191144` as the two brand values
+> and the workshop launch flyer as the scheme to follow, and that flyer is built
+> on **indigo and teal together**. So the one-accent-hue rule no longer holds,
+> and the reasoning in this section is kept only so the change is traceable.
+>
+> **SUPERSEDED AGAIN, third round.** The cream page went too: the scheme is
+> now the indigo-tinted off-white described in section 5.26 and in the design
+> system section of `README.md`. Token names changed to roles at the same time
+> (`--fw-line-input` is `border_input`, `--fw-shoal` is `border` or
+> `teal_tint` depending on the use).
 
 ### 5.5 Base map is Carto Voyager, with three alternatives
 
@@ -192,13 +206,57 @@ gap story the landing page exists to tell. When the burden layer arrives, draw
 it in Equal Earth from a countries GeoJSON rather than adding a choropleth to
 the existing tile maps.
 
-### 5.6 Footer logos share one white plaque
+### 5.6 The footer is two tiers, and the navbar stays light
 
-Both supplied logo files are dark ink drawn for light backgrounds, the FWISE
-lockup is not knocked out of its own, and the footer is `--fw-abyss`. The two sit
-together on one white rounded plaque at matching height, with "Built by Weird
-Fishes Advisory" on its own line underneath, and each links out to its
-organisation. Reversed artwork would let the plaque be deleted.
+The FWISE lockup (now a transparent PNG) has an indigo wordmark, so it cannot
+sit on the indigo. The navbar is therefore on the light surface, the page title
+sits in an indigo band directly under it, and the footer is two full-width
+tiers: logos and attribution on the page ground, then the indigo band with the
+release date, links and licence. The white plaque this section used to
+describe is gone.
+
+### 5.26 One place for each kind of value, and the tests that hold it
+
+Third round of client feedback, and the refactor that went with it. Three
+rules, each enforced by a script rather than remembered:
+
+- **Design values live in `R/brand.R`.** Colour, type, spacing, radius, shadow,
+  motion, breakpoints. They reach Sass through `fw_compile_css()`, which hands
+  `fw_sass_variables()` to the compiler ahead of the stylesheet, so
+  `_tokens.scss` holds no literals and cannot drift. Bootstrap is compiled
+  separately by bslib, so `theme.R` maps the same tokens onto its names.
+  Chart chrome, map markers, the workbook header and the Word output read
+  `FW_COLOURS` and `FW_TYPE` directly. Tokens are named for their **role**
+  (`teal_text`, `surface`, `border_input`), not their hue; the poetic names
+  (`abyss`, `shoal`, `silt`) are gone.
+- **Copy lives in the deck**: `copy.R`, `copy_contribute.R`, `copy_export.R`,
+  read as one list by `fw_copy_all()` on every `fw_t()` call - on every call
+  because Shiny sources `R/` in one order and a test script's `list.files()`
+  in another, and a merge cached on the first call could be missing a file.
+  `fw_fill()` fills `{placeholders}`; the caveats and the sentence that says
+  "the ten most common" are templates filled from the data and from
+  `FW_TOP_N`. **Never call `fw_t()` at the top level of a file.** The one
+  string deliberately left as a constant is `FW_OTHER` in `data_load.R`,
+  because it is compared against stored values.
+- **Behaviour numbers live in `config.R`** under "Behaviour".
+
+`dev/check_literals.R` fails on a hex literal outside the two token files, on
+any white, and on any `fw_t()` key the deck does not define.
+`dev/value_test.R` recomputes every number on screen, every chart bar and
+every export row in plain base R and compares. Two stale assertions in
+`plan_test.R` were fixed at the same time: the empty state before a build is
+now genuinely empty, and the widget count is read from the document rather
+than written down.
+
+**Palette.** No white anywhere: the page is `#e9ebf3`, surfaces `#f7f8fc`,
+lifted by tone and by `FW_SHADOW$card`. `teal_text` moved from `#0a5d50` to
+`#0c7565` (4.7:1 on the page, so still AA) and the hover state is now a step
+*darker*, because the old lighter hover fell under the floor at exactly the
+moment the reader was about to click. Stacked-bar separators are gone from the
+outcome charts and reduced to a hairline on the method chart, which keeps them
+because of the CVD note in `config.R`. One latent Sass bug was found on the way:
+`.fw-field:has(.is-invalid)` compiled to `margin-inline-start: -1rem - 3px`,
+which is not CSS; it is a `calc()` now.
 
 ### 5.7 `manifest.json` is what actually deploys
 
@@ -431,8 +489,9 @@ table.
 
 ### 5.9 Several dev scripts are kept in version control
 
-`dev/` is gitignored, but `dev/check_contrast.R`, `dev/smoke_test.R`,
-`dev/plan_test.R`, `dev/fetch_species_images.R` and `dev/build_iso_lookups.R`
+`dev/` is gitignored, but `dev/check_contrast.R`, `dev/check_palette.R`,
+`dev/check_literals.R`, `dev/smoke_test.R`, `dev/plan_test.R`,
+`dev/value_test.R`, `dev/fetch_species_images.R` and `dev/build_iso_lookups.R`
 are re-included. The last two write into `fwise-data/` and are the only things
 in the project that make a network call; the app itself never does. `_tokens.scss` cites the contrast checker by name, so ignoring it
 would leave a dangling reference. This needed `dev/*` rather than `dev/` in the
@@ -513,9 +572,10 @@ who did not touch it would have had their record filed under the wrong country.
 attaches to the *n*th `Fish` slot. Getting this wrong silently assigns fish
 families to crayfish.
 
-**Colour values live in two places**, `www/scss/_tokens.scss` and `FW_COLOURS` in
-`R/theme.R`, because Sass variables cannot cross into R. Change both and re-run
-`dev/check_contrast.R`.
+**Colour values live in ONE place, `R/brand.R`.** `_tokens.scss` has no
+literals; if the compiler says "Undefined variable", the token is missing from
+`brand.R`. Re-run `dev/check_contrast.R` and `dev/check_literals.R` after any
+change there.
 
 ---
 

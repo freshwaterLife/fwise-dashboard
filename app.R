@@ -60,20 +60,9 @@ ui <- page_navbar(
       tags$link(rel = "icon", type = "image/svg+xml", href = "img/favicon.svg"),
       tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
       tags$meta(name = "description", content = fw_t("app", "tagline")),
-      # Compiled from www/scss/. sass caches the result, so this is a one-off
-      # cost at startup rather than per request.
-      #
-      # cache_key_extra IS NOT OPTIONAL. sass keys its cache on the input it is
-      # handed, which here is main.scss alone - it does not look at what that
-      # file @imports. Without the digest below, an edit to _tokens.scss or
-      # _components.scss compiles to the previously cached CSS and the change
-      # appears to have done nothing, even across a full restart. Hashing every
-      # file in the directory is what makes the cache notice.
-      tags$style(sass::sass(
-        sass::sass_file("www/scss/main.scss"),
-        options = sass::sass_options(output_style = "compressed"),
-        cache_key_extra = fw_scss_digest()
-      ))
+      # Compiled from www/scss/ with the tokens from R/brand.R injected. See
+      # fw_compile_css() for why the cache key has to include the partials.
+      tags$style(HTML(fw_compile_css("www/scss/main.scss")))
     ),
     fw_skip_link(),
     fw_popover_script(),

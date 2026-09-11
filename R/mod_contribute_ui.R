@@ -76,21 +76,6 @@ fw_preamble <- function() {
   )
 }
 
-#' Render the one piece of markup the copy file is allowed to carry
-#'
-#' FW_COPY is plain text so it stays diffable and easy to hand back to the
-#' client. A couple of sentences need a single word emphasised mid-clause, and
-#' chopping those strings into fragments to wrap in tags$strong() makes them
-#' unreadable at the point they are written. So **this** is understood, nothing
-#' else is, and every part still goes through htmltools' escaping.
-fw_emphasis <- function(text) {
-  parts <- strsplit(text, "**", fixed = TRUE)[[1]]
-  if (length(parts) < 2) return(text)
-  do.call(tagList, lapply(seq_along(parts), function(i) {
-    if (i %% 2 == 0) tags$strong(parts[[i]]) else parts[[i]]
-  }))
-}
-
 #' The whole form, on one page
 #'
 #' WHY IT IS NOT A WIZARD ANY MORE. The stepped version rendered the current step
@@ -148,7 +133,7 @@ fw_form_shell <- function(ns, choices) {
           class = "fw-progress-rail__bar",
           role = "progressbar",
           `aria-valuemin` = 0, `aria-valuemax` = 100, `aria-valuenow` = 0,
-          `aria-label` = "Form progress",
+          `aria-label` = fw_t("contribute", "announce", "form_progress"),
           id = ns("rail_bar"),
           div(class = "fw-progress-rail__fill", id = ns("rail_fill"))
         ),
@@ -356,12 +341,10 @@ fw_form_script <- function(ns) {
 fw_confirmation <- function(ns, res) {
   if (is.null(res)) return(NULL)
 
-  body <- gsub("{nth}", fw_ordinal(res$total_attempts),
-    gsub("{nth_country}", fw_ordinal(res$country_attempts),
-      gsub("{country}", res$country,
-           fw_t("contribute", "confirm", "body_template"), fixed = TRUE),
-      fixed = TRUE),
-    fixed = TRUE)
+  body <- fw_fill(fw_t("contribute", "confirm", "body_template"),
+                  nth = fw_ordinal(res$total_attempts),
+                  nth_country = fw_ordinal(res$country_attempts),
+                  country = res$country)
 
   div(
     class = "fw-confirm",
@@ -371,7 +354,7 @@ fw_confirmation <- function(ns, res) {
     p(class = "fw-confirm__body", fw_t("contribute", "confirm", "followup")),
     p(class = "fw-confirm__body", fw_t("contribute", "confirm", "thanks")),
     p(class = "fw-caption",
-      "Your reference is ",
+      fw_t("contribute", "announce", "reference_prefix"),
       tags$span(class = "fw-num", res$submission_id)),
     div(
       class = "fw-confirm__actions",
@@ -394,7 +377,7 @@ fw_confirmation <- function(ns, res) {
 fw_confirm_mark <- function() {
   tags$span(
     class = "fw-confirm__mark",
-    role = "img", `aria-label` = "Submission received",
+    role = "img", `aria-label` = fw_t("contribute", "announce", "submission_received"),
     "\U0001F438"
   )
 }

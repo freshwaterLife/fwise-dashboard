@@ -21,14 +21,13 @@
 
 library(officer)
 
-# The two colours the document uses. Headings carry the FWISE green so the file
-# is recognisably ours; everything else is default black body text.
-FW_DOCX_INK <- "#0a2e29"
-FW_DOCX_DEEP <- "#0d574c"
-
-fw_docx_fp <- function(size = 11, colour = FW_DOCX_INK, bold = FALSE,
+# The document uses two colours, both from R/brand.R: the ink for body text and
+# the teal that passes AA for headings, so the file is recognisably ours. They
+# are read as default arguments rather than constants so this file does not
+# depend on being sourced after brand.R.
+fw_docx_fp <- function(size = 11, colour = FW_COLOURS$ink, bold = FALSE,
                        italic = FALSE) {
-  fp_text(font.family = "Calibri", font.size = size, color = colour,
+  fp_text(font.family = FW_TYPE$font_docx, font.size = size, color = colour,
           bold = bold, italic = italic)
 }
 
@@ -43,7 +42,7 @@ fw_questions_docx <- function(choices, logo = "www/img/FWISE-LOGO-ALL-6.png") {
   # One paragraph. The only styling is the font, the colour and a little space
   # underneath, because officer's default is no space at all and the questions
   # run into their own guidance without it.
-  para <- function(doc, text, size = 11, colour = FW_DOCX_INK, bold = FALSE,
+  para <- function(doc, text, size = 11, colour = FW_COLOURS$ink, bold = FALSE,
                    after = 4) {
     body_add_fpar(doc, fpar(
       ftext(fw_squish(text), fw_docx_fp(size, colour, bold = bold)),
@@ -61,17 +60,12 @@ fw_questions_docx <- function(choices, logo = "www/img/FWISE-LOGO-ALL-6.png") {
     doc <- body_add_img(doc, logo, width = w, height = h)
   }
 
+  q <- fw_t("questions")
   doc <- doc |>
-    para("FWISE submission question list", size = 16, colour = FW_DOCX_DEEP,
+    para(q$title_docx, size = 16, colour = FW_COLOURS$teal_text,
          bold = TRUE, after = 8) |>
-    para(paste(
-      "Every question on the online submission form, in the order you will meet",
-      "it. Use this to gather your answers offline, then copy them across when",
-      "you are ready. Only the questions marked REQUIRED have to be answered; a",
-      "partial record is far better than none. The form cannot save your",
-      "progress, so please complete it in one sitting."
-    )) |>
-    para(paste("Generated", format(Sys.Date(), "%d %B %Y")))
+    para(paste(fw_fill(q$intro, required = q$required_docx), q$no_save)) |>
+    para(paste(q$generated, format(Sys.Date(), "%d %B %Y")))
 
   # ---- The sections ----------------------------------------------------------
   step_no <- 0L
@@ -90,15 +84,15 @@ fw_questions_docx <- function(choices, logo = "www/img/FWISE-LOGO-ALL-6.png") {
 
     doc <- body_add_par(doc, "")
     doc <- para(doc, paste0(step_no, ". ", title), size = 14,
-                colour = FW_DOCX_DEEP, bold = TRUE, after = 6)
+                colour = FW_COLOURS$teal_text, bold = TRUE, after = 6)
     if (isTRUE(step$conditional)) {
-      doc <- para(doc, "This section is only shown if your earlier answers call for it.")
+      doc <- para(doc, q$conditional_note)
     }
 
     q_no <- 0L
     for (item in items) {
       if (identical(item$kind, "heading")) {
-        doc <- para(doc, item$text, size = 12, colour = FW_DOCX_DEEP,
+        doc <- para(doc, item$text, size = 12, colour = FW_COLOURS$teal_text,
                     bold = TRUE, after = 6)
 
       } else if (identical(item$kind, "blurb") || identical(item$kind, "help")) {
@@ -112,13 +106,13 @@ fw_questions_docx <- function(choices, logo = "www/img/FWISE-LOGO-ALL-6.png") {
         # REQUIRED is a word, not a colour or a symbol. It has to survive being
         # printed in black and white and read aloud.
         label <- paste0(step_no, ".", q_no, "  ", fw_squish(item$text))
-        if (isTRUE(item$required))    label <- paste0(label, "  REQUIRED")
-        if (isTRUE(item$conditional)) label <- paste0(label, "  [only if it applies]")
+        if (isTRUE(item$required))    label <- paste0(label, "  ", q$required_docx)
+        if (isTRUE(item$conditional)) label <- paste0(label, "  ", q$conditional_tag)
         doc <- para(doc, label, bold = TRUE)
 
         if (!is.null(item$guidance)) doc <- para(doc, item$guidance)
         if (length(item$options)) {
-          doc <- para(doc, paste("Options:", fw_options_line(item$options)))
+          doc <- para(doc, paste(q$options, fw_options_line(item$options)))
         }
         # Where the answer goes. An empty paragraph, not a ruled line: it grows
         # with whatever is typed into it instead of being pushed out of shape.

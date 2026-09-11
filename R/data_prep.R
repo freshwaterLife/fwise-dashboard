@@ -23,6 +23,9 @@ suppressPackageStartupMessages({
   library(purrr)
 })
 
+# config.R reads FW_COLOURS from brand.R, so brand.R has to come first here as
+# well as in Shiny's own sourcing order.
+source(file.path("R", "brand.R"))
 source(file.path("R", "config.R"))
 # FW_REGIME_BY_TYPE lives in data_load.R so the contribute form and this script
 # read the same lookup. Sourced explicitly because this file runs standalone

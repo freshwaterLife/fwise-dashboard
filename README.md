@@ -72,7 +72,11 @@ the machine. On macOS: `brew install gdal geos proj`.
 ```bash
 Rscript dev/smoke_test.R      # form gating, validation and the write path
 Rscript dev/plan_test.R       # report builder: gate, states, filters, export
-Rscript dev/check_contrast.R  # every colour pair against WCAG AA
+Rscript dev/value_test.R      # every number on screen, every chart bar, every
+                              # export row, recomputed independently and compared
+Rscript dev/check_contrast.R  # every interface colour pair against WCAG AA
+Rscript dev/check_palette.R   # the chart palettes: CVD separation, bands, label ink
+Rscript dev/check_literals.R  # no stray colours or strings; every copy key resolves
 ```
 
 Two scripts write into `../fwise-data/` and are the only things in the project
@@ -84,10 +88,14 @@ Rscript dev/fetch_species_images.R    # species photos from Wikimedia -> species
 Rscript dev/build_iso_lookups.R       # ISO 3166-1 and -2 -> the two lookup files
 ```
 
-Both test scripts exit non-zero on failure, so they are usable from CI.
+All of them exit non-zero on failure, so they are usable from CI.
 
-Run `check_contrast.R` after changing **any** colour. It is the thing that
-catches an inaccessible palette before a user does.
+Run `check_contrast.R` after changing **any** interface colour, and
+`check_palette.R` after changing **any** chart colour. Between them they are the
+thing that catches an inaccessible palette before a user does, and they compute
+the answer rather than leaving it to the eye - `check_palette.R` simulates
+protanopia and deuteranopia (Machado-Oliveira-Fernandes 2009) and measures
+separation in OKLab.
 
 ---
 
@@ -97,9 +105,14 @@ catches an inaccessible palette before a user does.
 .
 ├── app.R                       entry point, must stay at the repository root
 ├── R/
-│   ├── config.R                paths, environment variables, the Wong palette
-│   ├── copy.R                  EVERY user-facing string
-│   ├── theme.R                 the bslib theme
+│   ├── brand.R                 EVERY design value: colour, type, space, radius,
+│   │                           shadow, motion, breakpoints. Sorts first on purpose
+│   ├── config.R                paths, environment variables, the data palettes,
+│   │                           and the behaviour constants (top-n, page sizes...)
+│   ├── copy.R                  EVERY user-facing string, part 1: chrome and pages
+│   ├── copy_contribute.R       ...part 2: the contribute form
+│   ├── copy_export.R           ...part 3: spreadsheet, report tables, question lists
+│   ├── theme.R                 the bslib theme, mapped from brand.R
 │   ├── ui_helpers.R            reusable UI components
 │   ├── data_load.R             the data contract, read by every module
 │   ├── data_prep.R             BUILD SCRIPT, not part of the running app
@@ -121,7 +134,9 @@ catches an inaccessible palette before a user does.
 │                               mod_contribute_steps.R (section builders) and
 │                               mod_contribute_ui.R (the three page states)
 ├── www/
-│   ├── scss/                   _tokens.scss, _components.scss, main.scss
+│   ├── scss/                   main.scss and report.scss (the two entry files),
+│   │                           _tokens.scss (derived only), _components.scss,
+│   │                           _report_frame.scss
 │   ├── fonts/                  self-hosted Ubuntu woff2
 │   └── img/                    logos and favicon
 ├── dev/                        local scratch, gitignored except the scripts
@@ -155,9 +170,24 @@ documented Shiny feature, not something `app.R` does. Any file you drop into
 another build script to `R/`, give it the same guard or it will run every time
 the app starts.
 
-**Colour values live in two places.** Sass variables cannot cross into R, so the
-palette is defined in `www/scss/_tokens.scss` and mirrored in `FW_COLOURS` in
-`R/theme.R`. Change both, then re-run `dev/check_contrast.R`.
+**Every design value lives in `R/brand.R`, and only there.** Colour, type,
+spacing, radius, shadow, motion and breakpoints. `fw_compile_css()` hands them
+to Sass as variables ahead of the stylesheet, `R/theme.R` maps them onto
+Bootstrap, and the charts, maps, workbook and Word output read them directly.
+`www/scss/_tokens.scss` contains no literal values at all. Change a value in
+`brand.R`, restart, and re-run `dev/check_contrast.R`.
+
+**Every user-facing string lives in the copy deck**, which is three files read
+as one list: `R/copy.R` (chrome and pages), `R/copy_contribute.R` (the form)
+and `R/copy_export.R` (spreadsheet, report tables, question-list downloads).
+`fw_t("section", "key")` reads any of them; `fw_fill()` fills `{placeholders}`.
+
+**Every behaviour number lives in `R/config.R`** under "Behaviour": the top-n
+limit charts name before gathering into Other, page sizes, map defaults, chart
+heights and thresholds, the year bounds on the form.
+
+`dev/check_literals.R` enforces all three rules and fails if a hex colour, a
+white surface or an unresolved copy key creeps back in.
 
 ---
 
@@ -554,37 +584,122 @@ secret.
 
 ## The design system
 
+### Where to change things
+
+| To change | Edit | Then run |
+|---|---|---|
+| a colour, a radius, a shadow, a font size | `R/brand.R` | `dev/check_contrast.R`, `dev/check_literals.R` |
+| any wording, label, tooltip, sheet name | `R/copy.R`, `R/copy_contribute.R` or `R/copy_export.R` | `dev/check_literals.R` |
+| a top-n limit, page size, map default, chart height | `R/config.R`, "Behaviour" | `dev/value_test.R` |
+| the Wong or Tol data palettes | `R/config.R` | `dev/check_palette.R` |
+
+Nothing else holds a value. If you find one, it is a bug: move it.
+
 ### Colour
 
-Every value is sampled from the two logo files in `www/img/`, not invented.
+**The client supplied two hex values, and they are the whole palette.**
 
-| Sampled from | Hex | Becomes |
+| Source | Hex | Becomes |
 |---|---|---|
-| FWISE circle mark | `#108978` | `--fw-primary`, and the hue the whole ramp is built on |
-| FWISE wordmark | `#191044` | deliberately **not** an interface token |
-| Weird Fishes Advisory ink | `#00222b` | reconciled against `--fw-abyss` |
+| FWISE teal (client) | `#0F8B79` | `brand_teal` |
+| FWISE indigo (client) | `#191144` | `brand_indigo`, and `ink` |
+
+Everything else is derived from them or is a neutral tinted towards the
+indigo. **There is no white anywhere.** The page is a cool off-white, every
+surface on it is one tonal step lighter, and surfaces are lifted by that step
+and by a soft shadow rather than by a border.
+
+Tokens are named for their **role**, so a value can change without the name
+lying. From `FW_COLOURS` in `R/brand.R`:
 
 | Token | Hex | Role |
 |---|---|---|
-| `--fw-abyss` | `#0a2e29` | primary text, footer ground |
-| `--fw-deep` | `#0d574c` | headings, links, primary buttons |
-| `--fw-primary` | `#108978` | the brand teal. **Non-text roles only** |
-| `--fw-shallow` | `#1c9484` | hover, progress fill, focus ring |
-| `--fw-shoal` | `#c7ede8` | subtle fills, decorative hairlines |
-| `--fw-line-input` | `#65948d` | input borders |
-| `--fw-silt` | `#f7f4ef` | page background, the warm neutral |
-| `--fw-paper` | `#ffffff` | cards and panels |
-| `--fw-ink-muted` | `#4a6a64` | secondary text |
+| `ink` | `#191144` | body text and headings |
+| `ink_muted` | `#4a4468` | secondary text, captions, help |
+| `brand_indigo` | `#191144` | the page-title band, the footer's lower tier |
+| `brand_teal` | `#0f8b79` | accents and markers. **Non-text only** |
+| `teal_text` | `#0c7565` | links and primary buttons: the teal that passes AA |
+| `teal_hover` | `#0a6152` | hover for links and buttons |
+| `teal_tint` | `#c9e7e3` | chips, the progress track, tinted panels |
+| `teal_wash` | `#e4f1ee` | the faintest teal: notices, hover washes |
+| `teal_light` | `#7fc5bd` | links and accents on the indigo ground |
+| `page` | `#e9ebf3` | the page ground |
+| `surface` | `#f7f8fc` | cards, tables, inputs, navbar, popups, the report sheet |
+| `sunken` | `#eef0f7` | table header rows, the citation block |
+| `border` | `#d9dcea` | hairlines, dividers, the chart grid |
+| `border_input` | `#6b6486` | input edges: an interactive boundary, needs 3:1 |
+| `on_indigo` | `#f7f8fc` | text on the indigo ground |
+| `on_indigo_muted` | `#c9c4e3` | secondary text on the indigo ground |
 
-**The true brand teal fails WCAG AA as text.** `#108978` on the page background
-is 3.93:1 and white on it is 4.31:1, both under the 4.5:1 floor. So
-`--fw-primary` is reserved for non-text use and every text or button role falls
-back to `--fw-deep`. Do not set body-sized text in the brand teal.
+**The brand teal fails WCAG AA as text** (3.5:1 on the page, 4.2:1 on a
+surface). It is reserved for non-text use - the active nav marker, the KPI
+rule, the focus ring - and every text or button role uses `teal_text`. Do not
+set body-sized text in `brand_teal`. `dev/check_contrast.R` lists every pair
+the interface uses and is the arbiter.
 
-`--fw-line-input` is an addition to the brief's token list. `--fw-shoal` is a
-decorative hairline and is correctly below the 3:1 floor, because WCAG 1.4.11
-applies to interactive component boundaries rather than dividers. Input borders
-*are* interactive boundaries, so they need their own darker token.
+**Where the indigo lives.** The navbar has to stay light: the FWISE lockup's
+wordmark is indigo and would vanish on an indigo bar. So every page opens with
+its title reversed out of an indigo band under the navbar, and the footer's
+lower tier is indigo. The footer's upper tier, which holds the two logos, is
+on the page ground for the same reason.
+
+**How the tokens reach the stylesheet.** `fw_compile_css()` in
+`R/ui_helpers.R` passes `fw_sass_variables()` to `sass::sass()` ahead of the
+entry file, so `$fw-ink` in Sass *is* `FW_COLOURS$ink`. `_tokens.scss` holds
+only derived values (`$fw-hairline: 1px solid $fw-border`). A token missing
+from `brand.R` fails the compile loudly rather than falling back to a stale
+copy. Bootstrap is compiled separately by bslib and cannot see those
+variables, which is why `R/theme.R` maps the same tokens onto Bootstrap's own
+names.
+
+### The 1rem type floor
+
+**No text in the app is set below 1rem**, captions and labels included. That is
+a client instruction, and holding it took three things:
+
+- `$fw-size-caption` is now `1rem` rather than `0.85rem`. Caption text is
+  separated from body text by **colour and weight**, not by size. `$fw-size-min`
+  is the same value named for the places that used to reach for something
+  smaller still.
+- **Bootstrap's own small-text variables are set in `R/theme.R`.** A dozen of
+  its components size themselves off separate variables that default to
+  `0.875em` or less - form help text, validation feedback, small buttons,
+  badges, legends - and every one renders somewhere in this app. bslib also sets
+  its own `--bs-btn-font-size` of `.9375rem`, which is 15px.
+- **Three third-party stylesheets needed longer selectors, not just a value.**
+  ionRangeSlider (`.irs--shiny .irs-from`, 11px) and Leaflet
+  (`.leaflet-container .leaflet-control-attribution`, 11px; `.leaflet .info`,
+  14px, the map legend) each score two classes and load *after* our `<style>`
+  block, so a two-class rule here ties and loses. The selectors in
+  `_components.scss` are deliberately one class longer. Do not shorten them.
+
+Plotly takes pixels rather than rem, so `FW_TYPE$floor_px` is 16 and
+`uniformtext` is `minsize = FW_TYPE$floor_px, mode = "hide"` - a segment too
+narrow for the floor shows no number rather than an unreadable one, and the
+hover still carries it.
+
+**The one exemption is pop-ups**, granted explicitly by the client: the
+information popovers behind the (i) glyphs and the map popup may sit under the
+floor, at `$fw-size-popup` (`0.9rem`). It applies to **transient overlay text
+only**. Anything that stays on the page - the map legend, the attribution line,
+photo credits, table cells, captions - is page text and takes `$fw-size-min`.
+
+One consequence worth knowing about: the CC BY credit on a species tile used to
+be held down by size (`0.6rem`). The floor takes that lever away, so it is held
+down by weight and colour instead and the species name is stepped up to
+`$fw-size-lead` to stay clearly above it.
+
+**To verify the floor**, load the app and run this in the browser console - it
+returns any on-page text under 16px, pop-ups excluded:
+
+```js
+Array.from(document.querySelectorAll("body *")).filter(e => {
+  const r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
+  if (e.closest(".popover,.tooltip,.leaflet-popup,.fw-map-card,.fw-map-detail,.fw-popup")) return false;
+  if (parseFloat(getComputedStyle(e).fontSize) >= 16) return false;
+  return Array.from(e.childNodes).some(n => n.nodeType === 3 && n.textContent.trim());
+}).map(e => getComputedStyle(e).fontSize + " " + e.className);
+```
 
 ### Data visualisation colours are separate
 
@@ -599,6 +714,55 @@ Neutral #999999      Emphasis #0072B2  Vermilion #D55E00
 
 **Never encode data with the interface teals, and never use the Wong colours as
 interface chrome.**
+
+The count drawn inside each outcome segment is **indigo, not white**
+(`FW_OUTCOME_LABEL_INK`). That is measured, not stylistic: white numerals came
+to 2.25:1 on the Failed orange and 2.31:1 on the Ongoing blue, so the figure the
+reader is meant to read off the bar was the least legible thing on the page.
+None of the four Wong colours is dark enough to take white at 4.5:1.
+
+### The method palette
+
+`FW_METHOD_COLOURS` was a single-hue teal ramp, dark to light by frequency.
+**The client rejected it and they were right**: method is a nominal category,
+not a magnitude, and a ramp tells a reader the segments are ordered when they
+are not. Measured, the old ramp failed outright - its worst adjacent pair came
+to dE 9.0 against a floor of 15 under normal vision, so neighbouring segments
+genuinely were not separable.
+
+The replacement is **seven distinct hues**, taken from Paul Tol's *muted*
+qualitative palette (designed for colour-vision deficiency) with each hue
+stepped into the usable lightness band (OKLCH L 0.43–0.77) and lifted over the
+chroma floor (C ≥ 0.10). Tol's teal slot is deliberately unused, because the
+brand teal is interface chrome and must never encode data.
+
+```
+ME07 Rotenone #007da4   ME04 Netting/Trapping #a58a22   ME02 Draining #8e2a72
+ME03 Electrofishing #3f9b3f   ME01 Antimycin-A #8c4a1f
+ME05 Other chemical #534bb4   ME06 Other mechanical #cf5f6f
+```
+
+**The order of that vector is load-bearing, twice over.** It is still frequency
+order, so the stack reads most-used first; it is *also* the arrangement, out of
+all 5040, that maximises the distance between segments that physically touch.
+Reordering the entries re-colours the chart **and** degrades it.
+
+| Pairlist | Worst pair (CVD / normal) | Floors | |
+|---|---|---|---|
+| Adjacent - what a stacked bar is judged on | 12.5 / 23.0 | 8 / 15 | **pass** |
+| All pairs - the harder test | 2.7 / 12.4 | 8 / 15 | fails |
+
+The all-pairs result is expected and is **not** a defect to fix by re-picking
+colours: seven categories cannot be made pairwise-distinct at that floor by any
+palette. It only bites where two non-neighbouring segments end up touching,
+which needs an intervening method to be absent from that waterbody. The white
+separator rule and the in-segment counts are what carry that case, which is why
+both are mandatory rather than decoration.
+
+Run `Rscript dev/check_palette.R` after touching any colour or the order. It
+checks the lightness band, the chroma floor, CVD separation under simulated
+protanopia and deuteranopia, separation under normal vision, contrast against
+the surface, and the label ink inside every segment.
 
 ### Width
 
@@ -721,9 +885,9 @@ The domain is registered with Namecheap and is held by the client.
 - **Attempt identifiers are positional.** The source `Key` column is empty, so
   `attempt_id` is generated from row order and is stable only while that order
   is. If the client starts populating `Key`, switch to it in `data_prep.R`.
-- **Both logo files are dark ink for light backgrounds**, and the FWISE lockup is
-  not knocked out of its own, so on the dark footer the pair share one white
-  plaque at matching height. Reversed artwork would let the plaque go.
+- **The FWISE lockup's wordmark is indigo**, so the navbar and the footer's
+  upper tier stay on a light ground and the indigo sits in the page-title band
+  and the footer's lower tier. Reversed artwork would open up an indigo navbar.
 - **Carto now watermarks its keyless tiles.** Every map in the app is currently
   drawn over "API KEY REQUIRED" repeated across the basemap. `fw_carto_url()`
   already appends `FWISE_CARTO_KEY` if it is set, so a Carto account fixes it

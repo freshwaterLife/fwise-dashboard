@@ -1,7 +1,18 @@
 # copy.R
-# EVERY user-facing string in the app lives here. No module file should contain
-# hardcoded English. Renaming a navigation item or rewording a prompt is a
-# one-line edit in this file.
+# EVERY user-facing string in the app lives in the copy deck. No module file
+# contains hardcoded English. Renaming a navigation item or rewording a prompt
+# is a one-line edit here.
+#
+# THE DECK IS THREE FILES, ONE LIST. This file holds the chrome and the pages;
+# copy_contribute.R holds the contribute form; copy_export.R holds the
+# spreadsheet, the report's tables and the question-list downloads. fw_t()
+# reads all three through fw_copy_all(), so a module never needs to know which
+# file a string is in. A section name may appear in only ONE of the three.
+#
+# PLACEHOLDERS. A string may carry {name} slots that the caller fills with
+# fw_fill(): fw_fill(fw_t("plan", "r_table_note"), n = 42). Never paste a
+# number into a sentence by hand; the slot is what lets the wording change
+# without the code changing.
 #
 # House style: UK spelling, sentence case, active voice. A button says what
 # happens ("Send submission", not "Submit") and keeps the same name through the
@@ -71,7 +82,53 @@ FW_COPY <- list(
     search       = "Search",
     of           = "of",
     required_note = "Fields marked with an asterisk are required.",
-    info_icon_label = "More information about this field"
+    info_icon_label = "More information about this field",
+    # What an empty cell or a missing figure shows.
+    empty_value  = "-"
+  ),
+
+  # ---- Accessibility -----------------------------------------------------------
+  # Text that is announced rather than seen: aria labels, visually hidden
+  # spans, the skip link.
+  a11y = list(
+    skip_link   = "Skip to main content",
+    required    = " (required)",
+    more_about  = "More information about {label}",
+    page_n      = "Page {n}",
+    pagination  = "Pagination",
+    email_name  = "Email {name}"
+  ),
+
+  # ---- Charts --------------------------------------------------------------------
+  # Axis titles, tick labels and hover fragments. The %{x}-style placeholders
+  # in hover templates belong to plotly and are assembled in charts.R; only the
+  # words are here.
+  charts = list(
+    x_year        = "Year the attempt began",
+    y_cumulative  = "Attempts to date",
+    x_attempts    = "Attempts",
+    x_share       = "Share of attempts (%)",
+    x_share_uses  = "Share of uses (%)",
+    x_times_used  = "Times used",
+    x_duration    = "Days from start to finish  \u2190 days   \u00b7   years \u2192",
+    # Named ticks on the log axis, in step with FW_CHART$duration_ticks.
+    duration_ticks = c("1 day", "1 week", "1 month", "1 year", "5 years", "10 years"),
+    other         = "Other",
+    hover_by      = "By ",
+    hover_days    = " days",
+    hover_of      = " of "
+  ),
+
+  # ---- Maps ----------------------------------------------------------------------
+  maps = list(
+    # The basemap switcher. Named so it reads as a question the reader might
+    # ask rather than as a list of vendors.
+    basemap_plain     = "Plain",
+    basemap_water     = "Water",
+    basemap_terrain   = "Terrain",
+    basemap_satellite = "Satellite",
+    year_one  = "year",
+    year_many = "years"
   ),
 
   # ---- Home ------------------------------------------------------------------
@@ -120,7 +177,7 @@ FW_COPY <- list(
     waterbody = "What kind of water",
     waterbody_note = paste(
       "Attempts by the kind of waterbody treated, with the outcome mix in each.",
-      "The ten most common are named and the rest gathered into Other."
+      "The {n_word} most common are named and the rest gathered into Other."
     ),
 
     driver = "Why they were carried out",
@@ -128,7 +185,7 @@ FW_COPY <- list(
 
     invasive = "What gets targeted",
     invasive_note = paste(
-      "The ten species named most often, counted once per attempt. This is a",
+      "The {n_word} species named most often, counted once per attempt. This is a",
       "record of what has been REPORTED, so it reflects where the literature is",
       "as much as where the problem is."
     ),
@@ -173,6 +230,8 @@ FW_COPY <- list(
     fig_prev       = "Previous species",
     fig_next       = "Next species",
 
+    credit_fallback = "Wikimedia Commons",
+    credit_sep      = " / ",
     card_label = "Eradication attempt",
     card_close = "Close",
     detail_label = "Eradication attempt, full record",
@@ -266,20 +325,19 @@ FW_COPY <- list(
     # paragraph per element at a single size and colour.
     description = c(
       paste(
-        "Build a report of the eradication attempts that match your situation.",
-        "Set the filters below to describe where you are, the water you are",
-        "working in and the species you are dealing with, then select",
-        "Build report."
+        "Build a report of the eradication attempts that match your situation or interest by adjusting the filters below, then select",
+        "**Build report**."
       ),
       paste(
-        "You will get a map of where those attempts happened, what they",
-        "achieved, the methods used and how long they took, with the matching",
-        "records in full underneath. All of it downloads as a report or a",
+        "You will get a map of where those attempts happened, the",
+        "outcome, the methods used, with the matching",
+        "records in full underneath. All of it is downloadable as a report or a",
         "spreadsheet."
       ),
       paste(
-        "Nothing is filtered out to begin with, so leaving everything set to",
-        "All and building gives you the whole database."
+        paste(
+          "Filters are set to \"All\" by default."
+        )
       )
     ),
 
@@ -391,10 +449,10 @@ FW_COPY <- list(
     r_waterbody  = "What kind of water",
     r_waterbody_note = paste(
       "Attempts by the kind of waterbody treated, with the outcome mix in each.",
-      "The ten most common are named and the rest gathered into Other."
+      "The {n_word} most common are named and the rest gathered into Other."
     ),
 
-    r_method     = "How the methods compare",
+    r_method     = "Outcomes of methods within selection",
     r_method_note = paste(
       "Outcomes within each method, with the number of attempts beside it."
     ),
@@ -402,12 +460,9 @@ FW_COPY <- list(
     r_method_share = "Share of attempts",
     r_method_count = "Number of attempts",
 
-    r_method_wb  = "What gets used in what kind of water",
+    r_method_wb  = "Methods used within each kind of waterbody",
     r_method_wb_note = paste(
-      "The methods used in each kind of waterbody, counted once per attempt.",
-      "Colour here is the method, not the outcome. Draining a pond and draining",
-      "a river are one method and two different propositions, which is what",
-      "this separates and the chart above cannot."
+      "The methods used in each kind of waterbody, counted once per attempt."
     ),
 
     # ---- The species tiles ----------------------------------------------------
@@ -415,23 +470,20 @@ FW_COPY <- list(
     r_tile_attempts = "attempts",
     r_invasive   = "What these attempts targeted",
     r_invasive_note = paste(
-      "The ten invasive species named most often in this selection, counted",
-      "once per attempt, out of {n} in total. The bar under each is its outcome",
+      "The {n_word} invasive species named most often in this selection, counted",
+      "once per attempt, out of {n} species in total. The bar under each is its outcome",
       "mix."
     ),
-    r_beneficiary = "What was meant to benefit",
+    r_beneficiary = "What benefited",
     r_beneficiary_note = paste(
-      "Read this one carefully. Beneficiary species are recorded far less",
-      "consistently than targets - many attempts name none at all, and those",
-      "that do tend to be the ones written up for a named endangered species.",
-      "These are the ten named most often of {n}, and they show what has been",
-      "claimed rather than what recovered."
+      "Beneficiary species are recorded far less consistently than targets, sometimes not at all.",
+      "Where they are stated, this is not a complete list of what benefited, but a record of what was claimed.",
+      "These are the {n_word} named most often of {n} species."
     ),
 
     r_duration   = "How long these attempts took",
     r_duration_note = paste(
-      "Start to finish, on a log scale. Fortnight and a decade both fit on",
-      "one axis. Each point is one attempt."
+      "Start to finish, on a log scale. Each point is one attempt."
     ),
     r_duration_missing = paste(
       "Based on the {n} of these attempts with both a start and an end recorded."
@@ -448,6 +500,15 @@ FW_COPY <- list(
       "shortened here; the spreadsheet contains all in full."
     ),
     r_table_size    = "Rows per page",
+    # The results table. Column headings, and how a long list is shortened.
+    col_site     = "Site",
+    col_country  = "Country",
+    col_began    = "Began",
+    col_species  = "Invasive species",
+    col_methods  = "Methods",
+    col_outcome  = "Outcome",
+    col_contact  = "Contact",
+    more_suffix  = " +{n} more",
     r_table_showing = "Showing",
 
     caveats_heading = "Important to note whilst reviewing the visuals and data"
@@ -511,12 +572,6 @@ FW_COPY <- list(
     ),
 
     images_heading = "Species photographs",
-
-    team_heading = "Who is behind it",
-    team = paste(
-      "Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis",
-      "suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur."
-    ),
 
     cite_heading = "How to cite FWISE",
     cite = paste(
@@ -609,6 +664,7 @@ FW_COPY <- list(
     col_country      = "Country",
     col_attempts     = "Attempts",
     col_contact      = "Contact",
+    col_attempts_link = "Attempts link",
 
     email_action     = "Email",
     email_none       = "",
@@ -622,266 +678,61 @@ FW_COPY <- list(
     page_of       = "Page",
     page_size     = "Contacts per page",
     page_showing  = "Showing"
-  ),
-
-  # ---- Contribute ------------------------------------------------------------
-  #
-  # Field labels, prompts and tooltips follow the FWISE Upload Form field
-  # specification. Where the specification was ambiguous a TODO(alex) comment
-  # sits next to the field in mod_contribute_steps.R.
-
-  contribute = list(
-    title = "Contribute data",
-    description = paste(
-      "Add an eradication attempt to FWISE. It takes about fifteen minutes and",
-      "only a few fields are required."
-    ),
-
-    # THE DEFINITION AND THE SCOPE, pinned to the top of the page. This is the
-    # client's wording and the citation is Piero Genovesi's review; do not
-    # reword either without asking them. Shown by fw_preamble() on the
-    # contribute page and again on About, from this one source.
-    preamble = list(
-      heading = "What counts as an eradication",
-      definition = paste(
-        "Eradication is the complete and permanent removal of all wild",
-        "populations of an alien plant or animal species from a defined area,",
-        "by means of a time-limited campaign."
-      ),
-      citation = paste(
-        "Genovesi, Piero. Limits and Potentialities of Eradication as a Tool",
-        "for Addressing Biological Invasions."
-      ),
-      scope_heading = "What is the scope of contributions?",
-      # A list rather than prose because the two points answer different
-      # questions: which attempts we want, and which organisms.
-      scope = c(
-        paste(
-          "FWISE is interested in all stages of an eradication - failed,",
-          "in-progress, successful, or even unverified. Past, present. The more",
-          "data we are able to collate at different cycles of eradication the",
-          "more practitioners have to leverage, the more gaps we can expose to",
-          "funders to help invasive species eradication."
-        ),
-        paste(
-          "FWISE covers freshwater invasive **animals** - fish, crayfish,",
-          "molluscs, amphibians etc. It does not cover plants."
-        )
-      )
-    ),
-
-    # Opening panel, before step one
-    intro = list(
-      heading = "Add an eradication attempt",
-      what_heading = "What FWISE is",
-      what = paste(
-        "FWISE is a global evidence base of eradication attempts against",
-        "freshwater invasive animals. Every record here came from someone in",
-        "the field conducting these conservation efforts. Adding yours makes",
-        "the picture more complete for everyone planning one."
-      ),
-      review_heading = "Every submission is reviewed",
-      review = paste(
-        "Your submission goes to the FWISE team. We quality assure it,",
-        "consolidate it with the rest of the database, and get in touch if",
-        "anything needs clarifying. It appears in the dashboard once that is",
-        "done."
-      ),
-      no_save_heading = "You cannot save and come back",
-      no_save = paste(
-        "There are no accounts or logins, therefore no way to save data. Please",
-        "complete the form in one sitting. We recommend you download the",
-        "question list below, prepare responses offline, and copy your answers",
-        "across when you are ready. This saves any loss of data and time."
-      ),
-      time_heading = "How long it takes",
-      time = paste(
-        "About fifteen minutes to fill in the information once collated. Only a",
-        "few fields are required, so a partial record is far better than none."
-      ),
-      download_label     = "Download the question list (Word)",
-      download_label_txt = "Plain text version",
-      download_hint  = paste(
-        "Every question on the form, in order, with room to write your answers.",
-        "Both files are generated from the form itself, so neither can go out",
-        "of date."
-      ),
-      start_action   = "Start the form"
-    ),
-
-    # Consent controls, section 0.1 of the specification
-    consent = list(
-      heading = "Before you begin",
-      # This is the client's wording from the specification and should not be
-      # reworded without asking them.
-      statement = paste(
-        "By submitting this information you confirm that FWISE staff may contact",
-        "you regarding your submission, and allow FWISE to display contact",
-        "information within the dashboard."
-      ),
-      agree_label = "I agree to the above and to FWISE using this information as described",
-      # [PLACEHOLDER] the full terms of data use are still being drafted
-      terms_link_label = "Read the full terms of data use",
-      terms_url = "#",
-      email_private_label = paste(
-        "Keep my email address private. FWISE staff can still contact me, but my",
-        "address will not be shown to public users."
-      ),
-      email_private_help = paste(
-        "Leave this unticked and your address appears on the contacts page, so",
-        "other practitioners can reach you directly."
-      )
-    ),
-
-    # Step titles, shown in the progress indicator
-    steps = list(
-      site       = "Site and location",
-      waterbody  = "Waterbody",
-      invasive   = "Invasive species targeted",
-      timeline   = "Timeline",
-      benefit    = "Beneficiaries",
-      methods    = "Methods",
-      chemical   = "Chemical detail",
-      outcome    = "Outcome and evidence",
-      contributor = "Contributor",
-      other      = "Other details",
-      review     = "Review and send"
-    ),
-
-
-    # Section blurbs
-    blurb = list(
-      site      = "Where the eradication took place. These fields put the record on the map, so all three are required.",
-      waterbody = "What the waterbody is like. Answer still or flowing first and the rest of the section follows from it. Everything after the type is optional context.",
-      invasive  = "The animals the eradication targeted. Give the kind of animal and the species for each one, and add another target if more than one was targeted.",
-      timeline  = "When the invasion and the intervention happened, and why it was carried out.",
-      benefit   = "What the eradication was meant to help. All optional.",
-      methods   = "How the eradication was carried out.",
-      chemical  = "Detail on the chemical treatment. All optional.",
-      outcome   = "What happened, and where the evidence for it sits.",
-      contributor = "Who to credit and contact. We need a primary contact so the review team can follow up.",
-      other     = "Anything else you would like the FWISE team to know.",
-      review    = "A last read-through before sending. Everything here is editable above; scroll back up to change anything."
-    ),
-
-    # Repeatable block controls
-    add_target      = "Add another target",
-    check_action    = "Check my answers",
-
-    # ---- "Check my answers" ---------------------------------------------------
-    # HELPFUL, NOT PUNITIVE. A contributor is doing us a favour by filling this
-    # in. The wording says what is missing and why it is worth having, and never
-    # implies they have done something wrong.
-    #
-    # HARD vs SOFT is the important distinction. Hard errors block sending
-    # because the record would be unusable without them. Soft warnings NEVER
-    # block: a great many real attempts are ongoing, unmeasured or unpublished,
-    # and refusing those records would bias the database towards tidy ones.
-    check = list(
-      heading_clear  = "This all looks good",
-      body_clear     = paste(
-        "Everything needed is filled in. Have a last read through below, then",
-        "send it."
-      ),
-      heading_errors_one  = "One thing needs your attention",
-      heading_errors_many = "{n} things need your attention",
-      body_errors    = paste(
-        "These are marked in the form as well. Select one to jump straight to",
-        "it."
-      ),
-      heading_notes  = "Worth adding if you have it",
-      body_notes     = paste(
-        "None of these stop you sending. They are the fields that make a record",
-        "more useful to someone planning their own attempt, so add them if you",
-        "can and leave them if you cannot."
-      ),
-      review_heading = "Your answers",
-
-      # Hard errors
-      e_site_name    = "The site needs a name.",
-      e_country      = "Choose the country the site is in.",
-      e_latitude     = "Place a pin on the map, or type a latitude between -90 and 90.",
-      e_longitude    = "Place a pin on the map, or type a longitude between -180 and 180.",
-      e_regime       = "Say whether the water is still or flowing.",
-      e_waterbody    = "Choose the kind of waterbody treated.",
-      e_area_unit    = "You gave a size for the area treated, so we need its unit.",
-      e_target_taxa  = "Choose the kind of animal the eradication targeted.",
-      e_target_sp    = "Name the species targeted. If it is not in the list, type it in.",
-      e_start_year   = "Give the year the eradication attempt began, between 1500 and {year}.",
-      e_end_year     = "The end year must be between 1500 and {max_year}.",
-      e_end_before   = "The attempt cannot have ended before it began. Check the two years.",
-      e_driver       = "Choose the main reason the eradication was carried out.",
-      e_method       = "Choose the main method used.",
-      e_outcome      = "Choose the outcome.",
-      e_contact_name = "We need a contact name so the review team can follow up.",
-      e_contact_mail = "We need a contact email so the review team can follow up.",
-      e_contact_bad  = "That does not look like an email address.",
-      e_second_mail  = "The second contact's email does not look like an email address.",
-      e_consent      = "Confirm you are happy for us to use this before sending.",
-
-      # Soft warnings
-      w_end_year     = "No end year. Leave it blank if the attempt is still going - many are.",
-      w_area         = "No size for the area treated. Even a rough figure helps people judge scale.",
-      w_invasion     = "No year of invasion. Useful for showing how long a problem ran before anyone acted.",
-      w_beneficiary  = "No beneficiary species. What the eradication was meant to help is one of the most useful things you can record.",
-      w_reference    = "No reference or link. A DOI, URL or citation is what lets someone check the record.",
-      w_verification = "No note on how the outcome was verified. Useful even when the answer is that it was not.",
-      w_duration     = "No duration. Helps others plan the effort involved.",
-      w_method_desc  = "No description of the approach. This is the field practitioners say they read first.",
-      w_old_year     = "A start year of {year} is unusually early. Worth a second look."
-    ),
-
-    send_note       = "Required fields are marked with an asterisk.",
-    add_species     = "Add another species",
-    add_method      = "Add another method",
-    add_beneficiary = "Add another beneficiary",
-    remove_row      = "Remove this row",
-
-    # The action keeps this name from the button through to the confirmation.
-    send_action = "Send submission",
-    sending     = "Sending your submission",
-
-    # Confirmation
-    confirm = list(
-      heading = "Congratulations!",
-      # Assembled at runtime with the live counts.
-      body_template = paste(
-        "You have added the {nth} eradication attempt, and the {nth_country}",
-        "in {country}."
-      ),
-      followup = paste(
-        "We are excited by and grateful for this new data, and will review it",
-        "and email you soon to let you know FWISE has been updated! We'll also",
-        "send you a data contributor badge and certificate."
-      ),
-      thanks = paste(
-        "Thank you for making the time to contribute to this global movement.",
-        "If you have any more eradication attempts, please enter them!"
-      ),
-      another_action = "Add another attempt",
-      explore_action = "Explore the data"
-    ),
-
-    error = list(
-      write_failed = paste(
-        "We could not save your submission. Nothing has been lost from this page,",
-        "so please try again. If it keeps failing, copy your answers somewhere",
-        "safe and email the FWISE team."
-      ),
-      validation = "Some answers still need attention. They are marked below."
-    )
   )
 )
 
-# Small convenience so modules read as fw_t("networking", "title") rather than a
-# chain of dollar signs.
+# ---- Reading the deck --------------------------------------------------------
+
+#' The whole copy deck as one list
+#'
+#' Assembled on every call rather than once at startup, because the three files
+#' are sourced in an order that depends on who is sourcing them (Shiny uses C
+#' byte order; a test script using list.files() gets the locale's order), and a
+#' merge cached on the first call could be missing a file. It is three list
+#' concatenations, which costs nothing.
+fw_copy_all <- function() {
+  c(FW_COPY, FW_COPY_CONTRIBUTE, FW_COPY_EXPORT)
+}
+
+#' A string from the deck: fw_t("networking", "title")
+#'
+#' Stops with the path if it is not defined, so a typo fails at render rather
+#' than printing NULL. NEVER call this at the top level of a file in R/: the
+#' deck is not complete until every file has been sourced.
 fw_t <- function(...) {
   path <- c(...)
-  out <- FW_COPY
+  out <- fw_copy_all()
   for (p in path) {
     out <- out[[p]]
     if (is.null(out)) stop("No copy defined at: ", paste(path, collapse = " > "),
                            call. = FALSE)
   }
   out
+}
+
+#' Fill the {name} slots in a string
+#'
+#' fw_fill(fw_t("plan", "r_table_note"), n = 42). Every occurrence of a slot is
+#' filled, values are coerced to character, and a slot with no value supplied
+#' is left in place so it is visible rather than silently blank.
+fw_fill <- function(text, ...) {
+  values <- list(...)
+  for (nm in names(values)) {
+    text <- gsub(paste0("{", nm, "}"), as.character(values[[nm]]), text,
+                 fixed = TRUE)
+  }
+  text
+}
+
+#' A small number in words, for prose that names a limit
+#'
+#' "the ten most common" reads better than "the 10 most common", and the copy
+#' is filled from FW_TOP_N rather than carrying the number itself. Beyond
+#' twenty the digits are used, which is also house style.
+fw_num_word <- function(n) {
+  words <- c("one", "two", "three", "four", "five", "six", "seven", "eight",
+             "nine", "ten", "eleven", "twelve", "thirteen", "fourteen",
+             "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty")
+  n <- as.integer(n)
+  if (!is.na(n) && n >= 1L && n <= length(words)) words[n] else as.character(n)
 }

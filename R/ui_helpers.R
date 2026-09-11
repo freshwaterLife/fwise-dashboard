@@ -8,12 +8,33 @@ library(bslib)
 
 # ---- Styles ------------------------------------------------------------------
 
-#' A digest of every Sass source file
+#' Compile a stylesheet with the design tokens injected
 #'
-#' sass::sass() caches on the input it is given. Handed main.scss it never sees
-#' the partials that file imports, so an edit to _tokens.scss or
-#' _components.scss silently compiles to the stale cached CSS. Passing this as
-#' cache_key_extra puts the partials into the key. See app.R.
+#' THE ONE ROUTE FROM R/brand.R TO CSS. fw_sass_variables() is placed ahead of
+#' the entry file, so every `$fw-*` variable the stylesheet uses is defined
+#' from R before a line of Sass is read. www/scss/_tokens.scss carries no
+#' literal values for that reason: there is nothing there to fall out of step.
+#'
+#' Two entry files use this: www/scss/main.scss (the app, also inlined into
+#' the HTML report) and www/scss/report.scss (the report's own frame and print
+#' rules). Both see the same tokens.
+#'
+#' sass hashes its input - the token list included - into its cache key, so an
+#' edit to R/brand.R is picked up on restart. cache_key_extra covers what the
+#' hash cannot see: sass keys on the entry file alone and never looks at the
+#' partials it @imports. Without the digest below, an edit to _components.scss
+#' compiles to the previously cached CSS and appears to have done nothing.
+#'
+#' @param entry path to the Sass entry file
+fw_compile_css <- function(entry = "www/scss/main.scss") {
+  as.character(sass::sass(
+    list(fw_sass_variables(), sass::sass_file(entry)),
+    options = sass::sass_options(output_style = "compressed"),
+    cache_key_extra = fw_scss_digest(dirname(entry))
+  ))
+}
+
+#' A digest of every Sass source file in a directory
 fw_scss_digest <- function(dir = "www/scss") {
   files <- sort(list.files(dir, pattern = "[.]scss$", full.names = TRUE))
   paste(tools::md5sum(files), collapse = "-")
@@ -26,10 +47,14 @@ fw_container <- function(...) div(class = "fw-container", ...)
 
 #' A vertical band of content
 #'
-#' @param variant one of "default", "paper", "shoal"
+#' @param variant one of "default", "paper", "shoal", "lagoon", "indigo".
+#'   "lagoon" and "indigo" are the workshop poster's two coloured bands; both
+#'   are meant to be used with `bleed = TRUE` and neither may be nested inside
+#'   the other. See .fw-section in _components.scss.
 #' @param tight   halve the vertical padding
 #' @param bleed   break out of the container to the full viewport width
-fw_section <- function(..., variant = c("default", "paper", "shoal"),
+fw_section <- function(..., variant = c("default", "paper", "shoal",
+                                        "lagoon", "indigo"),
                        tight = FALSE, bleed = FALSE, flush = NULL, id = NULL) {
   variant <- match.arg(variant)
   classes <- c(
@@ -40,6 +65,21 @@ fw_section <- function(..., variant = c("default", "paper", "shoal"),
     if (bleed) "fw-bleed"
   )
   tags$section(class = paste(classes, collapse = " "), id = id, ...)
+}
+
+#' Render the one piece of markup the copy file is allowed to carry
+#'
+#' The copy deck is plain text so it stays diffable and easy to hand back to the
+#' client. A couple of sentences need a single word emphasised mid-clause, and
+#' chopping those strings into fragments to wrap in tags$strong() makes them
+#' unreadable at the point they are written. So **this** is understood, nothing
+#' else is, and every part still goes through htmltools' escaping.
+fw_emphasis <- function(text) {
+  parts <- strsplit(text, "**", fixed = TRUE)[[1]]
+  if (length(parts) < 2) return(text)
+  do.call(tagList, lapply(seq_along(parts), function(i) {
+    if (i %% 2 == 0) tags$strong(parts[[i]]) else parts[[i]]
+  }))
 }
 
 #' Page header: title plus a description of what the page does
@@ -55,7 +95,7 @@ fw_page_header <- function(title, description = NULL) {
     fw_container(
       h1(class = "fw-page-header__title", title),
       lapply(description, function(para) {
-        p(class = "fw-page-header__description", para)
+        p(class = "fw-page-header__description", fw_emphasis(para))
       })
     )
   )
@@ -111,7 +151,7 @@ fw_kpi_strip <- function(...) div(class = "fw-kpi-strip", ...)
 
 #' Thousands separators, for figures shown to the reader
 fw_fmt_num <- function(x) {
-  if (is.null(x) || length(x) == 0 || is.na(x)) return("-")
+  if (is.null(x) || length(x) == 0 || is.na(x)) return(fw_t("common", "empty_value"))
   format(x, big.mark = ",", trim = TRUE, scientific = FALSE)
 }
 
@@ -139,7 +179,7 @@ fw_info <- function(text, label = NULL) {
   aria <- if (is.null(label)) {
     fw_t("common", "info_icon_label")
   } else {
-    paste0("More information about ", label)
+    fw_fill(fw_t("a11y", "more_about"), label = label)
   }
   tags$button(
     type = "button",
@@ -207,7 +247,7 @@ fw_field <- function(input, label, required = FALSE, tooltip = NULL,
             tags$span(class = "fw-required-mark", `aria-hidden` = "true", "*"),
             # The asterisk is decorative; this is what is actually announced, so
             # the requirement is never carried by a symbol alone.
-            tags$span(class = "fw-visually-hidden", " (required)")
+            tags$span(class = "fw-visually-hidden", fw_t("a11y", "required"))
           )
         }
       ),
@@ -249,8 +289,8 @@ fw_stub_panel <- function(extra = NULL) {
 
 # ---- Paging ------------------------------------------------------------------
 
-# The page sizes offered on paged tables. First element is the default.
-FW_CONTACTS_PAGE_SIZES <- c(25L, 50L, 100L)
+# The page sizes offered on paged tables are FW_CONTACTS_PAGE_SIZES and
+# FW_PLAN_PAGE_SIZES in R/config.R.
 
 #' A numbered pager
 #'
@@ -278,7 +318,7 @@ fw_page_numbers <- function(input_id, current, total, window = 2L) {
     tags$button(
       type = "button",
       class = paste("fw-pager__page", if (is_current) "is-current"),
-      `aria-label` = paste("Page", n),
+      `aria-label` = fw_fill(fw_t("a11y", "page_n"), n = n),
       `aria-current` = if (is_current) "page",
       onclick = sprintf(
         "Shiny.setInputValue('%s', %d, {priority:'event'});", input_id, n
@@ -299,7 +339,7 @@ fw_page_numbers <- function(input_id, current, total, window = 2L) {
     previous <- n
   }
 
-  tags$nav(class = "fw-pager__pages", `aria-label` = "Pagination", items)
+  tags$nav(class = "fw-pager__pages", `aria-label` = fw_t("a11y", "pagination"), items)
 }
 
 # ---- Accessibility -----------------------------------------------------------
@@ -320,7 +360,7 @@ fw_live_region <- function(id) {
 }
 
 fw_skip_link <- function(target = "#fw-main") {
-  tags$a(class = "fw-skip-link", href = target, "Skip to main content")
+  tags$a(class = "fw-skip-link", href = target, fw_t("a11y", "skip_link"))
 }
 
 # ---- Chrome ------------------------------------------------------------------
@@ -339,13 +379,11 @@ fw_brand <- function() {
 
 #' The footer, on every page
 #'
-#' Both supplied logo files are dark ink drawn for light backgrounds and the
-#' FWISE lockup is not knocked out of its own, so the pair share one white
-#' plaque. They are set to the same height and the attribution runs underneath
-#' as its own line, rather than sitting above one mark and skewing the pair.
-#' When reversed artwork exists, drop the plaque class and they can sit directly
-#' on the dark ground.
-#' The site footer
+#' Two tiers. The upper one carries both logos on the page ground: the FWISE
+#' lockup's wordmark is indigo, so it cannot sit on the indigo band. The lower
+#' one is that band, with the release date, the links and the licence. Each
+#' tier is full width and holds its own container, so the grounds run edge to
+#' edge. See .fw-footer in _components.scss.
 #'
 #' @param last_updated the release date from metadata.json
 #' @param in_review how many records are waiting on review. Shown quietly rather
@@ -362,24 +400,27 @@ fw_footer <- function(last_updated, in_review = 0L) {
   }
   tags$footer(
     class = "fw-footer",
-    fw_container(
-      div(
-        class = "fw-footer__top",
+    div(
+      class = "fw-footer__top",
+      fw_container(
         div(
-          class = "fw-footer__plaque",
+          class = "fw-footer__logos",
           logo(fw_t("footer", "fwise_url"), "img/FWISE-LOGO-ALL-6.png",
                fw_t("footer", "logo_alt_fwise")),
           logo(fw_t("footer", "wfa_url"), "img/wfa-logo-rect-dark.png",
                fw_t("footer", "logo_alt_wfa"))
         ),
         p(class = "fw-footer__built-by", fw_t("app", "built_by"))
-      ),
-      div(
-        class = "fw-footer__meta",
+      )
+    ),
+    div(
+      class = "fw-footer__meta",
+      fw_container(
         tags$span(
           fw_t("footer", "last_updated"), " ",
           tags$span(class = "fw-num",
-                    if (is.na(last_updated)) "-" else format(last_updated, "%d %B %Y"))
+                    if (is.na(last_updated)) fw_t("common", "empty_value")
+                    else format(last_updated, "%d %B %Y"))
         ),
         if (isTRUE(in_review > 0)) {
           tags$span(

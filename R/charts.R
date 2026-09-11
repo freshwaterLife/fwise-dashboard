@@ -23,12 +23,27 @@
 library(dplyr)
 
 # Every chart shares this, so a chart cannot drift into a different look.
-FW_PLOT_FONT <- list(family = "Ubuntu, system-ui, sans-serif", size = 14,
-                     color = "#0a2e29")
+#
+# A chart's axis ticks, legend and hover labels are text like any other text
+# in the app, and the client's 1rem floor covers them. plotly takes pixels
+# rather than rem, so FW_TYPE$floor_px is that floor in the unit plotly
+# understands. The ink is the same colour as the prose around the chart.
+#
+# A function rather than a constant: this file sorts before R/brand.R would
+# have been read if it were not first, and a function reads the tokens when it
+# is called, which is after every file has been sourced.
+fw_plot_font <- function() {
+  list(family = FW_TYPE$font_plot, size = FW_TYPE$floor_px,
+       color = FW_COLOURS$ink)
+}
+
+#' A chart's height from its row count, per FW_CHART$height
+fw_chart_height <- function(chart, rows) {
+  h <- FW_CHART$height[[chart]]
+  max(h[["min"]], h[["per_row"]] * rows + h[["pad"]])
+}
 
 FW_OUTCOME_LEVELS <- c("Successful", "Failed", "Ongoing", "Unknown")
-
-FW_GRID_COLOUR <- "#e7e2da"
 
 #' Strip plotly's chrome down to what the design system uses
 #'
@@ -39,15 +54,16 @@ FW_GRID_COLOUR <- "#e7e2da"
 fw_plotly_style <- function(p, legend = TRUE) {
   plotly::layout(
     p,
-    font = FW_PLOT_FONT,
-    paper_bgcolor = "rgba(0,0,0,0)",
-    plot_bgcolor  = "rgba(0,0,0,0)",
+    font = fw_plot_font(),
+    # Transparent, so a chart takes the surface it sits on.
+    paper_bgcolor = FW_TRANSPARENT,
+    plot_bgcolor  = FW_TRANSPARENT,
     # THE LEGEND SITS ABOVE THE PLOT, not below it. Underneath, plotly places it
     # in paper coordinates at a fixed offset and it lands on top of the x-axis
     # title, which is where the units are - so the reader loses the label that
     # says what they are looking at. Above, it has the margin to itself.
     margin = list(l = 8, r = 8, t = if (legend) 42 else 8, b = 52),
-    hoverlabel = list(font = FW_PLOT_FONT),
+    hoverlabel = list(font = fw_plot_font()),
     showlegend = legend,
     # traceorder IS NOT REDUNDANT. plotly.js flips its default to "reversed" as
     # soon as a chart has stacked bars or a filled area, which is every chart
@@ -96,7 +112,7 @@ fw_chart_cumulative <- function(sel) {
     mutate(cumulative = cumsum(n)) |>
     ungroup()
 
-  p <- plotly::plot_ly(height = 360)
+  p <- plotly::plot_ly(height = FW_CHART$height$cumulative)
   for (o in FW_OUTCOME_LEVELS) {
     dd <- d[d$outcome == o, ]
     p <- plotly::add_trace(
@@ -106,17 +122,18 @@ fw_chart_cumulative <- function(sel) {
       # easing in across the gap. The line is the same colour as its fill, so
       # the steps read as one band rather than as an outlined shape.
       stackgroup = "one",
-      line = list(shape = "hv", width = 1,
+      line = list(shape = "hv", width = FW_CHART$line,
                   color = unname(FW_OUTCOME_COLOURS[[o]])),
       fillcolor = unname(FW_OUTCOME_COLOURS[[o]]),
-      hovertemplate = paste0("By %{x}<br>", o, ": %{y}<extra></extra>")
+      hovertemplate = paste0(fw_t("charts", "hover_by"), "%{x}<br>", o,
+                             ": %{y}<extra></extra>")
     )
   }
   fw_plotly_style(p) |>
     plotly::layout(
-      xaxis = list(title = "Year the attempt began", gridcolor = FW_GRID_COLOUR,
+      xaxis = list(title = fw_t("charts", "x_year"), gridcolor = FW_COLOURS$border,
                    zeroline = FALSE),
-      yaxis = list(title = "Attempts to date", gridcolor = FW_GRID_COLOUR,
+      yaxis = list(title = fw_t("charts", "y_cumulative"), gridcolor = FW_COLOURS$border,
                    zeroline = FALSE, rangemode = "tozero")
     )
 }
@@ -161,7 +178,8 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
   order_lv <- paste0(totals$method_name, "  (", totals$total, ")")
   # Grows with the number of methods, so eight methods are not crushed into the
   # space two would use.
-  p <- plotly::plot_ly(height = max(250, 46 * nrow(totals) + 110))
+  font <- fw_plot_font()
+  p <- plotly::plot_ly(height = fw_chart_height("method", nrow(totals)))
   for (o in FW_OUTCOME_LEVELS) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
@@ -169,21 +187,27 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
       p, data = dd, type = "bar", orientation = "h",
       y = ~factor(method_label, levels = order_lv), x = ~value, name = o,
       marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
-                    line = list(color = "#ffffff", width = 1)),
+                    line = list(color = FW_COLOURS$surface,
+                                width = FW_CHART$separator_outcome)),
       # The count inside the segment. Colour alone never carries the value.
-      text = ~ifelse(share >= 9, as.character(n), ""),
-      textposition = "inside", insidetextfont = list(color = "#ffffff"),
-      hovertemplate = paste0("%{y}<br>", o,
-                             ": %{text} of %{customdata}<extra></extra>"),
+      text = ~ifelse(share >= FW_CHART$label_min_share, as.character(n), ""),
+      textposition = "inside",
+      # Indigo, not white. See FW_OUTCOME_LABEL_INK in config.R: none of the
+      # four Wong fills is dark enough to carry white numerals.
+      insidetextfont = list(color = unname(FW_OUTCOME_LABEL_INK[[o]]),
+                            family = font$family, size = font$size),
+      hovertemplate = paste0("%{y}<br>", o, ": %{text}", fw_t("charts", "hover_of"),
+                             "%{customdata}<extra></extra>"),
       customdata = ~total
     )
   }
 
   x_axis <- if (mode == "share") {
-    list(title = "Share of attempts (%)", range = c(0, 100), ticksuffix = "%",
-         zeroline = FALSE, gridcolor = FW_GRID_COLOUR)
+    list(title = fw_t("charts", "x_share"), range = c(0, 100), ticksuffix = "%",
+         zeroline = FALSE, gridcolor = FW_COLOURS$border)
   } else {
-    list(title = "Attempts", zeroline = FALSE, gridcolor = FW_GRID_COLOUR)
+    list(title = fw_t("charts", "x_attempts"), zeroline = FALSE,
+         gridcolor = FW_COLOURS$border)
   }
 
   fw_plotly_style(p) |>
@@ -191,7 +215,10 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
       barmode = "stack",
       # Stops plotly shrinking the in-bar counts to illegibility on a narrow
       # segment; below the floor it hides them instead, which is honest.
-      uniformtext = list(minsize = 10, mode = "hide"),
+      # The same 1rem floor. mode = "hide" drops a label rather than
+      # shrinking it, so a segment too narrow for the floor shows no number
+      # instead of an unreadable one - the hover still has it.
+      uniformtext = list(minsize = FW_TYPE$floor_px, mode = "hide"),
       xaxis = x_axis,
       yaxis = list(title = "", automargin = TRUE)
     )
@@ -228,13 +255,16 @@ fw_chart_duration <- function(data, sel) {
     mutate(method_label = paste0(method_name, "  (", n, ")"))
   order_lv <- paste0(totals$method_name, "  (", totals$n, ")")
 
-  p <- plotly::plot_ly(height = max(270, 54 * nrow(totals) + 124))
+  p <- plotly::plot_ly(height = fw_chart_height("duration", nrow(totals)))
   p <- plotly::add_trace(
     p, data = d, type = "box", orientation = "h",
     x = ~duration_days, y = ~factor(method_label, levels = order_lv),
     name = "", showlegend = FALSE, hoverinfo = "x",
-    fillcolor = "rgba(199,237,232,0.45)",
-    line = list(color = "#0d574c", width = 1.5),
+    # Interface colours, deliberately. The box is chrome rather than data - the
+    # outcome markers on top of it carry the encoding - so it is the only chart
+    # element drawn from the brand palette rather than the data palette.
+    fillcolor = fw_rgba(FW_COLOURS$teal_tint, 0.45),
+    line = list(color = FW_COLOURS$teal_text, width = FW_CHART$box_line),
     boxpoints = FALSE
   )
   for (o in FW_OUTCOME_LEVELS) {
@@ -244,11 +274,13 @@ fw_chart_duration <- function(data, sel) {
       p, data = dd, type = "scatter", mode = "markers",
       x = ~duration_days, y = ~factor(method_label, levels = order_lv),
       name = o,
-      marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]), size = 7,
-                    opacity = 0.75,
-                    line = list(color = "#ffffff", width = 1)),
-      hovertemplate = paste0("%{y}<br>", o,
-                             ": %{x:,.0f} days<extra></extra>")
+      marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
+                    size = FW_CHART$point$size,
+                    opacity = FW_CHART$point$opacity,
+                    line = list(color = FW_COLOURS$surface,
+                                width = FW_CHART$point$stroke)),
+      hovertemplate = paste0("%{y}<br>", o, ": %{x:,.0f}",
+                             fw_t("charts", "hover_days"), "<extra></extra>")
     )
   }
 
@@ -256,14 +288,13 @@ fw_chart_duration <- function(data, sel) {
     plotly::layout(
       boxmode = "group",
       xaxis = list(
-        title = "Days from start to finish  ← days   ·   years →",
-        type = "log", gridcolor = FW_GRID_COLOUR, zeroline = FALSE,
+        title = fw_t("charts", "x_duration"),
+        type = "log", gridcolor = FW_COLOURS$border, zeroline = FALSE,
         # Named ticks, because 10^3 means nothing to a practitioner deciding
         # whether they can commit a season or a decade.
         tickmode = "array",
-        tickvals = c(1, 7, 30, 365, 1825, 3650),
-        ticktext = c("1 day", "1 week", "1 month", "1 year", "5 years",
-                     "10 years")
+        tickvals = FW_CHART$duration_ticks,
+        ticktext = fw_t("charts", "duration_ticks")
       ),
       yaxis = list(title = "", automargin = TRUE)
     )
@@ -283,18 +314,19 @@ fw_chart_duration <- function(data, sel) {
 fw_chart_category <- function(d, title, limit = NA_integer_) {
   if (!nrow(d)) return(NULL)
   d$outcome <- as.character(fw_outcome_factor(d$outcome))
+  other <- fw_t("charts", "other")
 
   totals <- d |> count(category, name = "total") |> arrange(desc(total))
   if (!is.na(limit) && nrow(totals) > limit) {
     keep <- totals$category[seq_len(limit)]
     # "Other" is a real bar, not a dropped remainder. A reader has to be able to
     # see how much of the picture the named categories actually cover.
-    d$category <- ifelse(d$category %in% keep, d$category, FW_OTHER_LABEL)
+    d$category <- ifelse(d$category %in% keep, d$category, other)
     totals <- d |> count(category, name = "total")
   }
   # Ascending, because plotly draws the first category at the bottom.
   totals <- totals |>
-    mutate(is_other = category == FW_OTHER_LABEL) |>
+    mutate(is_other = category == other) |>
     arrange(desc(is_other), total)
 
   d <- d |>
@@ -303,7 +335,7 @@ fw_chart_category <- function(d, title, limit = NA_integer_) {
     mutate(label = paste0(category, "  (", total, ")"))
   order_lv <- paste0(totals$category, "  (", totals$total, ")")
 
-  p <- plotly::plot_ly(height = max(240, 34 * nrow(totals) + 120))
+  p <- plotly::plot_ly(height = fw_chart_height("category", nrow(totals)))
   for (o in FW_OUTCOME_LEVELS) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
@@ -311,19 +343,18 @@ fw_chart_category <- function(d, title, limit = NA_integer_) {
       p, data = dd, type = "bar", orientation = "h",
       y = ~factor(label, levels = order_lv), x = ~n, name = o,
       marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
-                    line = list(color = "#ffffff", width = 1)),
+                    line = list(color = FW_COLOURS$surface,
+                                width = FW_CHART$separator_outcome)),
       hovertemplate = paste0("%{y}<br>", o, ": %{x}<extra></extra>")
     )
   }
   fw_plotly_style(p) |>
     plotly::layout(
       barmode = "stack",
-      xaxis = list(title = title, zeroline = FALSE, gridcolor = FW_GRID_COLOUR),
+      xaxis = list(title = title, zeroline = FALSE, gridcolor = FW_COLOURS$border),
       yaxis = list(title = "", automargin = TRUE)
     )
 }
-
-FW_OTHER_LABEL <- "Other"
 
 #' Attempts by kind of waterbody
 #'
@@ -334,7 +365,7 @@ fw_chart_waterbody <- function(sel) {
   d <- sel |>
     filter(!is.na(waterbody_type)) |>
     transmute(category = waterbody_type, outcome)
-  fw_chart_category(d, "Attempts", limit = 10L)
+  fw_chart_category(d, fw_t("charts", "x_attempts"), limit = FW_TOP_N)
 }
 
 #' Why the eradications were carried out
@@ -342,7 +373,7 @@ fw_chart_driver <- function(sel) {
   d <- sel |>
     filter(!is.na(driver)) |>
     transmute(category = driver, outcome)
-  fw_chart_category(d, "Attempts")
+  fw_chart_category(d, fw_t("charts", "x_attempts"))
 }
 
 #' One row per (attempt, species) for a role, labelled and with its outcome
@@ -375,7 +406,7 @@ fw_species_rows <- function(data, sel, role_name = c("invasive", "beneficiary"))
 #'
 #' @return a tibble of species_id, label, n and one column per outcome, ordered
 #'   by n descending; zero rows if the role has none in this selection.
-fw_species_top_n <- function(data, sel, role_name, limit = 10L) {
+fw_species_top_n <- function(data, sel, role_name, limit = FW_TOP_N) {
   d <- fw_species_rows(data, sel, role_name)
   if (!nrow(d)) return(d[0, ])
   d$outcome <- as.character(fw_outcome_factor(d$outcome))
@@ -408,7 +439,7 @@ fw_species_top_n <- function(data, sel, role_name, limit = 10L) {
 fw_chart_species <- function(data, sel, role_name = c("invasive", "beneficiary")) {
   d <- fw_species_rows(data, sel, role_name) |>
     transmute(category = label, outcome)
-  fw_chart_category(d, "Attempts", limit = 10L)
+  fw_chart_category(d, fw_t("charts", "x_attempts"), limit = FW_TOP_N)
 }
 
 # ---- Methods against waterbody -----------------------------------------------
@@ -421,8 +452,15 @@ fw_chart_species <- function(data, sel, role_name = c("invasive", "beneficiary")
 #' which is not the same thing - draining a pond and draining a river are one
 #' method and two different propositions.
 #'
-#' Colour therefore comes from FW_METHOD_COLOURS, a sequential ramp that is
-#' deliberately nothing like the outcome palette. See the note in config.R.
+#' Colour comes from FW_METHOD_COLOURS: seven distinct hues, because method is a
+#' nominal category and the ramp that used to be here implied an order the data
+#' does not have. See the long note in config.R for what was measured and why
+#' the order of that vector must not be changed casually.
+#'
+#' THE COUNTS INSIDE THE SEGMENTS ARE NOT DECORATION. Seven categories is past
+#' the point where colour alone can separate every possible pair, so the number
+#' in the segment and the white rule between segments are the second and third
+#' encodings. Do not remove either to tidy the chart up.
 #'
 #' Counted once per (attempt, method): an attempt using rotenone twice is one
 #' use of rotenone.
@@ -441,16 +479,17 @@ fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
   # Same contract as fw_chart_category(): keep the top ten kinds of water and
   # gather the rest into a real bar rather than dropping them, so the reader can
   # see how much of the picture the named ones cover.
+  other <- fw_t("charts", "other")
   wb <- d |> count(waterbody_type, name = "total") |> arrange(desc(total))
-  if (nrow(wb) > 10L) {
-    keep <- wb$waterbody_type[seq_len(10L)]
+  if (nrow(wb) > FW_TOP_N) {
+    keep <- wb$waterbody_type[seq_len(FW_TOP_N)]
     d$waterbody_type <- ifelse(d$waterbody_type %in% keep, d$waterbody_type,
-                               FW_OTHER_LABEL)
+                               other)
   }
 
   totals <- d |>
     count(waterbody_type, name = "total") |>
-    mutate(is_other = waterbody_type == FW_OTHER_LABEL) |>
+    mutate(is_other = waterbody_type == other) |>
     arrange(desc(is_other), total)
 
   dd <- d |>
@@ -465,7 +504,8 @@ fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
   # in whatever order the selection happened to produce.
   method_ids <- intersect(names(FW_METHOD_COLOURS), unique(dd$method_id))
 
-  p <- plotly::plot_ly(height = max(240, 40 * nrow(totals) + 120))
+  font <- fw_plot_font()
+  p <- plotly::plot_ly(height = fw_chart_height("method_waterbody", nrow(totals)))
   for (m in method_ids) {
     seg <- dd[dd$method_id == m, ]
     if (!nrow(seg)) next
@@ -474,26 +514,42 @@ fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
       y = ~factor(label, levels = order_lv), x = ~value,
       name = seg$method_name[1],
       marker = list(color = unname(FW_METHOD_COLOURS[[m]]),
-                    line = list(color = "#ffffff", width = 1)),
-      text = ~ifelse(share >= 9, as.character(n), ""),
-      textposition = "inside", insidetextfont = list(color = "#ffffff"),
-      hovertemplate = paste0("%{y}<br>", seg$method_name[1],
-                             ": %{text} of %{customdata}<extra></extra>"),
+                    # A hairline, kept on purpose: it is the separator that
+                    # keeps two segments readable as two when their fills are
+                    # the closest pair in the palette. See FW_CHART in config.R.
+                    line = list(color = FW_COLOURS$surface,
+                                width = FW_CHART$separator_method)),
+      # The threshold is on SHARE, so the label only appears where the segment
+      # is actually wide enough to hold it, whichever mode the chart is in.
+      text = ~ifelse(share >= FW_CHART$label_min_share, as.character(n), ""),
+      textposition = "inside",
+      # PER METHOD, not white throughout. Three of the seven fills are light
+      # enough that white numerals on them fall under 4.5:1. See
+      # FW_METHOD_LABEL_INK in config.R.
+      insidetextfont = list(color = unname(FW_METHOD_LABEL_INK[[m]]),
+                            family = font$family, size = font$size),
+      hovertemplate = paste0("%{y}<br>", seg$method_name[1], ": %{text}",
+                             fw_t("charts", "hover_of"),
+                             "%{customdata}<extra></extra>"),
       customdata = ~total
     )
   }
 
   x_axis <- if (mode == "share") {
-    list(title = "Share of uses (%)", range = c(0, 100), ticksuffix = "%",
-         zeroline = FALSE, gridcolor = FW_GRID_COLOUR)
+    list(title = fw_t("charts", "x_share_uses"), range = c(0, 100),
+         ticksuffix = "%", zeroline = FALSE, gridcolor = FW_COLOURS$border)
   } else {
-    list(title = "Times used", zeroline = FALSE, gridcolor = FW_GRID_COLOUR)
+    list(title = fw_t("charts", "x_times_used"), zeroline = FALSE,
+         gridcolor = FW_COLOURS$border)
   }
 
   fw_plotly_style(p) |>
     plotly::layout(
       barmode = "stack",
-      uniformtext = list(minsize = 10, mode = "hide"),
+      # The same 1rem floor. mode = "hide" drops a label rather than
+      # shrinking it, so a segment too narrow for the floor shows no number
+      # instead of an unreadable one - the hover still has it.
+      uniformtext = list(minsize = FW_TYPE$floor_px, mode = "hide"),
       xaxis = x_axis,
       yaxis = list(title = "", automargin = TRUE)
     )

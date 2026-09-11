@@ -1,0 +1,221 @@
+// _report_frame.scss
+// What the app's stylesheet does not cover for the downloaded HTML report:
+// the page frame, the letterhead, the toolbar, and print.
+//
+// THE PRINT RULES ARE THE PDF EXPORT. There is no PDF library; the browser's
+// print engine is the renderer, and these rules are what make its output a
+// document rather than a screenshot of a web page:
+//
+//   - the toolbar and anything else interactive is dropped
+//   - print-color-adjust: exact keeps the outcome bars and the letterhead rule
+//     coloured, because by default browsers strip backgrounds to save ink and
+//     an outcome bar with no fill carries no information at all
+//   - table headers repeat on every page, so page four of the attempts table
+//     still says which column is which
+//   - figures, table rows and caveat blocks do not split across a page break
+//   - plotly's SVG is allowed to scale down to the paper's width instead of
+//     being clipped at whatever pixel width the screen happened to be
+
+// ---- Report-only geometry --------------------------------------------------
+// The one place the report's own dimensions are written down. Everything else
+// in this file is a token from R/brand.R.
+$report-width:      62rem;   // the sheet. A document, not a dashboard
+$report-sheet-from: 60rem;   // the viewport width at which the sheet floats
+$report-mark-width: 15rem;   // the FWISE lockup in the letterhead
+$report-map-height: 26rem;
+$report-tools-text: 18rem;   // the toolbar's explanatory line
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+
+.fw-report {
+  max-width: $report-width;
+  margin: 0 auto;
+  padding: $fw-space-4 $fw-space-3 $fw-space-6;
+  background: $fw-surface;
+}
+
+@media (min-width: $report-sheet-from) {
+  body { background: $fw-page; }
+  .fw-report {
+    margin: $fw-space-4 auto;
+    border-radius: $fw-radius-card;
+    box-shadow: $fw-shadow-card;
+  }
+}
+
+// ---- Letterhead ------------------------------------------------------------
+
+.fw-report__mark {
+  display: block;
+  width: $report-mark-width;
+  max-width: 60%;
+  height: auto;
+}
+
+.fw-report__head {
+  padding-bottom: $fw-space-2;
+  border-bottom: 2px solid $fw-brand-teal;
+  margin-bottom: $fw-space-3;
+}
+
+.fw-report__tagline {
+  margin: $fw-space-1 0 0;
+  font-size: $fw-size-min;
+  color: $fw-ink-muted;
+}
+
+.fw-report__title {
+  font-size: $fw-size-h1;
+  margin: 1.25rem 0 0.25rem;
+}
+
+.fw-report__subtitle {
+  margin: 0;
+  color: $fw-ink-muted;
+  font-size: $fw-size-lead;
+}
+
+.fw-report h2 {
+  font-size: $fw-size-h2;
+  margin: 2.5rem 0 $fw-space-1;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba($fw-border-input, 0.35);
+}
+.fw-report h2:first-of-type { border-top: 0; padding-top: 0; }
+.fw-report .fw-caveats h2,
+.fw-report .fw-caveats h3 { border-top: 0; padding-top: 0; }
+
+// The app lets the attempts table run off the side of a container the reader
+// can drag sideways. A document cannot be dragged once it is on paper and is
+// awkward to drag in an email client, so here the cells wrap instead and the
+// table fits the column. overflow-wrap is the other half of that: a scientific
+// binomial in brackets is one long unbreakable word, and a column that cannot
+// break it sets its own minimum width and pushes the last column off the page.
+//
+// ONLY THE TWO COLUMNS THAT NEED IT. `anywhere` lets a break fall between any
+// two characters, which is what a binomial in brackets requires and what
+// splits Successful across two lines in the narrow outcome column. Columns 1
+// and 4 of fw_plan_table() are the site name and the species list; if that
+// column order changes, change this with it.
+.fw-report .fw-table td { white-space: normal; overflow-wrap: break-word; }
+.fw-report .fw-table td:nth-child(1),
+.fw-report .fw-table td:nth-child(4) { overflow-wrap: anywhere; }
+
+.fw-report__note {
+  margin: 0 0 0.75rem;
+  color: $fw-ink-muted;
+  font-size: $fw-size-min;
+  font-style: italic;
+}
+
+.fw-report__figure { margin: 0 0 $fw-space-3; }
+
+.fw-report__map {
+  height: $report-map-height;
+  margin-bottom: $fw-space-1;
+
+  .leaflet-container { height: 100%; border-radius: $fw-radius-input; }
+}
+
+// ---- Toolbar ---------------------------------------------------------------
+// Screen only, by construction - see the print block.
+
+.fw-report__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  padding: $fw-space-2;
+  margin-bottom: $fw-space-3;
+  background: $fw-teal-tint;
+  border-radius: $fw-radius-card;
+
+  p {
+    flex: 1 1 $report-tools-text;
+    margin: 0;
+    font-size: $fw-size-min;
+    color: $fw-ink;
+  }
+}
+
+.fw-report__tool {
+  font: inherit;
+  font-weight: $fw-weight-medium;
+  cursor: pointer;
+  padding: $fw-space-1 $fw-space-2;
+  border-radius: $fw-radius-input;
+  border: 1px solid $fw-teal-text;
+  background: $fw-teal-text;
+  color: $fw-surface;
+
+  &:hover { background: $fw-teal-hover; border-color: $fw-teal-hover; }
+
+  &--quiet {
+    background: $fw-surface;
+    color: $fw-teal-text;
+    &:hover { background: $fw-surface; color: $fw-ink; }
+  }
+}
+
+.fw-report__about {
+  margin: 0 0 $fw-space-3;
+  padding-left: 1.25rem;
+  font-size: $fw-size-min;
+  color: $fw-ink-muted;
+
+  li { margin-bottom: 0.35rem; }
+}
+
+.fw-report__footer {
+  margin-top: 2.5rem;
+  padding-top: $fw-space-2;
+  border-top: 1px solid rgba($fw-border-input, 0.35);
+  font-size: $fw-size-min;
+  color: $fw-ink-muted;
+}
+
+// Popup markup travels with the map. Restated here because the app's own rules
+// for it live under a Bootstrap-scoped selector that is not in this file.
+// The pop-up exemption applies: transient overlay text, see $fw-size-popup.
+.fw-popup__row { display: flex; gap: $fw-space-1; font-size: $fw-size-popup; }
+.fw-popup__key { font-weight: $fw-weight-bold; min-width: 6rem; }
+.fw-species-figure__img { width: 100%; height: auto; border-radius: $fw-radius-input; }
+.fw-species-figure__credit { font-size: $fw-size-min; color: $fw-ink-muted; }
+
+// ---- Print -----------------------------------------------------------------
+
+@page { size: A4; margin: 14mm; }
+
+@media print {
+  body { background: $fw-surface; }
+  .fw-report { max-width: none; margin: 0; padding: 0; border-radius: 0; box-shadow: none; }
+  .fw-report__tools, .fw-no-print { display: none !important; }
+
+  // Ink-saving is the browser's default and it is wrong here: the outcome bars
+  // ARE their fills, and a caveats panel that loses its tint stops reading as
+  // a warning.
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  .fw-report h2 { break-after: avoid; page-break-after: avoid; }
+  .fw-report__figure, .fw-report__map, .fw-caveats__block,
+  .fw-summary-strip, .fw-outcome-bars__row { break-inside: avoid; page-break-inside: avoid; }
+
+  // Page four of a long table still has to say which column is which.
+  thead { display: table-header-group; }
+  .fw-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .fw-table-scroll { overflow: visible !important; }
+
+  // Seven columns of site names, species and contacts do not fit A4 at
+  // reading size. Tightening the cell padding keeps every row, upright, and
+  // still reads on paper. THERE IS NO SIZE STEP-DOWN: the 1rem floor is a
+  // floor on paper as much as on screen.
+  .fw-report .fw-table th, .fw-report .fw-table td { padding: 0.3rem 0.5rem; }
+
+  // Plotly writes a pixel width into its SVG from whatever the screen was.
+  // Left alone that runs off the right edge of the paper.
+  .js-plotly-plot, .plot-container, .svg-container { max-width: 100% !important; }
+  .main-svg { max-width: 100% !important; height: auto !important; }
+
+  a { text-decoration: none; color: inherit; }
+}

@@ -87,8 +87,7 @@ fw_plan_filters_ui <- function(ns, ch) {
         class = "fw-field fw-field--check",
         checkboxInput(ns("include_no_year"), fw_t("filters", "no_year"),
                       value = TRUE),
-        fw_info(sub("{n}", ch$n_no_year, fw_t("filters", "tip_no_year"),
-                    fixed = TRUE),
+        fw_info(fw_fill(fw_t("filters", "tip_no_year"), n = ch$n_no_year),
                 fw_t("filters", "no_year"))
       )
     )
