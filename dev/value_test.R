@@ -113,6 +113,18 @@ ok("caveats: no placeholder left", !any(grepl("\\{[a-z_]+\\}", bodies)))
 ok("caveats: flat vector is heading, body, blank",
    length(fw_caveats(d)), 3L * length(blocks) - 1L)
 
+# The About page renders end to end. Its section keys are built with paste0(),
+# which dev/check_literals.R cannot see, so a missing key only shows up here.
+about_html <- NA_character_
+try(testServer(mod_about_server, args = list(data = d, meta = m), {
+  about_html <<- as.character(output$body$html)
+}), silent = TRUE)
+ok("about: the page renders", !is.na(about_html) && nchar(about_html) > 1000)
+ok("about: every section heading is present",
+   all(vapply(c("database", "method", "images", "cite", "licence", "links"),
+              function(k) grepl(fw_t("about", paste0(k, "_heading")), about_html, fixed = TRUE),
+              logical(1))))
+
 # The networking coverage line, as the module renders it.
 cov <- NA_character_
 try(testServer(mod_networking_server, args = list(data = d), {

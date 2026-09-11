@@ -63,7 +63,6 @@ All in `R/copy.R` unless stated. Search the file for `[PLACEHOLDER]` to find the
 | `networking$outro_email` | Currently `hello@example.org` |
 | `about$feedback_email` | Where the About feedback box addresses its mail. Currently `hello@example.org` |
 | `about$method2` | The search strategy and review protocol |
-| `about$team` | The team and contributing partners |
 | `about$citation` | The DOI inside the citation block |
 | `contribute$consent$terms_link_label` / `terms_url` | Full terms of data use |
 | `contribute$confirm$followup` | "within X working days" |

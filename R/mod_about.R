@@ -61,7 +61,6 @@ mod_about_server <- function(id, data, meta = NULL) {
 
           section("method", para("method"), para("method2"), para("method3")),
           section("images", p(fw_t("species", "image_note"))),
-          section("team", para("team")),
 
           section("cite",
                   para("cite"),
