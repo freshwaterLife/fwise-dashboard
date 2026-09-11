@@ -116,7 +116,10 @@ mod_plan_server <- function(id, data, meta = NULL) {
     })
 
     output$results <- renderUI({
-      if (!built()) return(fw_plan_empty_ui())
+      # NOTHING here before a build. The page's introduction moved into the page
+      # header, where a reader meets it before the controls rather than after
+      # them, so there is no longer a second block to show in the meantime.
+      if (!built()) return(NULL)
       r <- report()
 
       if (nrow(r$sel) == 0) {
@@ -129,15 +132,25 @@ mod_plan_server <- function(id, data, meta = NULL) {
       s <- fw_plan_summary(data, r$sel)
       n_no_coords <- sum(is.na(r$sel$latitude) | is.na(r$sel$longitude))
       n_duration <- sum(!is.na(r$sel$duration_days) & r$sel$duration_days > 0)
+      # How many distinct species of each role are in the selection. The tiles
+      # show ten; the note has to say what the ten are ten OF, or a reader takes
+      # them for the whole list.
+      n_invasive <- dplyr::n_distinct(
+        fw_species_rows(data, r$sel, "invasive")$species_id)
+      n_beneficiary <- dplyr::n_distinct(
+        fw_species_rows(data, r$sel, "beneficiary")$species_id)
 
       tagList(
         h2(fw_t("plan", "r_heading")),
         fw_plan_summary_ui(s),
 
-        fw_plan_block(
-          fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
-          fw_outcome_bars_ui(r$sel)
-        ),
+        # THE ORDER IS A FUNNEL: the whole picture first, then the parts of it,
+        # then the detail. Where, then what happened, then in what kind of
+        # water, then by what means, then to which species. A reader who stops
+        # part way down has still seen the more general answer.
+        #
+        # The map leads because it is the only view that shows a reader whether
+        # this evidence is anywhere near them before they read anything into it.
 
         fw_plan_block(
           fw_t("plan", "r_map"), fw_t("plan", "r_map_note"),
@@ -152,24 +165,74 @@ mod_plan_server <- function(id, data, meta = NULL) {
         ),
 
         fw_plan_block(
+          fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
+          fw_outcome_bars_ui(r$sel)
+        ),
+
+        # chart_ PREFIX, AND IT IS NOT DECORATION. Inputs and outputs share one
+        # DOM id space, and "waterbody" is already a filter's input id - so an
+        # output of that name renders a second element with the same id, the
+        # output binding attaches to the selectize control instead, and the
+        # chart silently never draws. Any chart named after the thing it plots
+        # has to clear the filter registry in R/filters.R first.
+        fw_plan_block(
+          fw_t("plan", "r_waterbody"), fw_t("plan", "r_waterbody_note"),
+          plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
+        ),
+
+        fw_plan_block(
           fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
           tagList(
-            # One chart, two questions. "Share" answers how often a method
-            # worked; "count" answers how much evidence stands behind that.
+            # One chart, two questions. "Count" answers how much evidence stands
+            # behind a method; "share" answers how often it worked. Count leads,
+            # so nobody reads a share off three attempts as a success rate.
             div(
               class = "fw-segmented",
               radioButtons(
                 ns("method_mode"), label = fw_t("plan", "r_method_mode"),
                 choices = stats::setNames(
-                  c("share", "count"),
-                  c(fw_t("plan", "r_method_share"), fw_t("plan", "r_method_count"))
+                  c("count", "share"),
+                  c(fw_t("plan", "r_method_count"), fw_t("plan", "r_method_share"))
                 ),
-                selected = "share", inline = TRUE
+                selected = "count", inline = TRUE
               )
             ),
             plotly::plotlyOutput(ns("methods"), height = "auto")
           )
         ),
+
+        # Segmented by METHOD, not by outcome, and on its own colour scale. The
+        # toggle above drives this too: it is the same question asked of the
+        # same numbers, so two separate controls would be a distinction the
+        # reader has to work out for themselves.
+        fw_plan_block(
+          fw_t("plan", "r_method_wb"), fw_t("plan", "r_method_wb_note"),
+          plotly::plotlyOutput(ns("chart_method_waterbody"), height = "auto")
+        ),
+
+        fw_plan_block(
+          fw_t("plan", "r_invasive"),
+          sub("{n}", fw_fmt_num(n_invasive), fw_t("plan", "r_invasive_note"),
+              fixed = TRUE),
+          fw_species_tiles_ui(data, r$sel, "invasive")
+        ),
+
+        # Beneficiaries are recorded far less consistently than targets, so this
+        # sits after the species that were targeted and carries its own warning
+        # rather than being presented as the mirror image of it.
+        if (n_beneficiary > 0) {
+          fw_plan_block(
+            fw_t("plan", "r_beneficiary"),
+            sub("{n}", fw_fmt_num(n_beneficiary),
+                fw_t("plan", "r_beneficiary_note"), fixed = TRUE),
+            fw_species_tiles_ui(data, r$sel, "beneficiary")
+          )
+        },
+
+        # ---- The narrow end ---------------------------------------------------
+        # Both of these are about time rather than about the reader's situation,
+        # and both are drawn from less than the full selection. They belong
+        # after the question "what has been tried here" has been answered.
 
         fw_plan_block(
           fw_t("plan", "r_duration"), fw_t("plan", "r_duration_note"),
@@ -250,8 +313,16 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # not undermine the deliberate build step above.
     output$methods <- plotly::renderPlotly({
       req(built())
-      fw_chart_method(data, report()$sel, mode = input$method_mode %||% "share")
+      fw_chart_method(data, report()$sel, mode = input$method_mode %||% "count")
     })
+    # Same toggle, same reason: it redraws the same numbers a different way and
+    # does not change the selection.
+    output$chart_method_waterbody <- plotly::renderPlotly({
+      req(built())
+      fw_chart_method_waterbody(data, report()$sel,
+                                mode = input$method_mode %||% "count")
+    })
+    output$chart_waterbody <- plotly::renderPlotly({ req(built()); fw_chart_waterbody(report()$sel) })
     output$duration   <- plotly::renderPlotly({ req(built()); fw_chart_duration(data, report()$sel) })
     output$cumulative <- plotly::renderPlotly({ req(built()); fw_chart_cumulative(report()$sel) })
 
@@ -322,14 +393,14 @@ mod_plan_server <- function(id, data, meta = NULL) {
         fw_write_html_report(
           path = file, data = data, sel = r$sel, export = r$export,
           filters = r$filters, meta = meta,
-          method_mode = input$method_mode %||% "share"
+          method_mode = input$method_mode %||% "count"
         )
       }
     )
   })
 }
 
-# ---- The three states --------------------------------------------------------
+# ---- The two states ----------------------------------------------------------
 
 #' A titled results block with its qualification directly beneath the heading
 #'
@@ -341,17 +412,6 @@ fw_plan_block <- function(title, note, content) {
     h3(title),
     if (!is.null(note)) p(class = "fw-plan__note", note),
     content
-  )
-}
-
-#' Before anything has been built
-fw_plan_empty_ui <- function() {
-  div(
-    class = "fw-plan__empty fw-prose",
-    h2(fw_t("plan", "empty_heading")),
-    p(class = "fw-lead", fw_t("plan", "empty_body")),
-    p(fw_t("plan", "empty_body2")),
-    p(class = "fw-caption", fw_t("plan", "empty_note"))
   )
 }
 

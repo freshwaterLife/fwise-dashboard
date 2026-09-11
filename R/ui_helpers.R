@@ -42,15 +42,21 @@ fw_section <- function(..., variant = c("default", "paper", "shoal"),
   tags$section(class = paste(classes, collapse = " "), id = id, ...)
 }
 
-#' Page header: title plus a one-line description of what the page does
+#' Page header: title plus a description of what the page does
+#'
+#' `description` may be several paragraphs. They are emitted as siblings under
+#' ONE class rather than as a mix of .fw-lead, bare <p> and .fw-caption, so a
+#' page's introduction is a single voice at a single size. The report builder's
+#' intro used to be split across the header and a second block below the filter
+#' panel, in three different treatments; that is what this replaces.
 fw_page_header <- function(title, description = NULL) {
   tags$header(
     class = "fw-page-header",
     fw_container(
       h1(class = "fw-page-header__title", title),
-      if (!is.null(description)) {
-        p(class = "fw-page-header__description", description)
-      }
+      lapply(description, function(para) {
+        p(class = "fw-page-header__description", para)
+      })
     )
   )
 }

@@ -407,13 +407,6 @@
     border-top: 1px solid rgba($fw-line-input, 0.35);
   }
 
-  // Sits on the same line as the buttons on a wide screen and drops under them
-  // on a narrow one, without a media query: it wants the rest of the row, and
-  // flex-wrap gives it its own row when there is not enough left.
-  &__hint {
-    flex: 1 1 20rem;
-    margin: 0;
-  }
 }
 
 .fw-plan {
@@ -435,7 +428,10 @@
     font-size: $fw-size-caption;
   }
 
-  &__empty,
+  // The empty state is gone - the page's introduction moved into the page
+  // header, so there is nothing to show above the results before a build. Only
+  // the zero-result state is left, and it keeps the dashed outline: it is a
+  // real answer to a real question, not a placeholder.
   &__zero {
     border: 1px dashed rgba($fw-line-input, 0.6);
     border-radius: $fw-radius-card;
@@ -563,6 +559,38 @@
   }
 
   &__val { font-size: $fw-size-caption; }
+
+  // Several methods, each with its own note. A list rather than a comma string,
+  // because "Rotenone - Betamax vet." already contains punctuation and the two
+  // run together unreadably on one line.
+  &__list {
+    margin: 0;
+    padding-inline-start: 1rem;
+    font-size: $fw-size-caption;
+  }
+
+  // Says the card is not the whole record. Quiet: it is an affordance, not an
+  // instruction, and it must not compete with the record above it.
+  &__more {
+    margin-block: $fw-space-1 0;
+    padding-block-start: $fw-space-1;
+    border-top: 1px solid rgba($fw-shoal, 0.8);
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+  }
+
+  // The detail half of the string is a <template>, so it never renders inside
+  // the hover card and its photographs are never fetched there - see
+  // fw_map_detail_html() in R/maps.R. This only backs that up in case the
+  // element ever stops being a template.
+  &__detail { display: none; }
+}
+
+// Inside the panel the key column has to hold "Also recorded by" and
+// "Verification", which the card's 6.5rem cannot. Widened here only, so the
+// hover card keeps its narrow measure.
+.fw-map-detail .fw-popup__row {
+  grid-template-columns: 9.5rem 1fr;
 }
 
 // Leaflet sets its own type and padding inside a popup; these win it back
@@ -639,6 +667,225 @@
 
     &:hover { color: $fw-deep; background: rgba($fw-shoal, 0.6); }
   }
+}
+
+// THE DETAIL PANEL. What the hover card is not.
+//
+// The card above is a tooltip: small, anchored to a marker, and gone as soon as
+// the pointer leaves. This is the whole record, and it opens only when somebody
+// asks for it by clicking. So it is a modal - centred, over a backdrop, staying
+// put while the map moves underneath - rather than a bigger card.
+//
+// Dismissal is by the close button, the backdrop or Escape. Deliberately NOT by
+// panning the map: unlike the card, this has no marker position to drift away
+// from, and a reader scrolling a long record is not asking to lose it.
+.fw-map-detail {
+  position: fixed;
+  inset: 0;
+  // Above the marker card at 1200, below the skip link at 2000.
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: $fw-space-3;
+
+  &[hidden] { display: none; }
+
+  &__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba($fw-abyss, 0.45);
+  }
+
+  &__dialog {
+    position: relative;
+    // Not min(): libsass reads it as its own function and refuses to mix the
+    // units. width plus max-width does the same job here.
+    width: 44rem;
+    max-width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: $fw-space-3;
+    background: $fw-paper;
+    border-radius: $fw-radius-card;
+    box-shadow: $fw-shadow-raised;
+    font-family: $fw-font-body;
+    line-height: $fw-leading-body;
+
+    &:focus-visible { outline: 2px solid $fw-deep; outline-offset: 2px; }
+  }
+
+  &__close {
+    position: absolute;
+    inset-block-start: $fw-space-2;
+    inset-inline-end: $fw-space-2;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: $fw-ink-muted;
+    background: rgba($fw-paper, 0.9);
+    border: 0;
+    border-radius: $fw-radius-round;
+    cursor: pointer;
+
+    &:hover { color: $fw-deep; background: rgba($fw-shoal, 0.6); }
+  }
+}
+
+.fw-popup-detail {
+  &__title { font-size: $fw-size-h2; margin-block: 0 0.15rem; color: $fw-deep; }
+
+  &__place {
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+    margin-block: 0 $fw-space-2;
+  }
+
+  // Invasive left, beneficiary right. Collapses to one column on a narrow
+  // screen rather than squeezing two photographs into half a phone each.
+  &__figures {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: $fw-space-2;
+    margin-block-end: $fw-space-3;
+
+    @media (min-width: 600px) { grid-template-columns: 1fr 1fr; }
+  }
+
+  &__rows { margin-block-start: $fw-space-2; }
+
+  &__link { margin-block: $fw-space-2 0; }
+}
+
+// One role's photographs. Several species become several slides behind a pair
+// of arrows; the name under each is what identifies it, so the picture never
+// carries the identification on its own.
+.fw-popup-fig {
+  &__role {
+    font-size: $fw-size-caption;
+    font-weight: $fw-weight-bold;
+    color: $fw-ink-muted;
+    margin-block: 0 0.3rem;
+  }
+
+  &__name {
+    font-size: $fw-size-caption;
+    margin-block: 0.3rem 0;
+    color: $fw-abyss;
+  }
+
+  &__nav {
+    display: flex;
+    align-items: center;
+    gap: $fw-space-1;
+    margin-block-start: 0.3rem;
+  }
+
+  &__btn {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    padding: 0;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: $fw-deep;
+    background: $fw-shoal;
+    border: 0;
+    border-radius: $fw-radius-round;
+    cursor: pointer;
+
+    &:hover { background: darken($fw-shoal, 6%); }
+  }
+
+  &__count { font-size: $fw-size-caption; color: $fw-ink-muted; }
+}
+
+// The species grid. The one place on the report a reader meets the animal
+// rather than a count of it.
+.fw-species-tiles {
+  display: grid;
+  // Wide enough that the photograph is worth looking at. At 9.5rem seven of
+  // them fitted across a laptop and each was a thumbnail; the point of this
+  // block is recognising the animal.
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: $fw-space-2;
+}
+
+.fw-species-tile {
+  display: flex;
+  flex-direction: column;
+  border: $fw-hairline;
+  border-radius: $fw-radius-card;
+  overflow: hidden;
+  background: $fw-paper;
+
+  // The tile owns the image height, which is shorter than the map popup's.
+  // Ten of these stand in a grid and a 150px photograph in each turns the block
+  // into a wall.
+  .fw-species-figure { margin: 0; border-radius: 0; }
+  .fw-species-figure__img { height: 104px; }
+  .fw-species-figure--none { min-height: 104px; }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: $fw-space-1;
+    // Pushes the outcome bar to the bottom, so the bars line up across a row
+    // whatever the length of the species names above them.
+    flex: 1 1 auto;
+  }
+
+  &__name {
+    font-size: 0.82rem;
+    font-weight: $fw-weight-bold;
+    color: $fw-abyss;
+    line-height: 1.25;
+    // Two lines' worth, reserved whether or not the name needs both. Without
+    // it a one-line name and a three-line name give two different tile heights
+    // and the counts stop lining up across the row.
+    min-height: 2.05rem;
+  }
+
+  &__count {
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+    margin-block-end: 0.3rem;
+  }
+
+  // THE CREDIT IS AN OBLIGATION, NOT A CAPTION. It has to be present and
+  // legible - CC BY says so - but at the figure's default size it set in the
+  // same weight as the species name and won, which inverts the whole point of
+  // a grid of photographs. Made small and quiet, and NOT clamped: a truncated
+  // attribution is not an attribution, and grid rows stretch to their tallest
+  // item anyway, so a verbose credit costs alignment nothing.
+  .fw-species-figure__credit {
+    font-size: 0.6rem;
+    line-height: 1.3;
+    padding: 0.2rem 0.4rem;
+
+    a { text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  }
+
+  // DECORATION, and nothing is lost without it. The counts are in the title
+  // attribute and the same four numbers are in the Outcomes block at the top of
+  // the report.
+  &__bar {
+    display: flex;
+    height: 4px;
+    margin-block-start: auto;
+    border-radius: 2px;
+    overflow: hidden;
+    background: rgba($fw-shoal, 0.5);
+  }
+
+  &__seg { height: 100%; }
 }
 
 // A photograph, its credit, and the state before it has arrived.

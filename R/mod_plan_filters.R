@@ -31,20 +31,22 @@ FW_PLAN_DROP <- "outcome"
 fw_plan_filter_ids <- function() fw_filter_ids(drop = FW_PLAN_DROP)
 
 fw_plan_filters_ui <- function(ns, ch) {
+  # fw_field() rather than a hand-built div.fw-field: it puts the label and the
+  # information icon on one row (.fw-field__label-row) and is the same wrapper
+  # the contribute form uses, so a filter and a form field behave identically
+  # for a keyboard and a screen reader. This panel was the last place in the app
+  # duplicating that markup by hand.
   multi <- function(id) {
-    spec <- FW_FILTERS[[id]]
-    div(
-      class = "fw-field",
-      tags$label(class = "form-label", `for` = ns(id), fw_filter_label(id)),
-      if (!is.null(spec$help)) {
-        div(class = "fw-field__help", fw_t("filters", spec$help))
-      },
+    fw_field(
       selectizeInput(
         ns(id), label = NULL, choices = ch[[id]], selected = NULL,
         multiple = TRUE, width = "100%",
         options = list(placeholder = fw_t("filters", "all"),
                        plugins = list("remove_button"))
-      )
+      ),
+      label = fw_filter_label(id),
+      tooltip = fw_filter_tip(id, ch),
+      input_id = ns(id)
     )
   }
 
@@ -56,11 +58,12 @@ fw_plan_filters_ui <- function(ns, ch) {
       class = "fw-plan-filters__span",
       div(
         class = "fw-field fw-field--range",
-        tags$label(class = "form-label", `for` = ns("years"),
-                   fw_filter_label("years")),
-        div(class = "fw-field__help",
-            sub("{min}", ch$year_min, fw_t("filters", "years_help"),
-                fixed = TRUE)),
+        div(
+          class = "fw-field__label-row",
+          tags$label(class = "form-label", `for` = ns("years"),
+                     fw_filter_label("years")),
+          fw_info(fw_filter_tip("years", ch), fw_filter_label("years"))
+        ),
         # ticks = FALSE is not cosmetic. ionRangeSlider draws a grid of labels
         # across a 90-year span that overlap and pile up at both ends, which is
         # unreadable. The chosen range is printed underneath in words instead,
@@ -76,13 +79,17 @@ fw_plan_filters_ui <- function(ns, ch) {
       # DEFAULTS ON. A year range silently dropping every attempt with no start
       # year would quietly remove those records, and the user would never know
       # the difference between "none match" and "none were dated".
+      #
+      # The icon sits AFTER the checkbox rather than in a label row above it:
+      # a checkbox carries its own inline label, and a second label above it
+      # would read as a separate field.
       div(
         class = "fw-field fw-field--check",
         checkboxInput(ns("include_no_year"), fw_t("filters", "no_year"),
                       value = TRUE),
-        div(class = "fw-field__help",
-            sub("{n}", ch$n_no_year, fw_t("filters", "no_year_help"),
-                fixed = TRUE))
+        fw_info(sub("{n}", ch$n_no_year, fw_t("filters", "tip_no_year"),
+                    fixed = TRUE),
+                fw_t("filters", "no_year"))
       )
     )
   }
@@ -102,8 +109,7 @@ fw_plan_filters_ui <- function(ns, ch) {
       class = "fw-plan-filters__actions",
       actionButton(ns("build"), fw_t("plan", "build"), class = "btn btn-primary"),
       actionButton(ns("clear"), fw_t("plan", "clear"),
-                   class = "btn btn-outline-primary"),
-      p(class = "fw-caption fw-plan-filters__hint", fw_t("plan", "f_hint"))
+                   class = "btn btn-outline-primary")
     )
   )
 }

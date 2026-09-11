@@ -153,11 +153,29 @@ FW_COPY <- list(
     unnamed_site = "Unnamed site",
     p_country  = "Country",
     p_species  = "Invasive species",
+    p_beneficiary = "Species that benefited",
     p_outcome  = "Outcome",
-    p_began    = "Began",
+    p_began    = "Ran",
     p_recorded_by = "Recorded by",
+    p_also     = "Also recorded by",
+
+    # ---- The detail panel, opened by clicking a marker ------------------------
+    p_method       = "Method",
+    p_method_desc  = "What was done",
+    p_verified     = "Verified by",
+    p_verified_notes = "Verification",
+    p_waterbody    = "Kind of water",
+    p_area         = "Area treated",
+    p_driver       = "Reason",
+    p_reference    = "Reference",
+    p_read_source  = "Read the source",
+    more_hint      = "Select for the full record",
+    fig_prev       = "Previous species",
+    fig_next       = "Next species",
+
     card_label = "Eradication attempt",
     card_close = "Close",
+    detail_label = "Eradication attempt, full record",
     image_note = paste(
       "Species photographs come from Wikimedia Commons and are credited to",
       "their authors. Where no photograph could be matched to a species, the",
@@ -183,16 +201,54 @@ FW_COPY <- list(
     outcome     = "Outcome",
     years       = "Attempt began between",
     no_year     = "Include attempts with no recorded start year",
-    no_year_help = paste(
-      "{n} attempts have no start year. Leaving this ticked keeps them in",
-      "regardless of selected range."
+
+    # ---- The tips -------------------------------------------------------------
+    #
+    # ONE TIP PER FILTER, shown through fw_info()'s popover rather than printed
+    # under the control. Nine controls each carrying a line of prose turned the
+    # panel into a form to be worked through; the guidance is the same, it is
+    # just asked for rather than issued. Keys are named in FW_FILTERS$<id>$tip.
+    #
+    # {n} and {min} are substituted at the call site in mod_plan_filters.R.
+    tip_continent = paste(
+      "Choose a continent to filter for."
     ),
-    any_note    = "Choosing more than one matches an attempt with any of them.",
-    # The record thins out badly before about 1950, so a user dragging the
-    # handle across the left third sees nothing change and assumes it is broken.
-    years_help  = paste(
-      "The record starts at {min}, but stays sparse until around 1950."
+    tip_country = paste(
+      "Country of the eradication attempt(s)."
     ),
+    tip_regime = paste(
+      "Still water (Lotic) is lakes, ponds and reservoirs, etc; flowing water (lentic)",
+      "is rivers and streams, etc."
+    ),
+    tip_waterbody = paste(
+      "The specific kind of water body rather than the still/flowing split."
+    ),
+    tip_taxa = paste(
+      "The broad group the invasive species belongs to - fish, crayfish, plant etc."
+    ),
+    tip_species = paste(
+      "The species the attempt was trying to remove. Choosing more than one."
+    ),
+    tip_beneficiary = paste(
+      "The species the attempt was meant to help. Note - this is recorded far less",
+      "consistently than the invasive species, plus is likely not representative."
+    ),
+    tip_method = paste(
+      "The eradication method used. Many attempts used more than one, so picking",
+      "multiple matches an attempt that used any of them."
+    ),
+    tip_outcome = paste(
+      "What the attempt achieved. Successful, Failed, Ongoing and Unknown."
+    ),
+    tip_years = paste(
+      "Filters on the year the attempt began. The record starts at {min} but",
+      "stays sparse until around 1950."
+    ),
+    tip_no_year = paste(
+      "{n} attempts have no start year recorded. Leaving this ticked keeps",
+      "them in whatever range you choose, so they are not silently dropped."
+    ),
+
     range_of    = "to",
     all         = "All"
   ),
@@ -201,29 +257,30 @@ FW_COPY <- list(
 
   plan = list(
     title = "Plan an eradication",
-    description = paste(
-      "For building a report of eradication attempts that match your situation or interest.",
-      "Toggle the filters to and build a report."
-    ),
 
-    # ---- The empty state, before anything is built ---------------------------
-    # A blank results area with a spinner tells a first-time visitor nothing.
-    # This says what the page is for and what they will get, so the deliberate
-    # Build step reads as a step rather than as the page failing to load.
-    empty_heading = "Build a report",
-    empty_body = paste(
-      "Toggle the filters above to describe the situation you are facing ",
-      "or interested in - where you are, what species you are dealing with, etc.",
-      "Then select Build report."
-    ),
-    empty_body2 = paste(
-      "You will get a summary of attempts in filter range, a map of where they",
-      "happened, methods overview, and how attempts have built up",
-      "over time. This is all downloadable as an html report and dataset."
-    ),
-    empty_note = paste(
-      "Nothing is filtered out to begin with, so leaving everything set to All",
-      "and building gives you the whole database."
+    # ---- The introduction ----------------------------------------------------
+    # ONE introduction, in the page header, in one treatment. It used to be two:
+    # a line here and a separate "Build a report" block below the filter panel,
+    # which meant the reader met the explanation of the page after the controls
+    # it was explaining. A character vector; fw_page_header() draws one
+    # paragraph per element at a single size and colour.
+    description = c(
+      paste(
+        "Build a report of the eradication attempts that match your situation.",
+        "Set the filters below to describe where you are, the water you are",
+        "working in and the species you are dealing with, then select",
+        "Build report."
+      ),
+      paste(
+        "You will get a map of where those attempts happened, what they",
+        "achieved, the methods used and how long they took, with the matching",
+        "records in full underneath. All of it downloads as a report or a",
+        "spreadsheet."
+      ),
+      paste(
+        "Nothing is filtered out to begin with, so leaving everything set to",
+        "All and building gives you the whole database."
+      )
     ),
 
     # ---- Zero results --------------------------------------------------------
@@ -310,13 +367,9 @@ FW_COPY <- list(
     # Only the panel heading is specific to this page.
     f_heading   = "Describe your situation",
     f_lead = paste(
-      "All fields are optional. All fields default to 'All'."
+      "All fields are optional. Fields default to 'All'."
     ),
     built_announce = "Report built. {n} attempts match your description.",
-    f_hint = paste(
-      "Your report appears underneath. Nothing is calculated until you select",
-      "Build report."
-    ),
 
     # ---- Results -------------------------------------------------------------
     r_heading    = "What the matching attempts show",
@@ -334,6 +387,13 @@ FW_COPY <- list(
       "Each marker is labelled with its outcome as well as coloured by it."
     ),
     r_map_missing = "{n} of these attempts have no coordinates and are not on the map.",
+
+    r_waterbody  = "What kind of water",
+    r_waterbody_note = paste(
+      "Attempts by the kind of waterbody treated, with the outcome mix in each.",
+      "The ten most common are named and the rest gathered into Other."
+    ),
+
     r_method     = "How the methods compare",
     r_method_note = paste(
       "Outcomes within each method, with the number of attempts beside it."
@@ -341,6 +401,32 @@ FW_COPY <- list(
     r_method_mode  = "Show",
     r_method_share = "Share of attempts",
     r_method_count = "Number of attempts",
+
+    r_method_wb  = "What gets used in what kind of water",
+    r_method_wb_note = paste(
+      "The methods used in each kind of waterbody, counted once per attempt.",
+      "Colour here is the method, not the outcome. Draining a pond and draining",
+      "a river are one method and two different propositions, which is what",
+      "this separates and the chart above cannot."
+    ),
+
+    # ---- The species tiles ----------------------------------------------------
+    r_tile_attempt  = "attempt",
+    r_tile_attempts = "attempts",
+    r_invasive   = "What these attempts targeted",
+    r_invasive_note = paste(
+      "The ten invasive species named most often in this selection, counted",
+      "once per attempt, out of {n} in total. The bar under each is its outcome",
+      "mix."
+    ),
+    r_beneficiary = "What was meant to benefit",
+    r_beneficiary_note = paste(
+      "Read this one carefully. Beneficiary species are recorded far less",
+      "consistently than targets - many attempts name none at all, and those",
+      "that do tend to be the ones written up for a named endangered species.",
+      "These are the ten named most often of {n}, and they show what has been",
+      "claimed rather than what recovered."
+    ),
 
     r_duration   = "How long these attempts took",
     r_duration_note = paste(
@@ -364,7 +450,7 @@ FW_COPY <- list(
     r_table_size    = "Rows per page",
     r_table_showing = "Showing",
 
-    caveats_heading = "Imporant to note whilst reviewing the visuals and data"
+    caveats_heading = "Important to note whilst reviewing the visuals and data"
   ),
 
   # ---- About -----------------------------------------------------------------

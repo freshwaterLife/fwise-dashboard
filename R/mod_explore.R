@@ -109,7 +109,11 @@ fw_explore_full_ui <- function(id) {
 
               fw_plan_block(
                 fw_t("explore", "waterbody"), fw_t("explore", "waterbody_note"),
-                plotly::plotlyOutput(ns("waterbody"), height = "auto")
+                # chart_ PREFIX because "waterbody" and "beneficiary" are
+                # already filter INPUT ids on this page. Inputs and outputs
+                # share one DOM id space, so an output of the same name binds
+                # to the selectize control instead and the chart never draws.
+                plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
               ),
 
               fw_plan_block(
@@ -127,7 +131,7 @@ fw_explore_full_ui <- function(id) {
               # value will draw the wrong conclusion.
               fw_plan_block(
                 fw_t("explore", "beneficiary"), fw_t("explore", "beneficiary_note"),
-                plotly::plotlyOutput(ns("beneficiary"), height = "auto")
+                plotly::plotlyOutput(ns("chart_beneficiary"), height = "auto")
               ),
 
               fw_plan_caveats_ui_deferred(ns)
@@ -232,37 +236,40 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     output$duration    <- plotly::renderPlotly(fw_chart_duration(data, sel()))
     output$methods     <- plotly::renderPlotly(
       fw_chart_method(data, sel(), mode = input$method_mode %||% "share"))
-    output$waterbody   <- plotly::renderPlotly(fw_chart_waterbody(sel()))
+    output$chart_waterbody   <- plotly::renderPlotly(fw_chart_waterbody(sel()))
     output$driver      <- plotly::renderPlotly(fw_chart_driver(sel()))
     output$invasive    <- plotly::renderPlotly(
       fw_chart_species(data, sel(), "invasive"))
-    output$beneficiary <- plotly::renderPlotly(
+    output$chart_beneficiary <- plotly::renderPlotly(
       fw_chart_species(data, sel(), "beneficiary"))
   })
 }
 
 #' The dashboard's filter panel: every filter, including outcome
 fw_explore_filters_ui <- function(ns, ch) {
+  # Tooltips come from FW_FILTERS$<id>$tip, the same registry the report builder
+  # reads, so the two panels explain a filter in the same words.
   multi <- function(id) {
-    spec <- FW_FILTERS[[id]]
-    div(
-      class = "fw-field",
-      tags$label(class = "form-label", `for` = ns(id), fw_filter_label(id)),
-      if (!is.null(spec$help)) {
-        div(class = "fw-field__help", fw_t("filters", spec$help))
-      },
+    fw_field(
       selectizeInput(ns(id), label = NULL, choices = ch[[id]], selected = NULL,
                      multiple = TRUE, width = "100%",
                      options = list(placeholder = fw_t("filters", "all"),
-                                    plugins = list("remove_button")))
+                                    plugins = list("remove_button"))),
+      label = fw_filter_label(id),
+      tooltip = fw_filter_tip(id, ch),
+      input_id = ns(id)
     )
   }
 
   years <- tagList(
     div(
       class = "fw-field fw-field--range",
-      tags$label(class = "form-label", `for` = ns("years"),
-                 fw_filter_label("years")),
+      div(
+        class = "fw-field__label-row",
+        tags$label(class = "form-label", `for` = ns("years"),
+                   fw_filter_label("years")),
+        fw_info(fw_filter_tip("years", ch), fw_filter_label("years"))
+      ),
       sliderInput(ns("years"), label = NULL, min = ch$year_min, max = ch$year_max,
                   value = c(ch$year_min, ch$year_max), step = 1, sep = "",
                   ticks = FALSE, dragRange = TRUE, width = "100%"),
@@ -272,7 +279,10 @@ fw_explore_filters_ui <- function(ns, ch) {
     div(
       class = "fw-field fw-field--check",
       checkboxInput(ns("include_no_year"), fw_t("filters", "no_year"),
-                    value = TRUE)
+                    value = TRUE),
+      fw_info(sub("{n}", ch$n_no_year, fw_t("filters", "tip_no_year"),
+                  fixed = TRUE),
+              fw_t("filters", "no_year"))
     )
   )
 

@@ -198,45 +198,49 @@ fw_caveats <- function(data) {
   c(
     "HOW SUCCESS IS DEFINED",
     paste(
-      "'Success' follows Genovesi, Piero - Limits and Potentialities of",
-      "Eradication as a Tool for Addressing Biological Invasions: the complete",
-      "and permanent removal of all wild populations of a species from a",
-      "defined area, by a time-limited campaign."
+      "Success here means what Genovesi means by it, in Limits and",
+      "Potentialities of Eradication as a Tool for Addressing Biological",
+      "Invasions: the complete and permanent removal of every wild population",
+      "of a species from a defined area, by a campaign with an end date. Work",
+      "that suppressed a population without removing it is not counted as a",
+      "success, however useful it was."
     ),
     "",
     "CLAIMED IS NOT THE SAME AS VALIDATED",
     paste0(
-      "An outcome may be recorded as successful without formal proof of absence. ",
-      "Of the ", format(successful, big.mark = ","), " attempts recorded as ",
-      "successful, ", format(unverified, big.mark = ","), " carry no verification ",
-      "note. The success is claimed by the source, not validated by the FWISE team."
+      "An outcome is recorded as the source reported it. Of the ",
+      format(successful, big.mark = ","), " attempts recorded as successful, ",
+      format(unverified, big.mark = ","), " carry no verification note. We have ",
+      "not returned to those sites to confirm absence, and in many cases ",
+      "neither has anyone else."
     ),
     "",
-    "ALL FOUR OUTCOMES CARRY INFORMATION",
+    "WHY THERE IS NO SUCCESS RATE",
     paste(
-      "Successful, Failed, Ongoing and Unknown are reported separately and are",
-      "not collapsed into a success rate. Failure teaches as much as success,",
-      "and ongoing attempts indicate where the next results will come from.",
-      "Any percentage computed from this data should state its denominator."
+      "The four outcomes are reported separately and are never combined into a",
+      "single figure. A rate needs a denominator, and the honest denominator",
+      "changes with every filter on this page. If you calculate one, state what",
+      "you divided by."
     ),
     "",
     "MISSING VALUES",
     paste0(
-      "Fields are missing at meaningful rates and blanks are genuine absences, ",
-      "not zeros. In this dataset: ", format(no_size, big.mark = ","), " attempts (",
-      pct(no_size), ") have no treated size, ", format(no_start, big.mark = ","),
-      " (", pct(no_start), ") have no start year, and ", format(no_end, big.mark = ","),
-      " (", pct(no_end), ") have no end year. Many of the last group are ongoing."
+      "Blanks are absences, not zeros, and they are common. Here, ",
+      format(no_size, big.mark = ","), " attempts (", pct(no_size),
+      ") have no treated size, ", format(no_start, big.mark = ","), " (",
+      pct(no_start), ") have no start year and ", format(no_end, big.mark = ","),
+      " (", pct(no_end), ") have no end year. A good part of that last group is ",
+      "still running."
     ),
     "",
-    "WHAT THIS EVIDENCE BASE ACTUALLY SHOWS",
+    "WHAT THIS RECORD IS",
     paste(
-      "FWISE records where eradication work has been REPORTED, and is",
-      "therefore likely subject to reporting bias. Successful attempts are",
-      "more likely to be written up than failed ones. So the geographic spread describes",
-      "the reporting, and the outcome mix is likely to be more favourable than reality.",
-      "An absence in this data is not evidence that nothing happened. We would like to encourage",
-      "practitioners to submit their work, successful or not, so the record can be more complete."
+      "This database holds eradication work that has been reported, which is",
+      "not the same as eradication work that has been done. Write-ups favour",
+      "attempts that worked, so the outcome mix here is kinder than reality and",
+      "the map shows where people publish as much as where they act. An empty",
+      "region is not a quiet one. If you have run an attempt, successful or",
+      "not, send it in."
     )
   )
 }

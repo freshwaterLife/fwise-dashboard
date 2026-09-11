@@ -72,6 +72,73 @@ fw_outcome_bars_ui <- function(sel) {
   )
 }
 
+# ---- Species tiles -----------------------------------------------------------
+
+#' The top species for a role, as photographs
+#'
+#' A GRID OF PICTURES RATHER THAN A BAR CHART, and that is the point of it. The
+#' rest of this page is counts; this is the row where a reader recognises the
+#' animal they are actually dealing with. The count and the outcome split are
+#' still there, so nothing is traded away for the photograph.
+#'
+#' Every photograph carries its credit and a linked licence. That is a condition
+#' of using them, not decoration - fw_species_figure() builds both, and returns
+#' a placeholder rather than a bare image when a species has no licensed
+#' photograph. See the header of R/species_images.R.
+#'
+#' live = FALSE always. Ten tiles are built at once and none of them may reach
+#' Wikimedia while the page is rendering.
+#'
+#' @param role_name "invasive" or "beneficiary"
+#' @return NULL when the selection has none of that role, so the calling block
+#'   disappears rather than standing over an empty grid. 107 of 914 attempts
+#'   record no beneficiary at all.
+fw_species_tiles_ui <- function(data, sel, role_name, limit = 10L) {
+  top <- fw_species_top_n(data, sel, role_name, limit)
+  if (!nrow(top)) return(NULL)
+
+  div(
+    class = "fw-species-tiles",
+    lapply(seq_len(nrow(top)), function(i) {
+      row <- top[i, ]
+      counts <- vapply(FW_OUTCOME_LEVELS, function(o) as.integer(row[[o]]), 1L)
+      total <- sum(counts)
+
+      div(
+        class = "fw-species-tile",
+        div(
+          class = "fw-species-tile__figure",
+          HTML(fw_species_figure_for(data$species, row$species_id, row$label))
+        ),
+        div(
+          class = "fw-species-tile__body",
+          span(class = "fw-species-tile__name", row$label),
+          span(class = "fw-species-tile__count",
+               fw_fmt_num(row$n), " ",
+               fw_t("plan", if (row$n == 1) "r_tile_attempt" else "r_tile_attempts")),
+          # The outcome split as a single bar. Decoration: the numbers are in
+          # the title attribute and in the Outcomes block above, so a reader who
+          # cannot separate the colours has lost nothing.
+          div(
+            class = "fw-species-tile__bar",
+            title = paste(paste0(FW_OUTCOME_LEVELS, ": ", counts),
+                          collapse = ", "),
+            lapply(FW_OUTCOME_LEVELS, function(o) {
+              n <- counts[[o]]
+              if (n == 0L) return(NULL)
+              div(
+                class = "fw-species-tile__seg",
+                style = sprintf("width:%.2f%%;background:%s;",
+                                100 * n / total, FW_OUTCOME_COLOURS[[o]])
+              )
+            })
+          )
+        )
+      )
+    })
+  )
+}
+
 # ---- Map ---------------------------------------------------------------------
 
 #' The report builder's map

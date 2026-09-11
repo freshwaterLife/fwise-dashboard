@@ -630,7 +630,7 @@ fw_html_figure <- function(title, note, widget, extra = NULL) {
 #' turns up in an inbox six months later has to carry its own qualifications,
 #' and two copies of a caveat are two caveats that can disagree.
 fw_write_html_report <- function(path, data, sel, export, filters,
-                                 meta = NULL, method_mode = "share") {
+                                 meta = NULL, method_mode = "count") {
   dir <- tempfile("fw-html-"); dir.create(dir)
   on.exit(unlink(dir, recursive = TRUE), add = TRUE)
 
@@ -639,6 +639,11 @@ fw_write_html_report <- function(path, data, sel, export, filters,
   s <- fw_plan_summary(data, sel)
   n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
   n_duration <- sum(!is.na(sel$duration_days) & sel$duration_days > 0)
+  n_invasive <- dplyr::n_distinct(fw_species_rows(data, sel, "invasive")$species_id)
+  n_beneficiary <- dplyr::n_distinct(
+    fw_species_rows(data, sel, "beneficiary")$species_id)
+  tiles_invasive <- fw_species_tiles_ui(data, sel, "invasive")
+  tiles_beneficiary <- fw_species_tiles_ui(data, sel, "beneficiary")
 
   # The two files the reader can pull back out. The workbook is built by the
   # SAME function the spreadsheet button serves, so the copy inside the report
@@ -664,9 +669,13 @@ fw_write_html_report <- function(path, data, sel, export, filters,
     # ---- Summary -------------------------------------------------------------
     fw_html_block(fw_t("plan", "r_heading"), NULL, fw_plan_summary_ui(s)),
 
-    # ---- Outcomes ------------------------------------------------------------
-    fw_html_block(fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
-                  fw_outcome_bars_ui(sel)),
+    # ---- The figures, in the page's order ------------------------------------
+    # SAME ORDER AS THE SCREEN, and that is the requirement rather than a
+    # preference. A reader who looked at the report builder and then downloaded
+    # this file has to find the same argument in the same sequence, or the two
+    # read as two different documents about the same selection. The funnel is:
+    # where, then what happened, then in what water, then by what means, then to
+    # which species - and the two charts about time at the end.
 
     # ---- Where ---------------------------------------------------------------
     # The real map, not a picture of one. It is the single clearest gain over
@@ -689,9 +698,41 @@ fw_write_html_report <- function(path, data, sel, export, filters,
       )
     },
 
-    # ---- The figures ---------------------------------------------------------
+    # ---- Outcomes ------------------------------------------------------------
+    fw_html_block(fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
+                  fw_outcome_bars_ui(sel)),
+
+    fw_html_figure(fw_t("plan", "r_waterbody"), fw_t("plan", "r_waterbody_note"),
+                   fw_chart_waterbody(sel)),
+
     fw_html_figure(fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
                    fw_chart_method(data, sel, mode = method_mode)),
+
+    fw_html_figure(fw_t("plan", "r_method_wb"), fw_t("plan", "r_method_wb_note"),
+                   fw_chart_method_waterbody(data, sel, mode = method_mode)),
+
+    # The species tiles are HTML rather than plotly, so they go through
+    # fw_html_block() like the outcome bars do. Built ONCE above and tested for
+    # NULL here: a block with NULL content still prints its heading, and
+    # building them twice to ask whether they exist would repeat ten image
+    # lookups for nothing.
+    if (!is.null(tiles_invasive)) {
+      fw_html_block(
+        fw_t("plan", "r_invasive"),
+        sub("{n}", fw_fmt_num(n_invasive), fw_t("plan", "r_invasive_note"),
+            fixed = TRUE),
+        tiles_invasive
+      )
+    },
+    if (!is.null(tiles_beneficiary)) {
+      fw_html_block(
+        fw_t("plan", "r_beneficiary"),
+        sub("{n}", fw_fmt_num(n_beneficiary),
+            fw_t("plan", "r_beneficiary_note"), fixed = TRUE),
+        tiles_beneficiary
+      )
+    },
+
     fw_html_figure(
       fw_t("plan", "r_duration"), fw_t("plan", "r_duration_note"),
       fw_chart_duration(data, sel),

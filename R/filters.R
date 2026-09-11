@@ -33,46 +33,70 @@ library(dplyr)
 
 # ---- The registry ------------------------------------------------------------
 
-# Each entry: the copy key for its label, the control kind, and how it narrows
-# the attempt table. `column` filters attempt directly; `bridge` resolves through
-# a bridge table to a set of attempt ids.
+# Each entry: the copy key for its label, the copy key for its tooltip, the
+# control kind, and how it narrows the attempt table. `column` filters attempt
+# directly; `bridge` resolves through a bridge table to a set of attempt ids.
+#
+# EVERY FILTER CARRIES A `tip`. The guidance used to be a line of prose printed
+# under four of the nine controls and nothing at all under the other five, which
+# made the panel read as a form to be filled in and left half of it unexplained.
+# It is the same guidance; it is now asked for rather than issued. Naming the
+# key HERE rather than at either page's call site is what keeps the report
+# builder and the dashboard from drifting apart - both draw from this list.
 #
 # ORDER MATTERS TWICE: it is the order the controls are drawn in, and the order
 # fw_filter_zero_hints() suggests relaxing them - narrowest choice first, since
 # that is the one that most often emptied the result.
 FW_FILTERS <- list(
   species = list(
-    copy = "species", kind = "multi",
-    bridge = "species", role = "invasive", match = "label",
-    help = "any_note"
+    copy = "species", kind = "multi", tip = "tip_species",
+    bridge = "species", role = "invasive", match = "label"
   ),
   beneficiary = list(
-    copy = "beneficiary", kind = "multi",
-    bridge = "species", role = "beneficiary", match = "label",
-    help = "any_note"
+    copy = "beneficiary", kind = "multi", tip = "tip_beneficiary",
+    bridge = "species", role = "beneficiary", match = "label"
   ),
   method = list(
-    copy = "method", kind = "multi",
-    bridge = "method", match = "method_name",
-    help = "any_note"
+    copy = "method", kind = "multi", tip = "tip_method",
+    bridge = "method", match = "method_name"
   ),
   taxa = list(
-    copy = "taxa", kind = "multi",
+    copy = "taxa", kind = "multi", tip = "tip_taxa",
     bridge = "species", role = "invasive", match = "taxa"
   ),
-  waterbody = list(copy = "waterbody", kind = "multi", column = "waterbody_type"),
-  country   = list(copy = "country",   kind = "multi", column = "country"),
+  waterbody = list(copy = "waterbody", kind = "multi", tip = "tip_waterbody",
+                   column = "waterbody_type"),
+  country   = list(copy = "country",   kind = "multi", tip = "tip_country",
+                   column = "country"),
   # `labels` names a function that turns stored values into the wording the
   # picker showed, so the export's Filters sheet records the reader's selection
   # in the words they actually saw. Held as a NAME rather than the function
   # itself: this list is built when the file is sourced, and Shiny's source
   # order is not a thing to depend on.
-  regime    = list(copy = "regime",    kind = "multi", column = "water_regime",
-                   labels = "fw_regime_label"),
-  outcome   = list(copy = "outcome",   kind = "multi", column = "outcome"),
-  continent = list(copy = "continent", kind = "multi", column = "continent"),
-  years     = list(copy = "years",     kind = "range")
+  regime    = list(copy = "regime",    kind = "multi", tip = "tip_regime",
+                   column = "water_regime", labels = "fw_regime_label"),
+  outcome   = list(copy = "outcome",   kind = "multi", tip = "tip_outcome",
+                   column = "outcome"),
+  continent = list(copy = "continent", kind = "multi", tip = "tip_continent",
+                   column = "continent"),
+  years     = list(copy = "years",     kind = "range", tip = "tip_years")
 )
+
+#' A filter's tooltip text, with its data-dependent placeholders filled in
+#'
+#' {min} and {n} are the two the copy uses. Substituted here rather than at each
+#' call site so the report builder and the dashboard cannot fill them in
+#' differently - or one of them forget to.
+fw_filter_tip <- function(id, ch = NULL) {
+  spec <- FW_FILTERS[[id]]
+  if (is.null(spec$tip)) return(NULL)
+  txt <- fw_t("filters", spec$tip)
+  if (!is.null(ch)) {
+    txt <- sub("{min}", ch$year_min, txt, fixed = TRUE)
+    txt <- sub("{n}", ch$n_no_year, txt, fixed = TRUE)
+  }
+  txt
+}
 
 #' The filter ids in the order they are drawn
 #'

@@ -129,6 +129,12 @@ fw_map_output <- function(output_id, class = NULL) {
 
 # ---- Markers and popups ------------------------------------------------------
 
+# Multi-value popup fields travel as one delimited string per attempt, because
+# these are data frame columns and a list column cannot survive the row-at-a-time
+# indexing in fw_add_attempt_markers(). A pipe, because it appears in no species
+# name, method name or note in the data.
+FW_POPUP_SEP <- "|"
+
 #' Everything a popup needs, joined once for the whole selection
 #'
 #' Built as a table rather than looked up per marker: 914 markers each running
@@ -136,82 +142,319 @@ fw_map_output <- function(output_id, class = NULL) {
 #' opens and one that hangs.
 fw_map_points <- function(data, sel) {
   pts <- sel[!is.na(sel$latitude) & !is.na(sel$longitude), ]
+  # RETURNS A NARROWER FRAME WHEN EMPTY: none of the joins below have run, so
+  # the popup columns are absent rather than present-and-empty. Every caller has
+  # to test nrow() before touching a popup column, which fw_add_attempt_markers()
+  # does - it is the only caller, and it returns a bare map at this point.
   if (!nrow(pts)) return(pts)
 
   species <- fw_species_label(data$species)
-  inv <- data$attempt_species |>
-    dplyr::filter(role == "invasive", attempt_id %in% pts$attempt_id) |>
-    dplyr::left_join(dplyr::select(species, species_id, label), by = "species_id")
 
-  # The FIRST invasive species carries the photograph. An attempt against four
-  # species cannot show four pictures in a popup, and the full list is named in
-  # text directly underneath, so nothing is hidden by the choice.
-  lead <- inv |>
+  # Species for one role, gathered per attempt. EVERY id is kept, not just the
+  # first: the detail panel shows the photographs of all of them behind a pair
+  # of arrows, so the popup can no longer be built from a single lead species.
+  # The ids travel as one delimited string because this is a data frame column,
+  # and are split again in fw_map_detail_html().
+  role_cols <- function(role_name, prefix) {
+    out <- data$attempt_species |>
+      dplyr::filter(role == role_name, attempt_id %in% pts$attempt_id) |>
+      dplyr::distinct(attempt_id, species_id) |>
+      dplyr::left_join(dplyr::select(species, species_id, label),
+                       by = "species_id") |>
+      dplyr::filter(!is.na(label)) |>
+      dplyr::group_by(attempt_id) |>
+      dplyr::summarise(
+        ids   = paste(species_id, collapse = FW_POPUP_SEP),
+        names = paste(label, collapse = FW_POPUP_SEP),
+        list  = paste(label, collapse = ", "),
+        .groups = "drop"
+      )
+    # Renamed afterwards rather than with tidy-eval in summarise(), so this file
+    # needs nothing attached beyond dplyr:: itself.
+    names(out)[-1] <- paste0(prefix, "_", names(out)[-1])
+    out
+  }
+
+  # Methods WITH THEIR OWN NOTES, in the order they were applied. Deliberately
+  # not fw_export_frame()'s method_notes, which collapses the notes across
+  # methods with unique() and loses which note belongs to which method - the
+  # pairing is the useful part ("Rotenone - Betamax vet.").
+  methods <- data$attempt_method |>
+    dplyr::filter(attempt_id %in% pts$attempt_id) |>
+    dplyr::left_join(dplyr::select(data$method, method_id, method_name),
+                     by = "method_id") |>
+    dplyr::arrange(attempt_id, method_order) |>
     dplyr::group_by(attempt_id) |>
     dplyr::summarise(
-      lead_species_id = dplyr::first(species_id),
-      lead_species = dplyr::first(label),
-      all_species = paste(unique(label), collapse = ", "),
+      method_list = paste(unique(method_name[!is.na(method_name)]),
+                          collapse = ", "),
+      method_pairs = paste(
+        ifelse(is.na(method_notes) | !nzchar(method_notes),
+               method_name,
+               paste0(method_name, " - ", method_notes)),
+        collapse = FW_POPUP_SEP
+      ),
       .groups = "drop"
     )
 
-  contacts <- dplyr::select(data$contact, attempt_contact_id = contact_id,
-                            contact_name)
+  # EMAIL PASSES THROUGH THE email_public GATE AND NOTHING ELSE. Same expression
+  # as fw_export_frame(); see the note above fw_map_detail_html() for why an
+  # address is shown here at all.
+  contacts <- data$contact |>
+    dplyr::transmute(
+      contact_id,
+      contact_name,
+      contact_email = dplyr::if_else(email_public, contact_email,
+                                     NA_character_),
+      organisation
+    )
 
   pts |>
-    dplyr::left_join(lead, by = "attempt_id") |>
+    dplyr::left_join(role_cols("invasive", "inv"), by = "attempt_id") |>
+    dplyr::left_join(role_cols("beneficiary", "ben"), by = "attempt_id") |>
+    dplyr::left_join(methods, by = "attempt_id") |>
     dplyr::left_join(
-      dplyr::rename(contacts, primary_contact_id = attempt_contact_id,
-                    primary_contact_name = contact_name),
+      dplyr::rename(contacts, primary_contact_id = contact_id,
+                    primary_contact_name = contact_name,
+                    primary_contact_email = contact_email,
+                    primary_contact_org = organisation),
       by = "primary_contact_id"
+    ) |>
+    dplyr::left_join(
+      dplyr::rename(contacts, secondary_contact_id = contact_id,
+                    secondary_contact_name = contact_name,
+                    secondary_contact_email = contact_email,
+                    secondary_contact_org = organisation),
+      by = "secondary_contact_id"
     )
 }
 
-#' The popup for one attempt
-#'
-#' WHAT THE CLIENT ASKED FOR: the person behind the record, the species it
-#' targeted, and a picture of that species. The first two are the point of
-#' FWISE - a marker that names someone you can write to is a next step, where a
-#' coloured dot is only a statistic.
-#'
-#' Attribution for the credit: the contact where there is one, otherwise the
-#' published reference, because 888 of 914 attempts have a reference and only
-#' 721 have a named contact. Email NEVER appears here - redaction happens
-#' upstream in fw_contacts_summary() and this must not reach around it.
-fw_map_popup <- function(row, species_tbl, live = FALSE) {
+# ---- Popup building ----------------------------------------------------------
+#
+# TWO VIEWS OF ONE RECORD, BUILT TOGETHER AND SHIPPED AS ONE STRING.
+#
+# The hover card answers "is this one worth stopping for" - species, what was
+# done, what happened, who recorded it. The detail panel answers everything
+# else, and only opens when the reader asks for it by clicking.
+#
+# Both halves travel in the same `popup =` string, with the detail inside a
+# hidden div. That is what keeps every field of popup-building in R: Leaflet
+# gives one content slot per marker, and a second channel would mean a parallel
+# vector threaded through addCircleMarkers() and onRender() by index. The hidden
+# div costs nothing in the card - it is never displayed there - and the script
+# parses it back out of the stored string when a marker is clicked.
+
+# A pipe-delimited popup field back into its parts. Empty and NA both mean none.
+fw_popup_parts <- function(x) {
+  if (length(x) != 1 || is.na(x) || !nzchar(as.character(x))) return(character(0))
+  strsplit(as.character(x), FW_POPUP_SEP, fixed = TRUE)[[1]]
+}
+
+# One label/value row. Returns "" for an absent value, so a row a record does
+# not have simply is not drawn.
+fw_popup_row <- function(label, value, html = FALSE) {
   esc <- htmltools::htmlEscape
-  line <- function(label, value) {
-    if (is.na(value) || !nzchar(as.character(value))) return("")
-    paste0('<div class="fw-popup__row"><span class="fw-popup__key">',
-           esc(label), '</span><span class="fw-popup__val">',
-           esc(as.character(value)), "</span></div>")
+  if (length(value) != 1 || is.na(value) || !nzchar(as.character(value))) {
+    return("")
   }
+  paste0('<div class="fw-popup__row"><span class="fw-popup__key">',
+         esc(label), '</span><span class="fw-popup__val">',
+         if (html) as.character(value) else esc(as.character(value)),
+         "</span></div>")
+}
 
-  figure <- if (!is.na(row$lead_species_id)) {
-    fw_species_figure_for(species_tbl, row$lead_species_id,
-                          row$lead_species, live = live)
-  } else {
-    fw_species_figure(NULL, NA)
-  }
+#' The years an attempt ran, as one phrase
+#'
+#' "1998-2004 (6 years)" rather than a bare start year. 144 of 914 attempts have
+#' no end year, and a good part of those are still running, so a missing end is
+#' shown as the start year alone - never as a dash to nowhere, which reads as
+#' data that should be there and is not.
+fw_popup_years <- function(start, end) {
+  if (is.na(start)) return(NA_character_)
+  # An end year that is the same as the start, or earlier than it, is not a
+  # range. "2000-2000 (0 years)" reads as a fault in the data rather than as a
+  # campaign that began and finished inside one year.
+  if (is.na(end) || end <= start) return(as.character(start))
+  n <- round(end - start)
+  unit <- if (n == 1) "year" else "years"
+  paste0(start, "-", end, " (", n, " ", unit, ")")
+}
 
+#' The hover card: enough to decide whether to open the record
+#'
+#' NO PHOTOGRAPH. Hovering is cheap precisely because opening a card is one
+#' innerHTML and no request; a picture in every card would put a Wikimedia fetch
+#' behind every pointer that crosses the map.
+fw_map_hover_html <- function(row) {
+  esc <- htmltools::htmlEscape
   outcome <- if (is.na(row$outcome)) "Unknown" else row$outcome
-  attribution <- row$primary_contact_name
-  if (is.na(attribution) || !nzchar(attribution)) attribution <- row$reference
+  recorded <- row$primary_contact_name
+  if (is.na(recorded) || !nzchar(recorded)) recorded <- row$reference
 
   paste0(
     '<div class="fw-popup">',
-    figure,
     '<h3 class="fw-popup__title">',
     esc(row$site_name %|na|% fw_t("species", "unnamed_site")),
     "</h3>",
-    line(fw_t("species", "p_country"), row$country),
-    line(fw_t("species", "p_species"), row$all_species),
+    fw_popup_row(fw_t("species", "p_country"), row$country),
+    fw_popup_row(fw_t("species", "p_species"), row$inv_list),
+    fw_popup_row(fw_t("species", "p_beneficiary"), row$ben_list),
+    fw_popup_row(fw_t("species", "p_method"), row$method_list),
     # The outcome is words as well as colour, so it never depends on the dot.
-    line(fw_t("species", "p_outcome"), outcome),
-    line(fw_t("species", "p_began"), row$start_year),
-    line(fw_t("species", "p_recorded_by"), attribution),
+    fw_popup_row(fw_t("species", "p_outcome"), outcome),
+    fw_popup_row(fw_t("species", "p_recorded_by"), recorded),
+    '<p class="fw-popup__more">', esc(fw_t("species", "more_hint")), "</p>",
     "</div>"
   )
+}
+
+#' The detail panel: the whole record, opened on click
+#'
+#' WHY AN EMAIL ADDRESS APPEARS HERE. It did not used to, and the comment that
+#' stood here said it never would. The client asked for a contact you can write
+#' to from the map, on the reasoning that a marker naming somebody reachable is
+#' a next step where a coloured dot is only a statistic - which is the point of
+#' the networking side of FWISE.
+#'
+#' The email_public gate is NOT reached around: fw_map_points() applies exactly
+#' the same expression fw_export_frame() does, and a contact who has not made
+#' their address public arrives here as NA and is rendered as a plain name.
+#'
+#' The trade-off this accepts is that a published address is scrapeable. The app
+#' has a handler that avoids it - fw-mailto in ui_helpers.R assembles the
+#' address client-side so it never enters the DOM - but that needs a Shiny
+#' binding, and this card's content is injected with innerHTML and never bound.
+#' If the client would rather have obfuscation than a working link, that is the
+#' thing to change, not the gate.
+fw_map_detail_html <- function(row, species_tbl, live = FALSE) {
+  esc <- htmltools::htmlEscape
+
+  # A labelled column of photographs for one role. Several species become
+  # several slides behind a pair of arrows; the label under each says which
+  # animal is which, so the pictures are never carrying the identification on
+  # their own.
+  figures <- function(ids, names, role_label) {
+    ids <- fw_popup_parts(ids)
+    names <- fw_popup_parts(names)
+    slides <- if (!length(ids)) {
+      paste0('<div class="fw-popup-fig__slide" data-fw-slide="0">',
+             fw_species_figure(NULL, NA), "</div>")
+    } else {
+      paste0(vapply(seq_along(ids), function(i) {
+        paste0('<div class="fw-popup-fig__slide" data-fw-slide="', i - 1L, '"',
+               if (i > 1L) " hidden" else "", ">",
+               fw_species_figure_for(species_tbl, ids[i], names[i],
+                                     live = live),
+               '<p class="fw-popup-fig__name">', esc(names[i]), "</p>",
+               "</div>")
+      }, character(1)), collapse = "")
+    }
+    paste0(
+      '<div class="fw-popup-fig" data-fw-figure>',
+      '<p class="fw-popup-fig__role">', esc(role_label), "</p>",
+      slides,
+      if (length(ids) > 1L) {
+        paste0(
+          '<div class="fw-popup-fig__nav">',
+          '<button type="button" class="fw-popup-fig__btn" data-fw-step="-1"',
+          ' aria-label="', esc(fw_t("species", "fig_prev")), '">&lsaquo;</button>',
+          '<span class="fw-popup-fig__count" data-fw-count>1 / ',
+          length(ids), "</span>",
+          '<button type="button" class="fw-popup-fig__btn" data-fw-step="1"',
+          ' aria-label="', esc(fw_t("species", "fig_next")), '">&rsaquo;</button>',
+          "</div>"
+        )
+      } else "",
+      "</div>"
+    )
+  }
+
+  # A contact, as a mailto where the address is public and plain text where it
+  # is not. Never an empty link.
+  person <- function(name, email, org) {
+    if (is.na(name) || !nzchar(name)) return(NA_character_)
+    who <- if (!is.na(email) && nzchar(email)) {
+      paste0('<a href="mailto:', esc(email), '">', esc(name), "</a>")
+    } else {
+      esc(name)
+    }
+    if (!is.na(org) && nzchar(org)) paste0(who, ", ", esc(org)) else who
+  }
+
+  methods <- fw_popup_parts(row$method_pairs)
+  outcome <- if (is.na(row$outcome)) "Unknown" else row$outcome
+  area <- if (!is.na(row$area_treated)) {
+    paste(format(row$area_treated, big.mark = ",", trim = TRUE),
+          row$area_unit %|na|% "")
+  } else NA_character_
+
+  # A <template>, NOT a hidden div, and this is not a style preference.
+  # display:none does not stop a browser fetching an <img src>: a hidden div
+  # here meant every hover card quietly pulled up to eight Wikimedia
+  # photographs that nobody was going to look at, which is the exact cost the
+  # hover card exists to avoid. Template content is inert - parsed, never
+  # rendered, nothing fetched - until the script clones it on click.
+  paste0(
+    '<template class="fw-popup__detail">',
+    '<div class="fw-popup-detail">',
+    '<h2 class="fw-popup-detail__title">',
+    esc(row$site_name %|na|% fw_t("species", "unnamed_site")),
+    "</h2>",
+    '<p class="fw-popup-detail__place">',
+    esc(paste(stats::na.omit(c(row$region, row$country)), collapse = ", ")),
+    "</p>",
+
+    # Invasive left, beneficiary right, both labelled.
+    '<div class="fw-popup-detail__figures">',
+    figures(row$inv_ids, row$inv_names, fw_t("species", "p_species")),
+    figures(row$ben_ids, row$ben_names, fw_t("species", "p_beneficiary")),
+    "</div>",
+
+    '<div class="fw-popup-detail__rows">',
+    fw_popup_row(fw_t("species", "p_outcome"), outcome),
+    fw_popup_row(fw_t("species", "p_verified"), row$verification_method),
+    fw_popup_row(fw_t("species", "p_verified_notes"), row$verification_notes),
+    fw_popup_row(fw_t("species", "p_began"),
+                 fw_popup_years(row$start_year, row$end_year)),
+    fw_popup_row(
+      fw_t("species", "p_method"),
+      if (length(methods)) {
+        paste0("<ul class=\"fw-popup__list\"><li>",
+               paste(esc(methods), collapse = "</li><li>"), "</li></ul>")
+      } else NA_character_,
+      html = TRUE
+    ),
+    fw_popup_row(fw_t("species", "p_method_desc"), row$method_description),
+    fw_popup_row(fw_t("species", "p_waterbody"), row$waterbody_type),
+    fw_popup_row(fw_t("species", "p_area"), area),
+    fw_popup_row(fw_t("species", "p_driver"), row$driver),
+    fw_popup_row(fw_t("species", "p_recorded_by"),
+                 person(row$primary_contact_name, row$primary_contact_email,
+                        row$primary_contact_org),
+                 html = TRUE),
+    fw_popup_row(fw_t("species", "p_also"),
+                 person(row$secondary_contact_name,
+                        row$secondary_contact_email,
+                        row$secondary_contact_org),
+                 html = TRUE),
+    fw_popup_row(fw_t("species", "p_reference"), row$reference),
+    # 432 of 914 attempts have a link. Where there is none the reference above
+    # stands on its own rather than a button going nowhere.
+    if (!is.na(row$reference_link) && nzchar(row$reference_link)) {
+      paste0('<p class="fw-popup-detail__link"><a href="',
+             esc(row$reference_link),
+             '" target="_blank" rel="noopener noreferrer">',
+             esc(fw_t("species", "p_read_source")), "</a></p>")
+    } else "",
+    "</div>",
+    "</div>",
+    "</template>"
+  )
+}
+
+#' The popup for one attempt: the hover card with the detail panel inside it
+fw_map_popup <- function(row, species_tbl, live = FALSE) {
+  paste0(fw_map_hover_html(row), fw_map_detail_html(row, species_tbl, live))
 }
 
 # ---- The marker card ---------------------------------------------------------
@@ -245,12 +488,54 @@ function (el, x) {
   var map = this;
   var CLOSE_LABEL = '{{CLOSE}}';
   var CARD_LABEL = '{{LABEL}}';
+  var DETAIL_LABEL = '{{DETAIL}}';
   var OPEN_DELAY = 120;   // long enough that crossing a marker is not opening it
   var SHUT_DELAY = 260;   // long enough to cross the gap into the card
 
   // ONE card for the document. Only one map is ever on screen - they are on
   // different tabs - and a single element stops the listeners below from
   // multiplying every time Shiny re-renders a map.
+  // The detail dialog. One per document, for the same reason as the card.
+  // Built with DOM calls rather than an innerHTML string: this whole script is
+  // an R double-quoted string, so every double quote in it would need escaping
+  // and the markup would stop being readable.
+  var panel = document.getElementById('fw-map-detail');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'fw-map-detail';
+    panel.className = 'fw-map-detail';
+    panel.hidden = true;
+
+    var backdrop = document.createElement('div');
+    backdrop.className = 'fw-map-detail__backdrop';
+    backdrop.setAttribute('data-fw-dismiss', '');
+
+    var dialog = document.createElement('div');
+    dialog.className = 'fw-map-detail__dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-label', DETAIL_LABEL);
+    dialog.setAttribute('tabindex', '-1');
+
+    var panelClose = document.createElement('button');
+    panelClose.type = 'button';
+    panelClose.className = 'fw-map-detail__close';
+    panelClose.setAttribute('aria-label', CLOSE_LABEL);
+    panelClose.setAttribute('data-fw-dismiss', '');
+    panelClose.innerHTML = '&times;';
+
+    var panelInner = document.createElement('div');
+    panelInner.className = 'fw-map-detail__body';
+
+    dialog.appendChild(panelClose);
+    dialog.appendChild(panelInner);
+    panel.appendChild(backdrop);
+    panel.appendChild(dialog);
+    document.body.appendChild(panel);
+  }
+  var panelDialog = panel.querySelector('.fw-map-detail__dialog');
+  var panelBody = panel.querySelector('.fw-map-detail__body');
+
   var card = document.getElementById('fw-map-card');
   if (!card) {
     card = document.createElement('div');
@@ -313,6 +598,75 @@ function (el, x) {
     card.style.visibility = '';
   }
 
+  // ---- The detail panel ----------------------------------------------------
+
+  function panelShut() {
+    if (panel.hidden) return;
+    panel.hidden = true;
+    panelBody.innerHTML = '';
+    // Focus goes back where the reader left it, or the gesture that opened the
+    // panel has quietly moved them to the top of the document.
+    if (panel.fwReturn && panel.fwReturn.focus) {
+      panel.fwReturn.focus({ preventScroll: true });
+    }
+    panel.fwReturn = null;
+  }
+
+  function panelOpen(layer) {
+    if (!layer.fwCard) return;
+    // Parsed out of the STORED STRING, not out of the card's DOM: shut() below
+    // empties the card, so by the time a click is handled the detail markup may
+    // no longer be anywhere on the page.
+    var holder = document.createElement('div');
+    holder.innerHTML = layer.fwCard;
+    var tpl = holder.querySelector('template.fw-popup__detail');
+    if (!tpl) return;
+    // Cloning the template's content is the moment the photographs are asked
+    // for. Until here they are inert markup and no request has been made.
+    var detail = tpl.content.cloneNode(true);
+    shut();
+    panel.fwReturn = document.activeElement;
+    panelBody.innerHTML = '';
+    panelBody.appendChild(detail);
+    panel.hidden = false;
+    panelDialog.scrollTop = 0;
+    panelDialog.focus({ preventScroll: true });
+  }
+
+  // DELEGATED, all of it. The panel's contents are replaced on every open, so a
+  // listener bound to a button inside it would be gone the next time round.
+  if (!panel.fwWired) {
+    panel.fwWired = true;
+
+    panel.addEventListener('click', function (e) {
+      if (e.target.closest('[data-fw-dismiss]')) { panelShut(); return; }
+
+      var btn = e.target.closest('[data-fw-step]');
+      if (!btn) return;
+      var fig = btn.closest('[data-fw-figure]');
+      if (!fig) return;
+      var slides = fig.querySelectorAll('[data-fw-slide]');
+      if (slides.length < 2) return;
+      var at = 0;
+      slides.forEach(function (sl, i) { if (!sl.hidden) at = i; });
+      var next = (at + parseInt(btn.getAttribute('data-fw-step'), 10) +
+                  slides.length) % slides.length;
+      slides.forEach(function (sl, i) { sl.hidden = (i !== next); });
+      var count = fig.querySelector('[data-fw-count]');
+      if (count) count.textContent = (next + 1) + ' / ' + slides.length;
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (panel.hidden) return;
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        // Taken before the card's own Escape handler can act on it, so one
+        // press closes the panel rather than both at once.
+        e.stopPropagation();
+        panelShut();
+      }
+    }, true);
+  }
+
   // Wired once for the life of the page: these listeners are about the card and
   // the window, not about any particular map.
   if (!card.fwWired) {
@@ -349,6 +703,7 @@ function (el, x) {
 
   // A re-render is a new selection; nothing of the last one should still be up.
   shut();
+  panelShut();
 
   function wire(container) {
     container.eachLayer(function (layer) {
@@ -371,14 +726,27 @@ function (el, x) {
       // click on a VECTOR layer fires on the layer AND then on the map, unlike
       // a click on a marker, so without it the map handler below shut the card
       // in the same gesture that opened it and a tap did nothing at all.
+      // A CLICK IS A REQUEST FOR THE WHOLE RECORD, not a second way of getting
+      // the hover card. The flag is not decoration: a click on a VECTOR layer
+      // fires on the layer AND then on the map, unlike a click on a marker, so
+      // without it the map handler below shut the card in the same gesture that
+      // opened it and a tap did nothing at all.
+      //
+      // Touch has no hover, so a tap arrives here too and opens the full
+      // record. That is the right result on a phone, where the hover card can
+      // never be shown at all.
       layer.on('click', function (e) {
         if (e.originalEvent) { e.originalEvent.fwHandled = true; }
-        open(e.target);
+        panelOpen(e.target);
       });
     });
   }
   wire(map);
 
+  // The panel is deliberately NOT closed by panning or zooming. It is a modal
+  // over the page rather than a label pinned to a marker, so it has no position
+  // to drift away from - and a reader who scrolls the record is not asking to
+  // lose it.
   map.on('movestart', shut);
   map.on('zoomstart', shut);
   map.on('click', function (e) {
@@ -402,7 +770,8 @@ fw_map_card_js <- function() {
   }
   js <- gsub("{{CLOSE}}", lit(fw_t("species", "card_close")), FW_MAP_CARD_JS,
              fixed = TRUE)
-  gsub("{{LABEL}}", lit(fw_t("species", "card_label")), js, fixed = TRUE)
+  js <- gsub("{{LABEL}}", lit(fw_t("species", "card_label")), js, fixed = TRUE)
+  gsub("{{DETAIL}}", lit(fw_t("species", "detail_label")), js, fixed = TRUE)
 }
 
 #' Attempt markers, coloured and labelled by outcome

@@ -49,7 +49,13 @@ fw_plotly_style <- function(p, legend = TRUE) {
     margin = list(l = 8, r = 8, t = if (legend) 42 else 8, b = 52),
     hoverlabel = list(font = FW_PLOT_FONT),
     showlegend = legend,
-    legend = list(orientation = "h", y = 1, yanchor = "bottom", x = 0)
+    # traceorder IS NOT REDUNDANT. plotly.js flips its default to "reversed" as
+    # soon as a chart has stacked bars or a filled area, which is every chart
+    # here except the box plot - so the key read Unknown first and Successful
+    # last while the traces were added Successful first. Pinning it makes the
+    # key agree with FW_OUTCOME_LEVELS, which is the one source of that order.
+    legend = list(orientation = "h", y = 1, yanchor = "bottom", x = 0,
+                  traceorder = "normal")
   ) |>
     plotly::config(displayModeBar = FALSE, responsive = TRUE)
 }
@@ -128,8 +134,13 @@ fw_chart_cumulative <- function(sel) {
 #' hundred - there is no suppression threshold, so the number has to be visible
 #' for the reader to make that judgement themselves.
 #'
-#' @param mode "share" for 100% stacked, "count" for absolute stacked
-fw_chart_method <- function(data, sel, mode = c("share", "count")) {
+#' COUNT IS THE DEFAULT. It used to be share. A 100% stacked bar answers "how
+#' often did this work" before the reader has been told how much evidence is
+#' behind it, and a method with three attempts looks exactly as authoritative as
+#' one with five hundred. Absolute counts first, share on request.
+#'
+#' @param mode "count" for absolute stacked, "share" for 100% stacked
+fw_chart_method <- function(data, sel, mode = c("count", "share")) {
   mode <- match.arg(mode)
   me <- data$attempt_method |>
     filter(attempt_id %in% sel$attempt_id) |>
@@ -334,21 +345,156 @@ fw_chart_driver <- function(sel) {
   fw_chart_category(d, "Attempts")
 }
 
-#' The species most often targeted, or most often said to have benefited
+#' One row per (attempt, species) for a role, labelled and with its outcome
 #'
 #' DEDUPED PER ATTEMPT. An attempt listing a species twice must count once, or a
 #' messily recorded row quietly inflates its species up the ranking.
 #'
-#' @param role "invasive" or "beneficiary"
-fw_chart_species <- function(data, sel, role_name = c("invasive", "beneficiary")) {
+#' Pulled out of fw_chart_species() so the photo tiles on the report builder
+#' count the same way the bar chart does. Two joins that are meant to agree and
+#' are written twice are two joins that will eventually disagree.
+#'
+#' @param role_name "invasive" or "beneficiary"
+fw_species_rows <- function(data, sel, role_name = c("invasive", "beneficiary")) {
   role_name <- match.arg(role_name)
   species <- fw_species_label(data$species)
-  d <- data$attempt_species |>
+  data$attempt_species |>
     filter(role == role_name, attempt_id %in% sel$attempt_id) |>
     distinct(attempt_id, species_id) |>
     left_join(select(species, species_id, label), by = "species_id") |>
     left_join(select(sel, attempt_id, outcome), by = "attempt_id") |>
-    filter(!is.na(label)) |>
+    filter(!is.na(label))
+}
+
+#' The top n species for a role, with their outcome split
+#'
+#' NO "OTHER" ROW HERE, unlike fw_chart_category(). This feeds a grid of
+#' photographs, and there is no photograph of "the other 84 species" - the tail
+#' is reported as a count in the block's note instead. Returns species_id too,
+#' because that is what the image cache is keyed on.
+#'
+#' @return a tibble of species_id, label, n and one column per outcome, ordered
+#'   by n descending; zero rows if the role has none in this selection.
+fw_species_top_n <- function(data, sel, role_name, limit = 10L) {
+  d <- fw_species_rows(data, sel, role_name)
+  if (!nrow(d)) return(d[0, ])
+  d$outcome <- as.character(fw_outcome_factor(d$outcome))
+
+  totals <- d |> count(species_id, label, name = "n") |> arrange(desc(n), label)
+  keep <- head(totals, limit)
+
+  splits <- d |>
+    filter(species_id %in% keep$species_id) |>
+    count(species_id, outcome, name = "n_outcome")
+
+  keep |>
+    left_join(
+      splits |>
+        tidyr::pivot_wider(names_from = outcome, values_from = n_outcome,
+                           values_fill = 0L),
+      by = "species_id"
+    ) |>
+    # A level with no rows in this selection still needs its column, because the
+    # tile bar always draws all four segments.
+    (\(x) {
+      for (o in FW_OUTCOME_LEVELS) if (is.null(x[[o]])) x[[o]] <- 0L
+      x
+    })()
+}
+
+#' The species most often targeted, or most often said to have benefited
+#'
+#' @param role_name "invasive" or "beneficiary"
+fw_chart_species <- function(data, sel, role_name = c("invasive", "beneficiary")) {
+  d <- fw_species_rows(data, sel, role_name) |>
     transmute(category = label, outcome)
   fw_chart_category(d, "Attempts", limit = 10L)
+}
+
+# ---- Methods against waterbody -----------------------------------------------
+
+#' Which methods get used in which kind of water
+#'
+#' THE ONE CHART SEGMENTED BY METHOD RATHER THAN OUTCOME. It answers a question
+#' the outcome charts cannot: standing at a lake, what have people actually
+#' reached for? "How the methods compare" says how each method fared overall,
+#' which is not the same thing - draining a pond and draining a river are one
+#' method and two different propositions.
+#'
+#' Colour therefore comes from FW_METHOD_COLOURS, a sequential ramp that is
+#' deliberately nothing like the outcome palette. See the note in config.R.
+#'
+#' Counted once per (attempt, method): an attempt using rotenone twice is one
+#' use of rotenone.
+#'
+#' @param mode "count" for absolute stacked, "share" for 100% stacked
+fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
+  mode <- match.arg(mode)
+  d <- data$attempt_method |>
+    filter(attempt_id %in% sel$attempt_id) |>
+    distinct(attempt_id, method_id) |>
+    left_join(select(data$method, method_id, method_name), by = "method_id") |>
+    left_join(select(sel, attempt_id, waterbody_type), by = "attempt_id") |>
+    filter(!is.na(waterbody_type), !is.na(method_name))
+  if (!nrow(d)) return(NULL)
+
+  # Same contract as fw_chart_category(): keep the top ten kinds of water and
+  # gather the rest into a real bar rather than dropping them, so the reader can
+  # see how much of the picture the named ones cover.
+  wb <- d |> count(waterbody_type, name = "total") |> arrange(desc(total))
+  if (nrow(wb) > 10L) {
+    keep <- wb$waterbody_type[seq_len(10L)]
+    d$waterbody_type <- ifelse(d$waterbody_type %in% keep, d$waterbody_type,
+                               FW_OTHER_LABEL)
+  }
+
+  totals <- d |>
+    count(waterbody_type, name = "total") |>
+    mutate(is_other = waterbody_type == FW_OTHER_LABEL) |>
+    arrange(desc(is_other), total)
+
+  dd <- d |>
+    count(waterbody_type, method_id, method_name, name = "n") |>
+    left_join(select(totals, waterbody_type, total), by = "waterbody_type") |>
+    mutate(share = 100 * n / total,
+           value = if (mode == "share") share else n,
+           label = paste0(waterbody_type, "  (", total, ")"))
+  order_lv <- paste0(totals$waterbody_type, "  (", totals$total, ")")
+
+  # Methods are added in ramp order, so the key reads dark to light rather than
+  # in whatever order the selection happened to produce.
+  method_ids <- intersect(names(FW_METHOD_COLOURS), unique(dd$method_id))
+
+  p <- plotly::plot_ly(height = max(240, 40 * nrow(totals) + 120))
+  for (m in method_ids) {
+    seg <- dd[dd$method_id == m, ]
+    if (!nrow(seg)) next
+    p <- plotly::add_trace(
+      p, data = seg, type = "bar", orientation = "h",
+      y = ~factor(label, levels = order_lv), x = ~value,
+      name = seg$method_name[1],
+      marker = list(color = unname(FW_METHOD_COLOURS[[m]]),
+                    line = list(color = "#ffffff", width = 1)),
+      text = ~ifelse(share >= 9, as.character(n), ""),
+      textposition = "inside", insidetextfont = list(color = "#ffffff"),
+      hovertemplate = paste0("%{y}<br>", seg$method_name[1],
+                             ": %{text} of %{customdata}<extra></extra>"),
+      customdata = ~total
+    )
+  }
+
+  x_axis <- if (mode == "share") {
+    list(title = "Share of uses (%)", range = c(0, 100), ticksuffix = "%",
+         zeroline = FALSE, gridcolor = FW_GRID_COLOUR)
+  } else {
+    list(title = "Times used", zeroline = FALSE, gridcolor = FW_GRID_COLOUR)
+  }
+
+  fw_plotly_style(p) |>
+    plotly::layout(
+      barmode = "stack",
+      uniformtext = list(minsize = 10, mode = "hide"),
+      xaxis = x_axis,
+      yaxis = list(title = "", automargin = TRUE)
+    )
 }

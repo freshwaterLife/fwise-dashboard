@@ -94,6 +94,28 @@ FW_OUTCOME_COLOURS <- c(
   "Unknown"    = unname(FW_PALETTE["unknown"])
 )
 
+# Methods, for the one chart that segments by method rather than by outcome.
+#
+# A SEQUENTIAL RAMP, NOT SEVEN HUES, AND DELIBERATELY NOT THE OUTCOME PALETTE.
+# Every other chart in the app uses colour to mean outcome, so a categorical
+# scale here would put green next to green and invite the reader to carry
+# "successful" across from the chart above. A single-hue ramp reads at a glance
+# as a different kind of scale. The method names are in the key and the totals
+# are on the axis, so the colour is only telling the segments apart.
+#
+# Keyed by method_id because those are fixed (ME01-ME07 in method.csv) and a
+# renamed method must not silently re-colour the chart. Ordered dark to light by
+# how often each method appears in the data.
+FW_METHOD_COLOURS <- c(
+  "ME07" = "#0d3b34",   # Rotenone
+  "ME04" = "#15574d",   # Netting / Trapping
+  "ME02" = "#1f7365",   # Draining
+  "ME03" = "#3c907f",   # Electrofishing
+  "ME01" = "#6aab9c",   # Antimycin-A
+  "ME05" = "#9cc7bb",   # Other chemical
+  "ME06" = "#c7e0d8"    # Other mechanical
+)
+
 # ---- Constants ---------------------------------------------------------------
 
 # Coordinates are shown and stored at six decimal places, roughly 0.1m. More
