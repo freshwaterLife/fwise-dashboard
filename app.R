@@ -13,9 +13,9 @@ library(htmltools)
 # file does, so there is deliberately no sourcing loop here. Adding one would
 # source every module twice.
 #
-# It also means ANY file placed in R/ runs on boot. R/data_prep.R is a build
-# script, so its body is wrapped in a function and only executes when the file is
-# run directly with Rscript. Keep that guard if you add another script here.
+# It also means ANY file placed in R/ runs on boot. Scripts that build or change
+# data therefore live in dev/, never here. If one ever has to sit in R/, guard
+# its body with `if (sys.nframe() == 0L)` so it runs only under Rscript.
 
 # ---- Startup -----------------------------------------------------------------
 

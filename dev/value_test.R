@@ -12,9 +12,7 @@
 # only prove the joins agree with themselves.
 
 suppressPackageStartupMessages(library(shiny))
-for (f in sort(list.files("R", full.names = TRUE), method = "radix")) {
-  if (!grepl("data_prep", f)) source(f)
-}
+for (f in sort(list.files("R", full.names = TRUE), method = "radix")) source(f)
 d  <- fw_load_data()
 m  <- fw_load_metadata()
 ch <- fw_filter_choices(d)
@@ -362,6 +360,61 @@ ok("question list (docx): every required question is present",
    all(vapply(req_labels, grepl, logical(1), q_docx, fixed = TRUE)))
 ok("question list (docx): required questions are tagged",
    lengths(regmatches(q_docx, gregexpr(fw_t("questions", "required_docx"), q_docx, fixed = TRUE))) >= length(required_keys))
+
+# ==============================================================================
+cat("\n-- the map, and place --\n")
+
+# A note with no method reaches the export and the popup as itself.
+orphan_ids <- a$attempt_id[!a$attempt_id %in% am$attempt_id & !is.na(a$method_notes)]
+full_export <- fw_export_frame(d)
+ok("export: a method note with no method still travels",
+   all(!is.na(full_export$method_notes[match(orphan_ids, full_export$attempt_id)])))
+ok("export: and the methods column beside it is NA",
+   all(is.na(full_export$methods[match(orphan_ids, full_export$attempt_id)])))
+mp <- fw_map_points(d, a)
+ok("map: every located attempt is a point", nrow(mp), sum(!is.na(a$latitude) & !is.na(a$longitude)))
+ok("map: the orphan notes reach the popup frame",
+   all(!is.na(mp$method_pairs[match(intersect(orphan_ids, mp$attempt_id), mp$attempt_id)])))
+
+# Cached figures are the figures. Rendering once per species must give the same
+# panel as rendering per marker, or the cache has changed what the reader sees.
+sample_rows <- head(which(!is.na(mp$inv_ids)), 5)
+cache <- fw_map_figure_cache(d, mp[sample_rows, ])
+ok("map: the figure cache holds every species in the sample",
+   all(unique(unlist(lapply(mp$inv_ids[sample_rows], fw_popup_parts))) %in% names(cache)))
+ok("map: a cached detail panel is byte-identical to a fresh one",
+   all(vapply(sample_rows, function(i) identical(
+     fw_map_detail_html(mp[i, ], d$species, figure_cache = cache),
+     fw_map_detail_html(mp[i, ], d$species)), logical(1))))
+
+# The two ways of carrying the record.
+one <- mp[1, ]
+ok("map: an embedded popup carries the detail template",
+   grepl("<template class=\"fw-popup__detail\">", fw_map_popup(one, d$species, detail = "embed"), fixed = TRUE))
+lazy <- fw_map_popup(one, d$species, detail = "lazy")
+ok("map: a lazy popup carries no template", !grepl("<template", lazy, fixed = TRUE))
+ok("map: but does carry the attempt id", grepl(paste0('data-fw-id="', one$attempt_id, '"'), lazy, fixed = TRUE))
+ok("map: lazy popups are a fraction of embedded ones",
+   nchar(lazy) * 3 < nchar(fw_map_popup(one, d$species, detail = "embed")))
+ok("map: lazy markers need somewhere to report a click",
+   inherits(try(fw_add_attempt_markers(leaflet::leaflet(), d, a, detail = "lazy"), silent = TRUE), "try-error"))
+w <- fw_plan_map(d, a[1:20, ], detail = "embed")
+calls <- vapply(w$x$calls, function(x) x$method, character(1))
+ok("map: markers are added with cluster options", "addCircleMarkers" %in% calls &&
+   !is.null(w$x$calls[[which(calls == "addCircleMarkers")]]$args[[which(vapply(w$x$calls[[which(calls == "addCircleMarkers")]]$args, function(z) is.list(z) && !is.null(z$maxClusterRadius), logical(1)))[1]]]))
+
+# Place: the stored geography follows the ISO lookup.
+iso <- fw_read_lookup("lookup_iso3166.csv")
+mi <- match(a$country, iso$country)
+ok("place: every country is in the ISO list", !any(is.na(mi)))
+ok("place: iso3 is the lookup's for every row", all(a$iso3 == iso$iso3[mi]))
+ok("place: continent is the lookup's for every row", all(a$continent == iso$continent[mi]))
+ok("place: no region is itself a country", !any(a$region %in% iso$country))
+ok("place: the lookup gives every country a continent", !any(is.na(iso$continent)))
+ok("place: a row that breaks the rule stops the load",
+   inherits(try(fw_validate_geography(transform(as.data.frame(a)[1, ], continent = "Asia")), silent = TRUE), "try-error"))
+ok("place: a territory filed under its state stops the load",
+   inherits(try(fw_validate_geography(transform(as.data.frame(a)[1, ], country = "United States", region = "Guam", iso3 = "USA", continent = "North America")), silent = TRUE), "try-error"))
 
 # ==============================================================================
 cat("\n-- design values --\n")

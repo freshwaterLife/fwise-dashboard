@@ -226,9 +226,16 @@ rule("Redact Email", "contacts.csv$email_public", n, unique(bad),
      list(src = raw[["Redact Email"]], dst = rep("", n)))
 
 # ---- 5. The two transformations ----------------------------------------------
+# The export files a territory under the state that administers it; the data
+# gives a territory with its own ISO 3166-1 entry its own country, and iso3 and
+# continent follow the country. See fw_validate_geography() in R/data_load.R.
+FW_TERRITORY_COUNTRY <- c("United States (Guam)" = "Guam")
+src_country <- ifelse(raw$Country %in% names(FW_TERRITORY_COUNTRY),
+                      unname(FW_TERRITORY_COUNTRY[raw$Country]), raw$Country)
 rebuilt <- ifelse(is.na(a$region), a$country, paste0(a$country, " (", a$region, ")"))
-bad <- which(!same(raw$Country, rebuilt))
-rule("Country", "country + region", n, bad, list(src = raw$Country, dst = rebuilt))
+bad <- which(!same(src_country, rebuilt))
+rule("Country", "country + region (a territory is its own country)", n, bad,
+     list(src = raw$Country, dst = rebuilt))
 
 expected <- ifelse(raw$System %in% names(FW_REGIME_BY_TYPE),
                    unname(FW_REGIME_BY_TYPE[raw$System]), raw[["System Simple"]])

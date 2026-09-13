@@ -17,16 +17,12 @@ fw_theme <- function() {
   bs_theme(
     version = 5,
 
-    # Type. Ubuntu is registered as a local font so bslib serves the woff2 files
-    # from www/fonts/ rather than reaching for a CDN.
-    base_font = font_collection(
-      font_face(
-        family = "Ubuntu",
-        src = c("url('fonts/ubuntu-400.woff2') format('woff2')"),
-        weight = FW_TYPE$weight_regular, display = "swap"
-      ),
-      "system-ui", "sans-serif"
-    ),
+    # Type. The @font-face rules for Ubuntu live in www/scss/main.scss, whose
+    # relative urls resolve against the served stylesheet and so find
+    # www/fonts/. A font_face() here would be served from bslib's own generated
+    # font.css instead, where the same relative path 404s on every page load -
+    # which is exactly what it did. Name the family; do not declare it twice.
+    base_font = font_collection("Ubuntu", "system-ui", "sans-serif"),
     code_font = font_collection("Ubuntu Mono", "monospace"),
     heading_font = font_collection("Ubuntu", "system-ui", "sans-serif"),
 

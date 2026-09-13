@@ -5,7 +5,7 @@ world evidence base of eradication attempts against freshwater invasive animals,
 built for [Freshwater Life](https://www.freshwaterlife.org). It is an R Shiny
 application that launches publicly in October 2026.
 
-It currently holds **914 eradication attempts** across **29 countries**, going
+It currently holds **914 eradication attempts** across **30 countries**, going
 back to **1934**.
 
 > **This repository holds code only.** The data lives in a separate repository,

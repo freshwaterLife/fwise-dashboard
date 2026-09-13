@@ -456,6 +456,13 @@ fw_client_script <- function() {
       Shiny.addCustomMessageHandler('fw-nav', function (value) {
         Shiny.setInputValue('fw_nav_to', value, { priority: 'event' });
       });
+      // A map record, fetched on click. The card script (R/maps.R) asks for
+      // it with an attempt id; this is the answer arriving. The panel exists
+      // by then, because only a click on a drawn marker can have asked.
+      Shiny.addCustomMessageHandler('fw-map-detail', function (msg) {
+        var panel = document.getElementById('fw-map-detail');
+        if (panel && panel.fwOpenHtml) panel.fwOpenHtml(msg.html);
+      });
       // Bring a block into view by id. The report builder uses this after a
       // build: its results now sit BELOW the questions rather than beside them,
       // so without this the reader presses Build and nothing visibly happens.

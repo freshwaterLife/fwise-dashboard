@@ -128,7 +128,10 @@ FW_COPY <- list(
     basemap_terrain   = "Terrain",
     basemap_satellite = "Satellite",
     year_one  = "year",
-    year_many = "years"
+    year_many = "years",
+    # The title of a marker-sized group at coarse zoom, where the count is not
+    # drawn. {n} is the number of attempts stacked at that point.
+    stack_title = "{n} attempts at this point - zoom in or click to open them"
   ),
 
   # ---- Home ------------------------------------------------------------------

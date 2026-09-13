@@ -208,7 +208,7 @@ fw_map_points <- function(data, sel) {
       organisation
     )
 
-  pts |>
+  out <- pts |>
     dplyr::left_join(role_cols("invasive", "inv"), by = "attempt_id") |>
     dplyr::left_join(role_cols("beneficiary", "ben"), by = "attempt_id") |>
     dplyr::left_join(methods, by = "attempt_id") |>
@@ -226,6 +226,16 @@ fw_map_points <- function(data, sel) {
                     secondary_contact_org = organisation),
       by = "secondary_contact_id"
     )
+
+  # A NOTE WITH NO METHOD STILL SHOWS. Nine attempts record something about the
+  # method - "Piscicide (unspecified)" - and no method, so they have no bridge
+  # row and the join above leaves them blank. The raw cell on the attempt is
+  # the only place the note survives; it is shown on its own, with no method
+  # name in front of it. Same rule as fw_export_frame().
+  orphan <- is.na(out$method_pairs) & !is.na(out$method_notes) & nzchar(out$method_notes)
+  out$method_pairs[orphan] <- gsub(FW_NOTES_SEP, FW_POPUP_SEP,
+                                   out$method_notes[orphan], fixed = TRUE)
+  out
 }
 
 # ---- Popup building ----------------------------------------------------------
@@ -291,7 +301,9 @@ fw_map_hover_html <- function(row) {
   if (is.na(recorded) || !nzchar(recorded)) recorded <- row$reference
 
   paste0(
-    '<div class="fw-popup">',
+    # The id is how a click asks the server for the rest of the record when
+    # the detail is not embedded. See fw_add_attempt_markers().
+    '<div class="fw-popup" data-fw-id="', esc(row$attempt_id), '">',
     '<h3 class="fw-popup__title">',
     esc(row$site_name %|na|% fw_t("species", "unnamed_site")),
     "</h3>",
@@ -325,7 +337,11 @@ fw_map_hover_html <- function(row) {
 #' binding, and this card's content is injected with innerHTML and never bound.
 #' If the client would rather have obfuscation than a working link, that is the
 #' thing to change, not the gate.
-fw_map_detail_html <- function(row, species_tbl, live = FALSE) {
+#'
+#' @param figure_cache an optional named character vector of ready-made figure
+#'   HTML keyed by species_id, from fw_map_figure_cache(). A species found
+#'   there is not rendered again; anything else is built as before.
+fw_map_detail_html <- function(row, species_tbl, live = FALSE, figure_cache = NULL) {
   esc <- htmltools::htmlEscape
 
   # A labelled column of photographs for one role. Several species become
@@ -340,10 +356,13 @@ fw_map_detail_html <- function(row, species_tbl, live = FALSE) {
              fw_species_figure(NULL, NA), "</div>")
     } else {
       paste0(vapply(seq_along(ids), function(i) {
+        fig <- figure_cache[ids[i]]
+        if (is.null(figure_cache) || is.na(fig)) {
+          fig <- fw_species_figure_for(species_tbl, ids[i], names[i], live = live)
+        }
         paste0('<div class="fw-popup-fig__slide" data-fw-slide="', i - 1L, '"',
                if (i > 1L) " hidden" else "", ">",
-               fw_species_figure_for(species_tbl, ids[i], names[i],
-                                     live = live),
+               unname(fig),
                '<p class="fw-popup-fig__name">', esc(names[i]), "</p>",
                "</div>")
       }, character(1)), collapse = "")
@@ -451,9 +470,39 @@ fw_map_detail_html <- function(row, species_tbl, live = FALSE) {
   )
 }
 
-#' The popup for one attempt: the hover card with the detail panel inside it
-fw_map_popup <- function(row, species_tbl, live = FALSE) {
-  paste0(fw_map_hover_html(row), fw_map_detail_html(row, species_tbl, live))
+#' The popup for one attempt: the hover card, with the detail panel inside it
+#' when it is being embedded
+#'
+#' @param detail "embed" puts the whole record in the string, "lazy" sends the
+#'   hover card alone and leaves the record to fw_map_detail_server().
+fw_map_popup <- function(row, species_tbl, live = FALSE,
+                         detail = c("embed", "lazy"), figure_cache = NULL) {
+  detail <- match.arg(detail)
+  hover <- fw_map_hover_html(row)
+  if (detail == "lazy") return(hover)
+  paste0(hover, fw_map_detail_html(row, species_tbl, live, figure_cache = figure_cache))
+}
+
+#' Every species figure a set of markers will need, rendered once each
+#'
+#' THIS IS WHERE THE BUILD TIME WENT. A full build renders 2,646 figures for
+#' 306 distinct species, and each one was an htmltools tag tree rendered from
+#' scratch - four fifths of the 2.6 seconds a 900-marker map took. Rendered
+#' once per species here and handed to fw_map_detail_html() as a lookup.
+#'
+#' The caption is the species label, which is the same string the popup
+#' carries for that id, so a cached figure is identical to a fresh one.
+fw_map_figure_cache <- function(data, pts) {
+  ids <- unique(unlist(lapply(c(pts$inv_ids, pts$ben_ids), fw_popup_parts)))
+  if (!length(ids)) return(character(0))
+  labels <- fw_species_label(data$species)
+  names_for <- labels$label[match(ids, labels$species_id)]
+  stats::setNames(
+    vapply(seq_along(ids), function(i) {
+      fw_species_figure_for(data$species, ids[i], names_for[i], live = FALSE)
+    }, character(1)),
+    ids
+  )
 }
 
 # ---- The marker card ---------------------------------------------------------
@@ -488,6 +537,9 @@ function (el, x) {
   var CLOSE_LABEL = '{{CLOSE}}';
   var CARD_LABEL = '{{LABEL}}';
   var DETAIL_LABEL = '{{DETAIL}}';
+  // The Shiny input a click writes an attempt id into when the record is not
+  // in the marker. Empty in a saved report, where every record is embedded.
+  var DETAIL_INPUT = '{{INPUT}}';
   var OPEN_DELAY = 120;   // long enough that crossing a marker is not opening it
   var SHUT_DELAY = 260;   // long enough to cross the gap into the card
 
@@ -611,25 +663,46 @@ function (el, x) {
     panel.fwReturn = null;
   }
 
-  function panelOpen(layer) {
-    if (!layer.fwCard) return;
-    // Parsed out of the STORED STRING, not out of the card's DOM: shut() below
-    // empties the card, so by the time a click is handled the detail markup may
-    // no longer be anywhere on the page.
+  // Open the panel on the detail template found in a popup string. Returns
+  // false when the string holds no template, which is the lazy case below.
+  function panelOpenHtml(html) {
     var holder = document.createElement('div');
-    holder.innerHTML = layer.fwCard;
+    holder.innerHTML = html;
     var tpl = holder.querySelector('template.fw-popup__detail');
-    if (!tpl) return;
+    if (!tpl) return false;
     // Cloning the template's content is the moment the photographs are asked
     // for. Until here they are inert markup and no request has been made.
     var detail = tpl.content.cloneNode(true);
     shut();
-    panel.fwReturn = document.activeElement;
+    if (!panel.fwReturn) panel.fwReturn = document.activeElement;
     panelBody.innerHTML = '';
     panelBody.appendChild(detail);
     panel.hidden = false;
     panelDialog.scrollTop = 0;
     panelDialog.focus({ preventScroll: true });
+    return true;
+  }
+  // The server's answer to a request arrives through the 'fw-map-detail'
+  // message handler in fw_client_script(), which calls this.
+  panel.fwOpenHtml = panelOpenHtml;
+
+  function panelOpen(layer) {
+    if (!layer.fwCard) return;
+    // Parsed out of the STORED STRING, not out of the card's DOM: shut() below
+    // empties the card, so by the time a click is handled the detail markup may
+    // no longer be anywhere on the page.
+    if (panelOpenHtml(layer.fwCard)) return;
+    // Nothing embedded: ask the server for the record by its id. The focus
+    // to return to is taken now, before the round trip moves it.
+    if (!DETAIL_INPUT || !window.Shiny) return;
+    var holder = document.createElement('div');
+    holder.innerHTML = layer.fwCard;
+    var root = holder.querySelector('[data-fw-id]');
+    if (!root) return;
+    shut();
+    panel.fwReturn = document.activeElement;
+    Shiny.setInputValue(DETAIL_INPUT, root.getAttribute('data-fw-id'),
+                        { priority: 'event' });
   }
 
   // DELEGATED, all of it. The panel's contents are replaced on every open, so a
@@ -704,40 +777,56 @@ function (el, x) {
   shut();
   panelShut();
 
+  // One marker: lift its record off the popup, unbind the popup, and put the
+  // card and the panel on its events instead. Idempotent, because the same
+  // marker announces itself more than once (see wire()).
+  function wireOne(layer) {
+    if (layer.fwWired || !layer.getPopup || !layer.getLatLng) return;
+    var popup = layer.getPopup();
+    if (!popup) return;
+    layer.fwWired = true;
+    layer.fwCard = popup.getContent();
+    layer.unbindPopup();
+    layer.on('mouseover', function (e) {
+      var hovered = e.target;
+      cancel();
+      card.fwTimer = setTimeout(function () { open(hovered); }, OPEN_DELAY);
+    });
+    layer.on('mouseout', function () {
+      cancel();
+      card.fwTimer = setTimeout(shut, SHUT_DELAY);
+    });
+    // A CLICK IS A REQUEST FOR THE WHOLE RECORD, not a second way of getting
+    // the hover card. The flag is not decoration: a click on a VECTOR layer
+    // fires on the layer AND then on the map, unlike a click on a marker, so
+    // without it the map handler below shut the card in the same gesture that
+    // opened it and a tap did nothing at all.
+    //
+    // Touch has no hover, so a tap arrives here too and opens the full
+    // record. That is the right result on a phone, where the hover card can
+    // never be shown at all.
+    layer.on('click', function (e) {
+      if (e.originalEvent) { e.originalEvent.fwHandled = true; }
+      panelOpen(e.target);
+    });
+  }
+
+  // Every marker in a container, now and later. THE LATER IS NOT OPTIONAL:
+  // the cluster group the markers sit in takes single additions in batches on
+  // a timer (Leaflet.markercluster's layer-support build), so when this script
+  // runs the group can still be empty, and a one-off walk wired nothing. Each
+  // group therefore also wires whatever it announces from here on.
   function wire(container) {
     container.eachLayer(function (layer) {
       if (layer.eachLayer) { wire(layer); return; }
-      if (!layer.getPopup || !layer.getLatLng) return;
-      var popup = layer.getPopup();
-      if (!popup) return;
-      layer.fwCard = popup.getContent();
-      layer.unbindPopup();
-      layer.on('mouseover', function (e) {
-        var hovered = e.target;
-        cancel();
-        card.fwTimer = setTimeout(function () { open(hovered); }, OPEN_DELAY);
-      });
-      layer.on('mouseout', function () {
-        cancel();
-        card.fwTimer = setTimeout(shut, SHUT_DELAY);
-      });
-      // Touch has no hover; a tap arrives here. The flag is not decoration: a
-      // click on a VECTOR layer fires on the layer AND then on the map, unlike
-      // a click on a marker, so without it the map handler below shut the card
-      // in the same gesture that opened it and a tap did nothing at all.
-      // A CLICK IS A REQUEST FOR THE WHOLE RECORD, not a second way of getting
-      // the hover card. The flag is not decoration: a click on a VECTOR layer
-      // fires on the layer AND then on the map, unlike a click on a marker, so
-      // without it the map handler below shut the card in the same gesture that
-      // opened it and a tap did nothing at all.
-      //
-      // Touch has no hover, so a tap arrives here too and opens the full
-      // record. That is the right result on a phone, where the hover card can
-      // never be shown at all.
-      layer.on('click', function (e) {
-        if (e.originalEvent) { e.originalEvent.fwHandled = true; }
-        panelOpen(e.target);
-      });
+      wireOne(layer);
+    });
+    if (container.fwListening) return;
+    container.fwListening = true;
+    container.on('layeradd', function (e) {
+      if (!e.layer) return;
+      if (e.layer.eachLayer) { wire(e.layer); return; }
+      wireOne(e.layer);
     });
   }
   wire(map);
@@ -760,7 +849,9 @@ function (el, x) {
 #' A function rather than a constant so the labels are read when a map is drawn
 #' rather than when this file is sourced, which keeps R/ free of load-order
 #' rules between copy.R and here.
-fw_map_card_js <- function() {
+#' @param detail_input the namespaced Shiny input a click writes an attempt id
+#'   into, or NULL when every record is embedded in its marker
+fw_map_card_js <- function(detail_input = NULL) {
   # The labels land inside a single-quoted JavaScript string, so both a
   # backslash and an apostrophe in the copy would break the script.
   lit <- function(x) {
@@ -770,13 +861,101 @@ fw_map_card_js <- function() {
   js <- gsub("{{CLOSE}}", lit(fw_t("species", "card_close")), FW_MAP_CARD_JS,
              fixed = TRUE)
   js <- gsub("{{LABEL}}", lit(fw_t("species", "card_label")), js, fixed = TRUE)
-  gsub("{{DETAIL}}", lit(fw_t("species", "detail_label")), js, fixed = TRUE)
+  js <- gsub("{{DETAIL}}", lit(fw_t("species", "detail_label")), js, fixed = TRUE)
+  gsub("{{INPUT}}", lit(detail_input %||% ""), js, fixed = TRUE)
+}
+
+#' Serve the record behind a marker when it is clicked
+#'
+#' The server half of detail = "lazy" in fw_add_attempt_markers(). The click
+#' arrives in input[[input_name]] as an attempt id, the record is built for
+#' that one attempt - a few milliseconds - and sent back as the same HTML the
+#' embedded mode would have carried, which the card script then opens.
+#'
+#' @param sel a reactive returning the current selection. An id outside it is
+#'   ignored rather than answered, so a stale click after a rebuild cannot show
+#'   a record the reader did not select.
+fw_map_detail_server <- function(input, session, input_name, data, sel) {
+  observeEvent(input[[input_name]], {
+    id <- input[[input_name]]
+    if (!is.character(id) || length(id) != 1) return()
+    s <- sel()
+    row <- s[!is.na(s$attempt_id) & s$attempt_id == id, ]
+    if (!nrow(row)) return()
+    pts <- fw_map_points(data, row)
+    if (!nrow(pts)) return()
+    session$sendCustomMessage(
+      "fw-map-detail",
+      list(html = fw_map_detail_html(pts[1, ], data$species))
+    )
+  })
+}
+
+#' How overlapping markers are grouped
+#'
+#' The numbers live in FW_MAP$cluster (config.R); the reasoning is there too.
+#' The group icon is drawn by .fw-cluster in _components.scss, not the plugin's
+#' default green blob: a marker-sized stack dot at coarse zoom, a counted ring
+#' from the fine zoom up. A cluster object belongs to one zoom level, and that
+#' is what the icon function reads to choose. The legs of a fanned-out group
+#' are the muted ink so they read as chrome rather than as data.
+fw_cluster_options <- function() {
+  cl <- FW_MAP$cluster
+  # The copy lands inside a single-quoted JavaScript string.
+  title <- gsub("'", "\\'", fw_fill(fw_t("maps", "stack_title"), n = "{n}"), fixed = TRUE)
+  leaflet::markerClusterOptions(
+    showCoverageOnHover = FALSE,
+    zoomToBoundsOnClick = TRUE,
+    spiderfyOnMaxZoom = TRUE,
+    spiderfyDistanceMultiplier = 1.5,
+    spiderLegPolylineOptions = list(weight = 1.5, color = FW_COLOURS$ink_muted,
+                                    opacity = 0.6),
+    maxClusterRadius = htmlwidgets::JS(sprintf(
+      "function (zoom) { return zoom >= %d ? %d : 0; }",
+      cl$fine_zoom, cl$fine_radius)),
+    iconCreateFunction = htmlwidgets::JS(sprintf(paste0(
+      "function (c) {",
+      "  var n = c.getChildCount();",
+      "  if (c._zoom >= %d) {",
+      "    return L.divIcon({ html: '<span>' + n + '</span>', className: 'fw-cluster',",
+      "                       iconSize: [%d, %d] });",
+      "  }",
+      "  var title = '%s'.replace('{n}', n);",
+      "  return L.divIcon({ html: '<span title=\"' + title + '\" aria-label=\"' + title + '\"></span>',",
+      "                     className: 'fw-cluster fw-cluster--stack', iconSize: [%d, %d] });",
+      "}"),
+      cl$fine_zoom, cl$icon_size, cl$icon_size, title, cl$stack_size, cl$stack_size))
+  )
 }
 
 #' Attempt markers, coloured and labelled by outcome
 #'
+#' TWO WAYS TO CARRY THE RECORD, and the page and the report need different
+#' ones. "embed" puts every record inside its marker, which is what a saved
+#' HTML report needs because there is no server to ask once the file is on
+#' someone's desk. "lazy" sends only the hover card - about a sixth of the
+#' bytes - and fetches the record on click through fw_map_detail_server(),
+#' which is what the page needs because a 900-marker build was shipping six
+#' megabytes of records that almost nobody would open. Measured: the embedded
+#' payload was 6.2 MB and the detail templates were 4.7 MB of it.
+#'
+#' STACKED MARKERS ARE GROUPED. See FW_MAP$cluster for the rule; in short,
+#' only markers that sit on top of one another group until the reader is
+#' zoomed well in, so the coarse view is still coloured dots.
+#'
 #' @param live whether popups may reach Wikimedia for an uncached species
-fw_add_attempt_markers <- function(map, data, sel, live = FALSE) {
+#' @param detail "embed" or "lazy", as above
+#' @param detail_input the namespaced input id the lazy mode reports clicks
+#'   to. Required for "lazy"; the calling module pairs it with
+#'   fw_map_detail_server().
+fw_add_attempt_markers <- function(map, data, sel, live = FALSE,
+                                   detail = c("embed", "lazy"),
+                                   detail_input = NULL) {
+  detail <- match.arg(detail)
+  if (detail == "lazy" && is.null(detail_input)) {
+    stop("detail = \"lazy\" needs detail_input, the input the map reports clicks to.",
+         call. = FALSE)
+  }
   pts <- fw_map_points(data, sel)
   if (!nrow(pts)) {
     v <- FW_MAP$empty_view
@@ -784,8 +963,10 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE) {
   }
 
   outcome <- ifelse(is.na(pts$outcome), "Unknown", pts$outcome)
+  figure_cache <- if (detail == "embed") fw_map_figure_cache(data, pts) else NULL
   popups <- vapply(seq_len(nrow(pts)), function(i) {
-    fw_map_popup(pts[i, ], data$species, live = live)
+    fw_map_popup(pts[i, ], data$species, live = live, detail = detail,
+                 figure_cache = figure_cache)
   }, character(1))
 
   map |>
@@ -795,6 +976,7 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE) {
       opacity = FW_MAP$marker$opacity, fillOpacity = FW_MAP$marker$fill_opacity,
       color = FW_COLOURS$surface,
       fillColor = unname(FW_OUTCOME_COLOURS[outcome]),
+      clusterOptions = fw_cluster_options(),
       # NO TOOLTIP. There used to be one naming the site and its outcome,
       # because a record you had to click for was no use to somebody scanning
       # the map. The card now opens on hover and says all of that and more, so a
@@ -815,5 +997,5 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE) {
     ) |>
     leaflet::fitBounds(min(pts$longitude), min(pts$latitude),
                        max(pts$longitude), max(pts$latitude)) |>
-    htmlwidgets::onRender(fw_map_card_js())
+    htmlwidgets::onRender(fw_map_card_js(if (detail == "lazy") detail_input))
 }

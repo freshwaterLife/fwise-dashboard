@@ -298,7 +298,14 @@ mod_plan_server <- function(id, data, meta = NULL) {
       )
     })
 
-    output$map <- leaflet::renderLeaflet({ req(built()); fw_plan_map(data, report()$sel) })
+    # detail = "lazy": the map carries the hover card for every marker and
+    # fetches the full record when one is clicked, which is what keeps a
+    # 900-marker build to a fraction of the payload. See fw_add_attempt_markers().
+    output$map <- leaflet::renderLeaflet({
+      req(built())
+      fw_plan_map(data, report()$sel, detail = "lazy", detail_input = ns("map_detail"))
+    })
+    fw_map_detail_server(input, session, "map_detail", data, reactive(report()$sel))
 
     # The mode toggle is the ONE control that redraws without a rebuild. It does
     # not change the selection, only how the same numbers are drawn, so it does
@@ -326,18 +333,27 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
     per_page <- reactive(as.integer(input$table_size %||% FW_PLAN_PAGE_SIZES[1]))
 
-    # A new report, or a bigger page size, can leave the reader on a page that
-    # no longer exists. Clamping beats an empty table with no explanation.
+    # THE PAGE IS STATE THE SERVER OWNS, not something read back off the
+    # buttons. fw_page_numbers() writes the chosen page into input$table_page
+    # with Shiny.setInputValue(), and an input set that way has no binding in
+    # the page for update*Input() or sendInputMessage() to talk to - so the
+    # reset that used to live here was silently ignored, and a rebuild left the
+    # reader on whatever page they had reached in the previous report: "Showing
+    # 11-17 of 17". Same pattern as the contacts directory (mod_networking.R).
+    page <- reactiveVal(1L)
+    observeEvent(input$table_page, {
+      n <- suppressWarnings(as.integer(input$table_page))
+      if (length(n) == 1 && !is.na(n)) page(max(1L, n))
+    })
+    observeEvent(report(), page(1L))
+    observeEvent(input$table_size, page(1L), ignoreInit = TRUE)
+
+    # A bigger page size can still leave the reader past the last page.
+    # Clamping beats an empty table with no explanation.
     table_page <- reactive({
       n_pages <- fw_plan_pages(nrow(report()$export), per_page())
-      min(max(1L, as.integer(input$table_page %||% 1L)), n_pages)
+      min(page(), n_pages)
     })
-
-    observeEvent(report(), updateTextInput(session, "table_page", value = 1L),
-                 ignoreInit = TRUE)
-    observeEvent(input$table_size, {
-      session$sendInputMessage("table_page", list(value = 1L))
-    }, ignoreInit = TRUE)
 
     output$table_body <- renderUI({
       req(built())

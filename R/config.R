@@ -108,8 +108,8 @@ FWISE_DATA_TOKEN <- fw_env("FWISE_DATA_TOKEN", default = NULL)
 #   /some/path       that directory, read as files
 #   https://...      that base URL, read over plain HTTPS with NO credential
 #
-# Point it at the directory holding metadata.json and schema/, not at schema/
-# itself. A trailing slash is tolerated.
+# Point it at the directory holding attempts.csv and metadata.json. A trailing
+# slash is tolerated.
 FWISE_DATA_SOURCE <- fw_env("FWISE_DATA_SOURCE", default = NULL)
 
 # ---- Data visualisation palette ----------------------------------------------
@@ -271,7 +271,24 @@ FW_MAP <- list(
   # The no-JavaScript fallback popup. Kept in step with .fw-map-card's width
   # in _components.scss.
   popup = list(max_width = 320, min_width = 260),
-  legend_opacity = 0.85
+  legend_opacity = 0.85,
+  # STACKED MARKERS. 96 of 911 located attempts share their exact coordinates
+  # with another, and a dot drawn on top of a dot is the only one that can be
+  # reached. So markers are grouped - but only where they genuinely overlap.
+  # Below `fine_zoom` the cluster radius is 0, which Leaflet.markercluster
+  # reads as "identical coordinates only", so the coarse view keeps its
+  # coloured dots and a stack shows as one small counted group. From
+  # `fine_zoom` up, markers within `fine_radius` px of each other group as
+  # well. A click on a group zooms to it, and fans it out once its members
+  # cannot be separated by zooming.
+  #
+  # TWO LOOKS FOR A GROUP. Below `fine_zoom` it is drawn the size of a marker
+  # (`stack_size` px), an indigo dot with a light ring, so it reads as "a stack
+  # here" without shouting over the coloured dots around it - a counted ring at
+  # world zoom piled thirty of them over Norway. From `fine_zoom` up, where the
+  # reader is close enough to want the number, it is a counted ring `icon_size`
+  # px across, wide enough for the 1rem floor.
+  cluster = list(fine_zoom = 13L, fine_radius = 12L, stack_size = 16L, icon_size = 28L)
 )
 
 # Charts.

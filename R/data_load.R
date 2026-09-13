@@ -216,8 +216,60 @@ fw_load_data <- function() {
   contacts <- fw_read_table(FW_CONTACTS_FILE)
 
   fw_validate_files(attempts, species, contacts)
+  fw_validate_geography(attempts)
   tables <- fw_unpack(attempts, species, contacts)
   fw_filter_approved(tables)
+}
+
+#' Stop the load when a row's iso3 or continent disagrees with the ISO lookup
+#'
+#' THE RULE FOR PLACE, in one sentence: `country` is the ISO 3166-1 name of the
+#' country or territory the site is in, and `iso3` and `continent` are
+#' properties of that country and of nothing else.
+#'
+#' Two consequences, both of which the data used to get wrong:
+#'   - a territory with its own ISO entry (Guam, Bermuda, Puerto Rico) is its
+#'     own country, not a region of the state that administers it;
+#'   - a region never moves its country between continents. Hawaii is a state
+#'     of the United States, so it is USA and North America wherever it sits.
+#' `region` is free text within the country - a state, a province, an island
+#' group - and says nothing about the two derived columns.
+#'
+#' dev/qa.R writes iso3 and continent from the lookup at fold time; this is
+#' the check that a hand edit has not undone that. A country the lookup does
+#' not know - one typed in under "Other (specify)" and accepted by the
+#' reviewer - is not checked here; qa.R reports it when the row is folded.
+#'
+#' The lookup is optional (see fw_load_iso), so a checkout without it loads
+#' unchecked rather than failing.
+fw_validate_geography <- function(attempts) {
+  iso <- tryCatch(fw_read_lookup("lookup_iso3166.csv"), error = function(e) NULL)
+  if (is.null(iso)) return(invisible(TRUE))
+
+  m <- match(attempts$country, iso$country)
+  known <- !is.na(m)
+  want_iso3 <- iso$iso3[m]
+  want_cont <- iso$continent[m]
+  differs <- function(have, want) known & !is.na(want) & (is.na(have) | have != want)
+  bad <- differs(attempts$iso3, want_iso3) | differs(attempts$continent, want_cont)
+  # A region that is itself a country in the standard is a territory filed
+  # under its administering state, which is the Guam mistake.
+  bad <- bad | (!is.na(attempts$region) & attempts$region %in% iso$country)
+  if (!any(bad)) return(invisible(TRUE))
+
+  lines <- paste0(
+    attempts$attempt_id[bad], ": ", attempts$country[bad],
+    ifelse(is.na(attempts$region[bad]), "", paste0(" (", attempts$region[bad], ")")),
+    " stored as ", attempts$iso3[bad], " / ", attempts$continent[bad],
+    ", lookup says ", want_iso3[bad], " / ", want_cont[bad]
+  )
+  stop(sum(bad), " row(s) in ", FW_ATTEMPTS_FILE,
+       " disagree with lookup_iso3166.csv on iso3, continent or territory:\n  ",
+       paste(head(lines, 10), collapse = "\n  "),
+       if (sum(bad) > 10) "\n  ...",
+       "\niso3 and continent are properties of the country; a territory with its ",
+       "own ISO entry is its own country. Correct the row, or the lookup.",
+       call. = FALSE)
 }
 
 #' Fail loudly on a file whose columns are not the contract
@@ -712,8 +764,8 @@ fw_load_iso <- function() {
 
 #' Read one lookup file from the data source, or NULL if it is not there
 #'
-#' These sit at the ROOT of the data source, beside metadata.json, rather than
-#' in schema/ - they describe the standard, not this dataset.
+#' These sit at the ROOT of the data source, beside metadata.json and the three
+#' data files - they describe the standard, not this dataset.
 fw_read_lookup <- function(name) {
   path <- fw_data_path(name)
   if (is.null(path)) return(NULL)

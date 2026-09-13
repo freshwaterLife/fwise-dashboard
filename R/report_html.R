@@ -521,8 +521,10 @@ fw_write_html_report <- function(path, data, sel, export, filters,
     if (nrow(sel) > 0) {
       tagList(
         fw_html_block(fw_t("plan", "r_map"), fw_t("plan", "r_map_note")),
+        # detail = "embed": there is no server to ask once the file is saved,
+        # so every record travels inside its marker. See fw_add_attempt_markers().
         div(class = "fw-report__map",
-            as.tags(fw_plan_map(data, sel), standalone = FALSE)),
+            as.tags(fw_plan_map(data, sel, detail = "embed"), standalone = FALSE)),
         p(class = "fw-caption", fw_t("plan", "html_map_note")),
         if (n_no_coords > 0) {
           p(class = "fw-caption",

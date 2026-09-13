@@ -227,8 +227,10 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     output$map <- leaflet::renderLeaflet({
       leaflet::leaflet(options = leaflet::leafletOptions(worldCopyJump = TRUE)) |>
         fw_add_basemaps() |>
-        fw_add_attempt_markers(data, sel())
+        fw_add_attempt_markers(data, sel(), detail = "lazy",
+                               detail_input = ns("map_detail"))
     })
+    fw_map_detail_server(input, session, "map_detail", data, sel)
 
     output$outcomes    <- renderUI(fw_outcome_bars_ui(sel()))
     output$cumulative  <- plotly::renderPlotly(fw_chart_cumulative(sel()))

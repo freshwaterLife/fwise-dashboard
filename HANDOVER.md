@@ -125,14 +125,31 @@ tell the mismatch story it exists to tell. I preferred real data with a stated
 caveat over synthetic numbers that could be mistaken for real. It is isolated
 behind one function so replacing it is a one-line change.
 
-### 5.3 Continent, ISO3 and region are stored, not derived
+### 5.3 Continent, ISO3 and region are stored, derived from the country, and checked
 
-The source export has none of them. They were derived once, by the migration,
-keyed on the raw country string so each territory took its **own** continent
-rather than inheriting the sovereign state's - `United States (Guam)` is Oceania,
-not North America - and are now ordinary columns of `attempts.csv`. Stored
-rather than derived at load so the Guam decision survives and a reviewer can see
-and correct the value. See 5.27.
+The source export has none of them. They are ordinary columns of `attempts.csv`
+now, and they follow one rule, enforced at every load by
+`fw_validate_geography()` in `R/data_load.R`:
+
+- `country` is the ISO 3166-1 name of the country or territory the site is in.
+  A territory with its own ISO entry is **its own country**: the export's
+  `United States (Guam)` is stored as country `Guam`, iso3 `GUM`, Oceania.
+- `iso3` and `continent` are properties of the country and of nothing else.
+  Hawaii is a state of the United States, so its rows are `USA` and North
+  America wherever they sit on the globe. The earlier build filed Hawaii under
+  Oceania and Guam under the United States, which was two rules at once.
+- `region` is free text within the country - a state, a province, an island
+  group - and never moves a row between countries or continents.
+
+`dev/qa.R` writes `iso3` and `continent` from `lookup_iso3166.csv` when a row is
+folded in, and refuses a row whose region is itself a country in the standard.
+The load stops on any stored row that disagrees with the lookup, naming it. A
+country the lookup does not know ("Other (specify)") is left to the reviewer.
+
+The lookup itself was rebuilt on 13 September 2026: the builder had read the UN
+sub-region column instead of the intermediate region, which left fifty
+countries - Mexico and all of South America among them - with no continent.
+See 5.27.
 
 ### 5.4 An extra colour token, and the brand teal restricted
 
@@ -204,6 +221,30 @@ Greenland and Canada shout and Africa and Indonesia whisper, which inverts the
 gap story the landing page exists to tell. When the burden layer arrives, draw
 it in Equal Earth from a countries GeoJSON rather than adding a choropleth to
 the existing tile maps.
+
+### 5.28 Stacked markers are grouped, and the record is fetched on click
+
+Two changes to the attempt maps on 13 September 2026, both measured first.
+
+**Grouping.** 96 of the 911 located attempts share their exact coordinates with
+another, and only the top dot of a stack could ever be hovered or clicked. The
+markers now go through Leaflet.markercluster, but with the radius set to zero
+until the reader is zoomed well in (`FW_MAP$cluster` in `R/config.R`), which the
+plugin reads as "group identical coordinates only". So the coarse view is still
+coloured dots; a stack shows as a marker-sized indigo dot with its count in
+its title, because a counted ring at world zoom piled thirty of them over
+Norway; a click on it zooms in, and fans the members out once zooming cannot
+separate them. From zoom 13 up, markers within a marker's width of each other
+group too, and a group is drawn as a counted ring.
+
+**The record on click.** A full build was sending 6.2 MB over the websocket, of
+which 4.7 MB was the detail panel of every marker, and the server spent 2.6 s
+rendering species figures for it - 2,646 figures for 306 species. Two fixes:
+figures are rendered once per species (`fw_map_figure_cache()`), and the page
+now sends only the hover card and fetches the record when a marker is clicked
+(`detail = "lazy"` in `fw_add_attempt_markers()`, answered by
+`fw_map_detail_server()`). The HTML report still embeds every record, because a
+saved file has no server to ask.
 
 ### 5.6 The footer is two tiers, and the navbar stays light
 

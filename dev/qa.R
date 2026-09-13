@@ -319,11 +319,21 @@ left <- review[!take & review$status == "pending", ]
 
 if (nrow(folded)) {
   if (!is.null(iso)) {
+    # DERIVED, NOT COALESCED. iso3 and continent are properties of the country
+    # (fw_validate_geography() in R/data_load.R), so whatever the reviewer left
+    # in those two columns is replaced by the lookup's value wherever the
+    # country is known, and left as reviewed - and reported - where it is not.
     m <- match(folded$country, iso$country)
-    folded$iso3 <- coalesce(folded$iso3, iso$iso3[m])
-    folded$continent <- coalesce(folded$continent, iso$continent[m])
-    if (any(is.na(folded$iso3))) message("  ! no ISO match for country: ",
-                                         paste(unique(folded$country[is.na(folded$iso3)]), collapse = ", "))
+    known <- !is.na(m)
+    folded$iso3[known] <- iso$iso3[m[known]]
+    folded$continent[known] <- iso$continent[m[known]]
+    if (any(!known)) message("  ! country not in the ISO list, iso3/continent left as reviewed: ",
+                             paste(unique(folded$country[!known]), collapse = ", "))
+    # A region that is itself a country in the standard is a territory filed
+    # under its administering state. The app refuses to load that row.
+    terr <- !is.na(folded$region) & folded$region %in% iso$country
+    if (any(terr)) stop("Region is a country in its own right - store it as the country: ",
+                        paste(unique(folded$region[terr]), collapse = ", "), call. = FALSE)
   }
   folded$last_updated <- today
   # Nothing goes into attempts.csv that would stop the app at its next load.

@@ -146,10 +146,13 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
 #'
 #' Basemaps, markers and popups all come from R/maps.R, so this map and the
 #' dashboard's are the same map with a different selection in it.
-fw_plan_map <- function(data, sel) {
+#'
+#' @param detail,detail_input passed to fw_add_attempt_markers(): the page
+#'   fetches each record on click, the HTML report carries them all.
+fw_plan_map <- function(data, sel, detail = c("embed", "lazy"), detail_input = NULL) {
   leaflet::leaflet(options = leaflet::leafletOptions(worldCopyJump = TRUE)) |>
     fw_add_basemaps() |>
-    fw_add_attempt_markers(data, sel)
+    fw_add_attempt_markers(data, sel, detail = detail, detail_input = detail_input)
 }
 
 # ---- Table -------------------------------------------------------------------

@@ -1160,6 +1160,33 @@
 // Maps size to the viewport, not to a fixed box. The height lives here rather
 // than on leafletOutput() because leaflet validates its height argument through
 // htmltools::validateCssUnit(), which rejects clamp(). See fw_map_output().
+// A group of markers that sit on top of one another - see FW_MAP$cluster in
+// R/config.R for when markers group and which of these two looks it gets.
+// Zoomed in, a counted ring: the number is persistent text, so it sits at the
+// 1rem floor and the ring is sized to hold it. Zoomed out, a marker-sized
+// indigo dot - the only colour on the map that is not an outcome - whose count
+// travels in its title. The outcome colours come back when a group is opened.
+.fw-cluster {
+  display: grid;
+  place-items: center;
+  border-radius: $fw-radius-round;
+  background: $fw-surface;
+  border: 2px solid $fw-ink;
+  box-shadow: $fw-shadow-card;
+  color: $fw-ink;
+  font-family: $fw-font-mono;
+  font-size: $fw-size-min;
+  font-weight: $fw-weight-bold;
+  line-height: 1;
+  cursor: pointer;
+
+  &--stack {
+    background: $fw-ink;
+    border: 1.5px solid $fw-surface;
+    box-shadow: none;
+  }
+}
+
 .fw-map {
   height: clamp(320px, 55vh, 560px);
   width: 100%;

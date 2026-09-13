@@ -144,6 +144,16 @@ fw_export_frame <- function(data, attempt_ids = NULL) {
       method_notes        = fw_collapse(me, "method_notes", ids)
     )
 
+  # A NOTE WITH NO METHOD STILL TRAVELS. Nine attempts in the source record
+  # something about the method - "Piscicide (unspecified)", "Chemical" - and no
+  # method at all. They have no bridge row, so the collapse above leaves them
+  # blank and the only copy of the note is the raw cell on the attempt. It goes
+  # out as it stands, with `methods` left NA beside it, because a blank here
+  # would be a value the client's export has and ours does not.
+  no_method <- !out$attempt_id %in% me$attempt_id
+  raw_notes <- a$method_notes[match(out$attempt_id[no_method], a$attempt_id)]
+  out$method_notes[no_method] <- gsub(FW_NOTES_SEP, FW_MULTI_SEP, raw_notes, fixed = TRUE)
+
   out <- bind_cols(out, as_tibble(c(slot("primary_contact_id",   "primary_contact"),
                                     slot("secondary_contact_id", "secondary_contact"))))
 

@@ -7,7 +7,7 @@
 # Exits non-zero on any failure, so it is usable from CI or a pre-commit hook.
 
 library(shiny)
-for (f in list.files("R", full.names = TRUE)) if (!grepl("data_prep", f)) source(f)
+for (f in sort(list.files("R", full.names = TRUE), method = "radix")) source(f)
 d <- fw_load_data(); m <- fw_load_metadata(); ch <- fw_filter_choices(d)
 
 failures <- 0L
