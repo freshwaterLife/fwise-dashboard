@@ -219,6 +219,23 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   session$setInputs(method_mode = "count")
   ok("the method chart follows the reader's toggle",
      grepl("Attempts", fw_html_read_text(output$download_html), fixed = TRUE), TRUE)
+  # The waterbody chart has its OWN toggle, and the document follows each
+  # independently: share below, count above, in the same file.
+  session$setInputs(method_wb_mode = "share")
+  doc2 <- fw_html_read_text(output$download_html)
+  ok("the waterbody chart follows its own toggle",
+     grepl(fw_t("charts", "x_share_uses"), doc2, fixed = TRUE), TRUE)
+  ok("and the method chart above it stays on count",
+     grepl(fw_t("charts", "x_attempts"), doc2, fixed = TRUE) &&
+       !grepl(fw_t("charts", "x_share"), doc2, fixed = TRUE), TRUE)
+  # The caption naming attempts with no method, recomputed in base R. Present
+  # with the right number when there are any, absent when there are none.
+  n_no_method <- sum(!report()$sel$attempt_id %in% d$attempt_method$attempt_id)
+  ok(sprintf("the no-method caption is %s (%d such attempts)",
+             if (n_no_method > 0) "present" else "absent", n_no_method),
+     grepl(fw_fill(fw_t("plan", "r_method_missing"), n = fw_fmt_num(n_no_method)),
+           doc2, fixed = TRUE),
+     n_no_method > 0)
 })
 
 cat("\n")

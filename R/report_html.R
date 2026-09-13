@@ -461,6 +461,8 @@ fw_html_figure <- function(title, note, widget, extra = NULL) {
 #' @param meta        the release metadata, for provenance
 #' @param method_mode "share" or "count" - whichever the reader is looking at,
 #'   so the document matches the screen rather than re-deciding for them
+#' @param method_wb_mode the same for the methods-by-waterbody chart, which has
+#'   its own toggle because it counts uses rather than attempts
 #'
 #' EVERY PIECE OF TEXT COMES FROM THE SAME PLACE AS THE PAGE. The headings, the
 #' notes and the caveats are read from FW_COPY and fw_caveats() rather than
@@ -468,7 +470,8 @@ fw_html_figure <- function(title, note, widget, extra = NULL) {
 #' turns up in an inbox six months later has to carry its own qualifications,
 #' and two copies of a caveat are two caveats that can disagree.
 fw_write_html_report <- function(path, data, sel, export, filters,
-                                 meta = NULL, method_mode = "count") {
+                                 meta = NULL, method_mode = "count",
+                                 method_wb_mode = "count") {
   dir <- tempfile("fw-html-"); dir.create(dir)
   on.exit(unlink(dir, recursive = TRUE), add = TRUE)
 
@@ -476,6 +479,7 @@ fw_write_html_report <- function(path, data, sel, export, filters,
   title <- fw_t("plan", "report_title")
   s <- fw_plan_summary(data, sel)
   n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
+  n_no_method <- fw_n_no_method(data, sel)
   n_duration <- sum(!is.na(sel$duration_days) & sel$duration_days > 0)
   n_invasive <- dplyr::n_distinct(fw_species_rows(data, sel, "invasive")$species_id)
   n_beneficiary <- dplyr::n_distinct(
@@ -545,10 +549,15 @@ fw_write_html_report <- function(path, data, sel, export, filters,
                    fw_chart_waterbody(sel)),
 
     fw_html_figure(fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
-                   fw_chart_method(data, sel, mode = method_mode)),
+                   fw_chart_method(data, sel, mode = method_mode),
+                   extra = if (n_no_method > 0) {
+                     p(class = "fw-caption",
+                       fw_fill(fw_t("plan", "r_method_missing"),
+                               n = fw_fmt_num(n_no_method)))
+                   }),
 
     fw_html_figure(fw_t("plan", "r_method_wb"), fw_t("plan", "r_method_wb_note"),
-                   fw_chart_method_waterbody(data, sel, mode = method_mode)),
+                   fw_chart_method_waterbody(data, sel, mode = method_wb_mode)),
 
     # The species tiles are HTML rather than plotly, so they go through
     # fw_html_block() like the outcome bars do. Built ONCE above and tested for

@@ -76,6 +76,19 @@ fw_plotly_style <- function(p, legend = TRUE) {
     plotly::config(displayModeBar = FALSE, responsive = TRUE)
 }
 
+#' A chart, or a sentence saying there is none
+#'
+#' Every builder below returns NULL when the selection gives it nothing to
+#' draw, and renderPlotly(NULL) leaves a blank space under the block's heading -
+#' which reads as a chart that failed to load. Shiny's validation message lands
+#' in the output's own slot, so this needs no second output and no second id.
+#' The HTML report does not use it: fw_html_figure() skips a NULL widget,
+#' heading and all.
+fw_chart_or_empty <- function(p) {
+  shiny::validate(shiny::need(!is.null(p), fw_t("charts", "empty")))
+  p
+}
+
 #' Outcome as a factor with every level present, missing read as Unknown
 #'
 #' A level with no rows still appears, at zero. Dropping it would let a slice
@@ -196,9 +209,12 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
       # four Wong fills is dark enough to carry white numerals.
       insidetextfont = list(color = unname(FW_OUTCOME_LABEL_INK[[o]]),
                             family = font$family, size = font$size),
-      hovertemplate = paste0("%{y}<br>", o, ": %{text}", fw_t("charts", "hover_of"),
-                             "%{customdata}<extra></extra>"),
-      customdata = ~total
+      # THE HOVER HAS ITS OWN COPY OF THE COUNT. It used to read %{text}, which
+      # is the in-bar label above - and that label is blanked under the share
+      # floor, so exactly the segments a reader hovers to find out about were
+      # the ones that showed "Unknown:  of 567". customdata is never blanked.
+      hovertemplate = paste0("%{y}<br>", o, ": %{customdata}<extra></extra>"),
+      customdata = ~paste0(n, fw_t("charts", "hover_of"), total)
     )
   }
 
@@ -528,10 +544,10 @@ fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
       # FW_METHOD_LABEL_INK in config.R.
       insidetextfont = list(color = unname(FW_METHOD_LABEL_INK[[m]]),
                             family = font$family, size = font$size),
-      hovertemplate = paste0("%{y}<br>", seg$method_name[1], ": %{text}",
-                             fw_t("charts", "hover_of"),
-                             "%{customdata}<extra></extra>"),
-      customdata = ~total
+      # Own copy of the count, not %{text}: see fw_chart_method().
+      hovertemplate = paste0("%{y}<br>", seg$method_name[1],
+                             ": %{customdata}<extra></extra>"),
+      customdata = ~paste0(n, fw_t("charts", "hover_of"), total)
     )
   }
 

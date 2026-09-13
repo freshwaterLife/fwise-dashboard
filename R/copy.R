@@ -116,7 +116,9 @@ FW_COPY <- list(
     other         = "Other",
     hover_by      = "By ",
     hover_days    = " days",
-    hover_of      = " of "
+    hover_of      = " of ",
+    # Shown in a chart's own slot when the selection gives it nothing to draw.
+    empty         = "Nothing to draw for this selection."
   ),
 
   # ---- Maps ----------------------------------------------------------------------
@@ -462,11 +464,15 @@ FW_COPY <- list(
     r_method_mode  = "Show",
     r_method_share = "Share of attempts",
     r_method_count = "Number of attempts",
+    r_method_missing = "{n} of these attempts have no method recorded and are not in the two method charts.",
 
     r_method_wb  = "Methods used within each kind of waterbody",
     r_method_wb_note = paste(
       "The methods used in each kind of waterbody, counted once per attempt."
     ),
+    # Uses, not attempts: an attempt with two methods is two uses here.
+    r_method_wb_share = "Share of uses",
+    r_method_wb_count = "Number of uses",
 
     # ---- The species tiles ----------------------------------------------------
     r_tile_attempt  = "attempt",

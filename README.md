@@ -486,9 +486,10 @@ and the copy downloaded beside it are identical. Both are carried as base64 in
 inert `<script type="application/base64">` elements and handed out as Blobs, which
 is the route that works from a `file://` URL and offline.
 
-**What you see is what you get.** The method chart has a share/count toggle, and
-`input$method_mode` travels into the download, so the document shows whichever
-mode the reader is looking at rather than re-deciding for them. A chart that had
+**What you see is what you get.** Each of the two method charts has its own
+share/count toggle, and `input$method_mode` and `input$method_wb_mode` travel
+into the download, so the document shows whichever mode the reader is looking at
+rather than re-deciding for them. A chart that had
 too little data to draw returns `NULL` and is skipped, heading and all.
 
 Two things to know before editing:

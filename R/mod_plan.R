@@ -128,6 +128,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
       s <- fw_plan_summary(data, r$sel)
       n_no_coords <- sum(is.na(r$sel$latitude) | is.na(r$sel$longitude))
+      n_no_method <- fw_n_no_method(data, r$sel)
       n_duration <- sum(!is.na(r$sel$duration_days) & r$sel$duration_days > 0)
       # How many distinct species of each role are in the selection. The tiles
       # show ten; the note has to say what the ten are ten OF, or a reader takes
@@ -182,28 +183,29 @@ mod_plan_server <- function(id, data, meta = NULL) {
             # One chart, two questions. "Count" answers how much evidence stands
             # behind a method; "share" answers how often it worked. Count leads,
             # so nobody reads a share off three attempts as a success rate.
-            div(
-              class = "fw-segmented",
-              radioButtons(
-                ns("method_mode"), label = fw_t("plan", "r_method_mode"),
-                choices = stats::setNames(
-                  c("count", "share"),
-                  c(fw_t("plan", "r_method_count"), fw_t("plan", "r_method_share"))
-                ),
-                selected = "count", inline = TRUE
-              )
-            ),
-            plotly::plotlyOutput(ns("methods"), height = "auto")
+            fw_mode_toggle(ns("method_mode"),
+                           fw_t("plan", "r_method_count"),
+                           fw_t("plan", "r_method_share")),
+            plotly::plotlyOutput(ns("methods"), height = "auto"),
+            if (n_no_method > 0) {
+              p(class = "fw-caption",
+                fw_fill(fw_t("plan", "r_method_missing"), n = fw_fmt_num(n_no_method)))
+            }
           )
         ),
 
-        # Segmented by METHOD, not by outcome, and on its own colour scale. The
-        # toggle above drives this too: it is the same question asked of the
-        # same numbers, so two separate controls would be a distinction the
-        # reader has to work out for themselves.
+        # Segmented by METHOD, not by outcome, and on its own colour scale. ITS
+        # OWN TOGGLE, because its denominator is different: a bar here is
+        # uses (one per attempt-method pair), not attempts, so the control
+        # says "uses" and switches this chart alone.
         fw_plan_block(
           fw_t("plan", "r_method_wb"), fw_t("plan", "r_method_wb_note"),
-          plotly::plotlyOutput(ns("chart_method_waterbody"), height = "auto")
+          tagList(
+            fw_mode_toggle(ns("method_wb_mode"),
+                           fw_t("plan", "r_method_wb_count"),
+                           fw_t("plan", "r_method_wb_share")),
+            plotly::plotlyOutput(ns("chart_method_waterbody"), height = "auto")
+          )
         ),
 
         fw_plan_block(
@@ -312,18 +314,23 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # not undermine the deliberate build step above.
     output$methods <- plotly::renderPlotly({
       req(built())
-      fw_chart_method(data, report()$sel, mode = input$method_mode %||% "count")
+      fw_chart_or_empty(
+        fw_chart_method(data, report()$sel, mode = input$method_mode %||% "count"))
     })
-    # Same toggle, same reason: it redraws the same numbers a different way and
-    # does not change the selection.
+    # Its own toggle, same reason: it redraws the same numbers a different way
+    # and does not change the selection.
     output$chart_method_waterbody <- plotly::renderPlotly({
       req(built())
-      fw_chart_method_waterbody(data, report()$sel,
-                                mode = input$method_mode %||% "count")
+      fw_chart_or_empty(
+        fw_chart_method_waterbody(data, report()$sel,
+                                  mode = input$method_wb_mode %||% "count"))
     })
-    output$chart_waterbody <- plotly::renderPlotly({ req(built()); fw_chart_waterbody(report()$sel) })
-    output$duration   <- plotly::renderPlotly({ req(built()); fw_chart_duration(data, report()$sel) })
-    output$cumulative <- plotly::renderPlotly({ req(built()); fw_chart_cumulative(report()$sel) })
+    output$chart_waterbody <- plotly::renderPlotly({
+      req(built()); fw_chart_or_empty(fw_chart_waterbody(report()$sel)) })
+    output$duration   <- plotly::renderPlotly({
+      req(built()); fw_chart_or_empty(fw_chart_duration(data, report()$sel)) })
+    output$cumulative <- plotly::renderPlotly({
+      req(built()); fw_chart_or_empty(fw_chart_cumulative(report()$sel)) })
 
     # ---- The results table's paging -----------------------------------------
     #
@@ -392,8 +399,8 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # report carries the plotly figures and the leaflet map as themselves, so
     # the server builds the whole file on its own.
     #
-    # method_mode travels with it, so the document shows the method chart in
-    # whichever mode the reader is looking at rather than re-deciding for them.
+    # Both mode toggles travel with it, so the document shows each method chart
+    # in whichever mode the reader is looking at rather than re-deciding for them.
     output$download_html <- downloadHandler(
       filename = function() fw_html_filename(),
       content = function(file) {
@@ -401,7 +408,8 @@ mod_plan_server <- function(id, data, meta = NULL) {
         fw_write_html_report(
           path = file, data = data, sel = r$sel, export = r$export,
           filters = r$filters, meta = meta,
-          method_mode = input$method_mode %||% "count"
+          method_mode = input$method_mode %||% "count",
+          method_wb_mode = input$method_wb_mode %||% "count"
         )
       }
     )
@@ -421,6 +429,35 @@ fw_plan_block <- function(title, note, content) {
     if (!is.null(note)) p(class = "fw-plan__note", note),
     content
   )
+}
+
+#' A count/share switch for one chart
+#'
+#' A radio group drawn as a row of buttons (see .fw-segmented in
+#' _components.scss). Two of these exist and they used to be written out twice,
+#' and the two copies disagreed on which option came first and which was
+#' selected. Here there is no argument for either: COUNT LEADS AND IS SELECTED,
+#' because a 100% bar answers "how often did this work" before the reader has
+#' been told how much evidence is behind it. The labels are the only thing a
+#' caller chooses, because the two charts count different things.
+fw_mode_toggle <- function(id, count_label, share_label) {
+  div(
+    class = "fw-segmented",
+    radioButtons(
+      id, label = fw_t("plan", "r_method_mode"),
+      choices = stats::setNames(c("count", "share"), c(count_label, share_label)),
+      selected = "count", inline = TRUE
+    )
+  )
+}
+
+#' How many of these attempts have no method recorded
+#'
+#' The two method charts draw from attempt_method, so an attempt with no row
+#' there is simply absent from both. The caption under the chart says how many,
+#' and the report's copy of it comes from this same function.
+fw_n_no_method <- function(data, sel) {
+  sum(!sel$attempt_id %in% data$attempt_method$attempt_id)
 }
 
 #' Built, but nothing matched

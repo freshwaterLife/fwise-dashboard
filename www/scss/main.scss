@@ -165,6 +165,15 @@ small, .small, .fw-caption {
   color: $fw-ink-muted;
 }
 
+// A chart's "nothing to draw" line. Shiny puts a validation message in the
+// output's own slot (see fw_chart_or_empty() in charts.R); styled as a caption
+// rather than left to Shiny's grey default, which is under the floor.
+.shiny-output-error-validation {
+  font-size: $fw-size-caption;
+  color: $fw-ink-muted;
+  padding-block: $fw-space-2;
+}
+
 // ---- Focus -----------------------------------------------------------------
 // The browser default is replaced, never merely removed. 3px at an offset, in a
 // colour verified at 3:1 against both the page and card backgrounds.

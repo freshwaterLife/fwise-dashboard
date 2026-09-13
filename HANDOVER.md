@@ -374,9 +374,9 @@ What follows from the change, all of it a gain rather than a trade:
 - **The data travels inside the report** - a CSV and the full four-sheet
   workbook, the latter built by the same `fw_write_workbook()` the spreadsheet
   button serves.
-- **What you see is what you get.** `input$method_mode` travels into the
-  download, so the method chart appears in whichever mode the reader is looking
-  at.
+- **What you see is what you get.** `input$method_mode` and
+  `input$method_wb_mode` travel into the download, so each method chart appears
+  in whichever mode the reader is looking at.
 
 Two traps that cost real time, both now guarded in code and in `dev/plan_test.R`:
 

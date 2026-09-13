@@ -176,12 +176,36 @@ for (t in tr) {
   for (i in seq_along(t$y)) {
     mname <- label_name(t$y[i])
     if (sum(me$method == mname & me$outcome == t$name) != t$x[i]) mism <- mism + 1L
-    share <- 100 * t$x[i] / t$customdata[i]
+    share <- 100 * t$x[i] / label_n(t$y[i])
     if ((t$text[i] == "") != (share < FW_CHART$label_min_share)) hidden_ok <- FALSE
   }
 }
 ok("method: every segment is the direct count", mism, 0L)
 ok("method: in-bar count hidden exactly under the share floor", hidden_ok)
+# THE HOVER, in both modes. It once read the in-bar label, which is blank under
+# the share floor, so the narrow segments - the ones a reader hovers to find
+# out about - said "Unknown:  of 567". The count and the total are recomputed
+# here and the hover string has to carry both, hidden label or not.
+hover_of <- fw_t("charts", "hover_of")
+hover_want <- function(t, i, rows, group, name_of) {
+  mname <- label_name(t$y[i])
+  paste0(sum(group == mname & name_of == t$name), hover_of, sum(group == mname))
+}
+for (mode in c("count", "share")) {
+  tr <- traces(fw_chart_method(d, all_sel, mode))
+  all_ok <- TRUE; hidden_ok <- TRUE; n_hidden <- 0L
+  for (t in tr) for (i in seq_along(t$y)) {
+    want <- hover_want(t, i, me, me$method, me$outcome)
+    if (t$customdata[i] != want) all_ok <- FALSE
+    if (t$text[i] == "") { n_hidden <- n_hidden + 1L; if (t$customdata[i] != want) hidden_ok <- FALSE }
+    # plotly_build() repeats the template per point; one is enough to read.
+    if (!grepl("%{customdata}", t$hovertemplate[1], fixed = TRUE) ||
+        grepl("%{text}", t$hovertemplate[1], fixed = TRUE)) all_ok <- FALSE
+  }
+  ok(sprintf("method (%s): every hover reads 'n of total'", mode), all_ok)
+  ok(sprintf("method (%s): the %d hidden-label segments still hover a count", mode, n_hidden),
+     hidden_ok && n_hidden > 0L)
+}
 labels <- unique(unlist(lapply(tr, function(t) as.character(t$y))))
 ok("method: the (n) in each label is the method total",
    all(vapply(labels, function(l) label_n(l) == sum(me$method == label_name(l)), logical(1))))
@@ -245,6 +269,23 @@ tr_share <- traces(fw_chart_method_waterbody(d, all_sel, "share"))
 sums <- tapply(unlist(lapply(tr_share, `[[`, "x")),
                unlist(lapply(tr_share, function(t) as.character(t$y))), sum)
 ok("method x water: shares sum to 100 per kind of water", all(abs(sums - 100) < 1e-9))
+for (mode in c("count", "share")) {
+  tr <- traces(fw_chart_method_waterbody(d, all_sel, mode))
+  all_ok <- TRUE; hidden_ok <- TRUE; n_hidden <- 0L
+  for (t in tr) for (i in seq_along(t$y)) {
+    want <- hover_want(t, i, mw, mw$wb, mw$method)
+    if (t$customdata[i] != want) all_ok <- FALSE
+    if (t$text[i] == "") { n_hidden <- n_hidden + 1L; if (t$customdata[i] != want) hidden_ok <- FALSE }
+    if (grepl("%{text}", t$hovertemplate[1], fixed = TRUE)) all_ok <- FALSE
+  }
+  ok(sprintf("method x water (%s): every hover reads 'n of total'", mode), all_ok)
+  ok(sprintf("method x water (%s): the %d hidden-label segments still hover a count", mode, n_hidden),
+     hidden_ok && n_hidden > 0L)
+}
+# The caption under the method chart: attempts with no method row at all.
+ok("method: the no-method caption count",
+   fw_n_no_method(d, all_sel),
+   sum(!as.character(all_sel$attempt_id) %in% as.character(am$attempt_id)))
 
 # A slice with a missing outcome still shows four.
 oc <- fw_outcome_counts(all_sel[all_sel$outcome %in% c("Successful", "Failed"), ])
@@ -318,6 +359,20 @@ payload <- function(id) {
 csv_path <- tempfile(fileext = ".csv"); writeBin(payload("fw-file-csv"), csv_path)
 ok("report: the csv inside matches the selection",
    nrow(utils::read.csv(csv_path, check.names = FALSE, encoding = "UTF-8")), nrow(sel1))
+# The no-method caption under the method chart, present with the base-R count
+# when there is one and absent when there is none.
+n_nm <- sum(!as.character(sel1$attempt_id) %in% as.character(am$attempt_id))
+ok(sprintf("report: the no-method caption is %s (%d)",
+           if (n_nm > 0) "present" else "absent", n_nm),
+   grepl(fw_fill(fw_t("plan", "r_method_missing"), n = fw_fmt_num(n_nm)), doc, fixed = TRUE),
+   n_nm > 0)
+# The waterbody chart's own mode reaches the document independently.
+html2 <- tempfile(fileext = ".html")
+fw_write_html_report(html2, d, sel1, export, f1, m, method_mode = "count", method_wb_mode = "share")
+doc2 <- fw_html_read_text(html2)
+ok("report: the waterbody chart follows its own mode",
+   grepl(fw_t("charts", "x_share_uses"), doc2, fixed = TRUE) &&
+     !grepl(fw_t("charts", "x_share"), doc2, fixed = TRUE))
 styles <- regmatches(doc, gregexpr("(?s)<style[^>]*>.*?</style>", doc, perl = TRUE))[[1]]
 ours <- styles[grepl(".fw-container", styles, fixed = TRUE) | grepl(".fw-report{", styles, fixed = TRUE)]
 ok("report: both of our stylesheets are inlined", length(ours), 2L)

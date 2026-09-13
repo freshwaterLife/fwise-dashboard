@@ -86,19 +86,13 @@ fw_explore_full_ui <- function(id) {
               fw_plan_block(
                 fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
                 tagList(
-                  div(
-                    class = "fw-segmented",
-                    radioButtons(
-                      ns("method_mode"), label = fw_t("plan", "r_method_mode"),
-                      choices = stats::setNames(
-                        c("share", "count"),
-                        c(fw_t("plan", "r_method_share"),
-                          fw_t("plan", "r_method_count"))
-                      ),
-                      selected = "share", inline = TRUE
-                    )
-                  ),
-                  plotly::plotlyOutput(ns("methods"), height = "auto")
+                  fw_mode_toggle(ns("method_mode"),
+                                 fw_t("plan", "r_method_count"),
+                                 fw_t("plan", "r_method_share")),
+                  plotly::plotlyOutput(ns("methods"), height = "auto"),
+                  # An output rather than a caption in the page, because this
+                  # UI is static and the count changes with every filter.
+                  uiOutput(ns("methods_missing"))
                 )
               ),
 
@@ -233,16 +227,27 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     fw_map_detail_server(input, session, "map_detail", data, sel)
 
     output$outcomes    <- renderUI(fw_outcome_bars_ui(sel()))
-    output$cumulative  <- plotly::renderPlotly(fw_chart_cumulative(sel()))
-    output$duration    <- plotly::renderPlotly(fw_chart_duration(data, sel()))
+    output$cumulative  <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_cumulative(sel())))
+    output$duration    <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_duration(data, sel())))
     output$methods     <- plotly::renderPlotly(
-      fw_chart_method(data, sel(), mode = input$method_mode %||% "share"))
-    output$chart_waterbody   <- plotly::renderPlotly(fw_chart_waterbody(sel()))
-    output$driver      <- plotly::renderPlotly(fw_chart_driver(sel()))
+      fw_chart_or_empty(
+        fw_chart_method(data, sel(), mode = input$method_mode %||% "count")))
+    output$methods_missing <- renderUI({
+      n <- fw_n_no_method(data, sel())
+      if (n == 0) return(NULL)
+      p(class = "fw-caption",
+        fw_fill(fw_t("plan", "r_method_missing"), n = fw_fmt_num(n)))
+    })
+    output$chart_waterbody   <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_waterbody(sel())))
+    output$driver      <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_driver(sel())))
     output$invasive    <- plotly::renderPlotly(
-      fw_chart_species(data, sel(), "invasive"))
+      fw_chart_or_empty(fw_chart_species(data, sel(), "invasive")))
     output$chart_beneficiary <- plotly::renderPlotly(
-      fw_chart_species(data, sel(), "beneficiary"))
+      fw_chart_or_empty(fw_chart_species(data, sel(), "beneficiary")))
   })
 }
 
