@@ -25,11 +25,52 @@ FW_DEV_DIR    <- file.path(FW_ROOT, "dev")
 # The development default: the sibling checkout. Overridden by FWISE_DATA_SOURCE.
 FW_DATA_DIR   <- normalizePath(file.path(FW_ROOT, "..", "fwise-data"),
                                mustWork = FALSE)
-FW_SCHEMA_DIR <- file.path(FW_DATA_DIR, "schema")
 
-# The raw flat export from the client. data_prep.R reads this and never writes to
-# it. Update the filename when a newly cleaned export is dropped in.
-FW_SOURCE_CSV <- file.path(FW_DATA_DIR, "fwise_2026-09-06.csv")
+# THE THREE FILES THAT ARE THE DATA. One wide table of attempts and two lookups
+# it references by id. Everything else in fwise-data/ is provenance, a standard,
+# or the submissions inbox. Relative to the data root, because in production the
+# same names are fetched over the GitHub API - see fw_data_path().
+FW_ATTEMPTS_FILE <- "attempts.csv"
+FW_SPECIES_FILE  <- "species.csv"
+FW_CONTACTS_FILE <- "contacts.csv"
+
+FW_ATTEMPTS_CSV <- file.path(FW_DATA_DIR, FW_ATTEMPTS_FILE)
+FW_SPECIES_CSV  <- file.path(FW_DATA_DIR, FW_SPECIES_FILE)
+FW_CONTACTS_CSV <- file.path(FW_DATA_DIR, FW_CONTACTS_FILE)
+
+# ---- Multi-value cells -------------------------------------------------------
+
+# The delimiter for every multi-value cell, in the data and in every export.
+# Chosen over a comma because references, site names and notes are full of
+# commas, and over the source's underscore because species names contain them
+# far less predictably than they contain spaces. A semicolon never occurs in a
+# species or method name in the data.
+FW_MULTI_SEP <- "; "
+
+# The delimiter between per-method notes in attempts.csv, where each entry is
+# "Method name: note". A different character from FW_MULTI_SEP on purpose: 32 of
+# the method notes contain a semicolon and none contain a pipe.
+FW_NOTES_SEP <- " | "
+
+# ---- Methods -----------------------------------------------------------------
+
+# THE METHOD VOCABULARY. Seven values, fixed by the paper, so they live in code
+# rather than in a table that would only ever hold these rows. attempts.csv
+# stores the NAME; the id exists so FW_METHOD_COLOURS below can key on something
+# a renamed method cannot silently re-colour, and `class` drives the conditional
+# chemical-detail section on the contribute form.
+#
+# A method that arrives from a submission and is not listed here is still
+# loaded - it gets an id derived from its name and the class "other" - and
+# dev/qa.R flags it for the reviewer. Add it here once it is accepted.
+FW_METHODS <- data.frame(
+  method_id    = c("ME01", "ME02", "ME03", "ME04", "ME05", "ME06", "ME07"),
+  method_name  = c("Antimycin-A", "Draining", "Electrofishing", "Netting / Trapping",
+                   "Other chemical", "Other mechanical", "Rotenone"),
+  method_class = c("chemical", "mechanical", "mechanical", "mechanical",
+                   "chemical", "mechanical", "chemical"),
+  stringsAsFactors = FALSE
+)
 
 # ---- Environment -------------------------------------------------------------
 
@@ -148,8 +189,8 @@ FW_OUTCOME_LABEL_INK <- c(
 # separator line and the in-segment counts in fw_chart_method_waterbody() are
 # what carry that case, which is why both are mandatory rather than decoration.
 #
-# Keyed by method_id because those are fixed (ME01-ME07 in method.csv) and a
-# renamed method must not silently re-colour the chart.
+# Keyed by method_id because those are fixed (ME01-ME07 in FW_METHODS above) and
+# a renamed method must not silently re-colour the chart.
 #
 # Re-check with dev/check_palette.R after touching any value or the order.
 FW_METHOD_COLOURS <- c(

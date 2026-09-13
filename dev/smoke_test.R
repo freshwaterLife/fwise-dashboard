@@ -71,16 +71,25 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
 
   cat("\n-- conditional chemical section --\n")
   ok("chemical section live for Rotenone", chemical_selected(), TRUE)
+  session$setInputs(method_notes_1 = "CFT Legumine", target_ingredient_basis = "Product")
 
   cat("\n-- the write path --\n")
   session$setInputs(send = 1)
   r <- result()
   ok("submission succeeded", r$success, TRUE)
 
-  written <- file.path(fw_inbox_dir(), paste0(r$submission_id, ".csv"))
+  written <- file.path(fw_inbox_dir(), paste0(r$attempt_id, ".csv"))
   ok("the submission is on disk where it says it is", file.exists(written), TRUE)
-  ok("email_public recorded as yes",
-     grepl("yes", readLines(written)[2]), TRUE)
+  row <- utils::read.csv(written, colClasses = "character", check.names = FALSE)
+  ok("the row has exactly the database's columns",
+     identical(names(row), FW_ATTEMPT_COLUMNS), TRUE)
+  ok("a known species is written as its id",
+     identical(row$invasive_species, unname(ch$species_ids[["Common carp (Cyprinus carpio)"]])), TRUE)
+  ok("the contributor travels as a new: reference marked public",
+     grepl("^new:A Tester\\|", row$primary_contact_id) && grepl("public$", row$primary_contact_id), TRUE)
+  ok("the method note is paired with its method",
+     identical(row$method_notes, "Rotenone: CFT Legumine"), TRUE)
+  ok("ingredient basis is recorded", identical(row$target_ingredient_basis, "Product"), TRUE)
   # Leave no litter in fwise-data. The row has been checked; keeping it would
   # inflate the in-review count of whoever runs the app next.
   unlink(written)

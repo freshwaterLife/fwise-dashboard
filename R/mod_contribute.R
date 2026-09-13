@@ -593,7 +593,7 @@ mod_contribute_server <- function(id, data, choices) {
     # code that writes it, so the column set and the thing that fills it stay
     # side by side.
     assemble_record <- reactive({
-      fw_collect_submission(input, rows, choices$species_family)
+      fw_collect_submission(input, rows, choices)
     })
 
     observeEvent(input$send, {

@@ -29,6 +29,8 @@ dev/*
 !dev/smoke_test.R
 !dev/plan_test.R
 !dev/value_test.R
+!dev/qa.R
+!dev/reconcile_source.R
 
 # renv library is reconstructed from renv.lock, so it is not committed.
 renv/library/

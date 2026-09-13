@@ -3790,94 +3790,103 @@
   },
   "files": {
     ".Rprofile": {
-      "checksum": "894b9ccc56c385527f7f1928b5c09417"
+      "checksum": "b5f8b0a1acf114005ee5f083ea759276"
     },
     "app.R": {
-      "checksum": "a622578804bbf349bcf5a068abb59fc3"
+      "checksum": "7b2608177af320333cd31cbb17ac24ac"
     },
     "HANDOVER.md": {
-      "checksum": "7085ce6b47a1803aa642b20613010179"
+      "checksum": "dc2aa33b803b4b9e495a1df751a6f7a3"
     },
     "LICENSE": {
       "checksum": "6e91ae45f5f62c5162562a7747ef8fbc"
     },
+    "R/brand.R": {
+      "checksum": "e3ac23de7dce813e719cc8d0857f25a1"
+    },
     "R/charts.R": {
-      "checksum": "7088ede5cb7d4ab4b761fb93a8f9b396"
+      "checksum": "5e786fd25315ec969938e231b8c04c57"
     },
     "R/config.R": {
-      "checksum": "0214754eea78d71ee025eb0920438631"
+      "checksum": "c9756b4154c948d9ff1d1e0f2ead5b26"
+    },
+    "R/copy_contribute.R": {
+      "checksum": "2436a33954433c18a7297dee2b981f4b"
+    },
+    "R/copy_export.R": {
+      "checksum": "b1678179f787886da1f6c99060617661"
     },
     "R/copy.R": {
-      "checksum": "49f03fe6d867c463bd32f2f71817f57f"
+      "checksum": "30c168537eb2a9abf29cf6f850fa646c"
     },
     "R/data_load.R": {
-      "checksum": "fb0a78a4359c497f157d3e72392d8ada"
-    },
-    "R/data_prep.R": {
-      "checksum": "3e6d3891f83d0ba9f30598d273377038"
+      "checksum": "5a77c451bb685f8ba3d4e5ed95423aca"
     },
     "R/export.R": {
-      "checksum": "5e8fcd540ea6c36513137e94a2d5ff1e"
+      "checksum": "705a51910308670eda5761ab36c8f069"
     },
     "R/filters.R": {
-      "checksum": "4bbe22c3dda4a70b5404644b1b5d0e97"
+      "checksum": "a5a4ebfbd38d6001880285c1b200b2a5"
+    },
+    "R/github.R": {
+      "checksum": "ae8a4e9f515131d1a97c9a160ed2e036"
     },
     "R/maps.R": {
-      "checksum": "87db9b299bef4a1e0031d33c4e55dee0"
+      "checksum": "519f91ee658d44706ff94c51952632ba"
     },
     "R/mod_about.R": {
-      "checksum": "8c229e0f55c48a2d85852b39424d4cba"
+      "checksum": "de68725315e6be089aa44313d246acd7"
     },
     "R/mod_contribute_steps.R": {
-      "checksum": "9ba08f5af5324c961eac1c99f86657f0"
+      "checksum": "da98dbc33ee66e2647a328f86a0b0b88"
     },
     "R/mod_contribute_ui.R": {
-      "checksum": "066efca0c8cc346b42787579e7d72a33"
+      "checksum": "84135a61539343150647f54259de63ea"
     },
     "R/mod_contribute.R": {
-      "checksum": "3c545be2cb8fdcb461d3f39c0e798cfa"
+      "checksum": "458fb62c34874d2a8ea42ad7999dbcac"
     },
     "R/mod_explore.R": {
-      "checksum": "acfb8c1bde68042277f1787e1f518b56"
+      "checksum": "134d8d93d7f1e69e665b3a288ff3387a"
     },
     "R/mod_home.R": {
       "checksum": "15c9d54a74b53b3253b2735c393ee9f8"
     },
     "R/mod_networking.R": {
-      "checksum": "90a29d812eacd07dc0f9d5a8ca5d06e4"
+      "checksum": "401eafc2759e7c8fc702d1236be91553"
     },
     "R/mod_plan_filters.R": {
-      "checksum": "f75bbebee5a3bf1b20b289000fdc0e87"
+      "checksum": "586c022dd6a0af3b457d9214b6696f03"
     },
     "R/mod_plan_results.R": {
-      "checksum": "48066574821256f7ce0e9dc608c97638"
+      "checksum": "be78dfddf9f06b08224796f027d0c0e9"
     },
     "R/mod_plan.R": {
-      "checksum": "55f833fd5eb0f0f824a830c536bbf549"
+      "checksum": "53cf5f2c4281f1488d2be428f18aeeeb"
     },
     "R/questions_docx.R": {
-      "checksum": "da1d782138670ddf0ba65e569355680d"
+      "checksum": "2f5e735560a4f10d3dac9d4cf61dc6c9"
     },
     "R/questions_text.R": {
-      "checksum": "12f7b2d0f563d14405da026e3ba5a557"
+      "checksum": "b8f3ffc1819537f3dc0808954f71066f"
     },
     "R/report_html.R": {
-      "checksum": "5efa8246c0b4c8b5b509393640754de6"
+      "checksum": "8797606a59a3c6eec7ccab0436775ff3"
     },
     "R/species_images.R": {
-      "checksum": "2b533bda62e10d0d71825f142a843e71"
+      "checksum": "db59149782bdb84749f67060b14f0375"
     },
     "R/submit.R": {
-      "checksum": "dc812d61c1e3a5844fe7db57639f58cc"
+      "checksum": "d5cc7e8dd7e1d1309294aa445cb51f73"
     },
     "R/theme.R": {
-      "checksum": "e64c2b4bfaacbf501b9d3db23d7e58ba"
+      "checksum": "77696e1673e42889e73f51b30ba96eb9"
     },
     "R/ui_helpers.R": {
-      "checksum": "fd77a1879426e9a01a4ddd4325d9c346"
+      "checksum": "52d00c996d4dd0d3e090108dab922e91"
     },
     "README.md": {
-      "checksum": "e1b503a6528bde2f95445a3758902d6e"
+      "checksum": "9b25eefb2f305c480221f3236ef4ec64"
     },
     "renv.lock": {
       "checksum": "87deca0ea2d8f687119405673fe7f5b7"
@@ -3925,22 +3934,28 @@
       "checksum": "69efcdd9a54cdd4f0c106fde21be1461"
     },
     "www/img/favicon.svg": {
-      "checksum": "caa86b20012b566c4107c9cd3cdb9bbe"
+      "checksum": "b327b0df7af79b185ca65633ed085595"
     },
     "www/img/FWISE-LOGO-ALL-6.png": {
-      "checksum": "86fd10de3d3664bad7da0889f4b6ef99"
+      "checksum": "36c3f28b315deff9a23eef6ac86bce29"
     },
     "www/img/wfa-logo-rect-dark.png": {
       "checksum": "84a5e18a213a7cd3a2a482b8ddaede38"
     },
     "www/scss/_components.scss": {
-      "checksum": "2e5cde799dc52ec0cc729411ec6f1c19"
+      "checksum": "a0b36e8225e556154d6e9c7778d11d5e"
+    },
+    "www/scss/_report_frame.scss": {
+      "checksum": "afabcba69abe3f8ae645dc849f0cfbf8"
     },
     "www/scss/_tokens.scss": {
-      "checksum": "63b116612c5814828caf0b97404e66c8"
+      "checksum": "288b76f51a925dd7005adeaf3548be37"
     },
     "www/scss/main.scss": {
-      "checksum": "8dbf0dca03186f2deff049c44433c955"
+      "checksum": "5fc4e900f18ab9b9520f3c057aa9da1a"
+    },
+    "www/scss/report.scss": {
+      "checksum": "17692c174f16c1d1e186a31c45a7b5c7"
     }
   },
   "users": null

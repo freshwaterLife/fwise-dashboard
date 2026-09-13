@@ -41,7 +41,6 @@ These need someone else before the page can be finished.
 | Terms of data use | Contribute consent | `R/copy.R` `contribute$consent$terms_url` |
 | Review turnaround time | Confirmation screen | `R/copy.R` `contribute$confirm$followup` |
 | Reversed (light) logo artwork | Navbar | would allow an indigo navbar, see 5.6 |
-| `Key` column pasted into the master spreadsheet | Makes ids independent of the natural key | `fwise-data/id_registry/key_backfill.csv` |
 | Weird Fishes Advisory website URL | Footer logo link | `R/copy.R` `footer$wfa_url` |
 | Deployment credentials and domain | Going live | see README |
 
@@ -80,7 +79,7 @@ There is nothing to replace.
 | File | Line | Ambiguity, and the simplest reading implemented |
 |---|---|---|
 | `R/mod_contribute_steps.R` | ~299 | Spec asks for labour effort as "a numeric box with a free-text fallback for ranges". Implemented as one text box, so "20 to 30" is accepted and passed to QA |
-| `R/mod_contribute_steps.R` | ~319 | Spec lists "Measured concentration notes" but no measured concentration *value*. Implemented as specified, notes only. Worth checking this was intended |
+| `R/mod_contribute_steps.R` | ~319 | **Resolved.** The spec listed "Measured concentration notes" but no value; the source data holds 86 measured values, so the form now asks for both, and for the ingredient basis (Active or Product) that every chemical record carries |
 | `R/data_load.R` | ~232 | 35 of 390 species have no parenthetical scientific name (e.g. `Amphipoda`, `Barbus sp.`). The whole string sits in `common_name` and the dropdown label coalesces both fields so nothing is unfindable. The client's QA cleaning should split these properly |
 
 **Resolved since.** The "Sovereign ISO and Location ISO" ambiguity is closed:
@@ -93,11 +92,11 @@ The subdivision picker allows free text (`create = TRUE`) on purpose. ISO does
 not name every catchment, county or district a treated site might sit in, and a
 picker that refuses the true answer is worse than a text box.
 
-`lookup_country.csv` was left alone. Its `country_raw` column maps the messy
-values in the client's export ("United States (Hawaii)") and `data_prep.R` hard
-fails on an unmapped one; that file is about *this dataset*, the two new ones are
-about the standard, and conflating them would let a change in the standard alter
-how an existing record parses.
+`lookup_country.csv` is gone with the six-table build. Its job - splitting
+"United States (Hawaii)" into country and region and giving Guam its own
+continent - was done once by the migration, and `country`, `region`, `iso3` and
+`continent` are now stored columns on the attempt, visible and editable in QA.
+New rows get `iso3` and `continent` from `lookup_iso3166.csv` at fold time.
 
 ---
 
@@ -126,13 +125,14 @@ tell the mismatch story it exists to tell. I preferred real data with a stated
 caveat over synthetic numbers that could be mistaken for real. It is isolated
 behind one function so replacing it is a one-line change.
 
-### 5.3 Continent, ISO3 and region are derived, not sourced
+### 5.3 Continent, ISO3 and region are stored, not derived
 
-The schema requires `continent`, `iso3` and `region`; the source export has none
-of them. `data/lookup_country.csv` supplies them, keyed on the raw country string
-so each territory can take its **own** continent rather than inheriting the
-sovereign state's. `United States (Guam)` maps to Oceania, not North America.
-The transform stops with a clear error on any country not in the lookup.
+The source export has none of them. They were derived once, by the migration,
+keyed on the raw country string so each territory took its **own** continent
+rather than inheriting the sovereign state's - `United States (Guam)` is Oceania,
+not North America - and are now ordinary columns of `attempts.csv`. Stored
+rather than derived at load so the Guam decision survives and a reviewer can see
+and correct the value. See 5.27.
 
 ### 5.4 An extra colour token, and the brand teal restricted
 
@@ -280,10 +280,11 @@ shows `leaflet` hard-imports both `sf` and `raster`, which in turn pull `s2`,
 ### 5.14 Identifiers are minted, not positional
 
 `attempt_id`, `species_id` and `contact_id` used to be row positions, the last
-two assigned after an alphabetical sort. They are now minted once and resolved
-through a committed registry in `fwise-data/id_registry/`. See the README section
-"Identifiers are permanent". The build stops if a natural key ever resolves to a
-different id than the registry holds.
+two assigned after an alphabetical sort. They are minted once and never
+reassigned. The registry that used to guarantee that is gone (5.27): each id now
+lives in the row or lookup that owns it, the attempt id is minted by the form at
+submission time, and species and contact ids by `dev/qa.R fold`. Every id that
+existed before the flatten is unchanged.
 
 ### 5.22 The report builder is stacked, and its Word output is photographed
 
@@ -426,9 +427,10 @@ the last run.
 
 Two traps, both already sprung once:
 
-- `data_prep.R` used to blank the image columns on every rebuild, silently
-  discarding twenty minutes of Wikimedia's time. `fw_carry_species_images()` now
-  joins them forward. Do not reintroduce a `mutate(image_url = NA)`.
+- The old six-table build used to blank the image columns on every rebuild,
+  silently discarding twenty minutes of Wikimedia's time. There is no rebuild
+  any more: the image columns live in `species.csv`, which is maintained, not
+  generated. Do not write a script that regenerates it.
 - The resolver originally required a Commons `Artist` field and skipped anything
   without one, which threw away properly licensed photographs of common species
   (*Lota lota*, *Ameiurus nebulosus*). The **licence** is mandatory; the credit
@@ -450,8 +452,8 @@ which is the promise `config.R` has always made.
 
 **One token does read and write.** Splitting them was considered and dropped. The
 argument for splitting was that a write-capable token sits in a public-facing
-process, but the submission path is built from a server-minted `submission_id`
-with nothing user-supplied in it, so reaching `schema/attempt.csv` would need the
+process, but the submission path is built from a server-minted `attempt_id`
+with nothing user-supplied in it, so reaching `attempts.csv` would need the
 token exfiltrated from the process first. The cost of the split — two credentials
 to rotate, two expiry dates — was real and the benefit was not.
 
@@ -466,7 +468,7 @@ and two contributors pressing Send in the same second make the second one 409.
 One file per submission has no read-modify-write to lose, and `submission_id`
 makes it idempotent for free.
 
-`merge_submissions.R` **moves** merged files to `inbox/merged/` rather than
+`dev/qa.R fold` **moves** folded files to `inbox/merged/` rather than
 rewriting a status cell. That is what lets the in-review count list one directory
 instead of opening every file — which over the API would be a request per
 submission, to render a number.
@@ -481,10 +483,70 @@ returned success, and lost it at the next restart.
 ### 5.16 The approval gate is structural
 
 `fw_filter_approved()` in `data_load.R` removes unapproved rows AND every
-dimension row nothing approved refers to any more, before any module sees the
-data. A new page cannot leak a pending species or contact even if its author
-never thinks about approval. Do not "optimise" this by filtering only the fact
-table.
+species and contact nothing approved refers to any more, before any module sees
+the data. A new page cannot leak a pending species or contact even if its author
+never thinks about approval. Do not "optimise" this by filtering only the
+attempt table. It runs on the in-memory tables `fw_unpack()` builds, so it did
+not change when the files did.
+
+### 5.27 The data is one wide table, and the star schema lives in memory
+
+Fourth round, September 2026, and the one that changed the data's shape. Two
+problems arrived together. `Target Ingredient Basis` - Active or Product, filled
+on every one of the 325 chemical rows, and the thing that makes a concentration
+comparable - was missing from the published data. And the six-table star schema
+made manual QA impossible: one attempt was spread across five files joined by
+opaque ids, and adding one row meant five file edits plus a registry append.
+
+The basis column had vanished because the build's attempt table was a
+hand-written column list and nothing checked the source against it. It was not
+alone: `Measured Toxin Concentration (mg/L)`, three notes columns, `Sent` and
+`Eradication or Control` had gone the same way, the numeric cast had turned 120
+concentration ranges and 189 labour descriptions into `NA`, and nine method
+notes on attempts with no method were dropped outright. The merge script lost
+four of the form's notes fields for the same reason.
+
+**What changed.** `fwise-data` now holds `attempts.csv` (one row per attempt,
+all 74 source columns plus the app's five, values stored as the source's text),
+`species.csv` and `contacts.csv` (lookups referenced by id), and `source/` with
+the raw export and its row-to-id map. `data_load.R` unpacks the wide table into
+the same six in-memory tables at startup, so no module changed. The migration
+rebuilt everything from the raw export, resolved every id through the old
+registries so all 914 attempt, 390 species and 237 contact ids are exactly what
+they were, and was gated on two checks: `dev/reconcile_source.R` (every source
+column and value present, identically coded, 74 of 74, zero differences) and an
+old-schema equivalence test by id (identical). Load time did not move: 0.087s
+before, 0.075s after at double the rows.
+
+**Decisions made along the way, with the reasoning:**
+
+- **Species and contacts stayed as lookups**, referenced by id, rather than
+  being written as text into the row. Alex's call, and the numbers support it:
+  a typo cannot mint a phantom species, and 84 of 237 contacts sit on more than
+  one attempt, one on 208. The cost is long cells; the review file carries
+  `_names` companions so nobody reads ids by eye.
+- **Methods stayed as names.** Seven values fixed by the paper, held in
+  `FW_METHODS` in `config.R`, with the ids `ME01`-`ME07` kept so
+  `FW_METHOD_COLOURS` did not re-key. A method the data holds that the list does
+  not loads as class `other` and `qa.R stage` flags it.
+- **Taxa and family moved to `species.csv`.** They are properties of a species,
+  the data holds no name with two taxa, and the reconciliation round-trips the
+  source's per-attempt strings through the lookup to prove nothing was lost.
+- **Verbatim text, cast in memory.** So the reconciliation is string identity
+  and so the ranges survive. Two labour cells hold the export's own
+  `10.199999999999999`; that is what the client's file says.
+- **`FW_NOTES_SEP` is a pipe** because 32 method notes contain a semicolon and
+  none contain a pipe. The nine method-less notes are kept verbatim in the
+  notes cell; `method_notes` also stays on the in-memory attempt table because
+  they have no bridge row to live in.
+- **Line endings.** The export carries Windows line endings inside quoted
+  paragraphs; the migration normalised them to `\n`, and the reconciliation
+  applies the same normalisation to the source before comparing. It is the
+  only normalisation there is.
+
+`dev/reconcile_source.R` stays in the repository as the standing answer to "was
+anything lost". The migration script and its equivalence test were deleted once
+they had run.
 
 ### 5.9 Several dev scripts are kept in version control
 
@@ -551,9 +613,10 @@ file. `fw_gh_message()` in `R/github.R` spells this out in the error rather than
 letting the log say "not found".
 
 **Shiny auto-sources everything in `R/`.** Any file dropped in there runs on
-boot. `R/data_prep.R` was rebuilding the star schema on every app start until its
-body was wrapped in `fw_build_schema()` behind a direct-invocation guard. Give
-any new build script the same guard.
+boot. An earlier build script was rebuilding the whole schema on every app start
+until its body was put behind a direct-invocation guard. Data scripts live in
+`dev/` now; if one ever has to sit in `R/`, guard it with
+`if (sys.nframe() == 0L)`.
 
 **`\s` is not a whitespace shorthand in R's default regex engine.** The email
 pattern originally used `[^@\s]`, which excludes the *letter* s, so
@@ -565,11 +628,13 @@ one.** The country dropdown silently defaulted to Argentina, so any contributor
 who did not touch it would have had their record filed under the wrong country.
 `fw_select()` now always prepends a blank option.
 
-**Fish family aligns to fish slots, not to species slots.** In the source,
-`Invasive Taxa` is underscore-joined one-to-one with the eight species slots, but
-`Invasive Fish Family` lists only the *fish* entries in order. Family *n*
-attaches to the *n*th `Fish` slot. Getting this wrong silently assigns fish
-families to crayfish.
+**Fish family aligns to fish slots, not to species slots.** In the client's
+export, `Invasive Taxa` is underscore-joined one-to-one with the eight species
+slots, but `Invasive Fish Family` lists only the *fish* entries in order. Family
+*n* attaches to the *n*th `Fish` slot. The data no longer carries either
+convention - taxa and family are columns of `species.csv` - but
+`dev/reconcile_source.R` re-derives both from the export to check them, and
+anyone reading a fresh export from the client needs to know.
 
 **Colour values live in ONE place, `R/brand.R`.** `_tokens.scss` has no
 literals; if the compiler says "Undefined variable", the token is missing from
@@ -582,10 +647,10 @@ change there.
 
 1. Get the per-country invasive fish file. The landing page's central argument
    depends on it and everything else there is ready.
-2. Watch the first live submission land in `fwise-data/inbox/` and run
-   `dev/merge_submissions.R` against it once, before the webinars. The path is
-   built and tested, but it has not yet been exercised against the real
-   repository with the real token.
+2. Watch the first live submission land in `fwise-data/inbox/` and run the
+   `dev/qa.R stage` / `fold` loop against it once, before the webinars. The loop
+   is built and tested end to end locally, but it has not yet been exercised
+   against the real repository with the real token.
 3. Replace the placeholder copy in `R/copy.R`, working down section 3.
 4. Confirm the Weird Fishes Advisory URL behind the footer logo
    (`footer$wfa_url`). The FWISE logo already links to freshwaterlife.org.

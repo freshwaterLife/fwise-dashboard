@@ -26,11 +26,8 @@ suppressPackageStartupMessages({
   library(purrr)
 })
 
-# The delimiter for every multi-value column. Chosen over a comma because
-# references, site names and notes are full of commas, and over the source's
-# underscore because species names contain them far less predictably than they
-# contain spaces.
-FW_MULTI_SEP <- "; "
+# FW_MULTI_SEP, the delimiter for every multi-value column, lives in config.R
+# because attempts.csv uses the same one.
 
 # Column order of the export, and the label each column carries. Order is the
 # order a person reads a record in: where, what, when, how, what happened, who.
@@ -38,13 +35,15 @@ FW_EXPORT_COLUMNS <- c(
   "attempt_id",
   "site_name", "country", "region", "continent", "iso3", "latitude", "longitude",
   "waterbody_type", "water_regime", "area_treated", "area_unit", "area_notes",
-  "depth_m", "volume_m3", "max_flow_m3s", "water_temp_c",
+  "depth_m", "depth_notes", "volume_m3", "volume_notes", "max_flow_m3s",
+  "water_temp_c", "water_temp_notes",
   "invasive_species", "invasive_taxa",
   "invasion_year", "start_year", "end_year", "duration_days", "driver",
   "beneficiary_species", "beneficiary_taxa",
   "methods", "method_classes", "method_notes", "method_description",
-  "labour_person_days", "cost_estimate", "cost_currency",
-  "toxin_conc_mg_l", "conc_target_notes", "conc_measured_notes",
+  "labour_person_days", "cost_estimate", "cost_notes",
+  "target_ingredient_basis", "toxin_conc_target_mg_l", "conc_target_notes",
+  "toxin_conc_measured_mg_l", "conc_measured_notes",
   "neutralising_agent", "neutralising_notes",
   "outcome", "verification_method", "verification_notes",
   "reference", "reference_link", "source",
@@ -60,8 +59,11 @@ FW_EXPORT_COLUMNS <- c(
 #   collected so the team can read it, not so it can be republished, and it may
 #   carry asides the contributor would not put their name to publicly. Stored in
 #   the database and shown in record detail; never exported.
-# `last_updated` - a property of the row's maintenance, not of the eradication.
-FW_EXPORT_EXCLUDE <- c("status", "notes_for_fwise", "last_updated")
+# `last_updated`, `submitted_at`, `consent_data_use`, `sent`,
+#   `eradication_or_control` - properties of the row's maintenance, not of the
+#   eradication (the last is the constant "Eradication" on every row).
+FW_EXPORT_EXCLUDE <- c("status", "notes_for_fwise", "last_updated", "submitted_at",
+                       "consent_data_use", "sent", "eradication_or_control")
 
 #' Collapse a bridge table into one semicolon-delimited value per attempt
 #'
@@ -122,10 +124,12 @@ fw_export_frame <- function(data, attempt_ids = NULL) {
       attempt_id, site_name, country, region, continent, iso3,
       latitude, longitude,
       waterbody_type, water_regime, area_treated, area_unit, area_notes,
-      depth_m, volume_m3, max_flow_m3s, water_temp_c,
+      depth_m, depth_notes, volume_m3, volume_notes, max_flow_m3s,
+      water_temp_c, water_temp_notes,
       invasion_year, start_year, end_year, duration_days, driver,
-      method_description, labour_person_days, cost_estimate, cost_currency,
-      toxin_conc_mg_l, conc_target_notes, conc_measured_notes,
+      method_description, labour_person_days, cost_estimate, cost_notes,
+      target_ingredient_basis, toxin_conc_target_mg_l, conc_target_notes,
+      toxin_conc_measured_mg_l, conc_measured_notes,
       neutralising_agent, neutralising_notes,
       outcome, verification_method, verification_notes,
       reference, reference_link, source

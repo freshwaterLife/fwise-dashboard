@@ -300,13 +300,26 @@ fw_step_methods_ui <- function(ns, choices) {
 fw_step_chemical_ui <- function(ns, choices) {
   tagList(
     fw_step_intro("chemical"),
-    # TODO(alex): the specification lists a "Measured concentration notes" field
-    # but no measured concentration value. Implemented as specified, notes only.
+    # THE BASIS COMES FIRST because the concentration means nothing without it:
+    # a figure for the commercial product is the active-ingredient figure
+    # divided by the product's strength, so the two are not comparable. Every
+    # one of the 325 chemical records in the database carries this answer.
+    fw_field(radioButtons(ns("target_ingredient_basis"), label = NULL,
+                          choices = c("Active", "Product"), selected = character(0),
+                          inline = TRUE),
+             fw_lab("ingredient_basis"), tooltip = fw_tip("ingredient_basis"),
+             input_id = ns("target_ingredient_basis")),
     fw_field(fw_text_input(ns("toxin_conc_target")),
              fw_lab("toxin_conc"),
              tooltip = fw_tip("toxin_conc"), input_id = ns("toxin_conc_target")),
     fw_field(fw_area_input(ns("conc_target_notes"), rows = 3),
              fw_lab("conc_target_notes"), input_id = ns("conc_target_notes")),
+    # The measured value is a field in the database (86 records hold one), so
+    # the form asks for it beside the notes the specification listed.
+    fw_field(fw_text_input(ns("toxin_conc_measured")),
+             fw_lab("toxin_conc_measured"),
+             tooltip = fw_tip("toxin_conc_measured"),
+             input_id = ns("toxin_conc_measured")),
     fw_field(fw_area_input(ns("conc_measured_notes"), rows = 3),
              fw_lab("conc_measured_notes"),
              input_id = ns("conc_measured_notes")),

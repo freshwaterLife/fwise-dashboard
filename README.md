@@ -59,7 +59,8 @@ R -e 'shiny::runApp()'
 
 That is the whole setup. **No credentials are required, and the app makes no
 network calls in local development.** With nothing configured it reads
-`../fwise-data/schema/` and writes any submissions to `../fwise-data/inbox/`,
+`../fwise-data/attempts.csv` and its two lookups, and writes any submissions to
+`../fwise-data/inbox/`,
 one CSV per submission — the same shape the deployment writes over the API, so
 the QA loop is identical either way.
 
@@ -114,8 +115,8 @@ separation in OKLab.
 │   ├── copy_export.R           ...part 3: spreadsheet, report tables, question lists
 │   ├── theme.R                 the bslib theme, mapped from brand.R
 │   ├── ui_helpers.R            reusable UI components
-│   ├── data_load.R             the data contract, read by every module
-│   ├── data_prep.R             BUILD SCRIPT, not part of the running app
+│   ├── data_load.R             the data contract: reads the three data files
+│   │                           and unpacks them into the six in-memory tables
 │   ├── filters.R               ONE filter engine, shared by the report builder
 │   │                           and the dashboard. FW_FILTERS is the registry
 │   ├── charts.R                every plotly figure, shared by both pages
@@ -150,25 +151,27 @@ There is deliberately **no `data/` directory here.** It lives one level up:
 
 ```
 ../fwise-data/
-├── fwise_2026-09-06.csv        the raw client export, never modified
-├── lookup_country.csv          maps the EXPORT'S messy country values onto
-│                               clean names. About this dataset
-├── lookup_iso3166.csv          the ISO 3166-1 country list. About the STANDARD.
+├── attempts.csv                THE DATA. One row per attempt, every column the
+│                               client's export has, plus id, status and dates
+├── species.csv                 one row per species: names, taxa, family, photo
+├── contacts.csv                one row per person: name, org, email, redaction
+├── lookup_iso3166.csv          the ISO 3166-1 country list, with continent.
 │                               Built by dev/build_iso_lookups.R
 ├── lookup_iso3166_2.csv        ISO 3166-2 subdivisions, ditto
 ├── metadata.json               release date and row counts
-├── id_registry/                the permanent id crosswalk - never hand-edit
-└── schema/                     the six star-schema tables, generated
+├── inbox/                      one CSV per submission; merged/ once folded in
+├── qa/                         the review files dev/qa.R writes and reads
+└── source/                     the client's raw export and its row-to-id map,
+                                kept so the data can be reconciled against it
 ```
 
 ### Two things that will bite you
 
 **Shiny sources everything in `R/` automatically at startup.** This is a
 documented Shiny feature, not something `app.R` does. Any file you drop into
-`R/` runs on boot. That is why `R/data_prep.R` wraps its work in
-`fw_build_schema()` and only executes under a direct `Rscript` call. If you add
-another build script to `R/`, give it the same guard or it will run every time
-the app starts.
+`R/` runs on boot. Scripts that build or change data live in `dev/` for that
+reason; if one ever has to sit in `R/`, guard its body with
+`if (sys.nframe() == 0L)` or it will run every time the app starts.
 
 **Every design value lives in `R/brand.R`, and only there.** Colour, type,
 spacing, radius, shadow, motion and breakpoints. `fw_compile_css()` hands them
@@ -194,26 +197,62 @@ white surface or an unresolved copy key creeps back in.
 ## How the data layer works
 
 Every module reads through `R/data_load.R`. **No module reads a CSV directly.**
-When the real schema changes, that file should be the only one you need to touch.
+When the data layout changes, that file should be the only one you need to touch.
 
-The data is a star schema of six tables:
+**The data is one wide table and two lookups.** `attempts.csv` holds one row per
+eradication attempt with every column the client's export has - all 74 of them,
+under snake_case names - plus the handful the app owns: `attempt_id`, `status`,
+`submitted_at`, `last_updated`, `consent_data_use`. Species and contacts are
+referenced **by id** into `species.csv` and `contacts.csv`, so a species name is
+held once, a photo is held once, and an email or a redaction is corrected in one
+place rather than on every attempt the person appears on (84 of 237 people sit
+on more than one attempt; one sits on 208).
+
+Multi-value cells use `FW_MULTI_SEP` (`"; "`): `invasive_species` and
+`beneficiary_species` are lists of species ids, `methods` is a list of method
+names. Per-method notes sit in `method_notes` as `Rotenone: text | Draining:
+text`, paired by position and joined with `FW_NOTES_SEP` because 32 of the notes
+contain a semicolon. Nine attempts have no method and a note saying why; the
+note is kept verbatim.
+
+**Values are stored as the source's text, verbatim.** `"0.010-0.020"` stays a
+range, `"≥0.5"` keeps its sign. Casting to numbers happens in memory, for the
+columns in `FW_ATTEMPT_NUMERIC` only. Two columns that look numeric are not -
+120 target concentrations are ranges or inequalities and 189 labour figures are
+sentences - and the old build had cast both to `NA`.
+
+**The star schema still exists, in memory.** `fw_unpack()` splits the wide
+table at startup into the six tables every module was written against:
 
 | Table | Grain |
 |---|---|
-| `attempt.csv` | one row per eradication attempt (the fact table) |
-| `species.csv` | one row per species |
-| `attempt_species.csv` | bridge, with `role` of `invasive` or `beneficiary` |
-| `method.csv` | one row per method, classed `chemical` / `mechanical` / `other` |
-| `attempt_method.csv` | bridge |
-| `contact.csv` | one row per contact |
+| `attempt` | one row per eradication attempt |
+| `species` | `species.csv` as read |
+| `attempt_species` | bridge, with `role` of `invasive` or `beneficiary`, from the two id lists |
+| `method` | `FW_METHODS` in `config.R`, plus any name the data holds that it does not list |
+| `attempt_method` | bridge, from the `methods` list, with the paired note |
+| `contact` | `contacts.csv` as read |
+
+Measured, the split takes under a tenth of a second at double today's row count.
+
+Two things the load refuses, loudly, before any module sees the data:
+
+- **A file whose columns are not the contract.** `FW_ATTEMPT_COLUMNS`,
+  `FW_SPECIES_COLUMNS` and `FW_CONTACT_COLUMNS` in `data_load.R` are checked in
+  both directions. A column with nowhere to go is how the ingredient-basis
+  column went missing from the old six-table build, and it cannot happen again
+  silently.
+- **An id with no row.** Every species and contact id in `attempts.csv` must
+  resolve to its lookup, or the load stops naming the attempts. That is the
+  integrity check a spreadsheet cannot give itself.
 
 Two structural points that are settled and should not be generalised:
 
-- **Methods are an unbounded any-of set**, not a ranked hierarchy, which is why
-  they use a bridge table. `method_order` exists only so the paper's figures can
-  be reproduced. Do not treat it as a ranking.
+- **Methods are an unbounded any-of set**, not a ranked hierarchy. `method_order`
+  is the position in the cell and exists only so the paper's figures can be
+  reproduced. Do not treat it as a ranking.
 - **An attempt has at most a primary and a secondary contact**, so contacts are
-  two foreign keys on `attempt`, not a bridge. Do not turn this into a bridge.
+  two id columns on the attempt, not a list. Do not turn this into a list.
 
 ### The functions
 
@@ -241,41 +280,34 @@ Addresses that *are* public get a small speed bump: they are split across `data-
 attributes and reassembled in JavaScript when the link is clicked, so a naive
 scraper reading the served HTML does not harvest them in one pass. **This is not
 security.** Anyone running the page's JavaScript can recover a public address.
-The real control is the `email_public` flag.
+The real control is the `email_public` flag, held once per person in
+`contacts.csv`.
 
 ---
 
 ## Updating the data
 
-The client's cleaned export is a single flat table. `R/data_prep.R` transforms it
-into the six star-schema tables.
+**`attempts.csv` is the master.** There is no raw export to re-drop and no
+rebuild step. The client corrects a value by editing the row; a new record
+arrives through the contribute form and the review loop below; a new species or
+contact is a new row in its lookup, added by the fold step or by hand, whose id
+the attempt row then cites.
+
+The raw export the database was built from is kept under `source/` with its
+row-to-id map, and **`dev/reconcile_source.R` proves the data still holds every
+column and every value of it**, identically coded:
 
 ```bash
-# 1. Drop the new export into ../fwise-data/
-# 2. Point FW_SOURCE_CSV in R/config.R at the new filename
-# 3. Rebuild - reads from and writes back to ../fwise-data/
-Rscript R/data_prep.R
+Rscript dev/reconcile_source.R
 ```
 
-The transform is code, so it lives here; its inputs and outputs are data, so they
-live in `fwise-data`. Commit the regenerated `schema/` there, not here.
-
-It never writes to the source file. Correct values in the source export and
-re-run, so the cleaning stays in one place.
-
-The script **stops with a clear error** if the export contains a country not
-listed in `../fwise-data/lookup_country.csv`. Add a row for the new country, giving it a
-continent and ISO3, and re-run. This is deliberate: silently dropping a country
-would quietly remove records from the map.
-
-### Two source quirks the transform handles
-
-- `Invasive Taxa` is underscore-joined and aligns one-to-one with the eight
-  species slots.
-- `Invasive Fish Family` is also underscore-joined but lists **only the fish
-  entries**, in order. So family *n* attaches to the *n*th slot whose taxa is
-  `Fish`, not to slot *n*. Getting this wrong silently assigns fish families to
-  crayfish.
+It walks all 74 source columns with one rule each - identity for the scalars,
+round trips through the lookups for species, taxa, family and contacts, position
+for methods and their notes - and a column with no rule is itself a failure, so
+a new column in a future export cannot slip past. The only transformations it
+allows are the country/region split, the water-regime corrections named in
+`FW_REGIME_BY_TYPE` (printed, not skipped), and Windows line endings inside a
+cell read as newlines. Run it whenever someone asks whether anything was lost.
 
 ### Identifiers are permanent
 
@@ -284,24 +316,11 @@ reassigned**. Format is `FW-20260908-7K3QX9`: a prefix, the date the id was firs
 assigned, and a random suffix drawn from an alphabet with no `I`, `O`, `0` or `1`
 in it, because these get read aloud and retyped by people.
 
-`../fwise-data/id_registry/` holds the crosswalk that guarantees it. A rebuild
-looks each row up there, reuses the id it already has, and mints a new one only
-for a genuinely new row. **Do not hand-edit those files.**
-
-This replaced ids that were row positions — `FW0001` from `row_number()`, and for
-species and contacts a row number assigned *after* an alphabetical sort. Adding
-one species beginning with "A" renumbered every species after it, and re-sorting
-the export renumbered everything. Since those ids are the join key for QA
-writeback, Zenodo versioning and reference linkage, that silently corrupted all
-three.
-
-`R/data_prep.R` also writes `id_registry/key_backfill.csv`, a pasteable `Key`
-column for the client's master spreadsheet. Once `Key` is populated it becomes
-authoritative and the natural-key registry is only a fallback.
-
-If you change how the natural key is built, **every row looks new** and every id
-is re-minted. The build's registry check will not save you — it only catches a
-key resolving to a *different* id, not a key that no longer matches anything.
+Each id lives in the row or lookup that owns it, so there is no registry to keep
+in step. An attempt id is minted by the form the moment a submission is sent and
+travels with the row from the inbox into `attempts.csv` unchanged; species and
+contact ids are minted by `dev/qa.R fold` once the reviewer has confirmed the row
+is genuinely new. Only `attempt_id` ever leaves the app, in exports.
 
 ### Serving data without redeploying
 
@@ -492,14 +511,25 @@ Two things to know before editing:
 `fw_submit_attempt(record, data)` is the single entry point. Where it writes is
 decided by `fw_data_mode()`: with a token it commits over the GitHub API, without
 one it writes to the local inbox and needs no credentials. **Both produce the
-same thing** — one CSV per submission in `inbox/`, named for its `submission_id`
-— so QA does not care which wrote it.
+same thing** - one CSV per submission in `inbox/`, named for its `attempt_id` -
+so QA does not care which wrote it.
+
+**A submission is one row in the shape of the database.** The inbox file has
+exactly the columns of `attempts.csv`, in the same order, so the reviewer
+compares like with like and folding it in is an append. Two things a submission
+cannot know are ids for species and contacts the database does not hold yet.
+Those travel in the same cell with a `new:` prefix and what the reviewer needs
+to create the row - `new:Arctic charr (Salvelinus alpinus)|Fish`,
+`new:Jane Doe|University of X|jane@x.org|public` - and the review step resolves
+them. A contributor's contact is always a `new:` reference, because the form has
+no contact picker; the review step matches it against `contacts.csv` so a known
+person needs no decision.
 
 **One file per submission, not an append.** The GitHub API has no append: adding
 a row to a shared CSV means reading it, decoding it, appending, and PUTting the
 whole file back quoting the blob SHA it was read at, and two contributors
 pressing Send in the same moment make the second one 409 and need retry logic. A
-file per submission has no read-modify-write at all, and `submission_id` makes it
+file per submission has no read-modify-write at all, and the attempt id makes it
 idempotent for free.
 
 **A failed GitHub write is reported to the contributor, never quietly written to
@@ -507,62 +537,50 @@ disk instead.** On Connect Cloud the container filesystem is discarded on
 restart, so a local fallback would hand someone a confirmation screen for a
 submission that was already gone.
 
-**The Google Sheets backend has been removed.** Submissions moved to GitHub, so
-the Sheets path was deleted rather than left in place as untested code with
-credential handling in its documentation. It had never been run against a real
-Sheet.
+### The review loop
 
-The inbox is a **raw submissions list, not the schema**. One flat row per
-submission, with the repeatable species, methods and beneficiaries serialised
-into single pipe-delimited cells, because a person reads them in a spreadsheet
-during QA. Normalisation into the star schema happens manually in that review.
-
-Every row is auto-populated with a `submission_id`, `status = "pending"` and a
-`submitted_at` timestamp, so the QA and publishing pipeline can work without
-duplicates.
-
-### Testing the submit-review-publish loop locally
-
-`dev/merge_submissions.R` is now **the QA step**, not scaffolding: pull
-`fwise-data`, run it, review, commit, push, restart the app. It reads
-`inbox/*.csv` and still reads the older `dev/submissions_local.csv` if one is
-present, so submissions made before the GitHub write path landed are not
-stranded.
+`dev/qa.R` is the QA step. Pull `fwise-data`, stage, review in a spreadsheet,
+fold, commit, push, restart the app.
 
 ```bash
-Rscript dev/merge_submissions.R --list      # read-only: what would be merged
-Rscript dev/merge_submissions.R             # merge as pending
-Rscript dev/merge_submissions.R --approve   # merge and approve in one step
+Rscript dev/qa.R stage                              # inbox -> qa/review_<date>.csv
+Rscript dev/qa.R fold qa/review_<date>.csv          # decisions -> attempts.csv
+Rscript dev/qa.R fold qa/review_<date>.csv --keep-pending
 ```
 
-The loop:
+1. **Stage.** Every unprocessed inbox file becomes a row of
+   `qa/review_<date>.csv`. Beside each id column is a `_names` companion -
+   `invasive_species_names`, `primary_contact_names` - so the reviewer reads
+   "Common carp (Cyprinus carpio); [NEW] Arctic charr (Salvelinus alpinus)"
+   rather than ids. Every `new:` species becomes a row of
+   `qa/species_new_<date>.csv` with the names split out, the taxa the
+   contributor chose, family `Unknown`, and a `same_binomial_as` warning when a
+   species with that scientific name is already held. Every `new:` contact
+   becomes a row of `qa/contacts_new_<date>.csv`, with `action` pre-filled as
+   `use:CO-…` when the name and organisation already exist. The console lists
+   what looks off: a country not in the ISO list, a method not in
+   `FW_METHODS`, an off-vocabulary driver, waterbody or agent, a possible
+   duplicate of an existing site and start year.
+2. **Review.** In the review file, correct any value and set `status` to
+   `approved` or `rejected`. In the two `_new` files, set `action` on every row:
+   `add` (fix the names, taxa and family first) or `use:<existing id>`.
+3. **Fold.** Refuses to run while any `action` is blank or names an id that does
+   not exist. Mints an id for every `add` and appends it to the lookup, rewrites
+   every `new:` reference to an id, drops the `_names` columns, fills `iso3` and
+   `continent` from the ISO lookup, appends the approved rows to `attempts.csv`,
+   moves their inbox files to `inbox/merged/`, and rewrites `metadata.json`.
+   Rejected rows go to `qa/rejected.csv`. Rows left `pending` stay in the inbox
+   unless `--keep-pending`, which folds them in as pending, invisible publicly.
+   Before writing, the folded rows are passed through the same `fw_unpack()` the
+   app uses, so nothing that would stop the next startup can be committed.
 
-1. Submit a record through the Contribute page. It lands in
-   `../fwise-data/inbox/<submission_id>.csv`.
-2. Merge it. It enters the schema as **`pending`**, mints ids through the same
-   registry as everything else, and creates any new species, method or contact
-   rows it needs.
-3. Check it is invisible. A pending record must not appear in any dropdown, the
-   Networking directory, the report builder's filters, or an export — while its
-   foreign keys still resolve. That boundary is the thing worth testing.
-4. Approve it: set `status` to `approved` in `fwise-data/schema/attempt.csv`.
-   Restart the app and it appears everywhere.
+It is **idempotent** - an attempt id already in `attempts.csv` is skipped by
+both commands - and it **moves** folded files to `inbox/merged/`, so the app can
+count outstanding submissions with a single directory listing instead of opening
+every file, which over the API would be one request per submission.
 
-It is **idempotent** — `submission_id` is the natural key, so re-running merges
-nothing twice — and it **moves** merged files to `inbox/merged/` so the in-review
-count does not count them again once they are in the schema. Moving rather than
-rewriting a status cell is what lets the app count outstanding submissions with a
-single directory listing instead of opening every file, which over the API would
-be one request per submission.
-
-It **warns about near-duplicate species**. The picker deliberately lets a
-contributor type a name we do not hold, which means "Arctic charr" arrives as a
-new species when "Arctic char" is already there on 24 attempts: same binomial,
-different common name, two rows. The merge points at it rather than silently
-creating the split.
-
-To discard everything merged, re-run `Rscript R/data_prep.R` — the schema is
-regenerated from the raw export.
+A species added by the fold has no photograph yet. `dev/fetch_species_images.R`
+visits only rows with a blank `image_url`, so run it afterwards.
 
 ---
 
@@ -574,7 +592,7 @@ copy it to `.Renviron` (gitignored) for local use.
 | Variable | Set where | Purpose |
 |---|---|---|
 | `FWISE_DATA_TOKEN` | Connect Cloud settings | **The only thing a deployment needs.** A fine-grained GitHub PAT with Contents: Read and write on `freshwaterLife/fwise-data`. Set means read and write over the GitHub API; unset means the local sibling checkout and no network calls. Expires — see "Serving data without redeploying". |
-| `FWISE_DATA_SOURCE` | rarely, for a test deploy | Overrides the above. A path reads that directory; an `https://` base reads over plain HTTPS with no credential and cannot write. Point it at the directory holding `metadata.json` and `schema/`, not at `schema/` itself. |
+| `FWISE_DATA_SOURCE` | rarely, for a test deploy | Overrides the above. A path reads that directory; an `https://` base reads over plain HTTPS with no credential and cannot write. Point it at the directory holding `attempts.csv` and `metadata.json`. |
 
 **Never commit a credential.** `.Renviron` and `*.json` are gitignored, with
 `manifest.json` explicitly re-included because it is configuration rather than a
@@ -882,9 +900,10 @@ The domain is registered with Namecheap and is held by the client.
   the function currently derives its figures from FWISE's own records, which is
   the response and not the burden. It does not yet tell the story. The function
   is isolated so replacing it is a one-line change.
-- **Attempt identifiers are positional.** The source `Key` column is empty, so
-  `attempt_id` is generated from row order and is stable only while that order
-  is. If the client starts populating `Key`, switch to it in `data_prep.R`.
+- **The client's spreadsheet is no longer the master.** `attempts.csv` is. A
+  fresh export from the old spreadsheet cannot simply be dropped in; a value
+  changed there has to be changed in the row, or a new migration written and
+  reconciled with `dev/reconcile_source.R`.
 - **The FWISE lockup's wordmark is indigo**, so the navbar and the footer's
   upper tier stay on a light ground and the indigo sits in the page-title band
   and the footer's lower tier. Reversed artwork would open up an indigo navbar.
