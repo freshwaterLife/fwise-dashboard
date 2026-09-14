@@ -40,6 +40,13 @@
 // $fw-size-min. $fw-size-popup is the one exemption, for transient overlays
 // (the (i) popovers and the map card) only. If the thing you are sizing does
 // not disappear when the user clicks elsewhere, it is the wrong token.
+//
+// $fw-size-min IS NO LONGER THE SAME VALUE AS $fw-size-caption. Caption went to
+// 1.15rem on a client instruction and the rest of the scale went up with it;
+// the floor stayed at 1rem. So the two are not interchangeable any more:
+// $fw-size-caption for subtitles, notes and small print that should ride the
+// scale, $fw-size-min only where something must not grow. See FW_TYPE in
+// R/brand.R.
 
 // ---- Derived ---------------------------------------------------------------
 

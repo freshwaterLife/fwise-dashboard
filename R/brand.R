@@ -74,10 +74,18 @@ FW_COLOURS <- list(
 # only (.fw-num): it column-aligns figures. Never set labels or prose in it.
 #
 # THE 1rem FLOOR. No text that stays on the page may be set below 1rem; that
-# is a client instruction. `caption` and `min` are 1rem for that reason and
-# differ from body text by colour and weight, not size. The one exemption is
-# `popup`: transient overlay text (popovers, the map card) may sit under the
-# floor. floor_px is the same floor in the unit plotly understands.
+# is a client instruction. `min` is that floor, and the one exemption is
+# `popup`: transient overlay text (popovers, the map card) may sit under it.
+# floor_px is the same floor in the unit plotly understands.
+#
+# THE SCALE MOVED UP. The client asked for subtitles - the qualifying line
+# under a block heading, which is `caption` - at 1.15rem rather than 1rem.
+# Raising caption ALONE would have made it larger than body prose at 1.0625rem,
+# so a chart's qualification would have outranked the paragraph that introduced
+# it. The whole scale therefore went up together and the ratios between the
+# steps are unchanged; only `min`, `popup` and `credit` stayed where they were,
+# because those are the floor and its two exemptions rather than steps on the
+# scale. `caption` is now separated from body text by size AS WELL AS by colour.
 FW_TYPE <- list(
   font_body = paste0('"Ubuntu", -apple-system, BlinkMacSystemFont, "Segoe UI", ',
                      'Roboto, "Helvetica Neue", Arial, sans-serif'),
@@ -88,20 +96,33 @@ FW_TYPE <- list(
   # The Word question list. Word on the reader's machine will not have Ubuntu.
   font_docx = "Calibri",
 
-  size_display = "2.7rem",
-  size_h1      = "2.1rem",
-  size_h2      = "1.7rem",
-  size_h3      = "1.35rem",
-  size_lead    = "1.125rem",
-  size_body    = "1.0625rem",  # 17px
-  size_caption = "1rem",       # THE FLOOR
-  size_min     = "1rem",       # the floor, named for places that used to go under it
+  size_display = "2.9rem",
+  size_h1      = "2.25rem",
+  size_h2      = "1.8rem",
+  size_h3      = "1.45rem",
+  size_lead    = "1.3rem",
+  size_body    = "1.2rem",
+  size_caption = "1.15rem",    # subtitles and notes. A client instruction.
+  size_min     = "1rem",       # THE FLOOR. Not a step on the scale; do not raise.
   size_popup   = "0.9rem",     # THE ONE EXEMPTION: transient overlays only
 
+  # THE SECOND EXEMPTION, and a client instruction rather than a drift. A
+  # photograph's credit line is an obligation under the licence - it has to be
+  # present and legible - but in the dashboard's attempts table it sits under
+  # two thumbnails in every row, and at 1rem the attribution was setting the
+  # column width and pushing the species name onto three lines. The name is
+  # what the reader is scanning for; the credit only has to be readable when
+  # they look at it.
+  #
+  # 0.8rem, roughly 13px, NOT the half of 1rem the instruction says literally:
+  # 8px attribution is not legible at arm's length on a laptop and would fail
+  # the obligation it exists to meet. Raise or lower it here, in one place.
+  size_credit  = "0.8rem",     # credit lines in the dashboard's table only
+
   # Narrow screens (under FW_BREAKPOINTS$xs) step the headings down.
-  size_h1_narrow = "1.8rem",
-  size_h2_narrow = "1.5rem",
-  size_h3_narrow = "1.25rem",
+  size_h1_narrow = "1.95rem",
+  size_h2_narrow = "1.6rem",
+  size_h3_narrow = "1.35rem",
 
   floor_px = 16L,              # the 1rem floor for plotly, which takes pixels
 

@@ -43,12 +43,20 @@ fw_theme <- function() {
     # rem and not em deliberately: an em here would compound against whatever
     # the parent happens to be and quietly drop back under the floor inside a
     # small container.
+    #
+    # TWO TOKENS, NOT ONE, since the scale moved up. Everything that STAYS ON
+    # THE PAGE as its own small print - a field label, help text, a validation
+    # message, a nav link - takes $size_caption, so Bootstrap's chrome rides the
+    # scale with our own markup instead of being stranded a step below it.
+    # $size_min is left only where the component is already deliberately small
+    # (the -sm variants, badges) and must not grow. Both are at or above the
+    # floor, which is the property that matters.
     "font-size-sm"            = FW_TYPE$size_min,
-    "small-font-size"         = FW_TYPE$size_min,
+    "small-font-size"         = FW_TYPE$size_caption,
     "sub-sup-font-size"       = FW_TYPE$size_min,
-    "form-text-font-size"     = FW_TYPE$size_min,
-    "form-label-font-size"    = FW_TYPE$size_min,
-    "form-feedback-font-size" = FW_TYPE$size_min,
+    "form-text-font-size"     = FW_TYPE$size_caption,
+    "form-label-font-size"    = FW_TYPE$size_caption,
+    "form-feedback-font-size" = FW_TYPE$size_caption,
     "input-font-size-sm"      = FW_TYPE$size_min,
     "btn-font-size-sm"        = FW_TYPE$size_min,
     # bslib sets its own --bs-btn-font-size of .9375rem, which is 15px and under
@@ -62,9 +70,9 @@ fw_theme <- function() {
     # page is still at the floor.
     "tooltip-font-size"       = FW_TYPE$size_popup,
     "popover-font-size"       = FW_TYPE$size_popup,
-    "dropdown-font-size"      = FW_TYPE$size_min,
-    "legend-font-size"        = FW_TYPE$size_min,
-    "nav-link-font-size"      = FW_TYPE$size_min,
+    "dropdown-font-size"      = FW_TYPE$size_caption,
+    "legend-font-size"        = FW_TYPE$size_caption,
+    "nav-link-font-size"      = FW_TYPE$size_caption,
 
     # Colour. `primary` drives Bootstrap's buttons, links and focus states, so it
     # is set to the teal that passes AA as text rather than the brand teal. See

@@ -195,7 +195,7 @@ fw_html_dependency_tags <- function(deps) {
 #'
 #' THE SAME SASS THE APP SERVES, not a second stylesheet written for print. That
 #' is the whole reason the report can reuse fw_plan_summary_ui(),
-#' fw_outcome_bars_ui(), fw_plan_table() and fw_plan_caveats_ui() directly: the
+#' fw_outcome_bars_ui(), fw_plan_table() and fw_caveats_ui() directly: the
 #' markup and the rules that draw it travel together, so a component restyled in
 #' _components.scss is restyled in every report built afterwards, with no second
 #' edit and no chance of the two disagreeing.
@@ -414,6 +414,11 @@ fw_html_toolbar <- function() {
                   onclick = "fwDownload('fw-file-csv')", fw_t("plan", "html_csv")),
       tags$button(type = "button", class = "fw-report__tool fw-report__tool--quiet",
                   onclick = "fwDownload('fw-file-xlsx')", fw_t("plan", "html_xlsx")),
+      # The methods and caveats, carried here too. This file is the one piece of
+      # the bundle that travels on its own - somebody emails the report, not the
+      # zip - so it has to be able to hand back its own qualifications.
+      tags$button(type = "button", class = "fw-report__tool fw-report__tool--quiet",
+                  onclick = "fwDownload('fw-file-txt')", fw_t("plan", "html_txt")),
       p(fw_t("plan", "html_print_hint"))
     ),
     tags$ul(
@@ -484,8 +489,12 @@ fw_write_html_report <- function(path, data, sel, export, filters,
   n_invasive <- dplyr::n_distinct(fw_species_rows(data, sel, "invasive")$species_id)
   n_beneficiary <- dplyr::n_distinct(
     fw_species_rows(data, sel, "beneficiary")$species_id)
-  tiles_invasive <- fw_species_tiles_ui(data, sel, "invasive")
-  tiles_beneficiary <- fw_species_tiles_ui(data, sel, "beneficiary")
+  # FW_PLAN_SPECIES_N, the same limit the page uses, so the document and the
+  # screen show the same species rather than the report quietly showing more.
+  tiles_invasive <- fw_species_tiles_ui(data, sel, "invasive",
+                                        limit = FW_PLAN_SPECIES_N)
+  tiles_beneficiary <- fw_species_tiles_ui(data, sel, "beneficiary",
+                                           limit = FW_PLAN_SPECIES_N)
 
   # The two files the reader can pull back out. The workbook is built by the
   # SAME function the spreadsheet button serves, so the copy inside the report
@@ -493,6 +502,8 @@ fw_write_html_report <- function(path, data, sel, export, filters,
   csv_path <- fw_html_write_csv(export, dir)
   xlsx_path <- file.path(dir, fw_export_filename())
   fw_write_workbook(xlsx_path, data, export, filters, meta)
+  txt_path <- file.path(dir, fw_methods_filename())
+  writeLines(fw_methods_caveats_text(data), txt_path, useBytes = TRUE)
 
   body <- tagList(
     fw_html_letterhead(
@@ -585,9 +596,10 @@ fw_write_html_report <- function(path, data, sel, export, filters,
       extra = p(class = "fw-caption",
                 fw_fill(fw_t("plan", "r_duration_missing"), n = fw_fmt_num(n_duration)))
     ),
-    fw_html_figure(fw_t("plan", "r_cumulative"),
-                   fw_t("plan", "r_cumulative_note"),
-                   fw_chart_cumulative(sel)),
+    # The cumulative chart is NOT here, and its absence is deliberate. It moved
+    # to the dashboard, because it answers how the database has grown rather
+    # than anything about the selection this report is about. A report is read
+    # as being about its selection, which is exactly what made it misleading.
 
     # ---- The attempts --------------------------------------------------------
     # Every matching row, not the Word file's first forty. The page's own table
@@ -605,10 +617,28 @@ fw_write_html_report <- function(path, data, sel, export, filters,
       )
     },
 
+    # ---- The people ----------------------------------------------------------
+    # The page's own contacts block, drawn by the same function, so the document
+    # names the same people in the same order. Every row on one page: there is
+    # no pager in a file that is read as a document and printed.
+    #
+    # fw_plan_contacts() reads fw_contacts_summary(), which has already removed
+    # the address of anyone who asked not to be listed - and this file leaves the
+    # building, so that matters here more than anywhere else in the app.
+    local({
+      people <- fw_plan_contacts(data, sel)
+      if (!nrow(people)) return(NULL)
+      tagList(
+        fw_html_block(fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note")),
+        div(class = "fw-table-scroll",
+            fw_plan_contacts_ui(people, page = 1L, per_page = nrow(people)))
+      )
+    }),
+
     # ---- Caveats -------------------------------------------------------------
     # Last, and never optional. The page's own panel, built from the same
     # fw_caveats() vector as the workbook's Caveats sheet.
-    fw_plan_caveats_ui(data),
+    fw_caveats_ui(data),
 
     p(class = "fw-report__footer", fw_t("plan", "report_footer")),
 
@@ -617,6 +647,8 @@ fw_write_html_report <- function(path, data, sel, export, filters,
                     "text/csv;charset=utf-8"),
     fw_html_payload("fw-file-xlsx", xlsx_path, fw_export_filename(),
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    fw_html_payload("fw-file-txt", txt_path, fw_methods_filename(),
+                    "text/plain;charset=utf-8"),
     fw_html_report_script()
   )
 

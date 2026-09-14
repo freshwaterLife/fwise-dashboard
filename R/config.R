@@ -232,6 +232,16 @@ FW_COORD_DP <- 6
 # this as well, so changing it here changes the sentence under the chart.
 FW_TOP_N <- 10L
 
+# The species photo grids on the report builder, which show FEWER than FW_TOP_N.
+# A tile is a photograph the size of a playing card, so ten of them ran to two
+# full rows and pushed the rest of the report below the fold; five is one row and
+# is the client's decision. The charts that rank into a top-n-plus-Other still use
+# FW_TOP_N - a bar costs a line, not a photograph.
+#
+# The copy that says "five" in words is filled from this too, so the note under
+# the grid cannot promise a different number from the one shown.
+FW_PLAN_SPECIES_N <- 5L
+
 # The country table in the HTML report. Longer than FW_TOP_N because a printed
 # list is scanned rather than read off a bar.
 FW_REPORT_COUNTRY_ROWS <- 15L
@@ -277,18 +287,20 @@ FW_MAP <- list(
   # reached. So markers are grouped - but only where they genuinely overlap.
   # Below `fine_zoom` the cluster radius is 0, which Leaflet.markercluster
   # reads as "identical coordinates only", so the coarse view keeps its
-  # coloured dots and a stack shows as one small counted group. From
-  # `fine_zoom` up, markers within `fine_radius` px of each other group as
-  # well. A click on a group zooms to it, and fans it out once its members
-  # cannot be separated by zooming.
+  # coloured dots and a stack shows as one group. From `fine_zoom` up, markers
+  # within `fine_radius` px of each other group as well. A click on a group
+  # zooms to it, and fans it out once its members cannot be separated by
+  # zooming.
   #
-  # TWO LOOKS FOR A GROUP. Below `fine_zoom` it is drawn the size of a marker
-  # (`stack_size` px), an indigo dot with a light ring, so it reads as "a stack
-  # here" without shouting over the coloured dots around it - a counted ring at
-  # world zoom piled thirty of them over Norway. From `fine_zoom` up, where the
-  # reader is close enough to want the number, it is a counted ring `icon_size`
-  # px across, wide enough for the 1rem floor.
-  cluster = list(fine_zoom = 13L, fine_radius = 12L, stack_size = 16L, icon_size = 28L)
+  # ONE LOOK FOR A GROUP: a counted ring, `icon_size` px across, wide enough to
+  # carry its number at the 1rem floor. There used to be two - below `fine_zoom`
+  # a group was drawn as a plain indigo dot the size of a marker, on the
+  # reasoning that a counted ring at world zoom piled thirty of them over
+  # Norway. The client asked for the number everywhere: an unlabelled dot is
+  # indistinguishable from a single attempt, which is the one thing a group must
+  # not look like. If the world view ever does read as too busy, the answer is
+  # to draw the ring smaller at coarse zoom, not to take the number off it.
+  cluster = list(fine_zoom = 13L, fine_radius = 12L, icon_size = 28L)
 )
 
 # Charts.
@@ -298,6 +310,12 @@ FW_CHART <- list(
   # `cumulative` is the one fixed-height chart.
   height = list(
     cumulative       = 360,
+    # Fixed. A ring does not grow with its number of categories the way a bar
+    # chart does - it only gets more crowded, which is what the hover is for.
+    # 300 rather than the 360 it shared with the outcome donut: there is no
+    # second ring to sit level with any more, and with nothing printed on the
+    # slices it needs less room to stay legible.
+    donut            = 300,
     method           = c(min = 250, per_row = 46, pad = 110),
     duration         = c(min = 270, per_row = 54, pad = 124),
     category         = c(min = 240, per_row = 34, pad = 120),
@@ -305,8 +323,42 @@ FW_CHART <- list(
   ),
   # A count is printed inside a segment only when the segment holds at least
   # this share of its bar, in percent; narrower than that and the hover carries
-  # it. The rem floor means a label cannot be shrunk to fit.
+  # it. The rem floor means a label cannot be shrunk to fit. THE STACKED BARS
+  # ONLY - the dashboard's donut used to honour this too and now prints nothing
+  # on the ring at all, at the client's request. See fw_chart_donut().
   label_min_share = 9,
+  # The hole in the two proportion donuts, as a fraction of the radius. Big
+  # enough to carry the denominator in the middle, which is the whole reason
+  # these are donuts rather than pies: a percentage with no visible n behind it
+  # is the thing the rest of this file exists to avoid.
+  donut_hole = 0.55,
+  # WHERE THE RING STOPS AND ITS KEY STARTS, as fractions of the plot width.
+  # The donut carries its key beside it rather than above - a seven-entry method
+  # key stacked over a small circle takes more height than the chart does - and
+  # plotly does not reserve room for a legend placed inside the paper, so the
+  # pie's own domain has to be narrowed to make it. The gap between the two is
+  # the breathing room between the ring and the swatches.
+  #
+  # The ring takes a little more of the width than it used to (0.58/0.62), which
+  # it can afford now that nothing is printed on the slices: the key no longer
+  # competes with text inside the circle.
+  donut_domain_x = 0.62,
+  donut_legend_x = 0.66,
+  # The floor for the top margin a horizontal legend needs, in px. NOT the
+  # value - fw_legend_margin() computes that from how many lines the key will
+  # actually wrap onto. This was a flat 42, which is exactly one line at the
+  # 16px type floor with nothing to spare, so any chart whose key wrapped put
+  # its second line on top of the plot. See fw_plotly_style() in R/charts.R.
+  legend_min_top = 46,
+  # A legend line's height and the gap under the whole key, in px. Derived from
+  # the type floor rather than typed twice.
+  legend_line = 22,
+  legend_pad  = 12,
+  # Roughly how many px a legend entry takes per character at the type floor,
+  # plus the swatch and the gap between entries. Used only to guess how many
+  # entries fit on a line; plotly does the real layout.
+  legend_char_px  = 8.2,
+  legend_entry_px = 42,
   # The rule between stacked segments, in px. 0 for the outcome charts: the
   # four Wong colours separate on their own and the rule read as aggressive.
   # The method chart keeps a hairline, because its adjacent-segment case under

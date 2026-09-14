@@ -243,16 +243,102 @@ fw_caveats <- function(data) {
   out
 }
 
+#' The methods-and-caveats text file that travels with every download
+#'
+#' NEVER OPTIONAL, and that is the point of it. The download picker on the
+#' report builder lets a reader choose the spreadsheet, the CSV, the report or
+#' any combination; this goes in the bundle whatever they choose, for the same
+#' reason the workbook has always carried a caveats sheet. A reader who did not
+#' ask for the qualifications is exactly the reader who needs them, and by the
+#' time a file reaches somebody else nobody remembers what was on screen.
+#'
+#' Two sections: how the database was built, then what to watch for in it. The
+#' second half is fw_caveats(), the same vector the workbook sheet uses, so the
+#' text file and the spreadsheet cannot say different things.
+fw_methods_caveats_text <- function(data) {
+  c(
+    toupper(fw_t("export", "methods_heading")),
+    fw_t("export", "methods"),
+    "",
+    fw_caveats(data)
+  )
+}
+
+#' Filename for the methods-and-caveats text
+fw_methods_filename <- function() fw_t("export", "methods_filename")
+
+# ---- Contacts ----------------------------------------------------------------
+
+#' The contacts attached to an extract, one row per person
+#'
+#' WHY THIS EXISTS BESIDE THE PER-ROW CONTACT COLUMNS. The attempts sheet
+#' already carries primary_contact_* and secondary_contact_* on every row, which
+#' answers "who recorded this attempt". This answers the different question the
+#' report builder's contacts block asks - "who should I talk to" - by
+#' deduplicating those people and counting how many of the attempts in front of
+#' the reader each is attached to. The data dictionary says so, rather than
+#' leaving a reader to wonder which of the two to trust.
+#'
+#' REDACTION happens in fw_contacts_summary() and nowhere else. This function
+#' reads only from there, and fw_write_workbook() asserts the result before it
+#' writes - see fw_assert_export_safe().
+#'
+#' @param attempt_ids the extract. NULL means every approved attempt.
+fw_contacts_export <- function(data, attempt_ids = NULL) {
+  contacts <- fw_contacts_summary(data)
+  ids <- attempt_ids %||% data$attempt$attempt_id
+
+  here <- vapply(contacts$attempt_ids, function(x) length(intersect(x, ids)),
+                 integer(1))
+  keep <- contacts[here > 0, , drop = FALSE]
+  keep$attempts_in_extract <- here[here > 0]
+  keep <- keep[order(-keep$attempts_in_extract, keep$contact_name), , drop = FALSE]
+
+  out <- data.frame(
+    contact_id         = keep$contact_id,
+    contact_name       = keep$contact_name,
+    organisation       = keep$organisation,
+    contact_email      = keep$contact_email,
+    continents         = keep$continent_label,
+    countries          = keep$country_label,
+    attempts_in_extract = keep$attempts_in_extract,
+    stringsAsFactors = FALSE
+  )
+  rownames(out) <- NULL
+  fw_assert_export_safe(out, data)
+  out
+}
+
 # ---- Field definitions -------------------------------------------------------
 
 #' The data dictionary that travels with the export
 #'
 #' The definitions live in R/copy_export.R, one per exported column. This only
 #' shapes them into the sheet.
+#'
+#' TWO FRAMES, ONE SHEET. The attempts columns come first and are exactly
+#' FW_EXPORT_COLUMNS, in order - the tests check that and nothing should be
+#' appended to `dictionary` that is not an exported column. The contacts sheet's
+#' own columns follow under their own heading row, because a reader looking up a
+#' column name does not know or care which of the two lists it is in.
 fw_field_definitions <- function() {
-  d <- fw_t("export", "dictionary")
-  out <- data.frame(names(d), unname(d), stringsAsFactors = FALSE)
+  sheets <- fw_t("export", "sheets")
+  # Column names are set HERE rather than at the end: rbind() on data frames
+  # matches by name, not by position, so two frames built with auto-generated
+  # names would not stack.
+  row <- function(field, definition) {
+    data.frame(field = field, definition = definition, stringsAsFactors = FALSE)
+  }
+  frame <- function(d) row(names(d), unname(d))
+  group <- function(sheet) row(fw_fill(fw_t("export", "dict_group"), sheet = sheet), "")
+
+  out <- rbind(
+    frame(fw_t("export", "dictionary")),
+    group(sheets$contacts),
+    frame(fw_t("export", "dictionary_contacts"))
+  )
   names(out) <- c(fw_t("export", "col_field"), fw_t("export", "col_definition"))
+  rownames(out) <- NULL
   out
 }
 
@@ -299,9 +385,11 @@ fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL) {
 
 #' Write the workbook
 #'
-#' Four sheets, always. The data is useless to a careful reader without the other
-#' three, and a reader who did not ask for the caveats is exactly the reader who
-#' needs them.
+#' FIVE SHEETS, ALWAYS. The data is useless to a careful reader without the other
+#' four, and a reader who did not ask for the caveats is exactly the reader who
+#' needs them. The contacts sheet is the newest: it is the one-row-per-person,
+#' deduplicated view of the people behind the extract, which the per-row contact
+#' columns on the attempts sheet cannot answer - see fw_contacts_export().
 fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
   wb <- openxlsx::createWorkbook()
   header <- openxlsx::createStyle(
@@ -317,6 +405,11 @@ fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
 
   sheets <- fw_t("export", "sheets")
   add(sheets$attempts, export)
+  # Asserted inside fw_contacts_export() before it gets here, and built from
+  # fw_contacts_summary(), which redacts. Two controls, on purpose: an export is
+  # the one place a mistake travels outside the building and cannot be recalled.
+  add(sheets$contacts, fw_contacts_export(data, export$attempt_id),
+      widths = c(20, 28, 34, 30, 22, 34, 18))
   add(sheets$caveats,
       fw_text_sheet(fw_caveats(data), fw_t("export", "caveats_heading")),
       widths = 110)
@@ -332,4 +425,106 @@ fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
 #' Filename for a download
 fw_export_filename <- function() {
   paste0(fw_t("export", "filename_stem"), format(Sys.Date(), "%Y%m%d"), ".xlsx")
+}
+
+# ---- The bundle --------------------------------------------------------------
+#
+# ONE DOWNLOAD, ASSEMBLED FROM WHAT THE READER TICKED. The report builder used
+# to offer a spreadsheet button and a report button; it now offers a picker and
+# one button, and the methods-and-caveats text rides along whatever else is in
+# there. See fw_plan_download_ui() in mod_plan.R.
+#
+# The writers themselves are UNCHANGED and are not duplicated here: this decides
+# what goes in and calls fw_write_workbook(), fw_html_write_csv() and
+# fw_write_html_report() exactly as the two buttons did.
+
+# The parts a reader can choose, and the order they are written in. "pdf" is not
+# a file of its own - it resolves to the HTML report, which carries the print
+# stylesheet and a Save as PDF button. Ticking both is therefore not an error
+# and does not produce two copies; see fw_bundle_parts().
+FW_BUNDLE_PARTS <- c("xlsx", "csv", "html", "pdf")
+
+#' Which files a selection actually produces
+#'
+#' "pdf" and "html" are the same file, so a reader who ticks both gets one copy
+#' of it rather than a duplicate under a second name.
+fw_bundle_parts <- function(parts = character(0)) {
+  parts <- intersect(FW_BUNDLE_PARTS, parts %||% character(0))
+  if ("pdf" %in% parts) parts <- unique(c(setdiff(parts, "pdf"), "html"))
+  intersect(c("xlsx", "csv", "html"), parts)
+}
+
+#' What a download of this selection will be called
+#'
+#' A zip when there is more than one file, and the file itself when there is
+#' exactly one. With the text file always travelling, the single-file case is a
+#' reader who ticked nothing - which downloads the methods and caveats alone,
+#' and is a reasonable thing to want rather than an error to refuse.
+fw_bundle_filename <- function(parts = character(0)) {
+  if (!length(fw_bundle_parts(parts))) return(fw_methods_filename())
+  paste0(fw_t("export", "bundle_stem"), format(Sys.Date(), "%Y%m%d"), ".zip")
+}
+
+#' Write the download
+#'
+#' @param path where to write - the download handler's temp file
+#' @param parts what the reader ticked. Anything not recognised is ignored.
+#' @param ... the report's own arguments, passed through to
+#'   fw_write_html_report() so the document matches the screen it came from.
+fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL,
+                            method_mode = "count", method_wb_mode = "count") {
+  parts <- fw_bundle_parts(parts)
+
+  dir <- tempfile("fw-bundle-"); dir.create(dir)
+  on.exit(unlink(dir, recursive = TRUE), add = TRUE)
+
+  # Always, and first, so it is the first thing in the archive listing.
+  txt <- file.path(dir, fw_methods_filename())
+  writeLines(fw_methods_caveats_text(data), txt, useBytes = TRUE)
+  files <- fw_methods_filename()
+
+  if ("xlsx" %in% parts) {
+    fw_write_workbook(file.path(dir, fw_export_filename()), data, export,
+                      filters, meta)
+    files <- c(files, fw_export_filename())
+  }
+  if ("csv" %in% parts) {
+    files <- c(files, basename(fw_html_write_csv(export, dir)))
+  }
+  if ("html" %in% parts) {
+    fw_write_html_report(
+      path = file.path(dir, fw_html_filename()), data = data, sel = sel,
+      export = export, filters = filters, meta = meta,
+      method_mode = method_mode, method_wb_mode = method_wb_mode
+    )
+    files <- c(files, fw_html_filename())
+  }
+
+  # One file arrives as itself. Zipping a lone text file to save nothing would
+  # make the reader unpack an archive to read two paragraphs.
+  if (length(files) == 1) {
+    file.copy(file.path(dir, files), path, overwrite = TRUE)
+    return(invisible(path))
+  }
+
+  # WRITE TO A NAME ENDING IN .zip, THEN MOVE IT. The zip binary appends ".zip"
+  # to an output name that has no extension, and a downloadHandler's temp file
+  # never has one - so zipping straight to `path` wrote the archive beside it
+  # and left `path` empty. The handler renames it on the way out anyway, using
+  # fw_bundle_filename().
+  #
+  # utils::zip() shells out and reports failure through a status code rather
+  # than a condition, so the status is checked: a download that silently hands
+  # back a zero-byte file is worse than one that errors. Relative paths, from
+  # inside the directory, so the archive carries no absolute path.
+  archive <- tempfile(fileext = ".zip")
+  wd <- setwd(dir); on.exit(setwd(wd), add = TRUE, after = FALSE)
+  status <- utils::zip(archive, files, flags = "-q")
+  if (!identical(as.integer(status), 0L) || !file.exists(archive)) {
+    stop("Could not write the download archive (zip exit status ", status, ").",
+         call. = FALSE)
+  }
+  file.copy(archive, path, overwrite = TRUE)
+  unlink(archive)
+  invisible(path)
 }

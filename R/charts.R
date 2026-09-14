@@ -43,6 +43,36 @@ fw_chart_height <- function(chart, rows) {
   max(h[["min"]], h[["per_row"]] * rows + h[["pad"]])
 }
 
+#' How much top margin a horizontal legend needs, in px
+#'
+#' THIS USED TO BE A FLAT 42 AND THAT IS THE BUG. 42px is exactly one line at
+#' the 16px type floor with nothing to spare, so any chart whose key wrapped -
+#' seven method names, or four outcomes in a narrow column - put its second line
+#' on top of the plot area and over the top of the bars.
+#'
+#' plotly does the real layout; this only has to guess how many lines the key
+#' will take so the margin is reserved before it does. Guessing high is cheap
+#' (a little white space) and guessing low is not (an unreadable chart), so the
+#' estimate rounds up and never returns less than FW_CHART$legend_min_top.
+#'
+#' @param labels the legend entries, or NULL when the chart has no key
+#' @param width the plot width to assume, in px. Charts here are fluid, so this
+#'   is the narrow end of the range rather than the average: the overlap only
+#'   ever happened in the narrow case.
+fw_legend_margin <- function(labels = NULL, width = 640) {
+  if (!length(labels)) return(FW_CHART$legend_min_top)
+  entry <- nchar(labels) * FW_CHART$legend_char_px + FW_CHART$legend_entry_px
+  # Pack entries onto lines the way a flow layout would.
+  lines <- 1L
+  used <- 0
+  for (w in entry) {
+    if (used > 0 && used + w > width) { lines <- lines + 1L; used <- 0 }
+    used <- used + w
+  }
+  max(FW_CHART$legend_min_top,
+      lines * FW_CHART$legend_line + FW_CHART$legend_pad)
+}
+
 FW_OUTCOME_LEVELS <- c("Successful", "Failed", "Ongoing", "Unknown")
 
 #' Strip plotly's chrome down to what the design system uses
@@ -51,7 +81,39 @@ FW_OUTCOME_LEVELS <- c("Successful", "Failed", "Ongoing", "Unknown")
 #' chart passes it to plot_ly() instead - which is also where a chart that needs
 #' to grow with its number of rows can compute it.
 #' @param legend whether this chart needs a key at all
-fw_plotly_style <- function(p, legend = TRUE) {
+#' @param legend_labels the entries that will appear in the key. Passed so the
+#'   top margin can be sized to the number of LINES they wrap onto rather than
+#'   assuming one - see fw_legend_margin(). A chart that omits this gets the
+#'   floor, which is one line.
+#' @param legend_side "top" for every chart with an x-axis, "right" for the
+#'   donuts. See the note on the side legend below.
+#' @param filename what a downloaded PNG of this chart is called, without the
+#'   extension. Every chart should pass its own: a reader who exports four of
+#'   these wants four distinguishable files, not newplot (1..4).
+fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
+                            legend_side = c("top", "right"),
+                            filename = "fwise-chart") {
+  legend_side <- match.arg(legend_side)
+
+  # THE DONUTS PUT THEIR KEY BESIDE THEM, and the bar charts do not, because
+  # the two have different things above and below the plot. A bar chart has an
+  # axis and an axis title on both sides and nowhere sideways to go without
+  # squeezing the bars; a donut is a circle in a rectangle with half its width
+  # already empty, so the key costs it nothing and a seven-entry key above a
+  # small circle takes more vertical room than the chart. The pie's own domain
+  # is narrowed to match in fw_chart_donut() - plotly does not reserve the
+  # space for a legend at x > 1 on its own.
+  side <- identical(legend_side, "right")
+
+  legend_layout <- if (side) {
+    list(orientation = "v", x = FW_CHART$donut_legend_x, xanchor = "left",
+         y = 0.5, yanchor = "middle",
+         traceorder = "normal", font = fw_plot_font())
+  } else {
+    list(orientation = "h", y = 1, yanchor = "bottom", x = 0,
+         traceorder = "normal", font = fw_plot_font())
+  }
+
   plotly::layout(
     p,
     font = fw_plot_font(),
@@ -61,8 +123,20 @@ fw_plotly_style <- function(p, legend = TRUE) {
     # THE LEGEND SITS ABOVE THE PLOT, not below it. Underneath, plotly places it
     # in paper coordinates at a fixed offset and it lands on top of the x-axis
     # title, which is where the units are - so the reader loses the label that
-    # says what they are looking at. Above, it has the margin to itself.
-    margin = list(l = 8, r = 8, t = if (legend) 42 else 8, b = 52),
+    # says what they are looking at. Above, it has the margin to itself - but
+    # only as much of it as was reserved, which is why the top margin is
+    # computed rather than fixed.
+    #
+    # A SIDE LEGEND NEEDS NEITHER. It is inside the paper, beside a pie that has
+    # been narrowed to leave room for it, so there is no top margin to reserve
+    # and no axis title underneath to clear.
+    margin = if (side) {
+      list(l = 8, r = 8, t = 8, b = 8)
+    } else {
+      list(l = 8, r = 8,
+           t = if (legend) fw_legend_margin(legend_labels) else 8,
+           b = 52)
+    },
     hoverlabel = list(font = fw_plot_font()),
     showlegend = legend,
     # traceorder IS NOT REDUNDANT. plotly.js flips its default to "reversed" as
@@ -70,10 +144,43 @@ fw_plotly_style <- function(p, legend = TRUE) {
     # here except the box plot - so the key read Unknown first and Successful
     # last while the traces were added Successful first. Pinning it makes the
     # key agree with FW_OUTCOME_LEVELS, which is the one source of that order.
-    legend = list(orientation = "h", y = 1, yanchor = "bottom", x = 0,
-                  traceorder = "normal")
+    #
+    # font IS NOT REDUNDANT EITHER. plotly.js does not reliably inherit
+    # layout.font into legend entries, so the key was rendering below the
+    # client's 1rem floor while every other label on the chart honoured it.
+    legend = legend_layout
   ) |>
-    plotly::config(displayModeBar = FALSE, responsive = TRUE)
+    # DOWNLOADABLE, AND NOTHING ELSE. The modebar used to be off entirely
+    # (displayModeBar = FALSE), which also took away the one button on it worth
+    # having: the client asked for every plot to be saveable as a PNG the way
+    # plotly does it by default. So the bar comes back with the camera and the
+    # camera alone - zoom, pan, lasso and select are removed rather than left to
+    # be discovered, because none of these charts is a canvas the reader is
+    # meant to navigate, and a half-zoomed axis is a way to misread one.
+    #
+    # scale = 2 because the paper is transparent and the type is at the 1rem
+    # floor: a 1x export of this is soft the moment it lands in a slide.
+    #
+    # This travels into the downloaded HTML report too - the report embeds these
+    # same widgets (see fw_html_figure() in R/report_html.R) - so its charts
+    # become saveable as well. _report_frame.scss hides the bar when printing.
+    plotly::config(
+      responsive = TRUE,
+      displaylogo = FALSE,
+      # AN ALLOW LIST, NOT A DENY LIST. modeBarButtonsToRemove was the obvious
+      # way to write this and it does not hold: plotly adds buttons of its own
+      # accord depending on the chart - setting hovermode on the cumulative
+      # chart brings in a hover toggle that is not either of the
+      # hoverClosest/hoverCompare pair and does not come off by name - so a deny
+      # list quietly grows a button every time a chart option changes. Naming
+      # the one button we want is the only version that stays true.
+      #
+      # The nesting is plotly's: the outer list is groups, the inner is the
+      # buttons in a group. One of each.
+      modeBarButtons = list(list("toImage")),
+      toImageButtonOptions = list(format = "png", scale = 2,
+                                  filename = filename)
+    )
 }
 
 #' A chart, or a sentence saying there is none
@@ -108,13 +215,42 @@ fw_outcome_counts <- function(sel) {
 #'
 #' Stacked rather than a single line, at the client's request: the growth of the
 #' record and the mix of what came of it are the same question, and a single
-#' line answers only half of it. Step interpolation ("hv") because an attempt
-#' joins the total on its start year rather than easing in across the gap.
+#' line answers only half of it.
+#'
+#' LIVES ON THE DASHBOARD, NOT THE REPORT BUILDER. It answers how the database
+#' has grown, which is a question about the record rather than about a reader's
+#' own situation, and on a narrow selection it was actively misleading.
+#'
+#' SMOOTHED, at the client's request. It was step interpolation ("hv") on the
+#' reasoning that an attempt joins the total on its start year rather than
+#' easing in across the gap - true, but over ninety mostly-sparse years it drew
+#' a staircase that read as noise. "linear" and NOT "spline": the series is
+#' cumulative and therefore never decreases, and a spline overshoots between
+#' knots, so it would draw a band dipping below a total the record had already
+#' reached.
+#'
+#' THE AXIS RUNS TO THIS YEAR, not to the last year with an attempt in it. The
+#' chart answers "how has the record grown", and an axis that stops at the most
+#' recent attempt quietly redraws itself every time one lands - and, worse,
+#' leaves a reader to assume the last point is the present. The completion grid
+#' is extended to the current year with it, so the bands carry flat to the right
+#' edge: cumsum() over zero-count years is the honest reading, because the total
+#' genuinely has not changed since the last recorded attempt.
+#'
+#' HOVER IS UNIFIED, at the client's request: one box listing all four outcomes
+#' at the year under the pointer, rather than whichever single band happens to
+#' be nearest. Set on THIS chart and not in fw_plotly_style(), which is shared
+#' with the donuts and the horizontal bars where an x-unified hover is wrong.
 fw_chart_cumulative <- function(sel) {
   y <- sel[!is.na(sel$start_year), c("start_year", "outcome")]
   if (!nrow(y)) return(NULL)
 
-  years <- seq(min(y$start_year), max(y$start_year))
+  # max() of the two, not the current year outright: a selection can hold a
+  # start year in the future (FW_YEAR_FUTURE allows a planned attempt), and
+  # truncating the axis would cut a band off mid-flight.
+  this_year <- as.integer(format(Sys.Date(), "%Y"))
+  last_year <- max(max(y$start_year), this_year)
+  years <- seq(min(y$start_year), last_year)
   d <- y |>
     mutate(outcome = fw_outcome_factor(outcome)) |>
     count(start_year, outcome, name = "n") |>
@@ -131,24 +267,150 @@ fw_chart_cumulative <- function(sel) {
     p <- plotly::add_trace(
       p, data = dd, x = ~start_year, y = ~cumulative,
       type = "scatter", mode = "lines", name = o,
-      # "hv" because an attempt joins the total on its start year rather than
-      # easing in across the gap. The line is the same colour as its fill, so
-      # the steps read as one band rather than as an outlined shape.
+      # The line is the same colour as its fill, so the band reads as one shape
+      # rather than as an outlined one.
       stackgroup = "one",
-      line = list(shape = "hv", width = FW_CHART$line,
+      line = list(shape = "linear", width = FW_CHART$line,
                   color = unname(FW_OUTCOME_COLOURS[[o]])),
       fillcolor = unname(FW_OUTCOME_COLOURS[[o]]),
-      hovertemplate = paste0(fw_t("charts", "hover_by"), "%{x}<br>", o,
-                             ": %{y}<extra></extra>")
+      # NO YEAR IN THE TEMPLATE. Unified hover prints the x value once in its
+      # own header; repeating it on all four rows is what it looked like before.
+      hovertemplate = paste0(o, ": %{y}<extra></extra>")
     )
   }
-  fw_plotly_style(p) |>
+  fw_plotly_style(p, legend_labels = FW_OUTCOME_LEVELS,
+                  filename = "fwise-cumulative-attempts") |>
     plotly::layout(
+      hovermode = "x unified",
       xaxis = list(title = fw_t("charts", "x_year"), gridcolor = FW_COLOURS$border,
-                   zeroline = FALSE),
+                   zeroline = FALSE,
+                   # Explicit, so the axis ends at the present rather than at
+                   # whatever the data happens to reach.
+                   range = c(min(years), last_year)),
       yaxis = list(title = fw_t("charts", "y_cumulative"), gridcolor = FW_COLOURS$border,
                    zeroline = FALSE, rangemode = "tozero")
     )
+}
+
+# ---- The proportion donut ----------------------------------------------------
+
+#' A proportion donut
+#'
+#' ON THE DASHBOARD ONLY. The report builder answers "how much evidence is
+#' there" and leads with counts; the dashboard answers "what is in here" and a
+#' share is the honest answer to that. This is the one place in the app a
+#' percentage leads, and it earns that by never appearing without the number
+#' behind it: the denominator sits in the hole, which is what makes this a donut
+#' rather than a pie, and every slice carries its own count, share and
+#' denominator in the hover.
+#'
+#' NOTHING IS PRINTED ON THE RING ITSELF, at the client's request. It used to
+#' print "n  p%" inside any slice holding at least FW_CHART$label_min_share of
+#' the circle, which meant the big slices were labelled, the small ones were
+#' not, and the ring read as though the labelled ones were the answer. The
+#' numbers did not go anywhere - they are in the hover, which is where the
+#' narrow slices always kept them - so this removes an inconsistency rather than
+#' information.
+#'
+#' THE NUMBER IN THE HOLE STAYS. That is not a label, it is the denominator,
+#' and it is the whole reason this is a ring with a hole in it. A percentage
+#' with no visible n behind it is the thing this file exists to avoid.
+#'
+#' Colour is decoration here as everywhere else - the key is text.
+#'
+#' @param d a data frame of `label` and `n`, in the order the slices go round
+#' @param colours fill per label
+#' @param centre_label what the number in the hole counts
+#' @param filename what a PNG export of this donut is called
+fw_chart_donut <- function(d, colours, centre_label,
+                           filename = "fwise-donut") {
+  d <- d[!is.na(d$n) & d$n > 0, , drop = FALSE]
+  if (!nrow(d)) return(NULL)
+  total <- sum(d$n)
+  font <- fw_plot_font()
+
+  # fw_fmt_num() formats ONE number - it reports an empty value for NA and so
+  # cannot be handed a vector. Everything here is per slice.
+  n_text <- vapply(d$n, fw_fmt_num, character(1))
+
+  plotly::plot_ly(height = FW_CHART$height$donut) |>
+    plotly::add_trace(
+      type = "pie", hole = FW_CHART$donut_hole,
+      # THE RING TAKES THE LEFT, THE KEY TAKES THE REST. plotly reserves margin
+      # for a legend outside the paper but not for one inside it at x > 1, so
+      # the room has to be made here - without this the key is drawn over the
+      # right-hand slices. The two numbers are one decision and live together in
+      # FW_CHART.
+      domain = list(x = c(0, FW_CHART$donut_domain_x)),
+      labels = d$label, values = d$n, sort = FALSE, direction = "clockwise",
+      # NOTHING ON THE RING. See the note above - the counts and shares are in
+      # the hover and the key, and the denominator is in the hole.
+      textinfo = "none",
+      marker = list(colors = unname(colours[d$label]),
+                    line = list(color = FW_COLOURS$surface,
+                                width = FW_CHART$separator_method)),
+      customdata = paste0(n_text, fw_t("charts", "hover_of"), fw_fmt_num(total)),
+      hovertemplate = "%{label}<br>%{customdata} (%{percent})<extra></extra>"
+    ) |>
+    fw_plotly_style(legend_labels = d$label, legend_side = "right",
+                    filename = filename) |>
+    plotly::layout(
+      annotations = list(list(
+        # Centred on THE RING, not on the paper. The pie no longer fills the
+        # width, so a label at x = 0.5 of the paper would sit off to the right
+        # of the hole it is supposed to be inside.
+        text = paste0("<b>", fw_fmt_num(total), "</b><br>", centre_label),
+        showarrow = FALSE, x = FW_CHART$donut_domain_x / 2, y = 0.5,
+        xref = "paper", yref = "paper",
+        font = list(family = font$family, size = font$size, color = font$color)
+      ))
+    )
+}
+
+# THE OUTCOME DONUT USED TO LIVE HERE, beside this one - "what came of these
+# attempts", one slice per level of FW_OUTCOME_LEVELS over a denominator of
+# attempts. The client removed it: the outcome split is already the segmentation
+# of every stacked bar in the app and the colour of every marker on the map, so
+# the ring was a fourth telling of it and the one that carried the least. Its
+# counts are not lost - fw_outcome_counts() still feeds the report builder's
+# summary (R/mod_plan_results.R) and the dashboard's own summary strip.
+#
+# Nothing needs to come back here to restore it: fw_chart_donut() below is
+# generic, so it is a data.frame of label and n away.
+
+#' Method as a share of USES, not of attempts
+#'
+#' THE DENOMINATOR IS USES, NOT ATTEMPTS, and that is not a detail. Many
+#' attempts used more than one method, so these slices sum to the number of
+#' attempt-method pairs, which is larger than the number of attempts. The hole
+#' says "uses" for that reason, and the note above the chart says it again -
+#' this is the same distinction fw_chart_method_waterbody() makes.
+#'
+#' distinct() first, so an attempt that lists a method twice counts once.
+fw_chart_method_donut <- function(data, sel) {
+  me <- data$attempt_method |>
+    filter(attempt_id %in% sel$attempt_id) |>
+    distinct(attempt_id, method_id) |>
+    count(method_id, name = "n")
+  if (!nrow(me)) return(NULL)
+
+  # Palette order, not frequency order: the fills are arranged so that touching
+  # segments separate under colour-vision deficiency, and going round the ring
+  # in that order keeps the property. See FW_METHOD_COLOURS in config.R.
+  ids <- intersect(names(FW_METHOD_COLOURS), me$method_id)
+  me <- me[match(ids, me$method_id), ]
+  names <- data$method$method_name[match(me$method_id, data$method$method_id)]
+
+  # Keyed by NAME for the chart, by id for the colours, because a renamed method
+  # must not silently re-colour the ring.
+  colours <- stats::setNames(unname(FW_METHOD_COLOURS[me$method_id]), names)
+
+  fw_chart_donut(
+    data.frame(label = names, n = me$n, stringsAsFactors = FALSE),
+    colours = colours,
+    centre_label = fw_t("charts", "donut_uses"),
+    filename = "fwise-methods-share-of-uses"
+  )
 }
 
 # ---- Outcome by method -------------------------------------------------------
@@ -226,7 +488,8 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
          gridcolor = FW_COLOURS$border)
   }
 
-  fw_plotly_style(p) |>
+  fw_plotly_style(p, legend_labels = FW_OUTCOME_LEVELS,
+                  filename = paste0("fwise-methods-", mode)) |>
     plotly::layout(
       barmode = "stack",
       # Stops plotly shrinking the in-bar counts to illegibility on a narrow
@@ -300,7 +563,8 @@ fw_chart_duration <- function(data, sel) {
     )
   }
 
-  fw_plotly_style(p) |>
+  fw_plotly_style(p, legend_labels = FW_OUTCOME_LEVELS,
+                  filename = "fwise-duration") |>
     plotly::layout(
       boxmode = "group",
       xaxis = list(
@@ -327,7 +591,10 @@ fw_chart_duration <- function(data, sel) {
 #' @param d      a frame with `category` and `outcome`
 #' @param title  the x-axis label
 #' @param limit  keep the top n categories and gather the rest into "Other"
-fw_chart_category <- function(d, title, limit = NA_integer_) {
+#' @param filename what a PNG export is called. Each caller passes its own,
+#'   because this one builder draws waterbodies, drivers and species.
+fw_chart_category <- function(d, title, limit = NA_integer_,
+                              filename = "fwise-categories") {
   if (!nrow(d)) return(NULL)
   d$outcome <- as.character(fw_outcome_factor(d$outcome))
   other <- fw_t("charts", "other")
@@ -364,7 +631,8 @@ fw_chart_category <- function(d, title, limit = NA_integer_) {
       hovertemplate = paste0("%{y}<br>", o, ": %{x}<extra></extra>")
     )
   }
-  fw_plotly_style(p) |>
+  fw_plotly_style(p, legend_labels = FW_OUTCOME_LEVELS,
+                  filename = filename) |>
     plotly::layout(
       barmode = "stack",
       xaxis = list(title = title, zeroline = FALSE, gridcolor = FW_COLOURS$border),
@@ -381,7 +649,8 @@ fw_chart_waterbody <- function(sel) {
   d <- sel |>
     filter(!is.na(waterbody_type)) |>
     transmute(category = waterbody_type, outcome)
-  fw_chart_category(d, fw_t("charts", "x_attempts"), limit = FW_TOP_N)
+  fw_chart_category(d, fw_t("charts", "x_attempts"), limit = FW_TOP_N,
+                    filename = "fwise-waterbody-types")
 }
 
 #' Why the eradications were carried out
@@ -389,7 +658,8 @@ fw_chart_driver <- function(sel) {
   d <- sel |>
     filter(!is.na(driver)) |>
     transmute(category = driver, outcome)
-  fw_chart_category(d, fw_t("charts", "x_attempts"))
+  fw_chart_category(d, fw_t("charts", "x_attempts"),
+                    filename = "fwise-drivers")
 }
 
 #' One row per (attempt, species) for a role, labelled and with its outcome
@@ -455,7 +725,8 @@ fw_species_top_n <- function(data, sel, role_name, limit = FW_TOP_N) {
 fw_chart_species <- function(data, sel, role_name = c("invasive", "beneficiary")) {
   d <- fw_species_rows(data, sel, role_name) |>
     transmute(category = label, outcome)
-  fw_chart_category(d, fw_t("charts", "x_attempts"), limit = FW_TOP_N)
+  fw_chart_category(d, fw_t("charts", "x_attempts"), limit = FW_TOP_N,
+                    filename = paste0("fwise-species-", role_name))
 }
 
 # ---- Methods against waterbody -----------------------------------------------
@@ -559,7 +830,14 @@ fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
          gridcolor = FW_COLOURS$border)
   }
 
-  fw_plotly_style(p) |>
+  # The key carries seven method names, which is the chart that made the old
+  # fixed top margin overlap the bars. Names in trace order, so the reserved
+  # space matches the key that is actually drawn.
+  legend_labels <- vapply(method_ids,
+                          function(m) dd$method_name[dd$method_id == m][1],
+                          character(1))
+  fw_plotly_style(p, legend_labels = unname(legend_labels),
+                  filename = paste0("fwise-method-waterbody-", mode)) |>
     plotly::layout(
       barmode = "stack",
       # The same 1rem floor. mode = "hide" drops a label rather than

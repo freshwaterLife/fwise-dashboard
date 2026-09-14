@@ -19,10 +19,23 @@
 # return the same attempt twice. That is why those filters resolve through a set
 # of attempt ids rather than through a column comparison.
 #
-# NO SIZE FILTER. Treated size is recorded in hectares for still water and
-# kilometers for flowing water, which are different quantities that cannot share
-# a slider, and 173 of 914 attempts have no size at all. Size is still in the
-# table and the export; it is deliberately not filterable.
+# THE SIZE FILTER IS UNIT-AWARE, AND THAT IS WHY IT IS NOT AN ORDINARY RANGE.
+# Treated size is recorded in hectares for still water and kilometres for flowing
+# water. Those are different quantities and cannot share one slider, so the
+# control offers one slider per unit and shows only the unit the reader's regime
+# selection is measured in - see fw_size_units() below, and the note there about
+# why the hidden slider has to be dropped from the state as well as from the UI.
+# An attempt is matched against the slider for ITS OWN unit and is untouched by
+# the other one.
+#
+# It is also LOG SCALED. Hectares run from 0.0014 to 237,500 with a median of
+# 3.4, so on a linear slider every value a reader might want sits inside the
+# first pixel. The slider's positions are log10 and the comparison is done on
+# real values; the chosen bounds are printed underneath in real units.
+#
+# 173 of 914 attempts have no size at all, so it carries an "include unrecorded"
+# checkbox defaulting to TRUE, for the same reason the year range does: a silent
+# drop is indistinguishable from "none matched".
 #
 # EVERY OPTION LIST COMES FROM THE APPROVED DATA, because fw_load_data() has
 # already filtered the tables it is handed. Nothing here needs to think about
@@ -85,6 +98,10 @@ FW_FILTERS <- list(
                    column = "outcome"),
   continent = list(copy = "continent", kind = "multi", tip = "tip_continent",
                    column = "continent"),
+  # kind = "size" rather than "range": two sliders in one cell, each in its own
+  # unit, plus the include-unrecorded checkbox. The engine branches on this in
+  # state, apply, clear and summary.
+  size      = list(copy = "size",      kind = "size",  tip = "tip_size"),
   years     = list(copy = "years",     kind = "range", tip = "tip_years")
 )
 
@@ -115,13 +132,162 @@ fw_filter_ids <- function(drop = character(0)) {
 # zero-hints want, so the UI walks this instead of names(FW_FILTERS).
 FW_FILTER_ORDER <- c("continent", "country", "regime", "waterbody",
                      "taxa", "species", "method", "beneficiary",
-                     "taxa_beneficiary", "outcome", "years")
+                     "taxa_beneficiary", "outcome", "size", "years")
 
+#' The order the filter PANEL draws its controls in
+#'
+#' FW_FILTER_ORDER is the reading order - place, then water, then species, then
+#' the ranges - and it is what the export's Filters sheet follows. The panel is
+#' a grid, and in a grid the two sliders have to come last whatever else moves:
+#' a slider is twice the height of a picker and needs room for its handles and
+#' its readout, so one sitting mid-grid leaves a ragged hole beside it and drags
+#' the row below out of line. Pickers first, ranges after, and the grid stays
+#' even.
+#'
+#' The order is only ever about drawing. The matching, the summary and the sheet
+#' all read FW_FILTER_ORDER directly and are untouched by this.
 fw_filter_draw_order <- function(drop = character(0)) {
-  intersect(FW_FILTER_ORDER, fw_filter_ids(drop))
+  ids <- intersect(FW_FILTER_ORDER, fw_filter_ids(drop))
+  is_range <- vapply(ids, function(id) FW_FILTERS[[id]]$kind %in% c("range", "size"),
+                     logical(1))
+  c(ids[!is_range], ids[is_range])
 }
 
 fw_filter_label <- function(id) fw_t("filters", FW_FILTERS[[id]]$copy)
+
+# ---- Size, the one filter with two units -------------------------------------
+
+# The stored unit codes, and the order the sliders are drawn in. Labels are copy.
+FW_SIZE_UNITS <- c("ha", "km")
+
+# Which unit each stored regime is measured in. "Lentic" and "Lotic" are the
+# STORED vocabulary, not labels - see FW_REGIME_LABELS in data_load.R, which is
+# the only place they are turned into words a reader sees.
+FW_REGIME_UNITS <- list(Lentic = "ha", Lotic = "km")
+
+#' The units worth offering for a regime selection
+#'
+#' STILL WATER IS AN AREA, FLOWING WATER IS A LENGTH. Choosing "still water"
+#' offers hectares, "flowing water" offers kilometres, and choosing neither or
+#' both offers both. That is the client's rule and it is what a reader expects
+#' the control to do.
+#'
+#' The data does not fully agree with it yet:
+#'
+#'     regime    ha    km   (none)
+#'     Lentic   497     6       81
+#'     Lotic     34   203       87
+#'
+#' Forty attempts carry a unit that disagrees with their regime. Under this map
+#' those forty are NOT filtered by size - choosing still water hides the
+#' kilometre slider, and the six kilometre-measured Lentic attempts pass the
+#' size filter untouched rather than being judged against a slider the reader
+#' cannot see. That is the honest reading of a hidden control, and it is the
+#' half of this that is load-bearing:
+#'
+#'   THE HIDDEN UNIT'S SLIDER MUST NOT GO ON FILTERING. Shiny keeps the value of
+#'   an input whose UI has been removed, so without the matching drop in
+#'   fw_filter_state() the removed slider would keep its last bounds and narrow
+#'   the result invisibly. That was measured, not theorised: it silently dropped
+#'   those six. See the size block there.
+#'
+#' As the client's cleaning lands and the mismatches go, the exception goes with
+#' them and no code changes.
+#'
+#' @param regime the reader's `regime` selection, possibly empty
+fw_size_units <- function(regime = character(0)) {
+  if (!length(regime)) return(FW_SIZE_UNITS)
+  out <- intersect(FW_SIZE_UNITS,
+                   unlist(FW_REGIME_UNITS[regime], use.names = FALSE))
+  # A regime with no unit of its own must not hide both sliders, which would
+  # read as "size cannot be filtered here" rather than as an answer.
+  if (!length(out)) FW_SIZE_UNITS else out
+}
+
+#' The real-unit bounds of each size slider, and how many rows have no size
+#'
+#' Bounds come from the data rather than a typed constant, so the client's
+#' ongoing cleaning flows through without a code change.
+fw_size_bounds <- function(a) {
+  one <- function(unit) {
+    v <- a$area_treated[!is.na(a$area_treated) & a$area_treated > 0 &
+                          !is.na(a$area_unit) & a$area_unit == unit]
+    if (!length(v)) return(NULL)
+    range(v)
+  }
+  out <- lapply(FW_SIZE_UNITS, one)
+  names(out) <- FW_SIZE_UNITS
+  out$n_no_size <- sum(is.na(a$area_treated))
+  out
+}
+
+# The sliders work in log10 and the matching works in real units. These two are
+# the only places that conversion happens, so the control and the comparison
+# cannot drift apart.
+#
+# A zero or negative area has no logarithm. There are none in the data, and
+# fw_size_bounds() excludes them from the bounds, but a value that cannot be
+# placed on the slider must not be silently dropped by it either - see the
+# is.na() guard in fw_size_match().
+fw_size_log <- function(x) log10(x)
+fw_size_unlog <- function(x) 10^x
+
+# The step the log sliders move in, and the rounding used when a bound is
+# printed back in real units. A tenth of a decade is fine enough to land on a
+# meaningful figure and coarse enough that the handle does not feel stuck.
+FW_SIZE_LOG_STEP <- 0.1
+
+#' Widen a log range out to whole steps
+#'
+#' So the slider ends sit on round numbers and the reader can always reach the
+#' true minimum and maximum, which a truncated range would leave just inside.
+fw_size_log_range <- function(bounds) {
+  if (is.null(bounds)) return(NULL)
+  lo <- floor(fw_size_log(bounds[1]) / FW_SIZE_LOG_STEP) * FW_SIZE_LOG_STEP
+  hi <- ceiling(fw_size_log(bounds[2]) / FW_SIZE_LOG_STEP) * FW_SIZE_LOG_STEP
+  c(lo, hi)
+}
+
+#' A size printed for a human, at a sensible number of digits
+#'
+#' A log slider lands on values like 3.1622776601683795, and the readout under
+#' it and the export's Filters sheet both have to show a figure a reader can
+#' repeat. Small sizes keep their decimals because 0.0014 ha rounded to a whole
+#' number is 0; large ones lose them because 237,500 ha is not measured to the
+#' hectare.
+fw_size_label <- function(x) {
+  if (!length(x) || is.na(x)) return(fw_t("common", "empty_value"))
+  digits <- if (x >= 100) 0 else if (x >= 10) 1 else if (x >= 1) 2 else 4
+  fw_fmt_num(round(x, digits))
+}
+
+#' Which attempts a size selection keeps
+#'
+#' EACH ATTEMPT IS COMPARED AGAINST ITS OWN UNIT and is untouched by the other
+#' slider. A unit whose slider is not on the page does not constrain anything -
+#' the regime filter has already removed those rows, and a bound that is not
+#' being shown must not silently narrow the result.
+#'
+#' @return a logical vector along `a`
+fw_size_match <- function(a, f) {
+  keep <- rep(TRUE, nrow(a))
+  for (unit in FW_SIZE_UNITS) {
+    b <- f[[paste0("size_", unit)]]
+    if (length(b) != 2 || anyNA(b)) next
+    lo <- fw_size_unlog(b[1])
+    hi <- fw_size_unlog(b[2])
+    is_unit <- !is.na(a$area_unit) & a$area_unit == unit & !is.na(a$area_treated)
+    keep[is_unit] <- a$area_treated[is_unit] >= lo & a$area_treated[is_unit] <= hi
+  }
+  # An attempt with no size recorded is not out of range, it is UNMEASURED, and
+  # whether it travels is the checkbox's decision alone.
+  #
+  # ASSIGNMENT, NOT `keep | ...`. An OR can only ever add rows back: `keep`
+  # starts all-TRUE, so the unmeasured rows were already TRUE and unticking the
+  # box removed nothing at all.
+  keep[is.na(a$area_treated)] <- isTRUE(f$include_no_size)
+  keep
+}
 
 # ---- Choices -----------------------------------------------------------------
 
@@ -171,7 +337,10 @@ fw_filter_choices <- function(data) {
     outcome     = c("Successful", "Failed", "Ongoing", "Unknown"),
     year_min    = min(data$attempt$start_year, na.rm = TRUE),
     year_max    = max(data$attempt$start_year, na.rm = TRUE),
-    n_no_year   = sum(is.na(data$attempt$start_year))
+    n_no_year   = sum(is.na(data$attempt$start_year)),
+    # Real-unit bounds per unit, plus how many rows carry no size at all. The
+    # control converts to log10; the matching does not. See fw_size_bounds().
+    size        = fw_size_bounds(data$attempt)
   )
 }
 
@@ -182,15 +351,41 @@ fw_filter_choices <- function(data) {
 #' On the report builder this is snapshotted at the moment Build is pressed, so
 #' the results and the export describe the same selection even if the user then
 #' changes a control. On the dashboard it is read live.
-fw_filter_state <- function(input, ids = fw_filter_ids()) {
+#' @param ch the choice lists. Optional, and only the size filter uses it: it
+#'   records each slider's FULL range alongside the reader's setting, so the
+#'   summary can tell "they widened it to everything" from "they never touched
+#'   it" and print "All" rather than a pair of bounds nobody chose.
+fw_filter_state <- function(input, ids = fw_filter_ids(), ch = NULL) {
   g <- function(nm) {
     v <- input[[nm]]
     if (is.null(v)) character(0) else v[nzchar(v)]
   }
   out <- list()
   for (id in ids) {
-    if (identical(FW_FILTERS[[id]]$kind, "range")) next
+    if (FW_FILTERS[[id]]$kind %in% c("range", "size")) next
     out[[id]] <- g(id)
+  }
+  if ("size" %in% ids) {
+    # ONLY THE UNITS THE READER CAN CURRENTLY SEE, and this is the control that
+    # makes the regime-driven size cell safe. Shiny KEEPS the value of an input
+    # whose UI has been removed, so a slider hidden by a regime change goes on
+    # reporting the last bounds it was given - and fw_size_match() would go on
+    # applying them to rows the reader can no longer see a control for. Reading
+    # input$regime here, from the same input list the rest of the state comes
+    # from, means the snapshot can only ever contain sliders that were on the
+    # page when Build was pressed.
+    #
+    # NULL for a unit that is not offered, which is a real state rather than a
+    # missing value: fw_size_match() reads it as "this unit is not constrained".
+    offered <- fw_size_units(input$regime %||% character(0))
+    for (unit in FW_SIZE_UNITS) {
+      if (!unit %in% offered) next
+      out[[paste0("size_", unit)]] <- input[[paste0("size_", unit)]]
+      if (!is.null(ch)) {
+        out[[paste0("size_full_", unit)]] <- fw_size_log_range(ch$size[[unit]])
+      }
+    }
+    out$include_no_size <- isTRUE(input$include_no_size)
   }
   if ("years" %in% ids) {
     out$year_from <- input$years[1]
@@ -207,6 +402,13 @@ fw_filter_clear <- function(session, ids, ch) {
     if (identical(FW_FILTERS[[id]]$kind, "multi")) {
       updateSelectizeInput(session, id, selected = character(0))
     }
+  }
+  if ("size" %in% ids) {
+    for (unit in FW_SIZE_UNITS) {
+      r <- fw_size_log_range(ch$size[[unit]])
+      if (!is.null(r)) updateSliderInput(session, paste0("size_", unit), value = r)
+    }
+    updateCheckboxInput(session, "include_no_size", value = TRUE)
   }
   if ("years" %in% ids) {
     updateSliderInput(session, "years", value = c(ch$year_min, ch$year_max))
@@ -226,7 +428,7 @@ fw_filter_apply <- function(data, f) {
   for (id in ids) {
     spec <- FW_FILTERS[[id]]
     vals <- f[[id]]
-    if (identical(spec$kind, "range") || !length(vals)) next
+    if (spec$kind %in% c("range", "size") || !length(vals)) next
 
     if (!is.null(spec$column)) {
       a <- a[a[[spec$column]] %in% vals, ]
@@ -250,6 +452,10 @@ fw_filter_apply <- function(data, f) {
     }
     a <- a[a$attempt_id %in% unique(hit$attempt_id), ]
   }
+
+  # Size, before the year range, because both are bounds rather than choices and
+  # the year block below returns.
+  if ("size" %in% ids) a <- a[fw_size_match(a, f), ]
 
   if (!"years" %in% ids) return(a)
 
@@ -275,7 +481,7 @@ fw_filter_zero_hints <- function(data, f) {
 
   # Drop one filter at a time and see which one alone unblocks the result.
   for (id in ids) {
-    if (identical(FW_FILTERS[[id]]$kind, "range") || !length(f[[id]])) next
+    if (FW_FILTERS[[id]]$kind %in% c("range", "size") || !length(f[[id]])) next
     relaxed <- f
     relaxed[[id]] <- character(0)
     if (nrow(fw_filter_apply(data, relaxed)) > 0) {
@@ -283,8 +489,19 @@ fw_filter_zero_hints <- function(data, f) {
     }
   }
 
-  # The year range is the one filter that is always set, so it is only worth
-  # suggesting when widening it actually helps.
+  # The year range and the size sliders are the two filters that are ALWAYS set,
+  # so neither can be found by dropping it above - a relaxed copy would still
+  # carry the reader's bounds. They are only worth suggesting when widening them
+  # actually helps, and they are checked one at a time so the hint names the one
+  # that is in the way rather than both.
+  if (!length(hints) && "size" %in% ids) {
+    relaxed <- f
+    for (unit in FW_SIZE_UNITS) relaxed[[paste0("size_", unit)]] <- NULL
+    relaxed$include_no_size <- TRUE
+    if (nrow(fw_filter_apply(data, relaxed)) > 0) {
+      hints <- fw_filter_label("size")
+    }
+  }
   if (!length(hints) && "years" %in% ids) {
     relaxed <- f
     relaxed$year_from <- -Inf
@@ -308,7 +525,7 @@ fw_filter_summary <- function(f) {
   ids <- f$.ids %||% fw_filter_ids()
   rows <- list()
   for (id in ids) {
-    if (identical(FW_FILTERS[[id]]$kind, "range")) next
+    if (FW_FILTERS[[id]]$kind %in% c("range", "size")) next
     vals <- f[[id]]
     lab <- FW_FILTERS[[id]]$labels
     if (!is.null(lab) && length(vals)) vals <- match.fun(lab)(vals)
@@ -316,6 +533,31 @@ fw_filter_summary <- function(f) {
       setting = fw_filter_label(id),
       value = if (length(vals)) paste(vals, collapse = FW_MULTI_SEP)
               else fw_t("export", "filter_all")
+    )
+  }
+  if ("size" %in% ids) {
+    # Recorded in REAL units, not in the log10 the slider works in. A sheet
+    # saying "2.2 to 4.6" six months later is worse than no row at all.
+    for (unit in FW_SIZE_UNITS) {
+      b <- f[[paste0("size_", unit)]]
+      full <- f[[paste0("size_full_", unit)]]
+      # A slider left where it started is not a filter. It reads as one on the
+      # sheet, though - and worse, it reads as a bound the reader chose, because
+      # the slider's ends are widened out to whole log steps and so do not match
+      # the real minimum and maximum in the data.
+      untouched <- !length(b) || (length(full) == 2 && isTRUE(all.equal(b, full)))
+      rows[[length(rows) + 1L]] <- list(
+        setting = paste0(fw_filter_label("size"), " (", fw_t("filters", paste0("unit_", unit)), ")"),
+        value = if (!untouched && length(b) == 2 && !anyNA(b)) {
+          paste0(fw_size_label(fw_size_unlog(b[1])), fw_t("export", "range_sep"),
+                 fw_size_label(fw_size_unlog(b[2])))
+        } else fw_t("export", "filter_all")
+      )
+    }
+    rows[[length(rows) + 1L]] <- list(
+      setting = fw_t("filters", "no_size"),
+      value = if (isTRUE(f$include_no_size)) fw_t("export", "filter_yes")
+              else fw_t("export", "filter_no")
     )
   }
   if ("years" %in% ids) {

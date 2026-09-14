@@ -14,8 +14,10 @@ FW_COPY_EXPORT <- list(
 
   export = list(
     # Sheet names. Excel caps these at 31 characters.
+    # ORDER IS THE SHEET ORDER in the workbook, and `attempts` must stay first.
     sheets = list(
       attempts    = "Attempts",
+      contacts    = "Contacts",
       caveats     = "Caveats",
       definitions = "Field definitions",
       filters     = "Filters applied"
@@ -41,6 +43,33 @@ FW_COPY_EXPORT <- list(
     range_missing  = "-",
 
     filename_stem  = "fwise-attempts_",
+    # The one download button on the report builder produces this when more than
+    # one file was ticked. See fw_write_bundle() in R/export.R.
+    bundle_stem    = "fwise-report_",
+
+    # ---- The methods and caveats text -----------------------------------------
+    # The plain text file that travels inside EVERY download, whatever else the
+    # reader chose. Its second half is the caveats below, from the same
+    # fw_caveats() vector the workbook sheet uses.
+    methods_filename = "fwise-methods-and-caveats.txt",
+    methods_heading  = "How FWISE was compiled",
+    # [PLACEHOLDER] The client is writing this. It is the account of how records
+    # were gathered, screened and entered that a reader needs before quoting any
+    # figure, and it is the one thing in this file we must not invent - a
+    # plausible-sounding method statement is worse than an obvious gap, because
+    # nobody will know to replace it. Grep for [PLACEHOLDER] when the real text
+    # arrives; the same marker is on fw_country_burden() in R/data_load.R.
+    methods = c(
+      "[PLACEHOLDER - awaiting the methods statement from the FWISE team.]",
+      paste(
+        "This file will describe how the records in FWISE were gathered,",
+        "screened and entered: the literature and reporting searched, the",
+        "criteria an attempt had to meet to be included, how conflicting",
+        "sources were resolved, and what was done about records that were",
+        "incomplete. Until it does, treat the caveats below as the whole of",
+        "what can be said about how this data came to exist."
+      )
+    ),
 
     # ---- The caveats ----------------------------------------------------------
     # THE SAME TEXT travels into every export and sits beside every result on
@@ -103,6 +132,10 @@ FW_COPY_EXPORT <- list(
     # One entry per exported column, in export order. fw_field_definitions()
     # turns this into the sheet, and the tests check it covers every column in
     # FW_EXPORT_COLUMNS and nothing else.
+    #
+    # THE CONTACTS SHEET HAS ITS OWN, `dictionary_contacts` below. It is a
+    # different frame with different columns, and folding the two together would
+    # break the one-to-one relationship this list has with FW_EXPORT_COLUMNS.
     dictionary = c(
       attempt_id          = "Permanent identifier for the attempt. Minted once and never reassigned, so it is safe to join on across releases.",
       site_name           = "The treated site or waterbody, as the source described it.",
@@ -160,6 +193,26 @@ FW_COPY_EXPORT <- list(
       secondary_contact_org   = "Their organization.",
       secondary_contact_email = "Their email, where they agreed to it being listed."
     ),
+
+    # ---- The contacts sheet's dictionary ----------------------------------------
+    # Separate from `dictionary` above because it describes a different frame.
+    # Keys are the columns of fw_contacts_export(), in the order it builds them.
+    #
+    # THE FIRST ENTRY EXISTS TO ANSWER AN OBVIOUS QUESTION: the attempts sheet
+    # already carries contact columns on every row, so a reader needs telling
+    # what this sheet adds rather than being left to guess which to trust.
+    dictionary_contacts = c(
+      contact_id    = "Permanent identifier for the person. One row per person here, unlike the attempts sheet, which repeats them on every attempt they are attached to.",
+      contact_name  = "The person, as the source recorded them.",
+      organisation  = "Their organization, where recorded.",
+      contact_email = "Their email, where they agreed to it being listed. Blank means no published address, not no contact.",
+      continents    = "Continents they have attempts in, within this extract. Semicolon-delimited.",
+      countries     = "Countries they have attempts in, within this extract. Semicolon-delimited.",
+      attempts_in_extract = "How many attempts IN THIS EXTRACT they are attached to, in either contact slot. Not their total in the database."
+    ),
+
+    # The heading that separates the two dictionaries on the definitions sheet.
+    dict_group = "{sheet} sheet",
 
     # ---- The HTML report's own tables ------------------------------------------
     col_country     = "Country",

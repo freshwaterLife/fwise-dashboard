@@ -45,9 +45,20 @@ am1 <- unique(data.frame(attempt_id = as.character(am$attempt_id),
                          stringsAsFactors = FALSE))
 
 plan_ids <- fw_plan_filter_ids()
-base <- fw_filter_state(list(), plan_ids)
+base <- fw_filter_state(list(), plan_ids, ch = ch)
 base$year_from <- ch$year_min; base$year_to <- ch$year_max; base$include_no_year <- TRUE
+# The second "include unrecorded" checkbox, as the browser paints it: ON. The
+# state reads isTRUE(input$...), which is FALSE before the control exists.
+base$include_no_size <- TRUE
 all_sel <- fw_filter_apply(d, base)
+
+# The report builder no longer offers a method filter (see mod_plan.R), so the
+# selections below that used to be built with one are built on the DASHBOARD's
+# id list, where the bridge code under test is identical.
+all_ids <- fw_filter_ids()
+base_all <- fw_filter_state(list(), all_ids, ch = ch)
+base_all$year_from <- ch$year_min; base_all$year_to <- ch$year_max
+base_all$include_no_year <- TRUE; base_all$include_no_size <- TRUE
 
 # ==============================================================================
 cat("\n-- numbers on screen --\n")
@@ -62,7 +73,7 @@ ok("headline: successful", s$successful, sum(a$outcome == "Successful", na.rm = 
 
 # The report builder's summary strip, for one real filter.
 top_methods <- names(sort(table(am1$method), decreasing = TRUE))
-f1 <- base; f1$method <- top_methods[1]
+f1 <- base_all; f1$method <- top_methods[1]
 sel1 <- fw_filter_apply(d, f1)
 ids_m1 <- unique(am1$attempt_id[am1$method == top_methods[1]])
 ok("filter: one method selects exactly its attempts", nrow(sel1), length(ids_m1))
@@ -118,10 +129,21 @@ try(testServer(mod_about_server, args = list(data = d, meta = m), {
   about_html <<- as.character(output$body$html)
 }), silent = TRUE)
 ok("about: the page renders", !is.na(about_html) && nchar(about_html) > 1000)
+# Every heading on the page, whether it is an always-visible section or the
+# summary of one of the four disclosures. Add a section, add it here.
 ok("about: every section heading is present",
-   all(vapply(c("database", "method", "images", "cite", "licence", "links"),
+   all(vapply(c("database", "signup", "cite", "caveats", "method", "stories",
+                "related", "other", "images", "licence", "links"),
               function(k) grepl(fw_t("about", paste0(k, "_heading")), about_html, fixed = TRUE),
               logical(1))))
+# The panels are click-to-open, and a <details> that lost its <summary> is a
+# block of prose nobody can close.
+ok("about: the four panels are disclosures",
+   lengths(regmatches(about_html, gregexpr("fw-disclosure__summary", about_html)))[[1]], 4L)
+# The preamble moved to Contribute only. If it comes back here, the page opens
+# on scope rules again.
+ok("about: no eradication preamble",
+   !grepl(fw_t("contribute", "preamble", "heading"), about_html, fixed = TRUE))
 
 # The networking coverage line, as the module renders it.
 cov <- NA_character_
@@ -143,9 +165,12 @@ ok("coverage: no-contact count", grepl(paste0(fw_fmt_num(no_contact), " attempts
 inv_rows <- unique(data.frame(attempt_id = as.character(asp$attempt_id[asp$role == "invasive"]),
                               species_id = asp$species_id[asp$role == "invasive"], stringsAsFactors = FALSE))
 counts <- sort(table(inv_rows$species_id), decreasing = TRUE)
-top <- fw_species_top_n(d, all_sel, "invasive")
+# FW_PLAN_SPECIES_N, the limit the report builder passes - fewer than the
+# FW_TOP_N the ranked bar charts use, because a tile is a photograph rather than
+# a line. See fw_species_tiles_ui().
+top <- fw_species_top_n(d, all_sel, "invasive", limit = FW_PLAN_SPECIES_N)
 ok("tiles: top species count", top$n[1], as.integer(counts[1]))
-ok("tiles: row count is the limit", nrow(top), min(FW_TOP_N, length(counts)))
+ok("tiles: row count is the limit", nrow(top), min(FW_PLAN_SPECIES_N, length(counts)))
 ok("tiles: outcome splits sum to n", all(rowSums(top[, FW_OUTCOME_LEVELS]) == top$n))
 sp1 <- top$species_id[1]
 oc <- table(factor(outcome_of[inv_rows$attempt_id[inv_rows$species_id == sp1]], levels = FW_OUTCOME_LEVELS))
@@ -170,11 +195,16 @@ ok("explore db: latest year", s$latest_year, max(a$start_year, na.rm = TRUE))
 db <- strip(fw_explore_db_panel(s, 7L))
 for (v in list(c("attempts", nrow(a)), c("countries", length(unique(a$country))),
                c("invasive", s$species), c("beneficiaries", s$beneficiaries),
-               c("successful", sum(a$outcome == "Successful", na.rm = TRUE)),
                c("in review", 7L))) {
   ok(paste("explore db: panel names the", v[1], "count"),
      grepl(fw_fmt_num(as.integer(v[2])), db, fixed = TRUE))
 }
+# AND THE SUCCESS COUNT IS NOT THERE. Removed at the client's request: it was
+# the only outcome in a strip of sizes, and printed beside the total it is a
+# success RATE with the division left to the reader - the one headline this app
+# does not publish. Asserted as an absence so it cannot quietly come back.
+ok("explore db: the panel does NOT name a success count",
+   !grepl(fw_t("explore", "db_successful"), db, fixed = TRUE))
 ok("explore db: the year span is filled in",
    grepl(paste0(min(a$start_year, na.rm = TRUE), " to ", max(a$start_year, na.rm = TRUE)), db, fixed = TRUE))
 ok("explore db: no placeholder left", !grepl("\\{[a-z_]+\\}", db))
@@ -252,25 +282,10 @@ ok("explore: a populated map installs it too",
    length(fw_add_attempt_markers(leaflet::leaflet(), d, a[1:5, ],
                                  detail = "lazy", detail_input = "x")$jsHooks$render), 1L)
 
-# A card with no coordinates offers no "show on map" link - the map cannot go
-# there, and a link that does nothing is worse than no link.
-card_located <- as.character(fw_record_card(
-  fw_attempt_records(d, a[!is.na(a$latitude), ][1, ])[1, ],
-  detail_input = "ex-map_detail", locate_input = "ex-locate"))
-card_unlocated <- as.character(fw_record_card(
-  no_coord_rec[1, ], detail_input = "ex-map_detail", locate_input = "ex-locate"))
-ok("explore card: a located attempt offers the map link",
-   grepl("ex-locate", card_located, fixed = TRUE))
-ok("explore card: an unlocated one does not",
-   grepl("ex-locate", card_unlocated, fixed = TRUE), FALSE)
-ok("explore card: but both ask for the record through the same input",
-   all(grepl("ex-map_detail", c(card_located, card_unlocated), fixed = TRUE)))
-ok("explore card: the whole card is one button",
-   grepl('<button type="button" class="fw-record__open"', card_located, fixed = TRUE))
-ok("explore card: a card with no photograph gets the placeholder, not a gap",
-   grepl("fw-species-figure--none",
-         as.character(fw_record_card(no_coord_rec[1, ], figure = NULL,
-                                     detail_input = "x")), fixed = TRUE))
+# THE CARD RENDERER IS GONE. The dashboard's list is a table now, and the
+# assertions that used to live here - one button per card, the placeholder for a
+# species with no photograph, the map link only where there are coordinates -
+# are made against the table below, where the markup actually is.
 
 # The module, driven.
 exp_kpis <- exp_sum <- exp_count <- exp_pager <- exp_cards <- NA_character_
@@ -306,10 +321,45 @@ ok("explore: the list count agrees with the strip",
    grepl(paste0(fw_fmt_num(nrow(a)), " attempts"), exp_count, fixed = TRUE))
 ok("explore: the pager shows the first page of 20",
    grepl(paste0("Showing 1 - 20 of ", fw_fmt_num(nrow(a))), exp_pager, fixed = TRUE))
-ok("explore: one card per attempt on the page",
-   length(gregexpr('class="fw-record"', exp_cards, fixed = TRUE)[[1]]), 20L)
-ok("explore: a card asks for the record through the map's own input",
+# A TABLE NOW, not a grid of cards. One row per attempt, each carrying both
+# species - the one targeted and the one meant to benefit - which is the pairing
+# a reader scans for and which a single-photograph card could not show.
+ok("explore: one table row per attempt on the page",
+   length(gregexpr('data-fw-id=', exp_cards, fixed = TRUE)[[1]]), 20L)
+ok("explore: a row asks for the record through the map's own input",
    length(gregexpr("map_detail", exp_cards, fixed = TRUE)[[1]]), 20L)
+# EVERY PHOTOGRAPH CARRIES ITS CREDIT. That is a condition of using these
+# images, not decoration, so it is rendered in the cell rather than hidden in a
+# title attribute - see the header of mod_explore_table.R.
+ok("explore: the thumbnails carry their credit line",
+   grepl("fw-species-figure__credit", exp_cards, fixed = TRUE))
+
+# The behaviours the card renderer used to be tested for, now asserted where the
+# markup actually is. Built directly rather than through the module so the
+# located and unlocated cases can be put side by side.
+row_located <- as.character(fw_explore_table(
+  fw_attempt_records(d, a[!is.na(a$latitude), ][1, ]),
+  detail_input = "ex-map_detail", locate_input = "ex-locate"))
+row_unlocated <- as.character(fw_explore_table(
+  no_coord_rec, detail_input = "ex-map_detail", locate_input = "ex-locate"))
+ok("explore table: a located attempt offers the map link",
+   grepl("ex-locate", row_located, fixed = TRUE))
+# A link that cannot go anywhere is worse than no link.
+ok("explore table: an unlocated one does not",
+   grepl("ex-locate", row_unlocated, fixed = TRUE), FALSE)
+ok("explore table: but both ask for the record through the map's own input",
+   all(grepl("ex-map_detail", c(row_located, row_unlocated), fixed = TRUE)))
+ok("explore table: the site name is the button",
+   grepl('class="fw-explore-table__open"', row_located, fixed = TRUE))
+# A species with no photograph gets the placeholder, never a gap.
+ok("explore table: a row with no photograph gets the placeholder",
+   grepl("fw-species-figure--none",
+         as.character(fw_explore_table(no_coord_rec, figures = list(),
+                                       detail_input = "x")), fixed = TRUE))
+# BOTH ROLES, which is the whole reason this is a table rather than a card.
+ok("explore table: every row carries both species columns",
+   grepl(fw_t("explore", "col_invasive"), row_located, fixed = TRUE) &&
+     grepl(fw_t("explore", "col_beneficiary"), row_located, fixed = TRUE))
 ok("explore: filtering to Europe narrows the strip", eu_n, sum(a$continent == "Europe"))
 ok("explore: and the strip says so",
    grepl(paste0(fw_fmt_num(sum(a$continent == "Europe")), " attempts"), exp_eu, fixed = TRUE))
@@ -459,7 +509,7 @@ ok("outcome counts: the empty level is zero", oc$n[oc$outcome == "Ongoing"], 0L)
 cat("\n-- filter maths --\n")
 
 ok("filters: nothing set returns every attempt", nrow(all_sel), nrow(a))
-f <- base; f$method <- top_methods[1:2]
+f <- base_all; f$method <- top_methods[1:2]
 ok("filters: two methods is the union",
    nrow(fw_filter_apply(d, f)), length(unique(am1$attempt_id[am1$method %in% top_methods[1:2]])))
 sp_lab <- fw_species_label(d$species)
@@ -491,18 +541,39 @@ ok("export: one row per selected attempt", nrow(export), nrow(sel1))
 ok("export: every column, in order", names(export), FW_EXPORT_COLUMNS)
 
 xlsx <- tempfile(fileext = ".xlsx")
-fw_write_workbook(xlsx, d, export, f1, m)
+# A PLAN-SHAPED filter state, because that is what the page hands the workbook.
+# f1 above is the dashboard's shape - it carries a method, which this page no
+# longer offers - and writing the sheet from it would record a filter the reader
+# could not have set. The rows are the same selection either way.
+f1_plan <- modifyList(base, list(country = unique(sel1$country)))
+fw_write_workbook(xlsx, d, export, f1_plan, m)
 sheet_names <- unname(unlist(fw_t("export", "sheets")))
-ok("workbook: the four sheets, named from the copy", openxlsx::getSheetNames(xlsx), sheet_names)
+ok("workbook: the five sheets, named from the copy", openxlsx::getSheetNames(xlsx), sheet_names)
 ok("workbook: attempts sheet rows", nrow(openxlsx::read.xlsx(xlsx, sheet_names[1])), nrow(sel1))
-defs <- openxlsx::read.xlsx(xlsx, sheet_names[3])
-ok("workbook: dictionary covers exactly the export columns", defs[[1]], FW_EXPORT_COLUMNS)
-fs <- openxlsx::read.xlsx(xlsx, sheet_names[4])
-non_range <- Filter(function(id) !identical(FW_FILTERS[[id]]$kind, "range"), plan_ids)
+# BY NAME, not by position. The sheet list gained Contacts, and an index that
+# silently pointed at the wrong sheet is how this assertion stopped meaning
+# anything the first time.
+defs <- openxlsx::read.xlsx(xlsx, fw_t("export", "sheets")$definitions)
+ok("workbook: dictionary opens with exactly the export columns",
+   defs[[1]][seq_along(FW_EXPORT_COLUMNS)], FW_EXPORT_COLUMNS)
+ok("workbook: and then defines the contacts sheet's own columns",
+   all(names(fw_t("export", "dictionary_contacts")) %in% defs[[1]]), TRUE)
+fs <- openxlsx::read.xlsx(xlsx, fw_t("export", "sheets")$filters)
+# grepl, not %in%: size contributes one row per unit, each labelled
+# "<label> (<unit>)", so an exact match would miss it.
 ok("workbook: every report-builder filter is recorded",
-   all(c(vapply(non_range, fw_filter_label, character(1)), fw_filter_label("years")) %in% fs[[1]]))
-ok("workbook: the chosen method is recorded",
-   any(grepl(top_methods[1], fs[[2]], fixed = TRUE)))
+   all(vapply(plan_ids, function(id) {
+     any(grepl(fw_filter_label(id), fs[[1]], fixed = TRUE))
+   }, logical(1))))
+# f1 carries a method, which this page no longer filters on - so the sheet must
+# NOT claim it did. A filter the reader could not have set has no business in
+# the record of what they selected.
+ok("workbook: a filter this page does not offer is not recorded",
+   any(grepl(fw_filter_label("method"), fs[[1]], fixed = TRUE)), FALSE)
+ok("workbook: the chosen countries are recorded",
+   all(vapply(unique(sel1$country), function(c) {
+     any(grepl(c, fs[[2]], fixed = TRUE))
+   }, logical(1))))
 wbk <- openxlsx::loadWorkbook(xlsx)
 fills <- toupper(unique(unlist(lapply(wbk$styleObjects, function(s) s$style$fill$fillFg))))
 ok("workbook: header fill is the teal text token",
@@ -645,8 +716,16 @@ ok("place: a territory filed under its state stops the load",
 cat("\n-- design values --\n")
 
 rem <- function(x) as.numeric(sub("rem$", "", x))
-sizes <- FW_TYPE[grepl("^size_", names(FW_TYPE)) & names(FW_TYPE) != "size_popup"]
+# THE TWO EXEMPTIONS ARE NAMED, so a third cannot be added by accident: a new
+# size_* token under 1rem fails this until someone writes it down here and says
+# why. size_popup is for transient overlays; size_credit is the photo credits in
+# the dashboard's attempts table. Both are recorded at FW_TYPE in R/brand.R.
+FW_TYPE_FLOOR_EXEMPT <- c("size_popup", "size_credit")
+sizes <- FW_TYPE[grepl("^size_", names(FW_TYPE)) &
+                   !names(FW_TYPE) %in% FW_TYPE_FLOOR_EXEMPT]
 ok("type: nothing on the page is under the 1rem floor", all(vapply(sizes, rem, numeric(1)) >= 1))
+ok("type: the floor's exemptions are the two that are written down",
+   sum(vapply(FW_TYPE[grepl("^size_", names(FW_TYPE))], rem, numeric(1)) < 1), 2L)
 ok("type: the plotly floor is the rem floor in pixels", FW_TYPE$floor_px, 16L)
 vars <- fw_sass_variables()
 ok("tokens: no empty Sass variable", !any(vapply(vars, function(v) is.null(v) || is.na(v) || !nzchar(v), logical(1))))

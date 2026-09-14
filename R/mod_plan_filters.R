@@ -25,8 +25,11 @@
 
 library(shiny)
 
-# Passed to fw_filter_ids() everywhere on this page.
-FW_PLAN_DROP <- "outcome"
+# Passed to fw_filter_ids() everywhere on this page. Both are the client's
+# decisions and the reasoning for each is at the top of mod_plan.R: outcome is
+# an answer this page must not let the reader pre-select, and method is the
+# thing the reader came here to learn rather than to assert.
+FW_PLAN_DROP <- c("outcome", "method")
 
 fw_plan_filter_ids <- function() fw_filter_ids(drop = FW_PLAN_DROP)
 
@@ -93,8 +96,20 @@ fw_plan_filters_ui <- function(ns, ch) {
     )
   }
 
+  # A PLACEHOLDER, not the control. Which sliders apply depends on the regime
+  # selection, so the size cell is re-rendered on its own from the server. It
+  # cannot be built here: rebuilding this whole panel to swap a slider would
+  # return every selectize above to its default and throw away the reader's
+  # other nine answers. See output$size_control in mod_plan.R.
+  size <- function() {
+    div(class = "fw-plan-filters__span", uiOutput(ns("size_control")))
+  }
+
   controls <- lapply(fw_filter_draw_order(drop = FW_PLAN_DROP), function(id) {
-    if (identical(FW_FILTERS[[id]]$kind, "range")) years() else multi(id)
+    switch(FW_FILTERS[[id]]$kind,
+           range = years(),
+           size  = size(),
+           multi(id))
   })
 
   tags$section(
@@ -103,12 +118,109 @@ fw_plan_filters_ui <- function(ns, ch) {
     h2(id = ns("filters_heading"), class = "fw-plan-filters__heading",
        fw_t("plan", "f_heading")),
     p(class = "fw-plan-filters__lead", fw_t("plan", "f_lead")),
-    div(class = "fw-plan-filters__grid", controls),
+
+    # COLLAPSIBLE, AND ONLY AFTER A BUILD. A native <details> rather than a
+    # scripted panel: it opens and closes without JavaScript, it is a disclosure
+    # to a screen reader for free, and the server only ever has to close it
+    # (fw-collapse in R/ui_helpers.R). It is rendered ONCE and open; nothing
+    # re-renders it, because that would reset every control inside.
+    #
+    # The summary carries a description of what was built, so a collapsed panel
+    # still says what the reader is looking at rather than reading as a lid.
+    tags$details(
+      id = ns("filters_disclosure"), class = "fw-plan-filters__disclosure",
+      open = NA,
+      tags$summary(
+        class = "fw-plan-filters__summary",
+        span(class = "fw-plan-filters__summary-label", fw_t("plan", "f_heading")),
+        uiOutput(ns("filters_summary"), inline = TRUE)
+      ),
+      div(class = "fw-plan-filters__grid", controls),
+      div(
+        class = "fw-plan-filters__actions",
+        actionButton(ns("build"), fw_t("plan", "build"), class = "btn btn-primary"),
+        actionButton(ns("clear"), fw_t("plan", "clear"),
+                     class = "btn btn-outline-primary")
+      )
+    )
+  )
+}
+
+#' The size cell: one log slider per unit the water-body selection is measured in
+#'
+#' TWO UNITS THAT CANNOT SHARE A SLIDER. Still water is measured in hectares and
+#' flowing water in kilometres. Choosing "still water" above leaves the kilometre
+#' slider with nothing to say, so only the applicable one is drawn - and the
+#' heading says which unit the reader is looking at, rather than leaving them to
+#' infer it from a regime they chose four controls further up.
+#'
+#' A SLIDER THAT IS NOT DRAWN DOES NOT FILTER. Shiny keeps the value of an input
+#' whose UI has gone, so the drop has to happen in the state as well as here -
+#' fw_filter_state() does it, and the reasoning is at fw_size_units() in
+#' filters.R. Do not hide a slider without that.
+#'
+#' LOG SCALED, and not for elegance. Hectares run from 0.0014 to 237,500 with a
+#' median of 3.4; on a linear slider every value a reader might want sits inside
+#' the first pixel. The positions are log10 and the reader never sees one: the
+#' readout underneath prints the bounds in real units, and the handle's own
+#' bubble is converted by fwSizePretty in R/ui_helpers.R.
+#'
+#' @param units "ha", "km", or both, from fw_size_units()
+fw_plan_size_ui <- function(ns, ch, units = FW_SIZE_UNITS) {
+  units <- intersect(FW_SIZE_UNITS, units)
+  # The heading carries the unit when there is one unit to carry. With both on
+  # the page it names them both and each slider keeps its own label, because a
+  # heading cannot say which of two sliders it is describing.
+  one_unit <- length(units) == 1
+  unit_phrase <- if (one_unit) fw_t("filters", paste0("size_in_", units)) else
+    fw_t("filters", "size_in_both")
+
+  slider <- function(unit) {
+    r <- fw_size_log_range(ch$size[[unit]])
+    # A unit with no rows in the data has no range to offer. Drawing a dead
+    # slider would invite the reader to set a bound that matches nothing.
+    if (is.null(r)) return(NULL)
     div(
-      class = "fw-plan-filters__actions",
-      actionButton(ns("build"), fw_t("plan", "build"), class = "btn btn-primary"),
-      actionButton(ns("clear"), fw_t("plan", "clear"),
-                   class = "btn btn-outline-primary")
+      class = "fw-field fw-field--range",
+      # Only when there are two of them. With one slider under a heading that
+      # already names the unit, a second label saying it again is noise.
+      if (!one_unit) {
+        tags$label(class = "form-label", `for` = ns(paste0("size_", unit)),
+                   fw_t("filters", paste0("unit_", unit)))
+      },
+      # ticks = FALSE for the same reason as the year slider: ionRangeSlider's
+      # own labels would be log10 values, which is the one thing the reader must
+      # never be shown. The handle bubbles are log10 too, which is what
+      # fw_slider_prettify() hands to the client to convert.
+      fw_slider_prettify(
+        sliderInput(ns(paste0("size_", unit)), label = NULL,
+                    min = r[1], max = r[2], value = r,
+                    step = FW_SIZE_LOG_STEP, sep = "", ticks = FALSE,
+                    dragRange = TRUE, width = "100%")
+      ),
+      div(class = "fw-field__range-readout",
+          textOutput(ns(paste0("size_readout_", unit)), inline = TRUE))
+    )
+  }
+
+  tagList(
+    div(
+      class = "fw-field__label-row",
+      tags$label(class = "form-label",
+                 paste0(fw_filter_label("size"), " ", unit_phrase)),
+      fw_info(fw_filter_tip("size", ch), fw_filter_label("size"))
+    ),
+    lapply(units, slider),
+    # DEFAULTS ON, exactly as the year range's companion does: a size range
+    # silently dropping every attempt with no size recorded would remove those
+    # records, and the reader would never know the difference between "none
+    # match" and "none were measured".
+    div(
+      class = "fw-field fw-field--check",
+      checkboxInput(ns("include_no_size"), fw_t("filters", "no_size"),
+                    value = TRUE),
+      fw_info(fw_fill(fw_t("filters", "tip_no_size"), n = ch$size$n_no_size),
+              fw_t("filters", "no_size"))
     )
   )
 }

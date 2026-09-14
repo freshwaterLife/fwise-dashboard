@@ -414,6 +414,65 @@
   // pickers holding values like "Common carp (Cyprinus carpio)", and below
   // about 17rem selectize wraps every chosen value onto its own line and the
   // control grows downwards as it is used.
+  // COLLAPSIBLE, AND ONLY AFTER A BUILD. A native <details>: the server closes
+  // it on Build and the reader opens it again themselves. It is never
+  // re-rendered, because that would reset every control inside it.
+  &__disclosure {
+    // The default marker is a black triangle that ignores the type scale. The
+    // chevron below replaces it, and BOTH rules are needed - Safari uses the
+    // pseudo-element, everything else uses list-style.
+    > summary {
+      list-style: none;
+      &::-webkit-details-marker { display: none; }
+    }
+  }
+
+  &__summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: $fw-space-1 $fw-space-2;
+    cursor: pointer;
+    padding: $fw-space-1 0;
+    border-radius: $fw-radius-input;
+
+    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
+
+    // The chevron. Rotates when the panel is open, so the control says which
+    // way it is going rather than only that it is a control.
+    &::before {
+      content: "";
+      flex: none;
+      width: 0.5rem;
+      height: 0.5rem;
+      border-right: 2px solid $fw-teal-text;
+      border-bottom: 2px solid $fw-teal-text;
+      transform: rotate(-45deg);
+      transition: transform $fw-motion-fast;
+    }
+  }
+
+  &__disclosure[open] > &__summary::before { transform: rotate(45deg); }
+
+  &__summary-label {
+    font-weight: $fw-weight-bold;
+    color: $fw-ink;
+  }
+
+  // The selection, shown while the panel is shut so a collapsed panel still
+  // says what the reader is looking at rather than reading as a lid.
+  &__summary-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $fw-space-1 $fw-space-2;
+    color: $fw-ink-muted;
+  }
+
+  // NO SEPARATOR BETWEEN ITEMS. There was an interpunct here; each item already
+  // carries its own bold label and a colon, so the dot was a third piece of
+  // punctuation in a line that reads as a list of labelled pairs. The gap above
+  // is the separation.
+
   &__grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
@@ -426,15 +485,27 @@
     .shiny-input-container { width: 100%; margin-block-end: 0; }
   }
 
-  // The year range is two controls answering one question, and the slider needs
-  // room for its handles and its readout. It takes two columns wherever there
-  // are two to take.
+  // THE TWO SLIDER CELLS TAKE A WHOLE ROW EACH, and they take it at the BOTTOM
+  // of the panel. Two things are going on:
+  //
+  //   BELOW, which is the client's instruction and the reason for 1 / -1 rather
+  //   than span 2. The draw order already puts the ranges last
+  //   (fw_filter_draw_order() in filters.R), but in an auto-fit grid "last" is
+  //   not "underneath": with three columns and eight pickers, the size cell
+  //   landed in the third cell of the pickers' last row, leaving a slider
+  //   wedged between two dropdowns and a ragged hole beside it. A full-row item
+  //   cannot share a row, so it always starts a new one.
+  //
+  //   ROOM, which is why they were spanning in the first place. A range is two
+  //   controls answering one question - the slider and its "include unrecorded"
+  //   companion - and the slider needs width for its handles, its readout and,
+  //   in the size cell's case, a second slider when both units are on offer.
   &__span {
     display: grid;
     gap: $fw-space-2;
     align-content: start;
 
-    @media (min-width: $fw-bp-lg) { grid-column: span 2; }
+    @media (min-width: $fw-bp-md) { grid-column: 1 / -1; }
   }
 
   &__actions {
@@ -489,20 +560,77 @@
     .fw-caption { margin-block-start: $fw-space-1; }
   }
 
-  // Two downloads, side by side and equally weighted. The spreadsheet is the
-  // data and the HTML file is the document; they answer different questions,
-  // so neither is presented as the real one with the other as an afterthought.
-  &__download-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-    gap: $fw-space-3;
-    align-items: start;
+}
+
+// ONE BUTTON AND A PICKER. This was two buttons side by side - a spreadsheet
+// and a report - which made the reader choose between the data and the document
+// when most of them wanted both, and neither carried the methods and the
+// caveats out of the building with it.
+.fw-download-picker {
+  display: grid;
+  gap: $fw-space-3;
+  align-items: start;
+
+  @media (min-width: $fw-bp-md) {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  &__download-option {
-    .btn { width: auto; }
-    p { margin-block-end: 0; }
+  // A fieldset carries its own border and padding in every browser and neither
+  // is wanted here; the legend is doing the work.
+  &__parts {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+
+    legend { padding: 0; margin-block-end: $fw-space-2; }
+
+    // Shiny's checkbox group stacks its own items; the gap is ours.
+    .shiny-options-group > .checkbox { margin-block-end: $fw-space-1; }
+
+    // THE BOX BESIDE THE TEXT, NOT ABOVE IT. Bootstrap floats the input out of
+    // the label and indents the label to clear it, which puts the box on its
+    // own line the moment the text wraps - and every one of these notes wraps.
+    // A flex row instead: box first, text after, and the text block keeps its
+    // own left edge however many lines it runs to.
+    .shiny-options-group > .checkbox > label {
+      display: flex;
+      align-items: baseline;
+      gap: $fw-space-1;
+      padding-inline-start: 0;
+    }
+
+    .shiny-options-group > .checkbox input[type="checkbox"] {
+      position: static;
+      flex: none;
+      margin: 0;
+      // The box is a square on the first line of the text beside it, not
+      // floating in the middle of a three-line option.
+      align-self: baseline;
+    }
   }
+
+  // NAME AND NOTE ON ONE LINE. They used to stack, which made four file formats
+  // eight lines plus a fixed line plus a rule - a screen of chrome for a
+  // question with four answers. Inline, the note reads as the rest of the
+  // sentence its name starts, which is what it is.
+  &__label {
+    font-weight: $fw-weight-medium;
+  }
+
+  // No separator between them. htmltools renders the two spans on their own
+  // lines, which is a space in the flow - and a dash or a bracket would make
+  // two halves of one sentence read as two things.
+  &__note {
+    color: $fw-ink-muted;
+  }
+
+  // .fw-download-picker__fixed USED TO LIVE HERE - the always-included .txt,
+  // set apart under a rule as a statement rather than an option. It reads as a
+  // checkbox that failed to render however it is styled, so the sentence moved
+  // up into the lead above the list. See fw_plan_download_ui().
+
+  .btn { width: auto; }
 }
 
 // The eradication definition, pinned above the contribute form and repeated on
@@ -534,6 +662,26 @@
 .fw-about {
   h2 { margin-block-start: $fw-space-4; }
   h2:first-of-type { margin-block-start: 0; }
+
+  // The four disclosures are a group. Set apart from the prose above and below
+  // so the page reads as summary / panels / the rest, which is the structure
+  // the client asked for, rather than as one continuous column.
+  &__panels {
+    margin-block: $fw-space-5;
+  }
+
+  // A panel's own heading is a <span> inside its summary, not an h2, so the
+  // rule above cannot reach it - and should not: it is a control, not a section
+  // break. Headings INSIDE an open panel are h3s and keep their normal rhythm.
+  &__panels h2 { margin-block-start: 0; }
+}
+
+// Hear about new releases. A link out, not a form - see fw_about_signup().
+.fw-signup {
+  margin-block-start: $fw-space-4;
+
+  h2 { margin-block: 0 $fw-space-1; font-size: $fw-size-h3; }
+  p  { margin-block-end: $fw-space-2; }
 }
 
 // A copyable citation. Mono, because it is a string to be taken away verbatim
@@ -548,8 +696,16 @@
   border-radius: $fw-radius-input;
 }
 
+// TELL US IT IS WRONG. In a band of its own at the foot of the About page, and
+// deliberately not one of the click-to-open panels above it: a reader who has
+// found something wrong should not have to open anything to say so. It used to
+// carry .fw-panel as well and sat on the page ground, where it read as a fifth
+// panel among the four; the band is what separates it now, so it no longer
+// needs a card of its own.
 .fw-feedback {
-  margin-block-start: $fw-space-5;
+  max-width: 42rem;
+
+  h2 { margin-block: 0 $fw-space-2; }
 
   textarea.form-control { width: 100%; }
   .fw-caption { margin-block-start: $fw-space-1; }
@@ -736,6 +892,29 @@
   }
 }
 
+// ON A PHONE THE CARD IS A SHEET, not a tooltip. At 300px wide beside a marker
+// on a 360px screen there is nowhere for it to go: the placement arithmetic in
+// fw_map_card_js() clamps it to the same spot every time and it reads as a
+// panel that cannot decide where it lives. So below $fw-bp-sm it takes the full
+// width and sits against the bottom edge, and the script stops positioning it -
+// the two halves share one breakpoint, injected into the script from
+// FW_BREAKPOINTS$sm, so they cannot drift apart.
+@media (max-width: $fw-bp-sm) {
+  .fw-map-card {
+    width: calc(100vw - #{$fw-space-3});
+    // Shorter than the desktop 80vh: a sheet that covers four fifths of a phone
+    // screen has hidden the map the reader is using it to read.
+    max-height: 70vh;
+  }
+
+  .fw-map-card--sheet {
+    inset-block-start: auto;
+    inset-block-end: $fw-space-2;
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+  }
+}
+
 // THE DETAIL PANEL. What the hover card is not.
 //
 // The card above is a tooltip: small, anchored to a marker, and gone as soon as
@@ -826,6 +1005,34 @@
   &__rows { margin-block-start: $fw-space-2; }
 
   &__link { margin-block: $fw-space-2 0; }
+}
+
+// THE RECORD ON A PHONE. Two photographs stacked at their desktop height, on a
+// dialog inset by the desktop padding, pushed the record's own rows - outcome,
+// years, methods, who recorded it - below the fold of a 667px screen, so the
+// panel opened on a picture and looked like it had nothing else in it. The
+// photographs are the context; the rows are the answer. So on a narrow screen
+// the dialog takes more of the viewport and the images give up some height.
+@media (max-width: $fw-bp-sm) {
+  .fw-map-detail {
+    padding: $fw-space-2;
+
+    &__dialog {
+      max-height: 90vh;
+      padding: $fw-space-2;
+    }
+  }
+
+  .fw-popup-detail__figures { margin-block-end: $fw-space-2; }
+}
+
+// Thinner still. 150px of photograph twice over is most of what is left after
+// the title on a 375px screen.
+@media (max-width: $fw-bp-xs) {
+  // The height lives on the image, and the skeleton behind it is the figure's
+  // own background - so the figure takes its height from the image and the two
+  // cannot disagree. See .fw-species-figure.
+  .fw-species-figure__img { height: 110px; }
 }
 
 // One role's photographs. Several species become several slides behind a pair
@@ -1161,11 +1368,11 @@
 // than on leafletOutput() because leaflet validates its height argument through
 // htmltools::validateCssUnit(), which rejects clamp(). See fw_map_output().
 // A group of markers that sit on top of one another - see FW_MAP$cluster in
-// R/config.R for when markers group and which of these two looks it gets.
-// Zoomed in, a counted ring: the number is persistent text, so it sits at the
-// 1rem floor and the ring is sized to hold it. Zoomed out, a marker-sized
-// indigo dot - the only colour on the map that is not an outcome - whose count
-// travels in its title. The outcome colours come back when a group is opened.
+// R/config.R for when markers group. A counted ring at every zoom: the number
+// is persistent text, so it sits at the 1rem floor ($fw-size-min, NOT the
+// caption size, which moved up) and the ring is sized to hold it. Indigo is the
+// only colour on the map that is not an outcome, which is what marks this as
+// chrome; the outcome colours come back when the group is opened.
 .fw-cluster {
   display: grid;
   place-items: center;
@@ -1179,13 +1386,13 @@
   font-weight: $fw-weight-bold;
   line-height: 1;
   cursor: pointer;
-
-  &--stack {
-    background: $fw-ink;
-    border: 1.5px solid $fw-surface;
-    box-shadow: none;
-  }
 }
+
+// .fw-cluster--stack WAS HERE: the second look a group used to take below
+// FW_MAP$cluster$fine_zoom, a solid indigo dot the size of a marker with the
+// count only in its title. The client asked for the numbered circle at every
+// zoom, so there is one look now and the modifier has gone with it. See
+// fw_cluster_options() in R/maps.R.
 
 .fw-map {
   height: clamp(320px, 55vh, 560px);
@@ -1335,8 +1542,16 @@
   }
 }
 
-// Caveats. ALWAYS VISIBLE, deliberately not an accordion - the reader who would
-// collapse it is the reader who needs it.
+// Caveats. THIS USED TO SAY "always visible, deliberately not an accordion -
+// the reader who would collapse it is the reader who needs it", and on the About
+// page it now sits inside one (.fw-disclosure). The client asked for it, and the
+// page it lives on changed shape underneath the old rule: About is a short
+// summary with four click-to-open panels behind it, so a caveats block that
+// cannot fold is the one thing on the page that behaves differently from
+// everything around it. What carries the old intent instead is the summary line,
+// which names what is inside rather than saying "caveats" - see
+// FW_COPY$about$caveats_summary. Still NOT collapsible in the HTML report or the
+// workbook, where there is nowhere to hide it anyway.
 .fw-caveats {
   margin-block-start: $fw-space-4;
   padding: $fw-space-4;
@@ -1345,7 +1560,7 @@
   color: $fw-ink;
 
   h2 { margin-block: 0 $fw-space-2; font-size: $fw-size-h3; }
-  h3 { margin-block: 0 0.25rem; font-size: 1rem; }
+  h3 { margin-block: 0 0.25rem; font-size: $fw-size-caption; }
 
   // Short titled blocks, however many fw_caveats() yields - auto-fit means the
   // count is never encoded here. Stacked in one column they used to cap at 78ch
@@ -1417,7 +1632,7 @@
     display: block;
     margin-block-start: $fw-space-1;
     color: $fw-ink-muted;
-    font-size: 1rem;
+    font-size: $fw-size-caption;
     font-weight: $fw-weight-bold;
   }
 }
@@ -1729,9 +1944,11 @@
   }
 
   // The section name is the heading for everything under it, so it carries the
-  // weight rather than the percentage beside it.
+  // weight rather than the percentage beside it. Tokenised when the scale moved
+  // up: it was a hardcoded 1.2rem, which happened to be a step above body then
+  // and is exactly body now.
   &__section {
-    font-size: 1.2rem;
+    font-size: $fw-size-lead;
     font-weight: $fw-weight-medium;
     color: $fw-teal-text;
     white-space: nowrap;
@@ -1767,7 +1984,10 @@
 
   @media (max-width: $fw-bp-sm) {
     &__inner { flex-wrap: wrap; }
-    &__section { flex: 1 1 100%; font-size: 1.05rem; }
+    // Steps down on a narrow screen, where it wraps onto its own full-width
+    // line. Was a hardcoded 1.05rem, which the raised scale left stranded
+    // between two tokens.
+    &__section { flex: 1 1 100%; font-size: $fw-size-caption; }
   }
 }
 
@@ -1968,7 +2188,7 @@
 
   &__label {
     color: $fw-ink-muted;
-    font-size: 1rem;
+    font-size: $fw-size-caption;
     font-weight: $fw-weight-bold;
   }
 }
@@ -2097,104 +2317,163 @@
   }
 }
 
-// The cards. Two across on a laptop, one on a phone; the minimum is wide
-// enough for the photograph and the rows to sit side by side.
-.fw-records {
+
+// ---- The dashboard's summary graphics ---------------------------------------
+
+// GROWTH BESIDE PROPORTIONS. The cumulative chart on the left and the two
+// donuts stacked on the right, which is the only arrangement that suits all
+// three: the cumulative chart is a time series and wants width, the donuts are
+// circles and want none of it.
+//
+// Stacked below $fw-bp-lg, which includes every phone and every portrait
+// tablet. Two columns is not a smaller version of one column here - it is a
+// different reading order - so the breakpoint is where there is genuinely room
+// for a readable time series AND a legible key beside a ring, not the earliest
+// point the columns technically fit.
+//
+// minmax(0, ...) on both tracks, not plain fractions. A grid track's default
+// min-width is auto, and plotly reports a min-content width for its container;
+// without this the chart column refuses to shrink and the row overflows the
+// page on the narrow side of the breakpoint.
+// TWO CELLS, ONE ROW. There used to be a third chart here - an outcome donut,
+// which shared a right-hand column with the method one behind a __shares
+// wrapper - and the client removed it. With two charts left the wrapper had
+// nothing to group, so both blocks are now direct children of this grid.
+.fw-explore-charts {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(#{"min(100%, 24rem)"}, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: $fw-space-3;
+
+  @media (min-width: $fw-bp-lg) {
+    // Not 1fr 1fr. The time series carries about a century of x-axis and the
+    // donut carries a circle, so the space is split in favour of the one that
+    // reads worse when it is squeezed. Below this width they stack, which is
+    // the "two rows on a smaller screen" the brief asks for.
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+
+  // fw_block() draws .fw-plan__block on both pages. Its own bottom margin would
+  // double the grid gap and, worse, pull the donut out of line with the bottom
+  // of the chart beside it.
+  .fw-plan__block { margin-block-end: 0; }
 }
 
-// ONE CARD IS ONE BUTTON. The whole face asks for the full record, the same
-// way a marker does, so there is nothing to hunt for. These are page content,
-// not an overlay: the popup font exemption does not apply and the rows stay at
-// the 1rem floor.
-//
-// THE PHOTOGRAPH SPANS THE TOP rather than sitting in a column beside the
-// rows, and that is a measurement rather than a taste. Beside the rows it took
-// 9rem off a 27rem card, and what was left could not hold "Pumpkinseed
-// (Lepomis gibbosus)" in a value column - scientific names wrapped to four
-// lines and the long ones were clipped mid-word. Full width, the body gets the
-// whole card and every value fits on one or two lines.
-.fw-record {
-  display: flex;
-  flex-direction: column;
-  background: $fw-surface;
-  border: $fw-hairline;
-  border-radius: $fw-radius-card;
-  overflow: hidden;
+// ---- The dashboard's table of attempts --------------------------------------
 
-  &__open {
+// TWO PHOTOGRAPHS PER ROW, each with its credit. The caption is a condition of
+// using these images rather than decoration (see R/species_images.R), so it is
+// rendered in the cell and not hidden in a title attribute. That is what makes
+// these rows tall, and it is why the table carries only the four text columns a
+// reader actually scans - everything else is one click away in the record.
+.fw-explore-table {
+  // THE SPECIES COLUMNS GET THE WIDTH, and everything else gets out of their
+  // way. A binomial is two long words and it should not be broken over three
+  // lines so that a one-word country can have room it does not need.
+  //
+  // NO FIXED WIDTHS ANYWHERE HERE, which is the client's instruction and also
+  // the only thing that survives a species called Pseudorasbora parva sitting
+  // next to one called Salmo trutta. It is done with two proportional rules the
+  // browser is free to override when the content demands it:
+  //
+  //   1. The two thumbnail columns ask for a share of the table each, so auto
+  //      layout starts by giving them the space rather than distributing it by
+  //      content length - which is what was handing it to the credit lines.
+  //   2. Everything from the country onwards shrinks to its own content. width:
+  //      1% is the idiom for "as narrow as this will go"; it is not a measure-
+  //      ment, it is a request to be last in the queue. nowrap keeps a country
+  //      name on one line, which is what stopped that column claiming width it
+  //      then filled with a line break.
+  //
+  // The site name takes whatever is left, because it is the longest value and
+  // the click target.
+  th:nth-child(-n + 2), td:nth-child(-n + 2) { width: 27%; }
+
+  th:nth-child(n + 4), td:nth-child(n + 4) {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  td { vertical-align: top; }
+
+  &__thumb {
     display: flex;
     flex-direction: column;
-    flex: 1;
+    gap: $fw-space-1;
+
+    // The third context to re-scale the same figure, after the record cards and
+    // the species tiles. The figure itself is unchanged - only its size is.
+    .fw-species-figure { margin: 0; border-radius: $fw-radius-input; }
+    .fw-species-figure__img { height: 72px; }
+    .fw-species-figure--none { min-height: 72px; }
+
+    // THE CREDIT IS STILL PRESENT AND STILL LINKED - that is the licence
+    // condition and it is not negotiable - but it is set below the 1rem floor
+    // HERE ONLY, at the client's instruction. Two credits per row, twice per
+    // page of rows, at body size were setting the width of the two columns
+    // that matter most and pushing the species name onto three lines.
+    //
+    // The exemption is written down at FW_TYPE$size_credit in R/brand.R and
+    // named in dev/value_test.R, so it is a decision on the record rather than
+    // a number that drifted. Nowhere else in the app uses it.
+    .fw-species-figure__credit { font-size: $fw-size-credit; }
+
+    &--none {
+      justify-content: center;
+      min-height: 72px;
+    }
+  }
+
+  // THE NAME OUTRANKS THE CREDIT, which is the other half of the same decision:
+  // the credit stepped down, so the name is left at body size and given the
+  // room the credit gave up. It wraps when it has to and is not clamped - a
+  // truncated species name is the wrong half of the binomial.
+  &__species {
+    font-weight: $fw-weight-medium;
+    line-height: $fw-leading-heading;
+  }
+
+  // THE SITE NAME IS THE BUTTON. One focus stop per row and one obvious target,
+  // rather than a name that happens to be clickable.
+  &__open {
+    display: block;
     width: 100%;
-    padding: 0 0 $fw-space-2;
+    padding: 0;
     margin: 0;
-    text-align: start;
-    font: inherit;
-    color: inherit;
-    background: none;
     border: 0;
-    cursor: pointer;
-    transition: background-color $fw-motion-fast $fw-easing;
-
-    &:hover { background: $fw-teal-wash; }
-    // Inset, because the card clips its corners and an outset ring on a
-    // full-bleed photograph is cut off at the top two.
-    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: -2px; }
-  }
-
-  // The photograph, edge to edge across the head of the card. The figure owns
-  // its own credit line and its own placeholder.
-  &__figure {
-    .fw-species-figure { margin: 0; border-radius: 0; }
-    .fw-species-figure__img { height: 132px; }
-    .fw-species-figure--none { min-height: 132px; }
-  }
-
-  &__body {
-    min-width: 0;
-    padding: $fw-space-2 $fw-space-2 0;
-  }
-
-  &__title {
-    font-size: $fw-size-h3;
-    margin-block: 0 0.15rem;
+    background: none;
+    font: inherit;
+    font-weight: $fw-weight-bold;
     color: $fw-teal-text;
-  }
+    text-align: start;
+    cursor: pointer;
 
-  &__place {
-    color: $fw-ink-muted;
-    margin-block: 0 $fw-space-2;
-  }
-
-  // The key column holds "Species that benefited" at 1rem, and the value column
-  // holds a binomial. Both need a real measure, which is what the full card
-  // width buys. A long name BREAKS rather than being clipped: min-width on a
-  // grid child is auto, so without it the value refuses to shrink and overflows
-  // the card instead of wrapping.
-  .fw-popup__row { grid-template-columns: 8.5rem 1fr; }
-
-  .fw-popup__key,
-  .fw-popup__val,
-  .fw-popup__list {
-    font-size: 1rem;
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .fw-popup__list { padding-inline-start: 1.1rem; }
-
-  &__more {
-    margin-block: $fw-space-2 0;
-    color: $fw-ink-muted;
-  }
-
-  &__actions {
-    padding: 0 $fw-space-2 $fw-space-2;
+    &:hover { text-decoration: underline; }
+    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
   }
 }
+
+// An outcome as a word with a dot beside it. THE WORD IS THE ENCODING - the dot
+// only lets a reader scanning forty rows find the successes without reading
+// each one. Someone who cannot separate the colours has lost nothing, which is
+// the rule every chart in the app follows.
+.fw-outcome-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: $fw-space-1;
+  white-space: nowrap;
+
+  &__dot {
+    flex: none;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: $fw-radius-round;
+  }
+}
+
+// .fw-record USED TO LIVE HERE - the card the dashboard's list was built from.
+// The list is a table now (.fw-explore-table above), so the card component and
+// its grid have gone with it.
 
 // Previous and next at the foot of the record panel.
 //
@@ -2327,7 +2606,7 @@ table.dataTable,
   padding-block-start: $fw-space-2;
   border-top: $fw-hairline;
 
-  &__status { color: $fw-ink-muted; font-size: 1rem; }
+  &__status { color: $fw-ink-muted; font-size: $fw-size-caption; }
 
   &__pages {
     display: flex;
@@ -2392,3 +2671,138 @@ table.dataTable,
 // lines. The table is already inside an overflow-x container, so letting these
 // two hold their width is the better trade.
 .fw-table td:nth-last-child(-n + 2) { white-space: nowrap; }
+
+// ---- The About page's click-to-open panels ----------------------------------
+
+// A REAL <details>, so the browser owns the open state, the keyboard and what a
+// screen reader announces. Same choice as .fw-plan-filters__disclosure, and the
+// chevron is lifted from it - including the pair of rules that suppress the
+// default marker, because Safari uses the pseudo-element and everything else
+// uses list-style.
+//
+// Each panel is a card rather than a rule between sections: four disclosures
+// separated only by hairlines read as a list of links, and the client asked for
+// panels a reader chooses between.
+.fw-disclosure {
+  margin-block-end: $fw-space-2;
+  padding: $fw-space-2 $fw-space-3;
+  background: $fw-surface;
+  border: $fw-hairline;
+  border-radius: $fw-radius-card;
+
+  > summary {
+    list-style: none;
+    &::-webkit-details-marker { display: none; }
+  }
+
+  &__summary {
+    display: grid;
+    // The chevron column, then everything else. A grid rather than a flex row
+    // so the note lines up under the title instead of under the chevron.
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0 $fw-space-2;
+    align-items: baseline;
+    cursor: pointer;
+    border-radius: $fw-radius-input;
+
+    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 4px; }
+
+    // The chevron. Rotates when the panel is open, so the control says which
+    // way it is going rather than only that it is a control.
+    &::before {
+      content: "";
+      width: 0.5rem;
+      height: 0.5rem;
+      // Optically centred on the title's first line rather than its baseline,
+      // which a bare square sits below.
+      margin-block-start: 0.35em;
+      border-right: 2px solid $fw-teal-text;
+      border-bottom: 2px solid $fw-teal-text;
+      transform: rotate(-45deg);
+      transition: transform $fw-motion-fast;
+    }
+  }
+
+  &[open] > &__summary::before { transform: rotate(45deg); }
+
+  &__title {
+    grid-column: 2;
+    font-size: $fw-size-h3;
+    font-weight: $fw-weight-medium;
+    color: $fw-ink;
+  }
+
+  // WHAT IS INSIDE, not a restatement of the title. This is the line a reader
+  // decides on, so it stays visible while the panel is shut.
+  &__note {
+    grid-column: 2;
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+  }
+
+  &__body {
+    margin-block-start: $fw-space-2;
+    padding-block-start: $fw-space-2;
+    border-top: $fw-hairline;
+
+    > :last-child { margin-block-end: 0; }
+  }
+
+  // The caveats grid is a panel in its own right elsewhere (the HTML report);
+  // inside a disclosure it has already been given a card, so it drops its own.
+  .fw-caveats {
+    padding: 0;
+    background: none;
+  }
+}
+
+// A list of links where each carries a line saying what is behind it. The note
+// is the point: a bare list of database names does not tell anyone which one to
+// follow.
+.fw-linklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  > li + li { margin-block-start: $fw-space-2; }
+
+  &__note {
+    display: block;
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+  }
+}
+
+// ---- plotly's modebar -------------------------------------------------------
+
+// THE ONE BUTTON WE KEEP is the camera: every chart is downloadable as a PNG,
+// which is a client instruction. The bar used to be off entirely
+// (displayModeBar = FALSE) and came back with everything except toImage
+// removed - see fw_plotly_style() in R/charts.R for why zoom and pan are not
+// wanted on these charts.
+//
+// It needs styling because a chart's paper is transparent (FW_TRANSPARENT), so
+// plotly's default bar floats over whatever ground the chart is sitting on with
+// no surface of its own. Given one, it reads as chrome belonging to the block
+// rather than as a mark on the chart.
+// THE GROUND GOES ON THE GROUP, NOT ON .modebar, and that is not cosmetic.
+// plotly's auto-hide bar fades its CHILDREN - its rule is
+// `.modebar--hover > :not(.watermark) { opacity: 0 }` - and leaves the bar
+// itself fully opaque. A background on .modebar is therefore painted on every
+// chart all the time, as an empty white pill floating over the plot with
+// nothing in it. On the group it fades in and out with the button it is behind.
+.modebar-group {
+  background: $fw-surface !important;
+  border-radius: $fw-radius-input;
+  box-shadow: $fw-shadow-card;
+}
+
+.modebar-btn {
+  // The icon is an inline SVG that takes its fill from this.
+  color: $fw-ink-muted !important;
+
+  &:hover { color: $fw-teal-text !important; }
+
+  // plotly draws the icon with fill: currentColor only some of the time.
+  .icon path { fill: currentColor; }
+}

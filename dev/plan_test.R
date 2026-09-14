@@ -18,14 +18,18 @@ ok <- function(lbl, got, want = TRUE) {
 }
 strip <- function(x) gsub("[[:space:]]+", " ", gsub("<[^>]*>", " ", as.character(x$html %||% x)))
 
-# The report builder's own filter set: everything in FW_FILTERS except outcome.
-# Built from the registry rather than typed out, so this test exercises the same
-# id list the page does.
+# The report builder's own filter set: everything in FW_FILTERS except outcome
+# and method. Built from the registry rather than typed out, so this test
+# exercises the same id list the page does.
 plan_ids <- fw_plan_filter_ids()
-base <- fw_filter_state(list(), plan_ids)
+base <- fw_filter_state(list(), plan_ids, ch = ch)
 base$year_from <- ch$year_min
 base$year_to <- ch$year_max
+# The two "include unrecorded" checkboxes as the browser paints them: ON. The
+# state reads isTRUE(input$...), which is FALSE before the control exists, and
+# these tests describe a panel the reader is looking at.
 base$include_no_year <- TRUE
+base$include_no_size <- TRUE
 
 cat("\n-- the copy deck --\n")
 ok("no section is defined in two copy files",
@@ -35,14 +39,17 @@ cat("\n-- filters --\n")
 ok("no filters returns everything", nrow(fw_filter_apply(d, base)), nrow(d$attempt))
 
 # ANY-OF, not all-of, and no attempt counted twice. If the bridge join leaked
-# duplicates this would exceed the sum of the two individual counts.
-f_r <- modifyList(base, list(method = "Rotenone"))
-f_d <- modifyList(base, list(method = "Draining"))
-f_b <- modifyList(base, list(method = c("Rotenone", "Draining")))
-n_r <- nrow(fw_filter_apply(d, f_r)); n_d <- nrow(fw_filter_apply(d, f_d))
-n_b <- nrow(fw_filter_apply(d, f_b))
-ok("two methods is a union, not an intersection", n_b >= max(n_r, n_d))
-ok("and does not double-count",                   n_b <= n_r + n_d)
+# duplicates this would exceed the sum of the two individual counts. Exercised
+# on SPECIES rather than method, which this page no longer offers - the bridge
+# code is the same either way.
+sp_a <- ch$species[1]; sp_b <- ch$species[2]
+f_a <- modifyList(base, list(species = sp_a))
+f_b2 <- modifyList(base, list(species = sp_b))
+f_ab <- modifyList(base, list(species = c(sp_a, sp_b)))
+n_a <- nrow(fw_filter_apply(d, f_a)); n_b <- nrow(fw_filter_apply(d, f_b2))
+n_ab <- nrow(fw_filter_apply(d, f_ab))
+ok("two species is a union, not an intersection", n_ab >= max(n_a, n_b))
+ok("and does not double-count",                   n_ab <= n_a + n_b)
 
 # The 53 undated attempts must never vanish without the user asking.
 ok("undated attempts kept by default",
@@ -55,21 +62,140 @@ ok("absent year bounds do not empty the result",
    nrow(fw_filter_apply(d, modifyList(base, list(year_from = NULL, year_to = NULL)))),
    nrow(d$attempt))
 
-# The one place the two pages differ, and it is deliberate. See mod_plan.R.
+# The two filters this page deliberately does not offer, and the reasoning for
+# each is at the top of mod_plan.R: outcome is an answer the reader must not be
+# able to pre-select, and method is the thing they came here to learn.
 ok("outcome is not a report-builder filter", "outcome" %in% plan_ids, FALSE)
-ok("but the dashboard still offers it",      "outcome" %in% fw_filter_ids(), TRUE)
-ok("every other filter is shared",
-   setdiff(fw_filter_ids(), plan_ids), "outcome")
+ok("method is not a report-builder filter",  "method" %in% plan_ids, FALSE)
+ok("and those are the only two dropped",
+   sort(setdiff(fw_filter_ids(), plan_ids)), c("method", "outcome"))
+# Outcome is now filterable NOWHERE. It used to be the dashboard's alone; the
+# client's decision is that it is an answer on both pages. It stays visible in
+# every chart, the map and the table - it is just never used to narrow.
+ok("the dashboard does not offer outcome either",
+   "outcome" %in% FW_EXPLORE_FILTERS, FALSE)
+ok("the dashboard's four filters are place and animal",
+   sort(FW_EXPLORE_FILTERS),
+   sort(c("continent", "country", "taxa", "taxa_beneficiary")))
+
+cat("\n-- the size filter --\n")
+# TWO UNITS THAT MUST NOT MIX. Hectares for still water, kilometres for flowing,
+# and an attempt is only ever compared against the slider for its own unit.
+ha_full <- fw_size_log_range(ch$size$ha)
+km_full <- fw_size_log_range(ch$size$km)
+n_ha <- sum(d$attempt$area_unit == "ha", na.rm = TRUE)
+n_km <- sum(d$attempt$area_unit == "km", na.rm = TRUE)
+
+sized <- modifyList(base, list(size_ha = ha_full, size_km = km_full))
+ok("sliders at full range change nothing",
+   nrow(fw_filter_apply(d, sized)), nrow(d$attempt))
+
+# The unmeasured attempts are the checkbox's decision ALONE. This regressed once
+# already: the match was OR-ed in, which could only ever add rows back, so
+# unticking the box removed nothing.
+ok("unticking 'include unrecorded size' drops exactly the unsized",
+   nrow(fw_filter_apply(d, sized)) -
+     nrow(fw_filter_apply(d, modifyList(sized, list(include_no_size = FALSE)))),
+   ch$size$n_no_size)
+
+big_ha <- modifyList(sized, list(size_ha = c(fw_size_log(100), ha_full[2])))
+sel_ha <- fw_filter_apply(d, big_ha)
+ok("narrowing hectares leaves every kilometre attempt alone",
+   sum(sel_ha$area_unit == "km", na.rm = TRUE), n_km)
+ok("and keeps only hectare attempts inside the bound",
+   all(sel_ha$area_treated[which(sel_ha$area_unit == "ha")] >= 100), TRUE)
+
+big_km <- modifyList(sized, list(size_km = c(fw_size_log(50), km_full[2])))
+sel_km <- fw_filter_apply(d, big_km)
+ok("narrowing kilometres leaves every hectare attempt alone",
+   sum(sel_km$area_unit == "ha", na.rm = TRUE), n_ha)
+
+# An absent slider is "this unit is not being constrained", not "nothing
+# matches". The size cell is a renderUI, so this is the state on first paint.
+ok("absent size bounds do not empty the result",
+   nrow(fw_filter_apply(d, modifyList(base, list(size_ha = NULL, size_km = NULL)))),
+   nrow(d$attempt))
+
+# WHICH SLIDERS A REGIME OFFERS. Still water is an area, flowing water is a
+# length, so choosing one leaves the other unit's slider with nothing to say.
+# That is the client's rule and fw_size_units() is a straight map.
+ok("still water offers hectares alone", fw_size_units("Lentic"), "ha")
+ok("flowing water offers kilometres alone", fw_size_units("Lotic"), "km")
+ok("no regime offers both", fw_size_units(character(0)), FW_SIZE_UNITS)
+ok("both regimes offer both", fw_size_units(c("Lentic", "Lotic")), FW_SIZE_UNITS)
+
+# THE HIDDEN SLIDER MUST NOT GO ON FILTERING, and this is the assertion the
+# whole design rests on. Shiny KEEPS the value of an input whose UI has been
+# removed, so a slider dropped by a regime change goes on reporting the last
+# bounds the reader gave it. Without the matching drop in fw_filter_state() it
+# narrows the result invisibly - measured, not theorised: it silently dropped
+# six attempts.
+#
+# Note the mock input carries BOTH sliders, exactly as a live session does after
+# the reader has moved one and then changed the regime.
+mock <- list(regime = "Lentic",
+             size_ha = fw_size_log_range(ch$size$ha),
+             size_km = c(fw_size_log(500), fw_size_log(715)),
+             include_no_size = TRUE, include_no_year = TRUE,
+             years = c(ch$year_min, ch$year_max))
+state <- fw_filter_state(mock, plan_ids, ch = ch)
+ok("still water snapshots the hectare slider", !is.null(state$size_ha))
+ok("and drops the kilometre slider it cannot see", is.null(state$size_km))
+ok("so a stale bound left on the hidden slider changes nothing",
+   nrow(fw_filter_apply(d, state)),
+   nrow(fw_filter_apply(d, modifyList(state, list(size_km = NULL)))))
+
+# THE COST OF THE FIXED MAP, ASSERTED SO IT IS ON THE RECORD rather than
+# discovered. 40 attempts carry a unit that disagrees with their regime:
+#
+#     regime    ha    km   (none)
+#     Lentic   497     6       81
+#     Lotic     34   203       87
+#
+# With still water chosen, those six kilometre-measured attempts have no slider
+# on the page and so are not size-filtered at all. That is the honest reading of
+# a hidden control - the alternative is judging them against bounds the reader
+# cannot see. It goes away on its own as the client's cleaning lands; until then
+# this test says how many rows it applies to, so a change in that number is
+# noticed.
+mismatch <- sum(d$attempt$water_regime == "Lentic" &
+                  d$attempt$area_unit == "km", na.rm = TRUE)
+ok("the regime/unit mismatch is still the 6 that were measured", mismatch, 6L)
+tight <- modifyList(state, list(size_ha = c(fw_size_log(1), fw_size_log(2))))
+ok("a narrow hectare bound does not touch the mismatched kilometre rows",
+   sum(fw_filter_apply(d, tight)$area_unit == "km" &
+         fw_filter_apply(d, tight)$water_regime == "Lentic", na.rm = TRUE),
+   mismatch)
+
+# A slider left where it started is not a filter, and must not be recorded as a
+# bound the reader chose - the slider ends are widened to whole log steps and so
+# do not match the real minimum and maximum.
+size_rows <- function(f) {
+  r <- Filter(function(x) grepl(fw_filter_label("size"), x$setting, fixed = TRUE),
+              fw_filter_summary(f))
+  vapply(r, function(x) x$value, character(1))
+}
+ok("an untouched size slider records All",
+   unique(size_rows(sized)), fw_t("export", "filter_all"))
+ok("and a moved one records real units, not logarithms",
+   any(grepl("100", size_rows(big_ha), fixed = TRUE)), TRUE)
 
 # The registry drives the panel, the state, the hints and the workbook. If a
 # filter is offered on the page it must appear in the sheet that records what
 # the reader selected.
 sheet_settings <- fw_filters_sheet(base, 10L, 914L)$Setting
+# grepl, not %in%: size contributes one row PER UNIT, each labelled
+# "<label> (<unit>)", so an exact match would miss it.
 ok("every filter reaches the workbook sheet",
    all(vapply(setdiff(plan_ids, "years"), function(i) {
-     fw_filter_label(i) %in% sheet_settings
+     any(grepl(fw_filter_label(i), sheet_settings, fixed = TRUE))
    }, logical(1))))
-ok("and outcome does not", fw_filter_label("outcome") %in% sheet_settings, FALSE)
+ok("size reaches it once per unit",
+   sum(grepl(fw_filter_label("size"), sheet_settings, fixed = TRUE)),
+   length(FW_SIZE_UNITS))
+ok("and the two dropped filters do not",
+   any(c(fw_filter_label("outcome"), fw_filter_label("method")) %in% sheet_settings),
+   FALSE)
 
 cat("\n-- the export cannot disagree with itself --\n")
 # The filtered download and the future Zenodo release are the SAME function.
@@ -105,13 +231,14 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
      grepl("What the matching attempts show", h), TRUE)
   ok("all four outcomes stay visible",
      all(vapply(c("Successful", "Failed", "Ongoing", "Unknown"), grepl, logical(1), h)), TRUE)
-  ok("caveats sit beside the results", grepl("laimed is not the same", h), TRUE)
-  # Counted, never hardcoded: every block fw_caveats() defines reaches the panel
-  # with its heading, so adding or removing one needs no edit here.
-  cav <- fw_caveat_blocks(d)
-  ok("every caveat block reaches the panel",
-     sum(vapply(cav, function(b) grepl(fw_caveat_title(b$heading), h, fixed = TRUE),
-                logical(1))), length(cav))
+  # THE CAVEATS ARE NOT ON THIS PAGE ANY MORE. They moved to About, because they
+  # describe the whole database rather than the selection, and under a freshly
+  # built result they read as qualifications of that selection alone. They still
+  # travel inside every download - asserted further down.
+  ok("caveats do NOT sit beside the results", grepl("laimed is not the same", h), FALSE)
+  ok("the contacts block does", grepl("Potential relevant contacts", h), TRUE)
+  ok("the cumulative chart has left this page",
+     grepl("How the record has", h), FALSE)
   ok("export matches the selection",
      nrow(report()$export), nrow(report()$sel))
 
@@ -120,20 +247,78 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("state 2: zero result says so plainly",
      grepl("No attempts match those filters", h), TRUE)
   ok("and names a filter to relax", grepl("Try relaxing one of these first", h), TRUE)
-  ok("caveats are shown even with no results",
-     grepl("laimed is not the same", h), TRUE)
+  ok("the zero state does not carry caveats either",
+     grepl("laimed is not the same", h), FALSE)
 
+  # ---- The download -------------------------------------------------------
+  #
+  # ONE HANDLER AND A PICKER. The methods-and-caveats text is NOT one of the
+  # choices: it travels whatever else is ticked, which is the whole reason the
+  # panel could move off the page without the qualifications going with it.
   session$setInputs(taxa = character(0), build = 3)
+  unzip_names <- function(p) utils::unzip(p, list = TRUE)$Name
+
+  session$setInputs(download_parts = c("xlsx", "html"))
   path <- output$download
-  ok("workbook downloads", file.exists(path), TRUE)
+  ok("the bundle downloads", file.exists(path), TRUE)
+  ok("and is a zip when more than one file was asked for",
+     grepl("[.]zip$", fw_bundle_filename(c("xlsx", "html"))), TRUE)
+  inside <- unzip_names(path)
+  ok("it carries the spreadsheet", any(grepl("[.]xlsx$", inside)), TRUE)
+  ok("and the report",             any(grepl("[.]html$", inside)), TRUE)
+  ok("and the methods and caveats", fw_methods_filename() %in% inside, TRUE)
+
+  session$setInputs(download_parts = "csv")
+  ok("a CSV-only bundle still carries the text",
+     fw_methods_filename() %in% unzip_names(output$download), TRUE)
+
+  # "pdf" is not a file of its own - it resolves to the HTML report, which
+  # carries the print stylesheet. Ticking both must not produce two copies.
+  ok("pdf resolves to the report", fw_bundle_parts("pdf"), "html")
+  ok("and ticking both does not duplicate it",
+     fw_bundle_parts(c("html", "pdf")), "html")
+
+  # Nothing ticked is a reasonable thing to want, not an error to refuse: it
+  # downloads the methods and caveats on their own, and raw rather than zipped.
+  session$setInputs(download_parts = character(0))
+  ok("nothing ticked downloads the text alone",
+     fw_bundle_filename(character(0)), fw_methods_filename())
+  ok("and it is the real text",
+     grepl("HOW FWISE WAS COMPILED", readLines(output$download, n = 1)), TRUE)
+
+  # ---- The workbook -------------------------------------------------------
+  session$setInputs(download_parts = "xlsx")
+  book <- tempfile(fileext = ".zip")
+  file.copy(output$download, book, overwrite = TRUE)
+  xl <- tempfile(); dir.create(xl)
+  utils::unzip(book, exdir = xl)
+  path <- list.files(xl, pattern = "[.]xlsx$", full.names = TRUE)[1]
   sheets <- openxlsx::getSheetNames(path)
-  ok("all four sheets present",
-     all(c("Attempts", "Caveats", "Field definitions", "Filters applied") %in% sheets), TRUE)
+  ok("all five sheets present",
+     all(c("Attempts", "Contacts", "Caveats", "Field definitions",
+           "Filters applied") %in% sheets), TRUE)
   ok("data sheet matches the selection",
      nrow(openxlsx::read.xlsx(path, "Attempts")), nrow(report()$sel))
   ok("field definitions cover every exported column",
      all(names(openxlsx::read.xlsx(path, "Attempts")) %in%
            openxlsx::read.xlsx(path, "Field definitions")$Field), TRUE)
+  ok("and the contacts sheet's columns too",
+     all(names(openxlsx::read.xlsx(path, "Contacts")) %in%
+           openxlsx::read.xlsx(path, "Field definitions")$Field), TRUE)
+
+  # ONE ROW PER PERSON, and the count is the count in front of the reader.
+  people <- openxlsx::read.xlsx(path, "Contacts")
+  ok("contacts sheet is one row per person",
+     anyDuplicated(people$contact_id), 0L)
+  ok("and counts attempts within the extract only",
+     all(people$attempts_in_extract <= nrow(report()$sel)), TRUE)
+
+  # THE CONTROL, not the intention. An address belonging to a contact who asked
+  # not to be listed must not be anywhere in the workbook.
+  private <- d$contact$contact_email[!d$contact$email_public]
+  private <- private[!is.na(private) & nzchar(private)]
+  ok("no private address reaches the contacts sheet",
+     any(private %in% people$contact_email), FALSE)
 
   # ---- The HTML report ------------------------------------------------------
   #
@@ -146,14 +331,29 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # perfectly on the machine that made it and loses its charts when it is
   # forwarded is the failure this format exists to avoid, so the test looks for
   # anything the file would have to fetch.
-  html <- output$download_html
+  # The report now arrives inside the bundle rather than from its own button,
+  # so it is unpacked once here and again wherever a toggle has moved.
+  report_from_bundle <- function() {
+    session$setInputs(download_parts = "html")
+    z <- tempfile(fileext = ".zip")
+    file.copy(output$download, z, overwrite = TRUE)
+    dir <- tempfile(); dir.create(dir)
+    utils::unzip(z, exdir = dir)
+    list.files(dir, pattern = "[.]html$", full.names = TRUE)[1]
+  }
+
+  html <- report_from_bundle()
   ok("html report downloads", file.exists(html), TRUE)
 
   doc <- fw_html_read_text(html)
   has <- function(txt) grepl(txt, doc, fixed = TRUE)
 
   ok("the letterhead names the database", has("A world evidence base"), TRUE)
+  # STILL HERE, even though the page's own panel has gone to About. A document
+  # that leaves the building has to carry its own qualifications.
   ok("the caveats travel with the document", has("Claimed is not the same"), TRUE)
+  ok("and so do the contacts", has("Potential relevant contacts"), TRUE)
+  ok("the cumulative chart does not", has("How the record has"), FALSE)
   ok("the filter selection is recorded", has("What this report covers"), TRUE)
   ok("the print rules are the PDF export", has("@media print"), TRUE)
 
@@ -209,8 +409,8 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   xlsx_path <- tempfile(fileext = ".xlsx")
   writeBin(xlsx_bytes, xlsx_path)
   ok("the workbook inside the report is the workbook beside it",
-     all(c("Attempts", "Caveats", "Field definitions", "Filters applied") %in%
-           openxlsx::getSheetNames(xlsx_path)), TRUE)
+     all(c("Attempts", "Contacts", "Caveats", "Field definitions",
+           "Filters applied") %in% openxlsx::getSheetNames(xlsx_path)), TRUE)
   ok("and it holds the same rows",
      nrow(openxlsx::read.xlsx(xlsx_path, "Attempts")), nrow(report()$sel))
 
@@ -218,11 +418,11 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # whichever the reader is looking at, rather than re-deciding for them.
   session$setInputs(method_mode = "count")
   ok("the method chart follows the reader's toggle",
-     grepl("Attempts", fw_html_read_text(output$download_html), fixed = TRUE), TRUE)
+     grepl("Attempts", fw_html_read_text(report_from_bundle()), fixed = TRUE), TRUE)
   # The waterbody chart has its OWN toggle, and the document follows each
   # independently: share below, count above, in the same file.
   session$setInputs(method_wb_mode = "share")
-  doc2 <- fw_html_read_text(output$download_html)
+  doc2 <- fw_html_read_text(report_from_bundle())
   ok("the waterbody chart follows its own toggle",
      grepl(fw_t("charts", "x_share_uses"), doc2, fixed = TRUE), TRUE)
   ok("and the method chart above it stays on count",

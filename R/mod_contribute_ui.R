@@ -59,9 +59,15 @@ fw_intro_panel <- function(ns) {
 
 #' What counts as an eradication, and what belongs in FWISE
 #'
-#' One definition, one place. Shown at the top of the contribute page and again
-#' on the About page, because a contributor and a reader have to be working from
-#' the same definition for the database to mean anything.
+#' One definition, one place, at the top of the contribute page.
+#'
+#' IT WAS ON THE ABOUT PAGE TOO, on the reasoning that a contributor and a
+#' reader have to be working from the same definition for the database to mean
+#' anything. The client removed it from there: on About it opened the page with
+#' two headings of scope rules before a reader had been told what they were
+#' reading about, and the audience that has to APPLY the definition is the one
+#' filling in this form. The helper is still shared rather than inlined, so if
+#' the definition is ever wanted in a second place there is one copy of it.
 fw_preamble <- function() {
   div(
     class = "fw-preamble",

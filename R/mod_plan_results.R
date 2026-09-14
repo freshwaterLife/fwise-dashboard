@@ -87,8 +87,13 @@ fw_outcome_bars_ui <- function(sel) {
 #' a placeholder rather than a bare image when a species has no licensed
 #' photograph. See the header of R/species_images.R.
 #'
-#' live = FALSE always. Ten tiles are built at once and none of them may reach
-#' Wikimedia while the page is rendering.
+#' live = FALSE always. A grid of these is built at once and none of them may
+#' reach Wikimedia while the page is rendering.
+#'
+#' @param limit how many tiles. The page passes FW_PLAN_SPECIES_N (five), which
+#'   is deliberately fewer than the FW_TOP_N the ranked bar charts use: a tile
+#'   is a photograph rather than a line, so ten of them ran to two full rows and
+#'   pushed the rest of the report below the fold.
 #'
 #' @param role_name "invasive" or "beneficiary"
 #' @return NULL when the selection has none of that role, so the calling block
@@ -217,37 +222,77 @@ fw_plan_pages <- function(n_rows, per_page) {
   max(1L, as.integer(ceiling(n_rows / per_page)))
 }
 
-# ---- Caveats -----------------------------------------------------------------
+# ---- Potential relevant contacts ---------------------------------------------
 
-#' The caveats panel, always visible beside the results
+#' The people attached to the attempts in this selection
 #'
-#' Not a collapsed accordion and not a footnote. The same text goes into the
-#' export, so the two cannot say different things.
-fw_plan_caveats_ui <- function(data) {
-  # Parsed by fw_caveat_blocks() next to fw_caveats(), so the panel never has to
-  # know how many blocks there are. Add or remove one there and this reflows.
-  blocks <- fw_caveat_blocks(data)
+#' REDACTION IS NOT DONE HERE, and must not be. fw_contacts_summary() replaces
+#' the address of any contact flagged not-public with NA before the data reaches
+#' the session, so this function - and the page built from it - has no code path
+#' that can see one. Do not reach past it to data$contact.
+#'
+#' RELEVANCE IS THE SELECTION ITSELF, not a second idea of "region". A contact
+#' is relevant if they are attached to an attempt the reader actually built, so
+#' the table cannot disagree with the filters above it. `attempt_ids` is the
+#' list column fw_contacts_summary() already derives from both contact slots.
+#'
+#' @return one row per contact, most involved in THIS selection first, with
+#'   attempt_count replaced by the count within the selection.
+fw_plan_contacts <- function(data, sel) {
+  contacts <- fw_contacts_summary(data)
+  ids <- sel$attempt_id
 
-  div(
-    class = "fw-caveats",
-    h2(fw_t("plan", "caveats_heading")),
-    # The blocks sit in their own grid wrapper rather than directly in the
-    # panel, so the heading above stays full width and only the blocks column
-    # up. See .fw-caveats__grid.
-    div(
-      class = "fw-caveats__grid",
-      lapply(blocks, function(b) {
-        div(
-          class = "fw-caveats__block",
-          h3(fw_caveat_title(b$heading)),
-          lapply(b$body, function(x) p(x))
-        )
-      })
-    )
+  here <- vapply(contacts$attempt_ids, function(x) length(intersect(x, ids)),
+                 integer(1))
+  out <- contacts[here > 0, , drop = FALSE]
+  # The count the reader is shown is the count IN FRONT OF THEM. Carrying the
+  # whole-database figure through would say 40 beside a selection of three.
+  out$attempt_count <- here[here > 0]
+  out[order(-out$attempt_count, out$contact_name), , drop = FALSE]
+}
+
+#' One page of the relevant contacts
+#'
+#' Hand-built, like every other table in the app, and the mailto comes from
+#' fw_contact_action() in mod_networking.R rather than a second copy of it: the
+#' address is assembled in JavaScript at click time so a scraper reading the
+#' served markup does not harvest it in one pass, and a contact with no public
+#' address gets an empty cell rather than a badge advertising a hidden one.
+fw_plan_contacts_ui <- function(contacts, page = 1L,
+                                per_page = FW_CONTACTS_PAGE_SIZES[1]) {
+  if (!nrow(contacts)) return(p(fw_t("plan", "r_contacts_none")))
+
+  from <- (page - 1L) * per_page + 1L
+  to <- min(nrow(contacts), page * per_page)
+  rows <- if (from > nrow(contacts)) contacts[0, ] else contacts[seq(from, to), ]
+
+  tags$table(
+    class = "fw-table",
+    tags$thead(tags$tr(
+      tags$th(scope = "col", fw_t("plan", "col_contact_name")),
+      tags$th(scope = "col", fw_t("plan", "col_contact_org")),
+      tags$th(scope = "col", fw_t("networking", "col_continent")),
+      tags$th(scope = "col", fw_t("networking", "col_country")),
+      tags$th(scope = "col", class = "fw-col-num", fw_t("plan", "col_contact_n")),
+      tags$th(scope = "col", fw_t("plan", "col_contact_email"))
+    )),
+    tags$tbody(lapply(seq_len(nrow(rows)), function(i) {
+      r <- rows[i, ]
+      tags$tr(
+        tags$td(r$contact_name),
+        tags$td(r$organisation %|na|% fw_t("networking", "no_organisation")),
+        tags$td(r$continent_label),
+        tags$td(r$country_label),
+        tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
+        tags$td(fw_contact_action(r$contact_email, r$contact_name))
+      )
+    }))
   )
 }
 
-# The export sheet wants shouting headings; a web page does not.
-fw_caveat_title <- function(x) {
-  paste0(substr(x, 1, 1), tolower(substr(x, 2, nchar(x))))
-}
+# ---- Caveats -----------------------------------------------------------------
+#
+# THE PANEL MOVED TO THE ABOUT PAGE. fw_caveats_ui() and fw_caveat_title() now
+# live in R/ui_helpers.R, because About, the HTML report and this page's
+# downloads all draw them and none of the three owns the other two. The text
+# itself has always come from fw_caveat_blocks() in R/export.R and still does.

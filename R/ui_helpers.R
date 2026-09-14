@@ -438,6 +438,30 @@ fw_footer <- function(last_updated, in_review = 0L) {
   )
 }
 
+#' Mark a sliderInput so the client prints its handle bubbles in real units
+#'
+#' The log-scaled size sliders only. A data attribute rather than an option,
+#' because Shiny's slider binding owns ionRangeSlider's initialisation and
+#' prettify has to be a function - see fwSizePretty in fw_client_script().
+#'
+#' Walks to the <input> rather than assuming a position in the tag tree, so a
+#' change to how Shiny wraps its sliders cannot quietly stop this working.
+fw_slider_prettify <- function(tag) {
+  mark <- function(x) {
+    if (!inherits(x, "shiny.tag")) {
+      if (is.list(x)) return(lapply(x, mark))
+      return(x)
+    }
+    if (identical(x$name, "input")) {
+      x$attribs$`data-fw-prettify` <- "size"
+      return(x)
+    }
+    x$children <- lapply(x$children, mark)
+    x
+  }
+  mark(tag)
+}
+
 #' Client-side handlers shared by every page
 #'
 #' Two messages: one writes into the polite live region so validation and step
@@ -473,9 +497,51 @@ fw_client_script <- function() {
         if (!el) return;
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
+      // Collapse a <details> from the server. The report builder folds its
+      // filter panel away once a report has been built, so the results are not
+      // pushed below a screen of controls the reader has finished with.
+      //
+      // A CLASS TOGGLE RATHER THAN A RE-RENDER, and that is the whole point:
+      // re-rendering the panel to close it would rebuild every selectize inside
+      // it at its default and throw away the selection the reader just built
+      // the report from. The panel is rendered once and only its open state
+      // changes. Expanding again is the browser's own job.
+      Shiny.addCustomMessageHandler('fw-collapse', function (id) {
+        var el = document.getElementById(id);
+        if (el) el.open = false;
+      });
       // The feedback box. The address is assembled here rather than served as
       // a mailto href, for the same scraping reason as the contacts page, and
       // the message never reaches the server at all.
+      // THE SIZE SLIDERS' TOOLTIPS, IN REAL UNITS. Their positions are log10 -
+      // hectares run from 0.0014 to 237,500, so a linear slider puts every
+      // usable value in the first pixel - and the one thing the reader must
+      // never be shown is the logarithm. The readout under the slider was
+      // already in real units; the handle's own bubble was not, and read
+      // \"0.5 to 3.4\" for a range of 3 ha to 2,500 ha.
+      //
+      // ionRangeSlider takes a prettify function, but only through JavaScript:
+      // a data attribute can only carry a string, and Shiny's slider binding
+      // owns the initialisation. So the instance is updated once it is bound.
+      // shiny:bound fires after the binding's initialize(), which is where the
+      // slider is created, so the instance is always there by now.
+      //
+      // THE ROUNDING MIRRORS fw_size_label() IN R/filters.R. Two copies of one
+      // rule, which is a cost; the alternative is a server round-trip on every
+      // pixel of a drag. If the thresholds there change, change them here.
+      window.fwSizePretty = function (n) {
+        var v = Math.pow(10, Number(n));
+        var digits = v >= 100 ? 0 : v >= 10 ? 1 : v >= 1 ? 2 : 4;
+        var parts = v.toFixed(digits).split('.');
+        parts[0] = parts[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');
+        return parts.join('.');
+      };
+      $(document).on('shiny:bound', function (e) {
+        var $el = $(e.target);
+        if ($el.data('fwPrettify') !== 'size') return;
+        var slider = $el.data('ionRangeSlider');
+        if (slider) slider.update({ prettify: window.fwSizePretty });
+      });
       Shiny.addCustomMessageHandler('fw-mailto', function (msg) {
         var href = 'mail' + 'to:' + msg.to +
           '?subject=' + encodeURIComponent(msg.subject) +
@@ -484,4 +550,110 @@ fw_client_script <- function() {
       });
     });
   "))
+}
+
+# ---- Shared blocks -----------------------------------------------------------
+
+#' A titled block with its qualification directly beneath the heading
+#'
+#' The note sits ABOVE the content, not below it. A caveat under a chart is read
+#' after the reader has already drawn their conclusion from it.
+#'
+#' Was fw_plan_block() in mod_plan.R. It lives here because the dashboard draws
+#' summary graphics of its own now, and two pages laying out a titled block in
+#' two different ways is how they drifted apart the first time.
+fw_block <- function(title, note, content) {
+  div(
+    class = "fw-plan__block",
+    h3(title),
+    if (!is.null(note)) p(class = "fw-plan__note", note),
+    content
+  )
+}
+
+#' A click-to-open panel
+#'
+#' A real <details>, not a scripted accordion. That is the same choice
+#' fw_sidebar_layout() and the report builder's filter panel already make: the
+#' open and closed states, the keyboard behaviour and what a screen reader
+#' announces all come from the browser, and there is nothing to initialise after
+#' an insertUI. The server can still close one through the `fw-collapse` message
+#' handler in fw_client_script() if it ever needs to.
+#'
+#' THE SUMMARY CARRIES TWO LINES, and both matter. A reader decides whether to
+#' open a panel from the title and the note alone, so a note that only restates
+#' the title is a panel nobody opens - or worse, one everybody opens to find out
+#' what it was.
+#'
+#' @param title the disclosure label
+#' @param ... the panel body
+#' @param note one line under the title saying what is inside
+#' @param open whether it starts expanded
+fw_disclosure <- function(title, ..., note = NULL, id = NULL, open = FALSE) {
+  tags$details(
+    class = "fw-disclosure", id = id,
+    # NA is how htmltools writes a bare boolean attribute. FALSE would write
+    # open="FALSE", which a browser reads as open.
+    open = if (isTRUE(open)) NA,
+    tags$summary(
+      class = "fw-disclosure__summary",
+      tags$span(class = "fw-disclosure__title", title),
+      if (!is.null(note)) tags$span(class = "fw-disclosure__note", note)
+    ),
+    div(class = "fw-disclosure__body", ...)
+  )
+}
+
+#' The caveats panel
+#'
+#' ON THE ABOUT PAGE NOW, not on the report builder. They are properties of the
+#' whole database rather than of any one selection, and sitting under a result
+#' the reader had just built they read as qualifications of that selection
+#' alone. Moving them does NOT take them out of the downloads: the same
+#' fw_caveats() vector is still a sheet in the workbook, a block in the HTML
+#' report and the second half of the methods-and-caveats text file, because a
+#' file that turns up in an inbox six months later has to carry its own
+#' qualifications. See the header of R/export.R.
+#'
+#' THEY FOLD NOW. This panel was deliberately always visible - "the reader who
+#' would collapse it is the reader who needs it" - and the client has since
+#' asked for it to be one of the About page's click-to-open panels, alongside
+#' the methods and the related databases. The earlier reasoning was not wrong
+#' about who needs the caveats; what changed is that the page they sit on is now
+#' a summary with depth behind it rather than a run of prose, so a caveats block
+#' left permanently open is the only thing on it that cannot be folded. The
+#' summary line names what is inside (how success is defined, what is missing,
+#' why there is no success rate) rather than saying "caveats", which is what
+#' stops it reading as small print to skip. In the downloads they are still not
+#' collapsible, because a spreadsheet has nowhere to hide them.
+#'
+#' @param heading whether to draw the panel's own heading. FALSE where the
+#'   caller has already placed one, as the About page has.
+fw_caveats_ui <- function(data, heading = TRUE) {
+  # Parsed by fw_caveat_blocks() next to fw_caveats(), so the panel never has to
+  # know how many blocks there are. Add or remove one there and this reflows.
+  blocks <- fw_caveat_blocks(data)
+
+  div(
+    class = "fw-caveats",
+    if (isTRUE(heading)) h2(fw_t("about", "caveats_heading")),
+    # The blocks sit in their own grid wrapper rather than directly in the
+    # panel, so the heading above stays full width and only the blocks column
+    # up. See .fw-caveats__grid.
+    div(
+      class = "fw-caveats__grid",
+      lapply(blocks, function(b) {
+        div(
+          class = "fw-caveats__block",
+          h3(fw_caveat_title(b$heading)),
+          lapply(b$body, function(x) p(x))
+        )
+      })
+    )
+  )
+}
+
+# The export sheet wants shouting headings; a web page does not.
+fw_caveat_title <- function(x) {
+  paste0(substr(x, 1, 1), tolower(substr(x, 2, nchar(x))))
 }

@@ -1,35 +1,56 @@
 # mod_explore.R
-# BUILT. The record browser: the whole database at the top, then every attempt
-# as a card you can open.
+# BUILT. The database at a glance, then every attempt in it as a row you can
+# open.
 #
-# PLAN IS ABOUT THE MANY, THIS PAGE IS ABOUT THE ONE. The report builder
-# aggregates attempts like yours into charts and a citable file. Nothing else
-# in the app lets a reader find an individual attempt, see where it sits, read
-# its whole record and step to the next one. That is the job here, and it is
-# why there are NO CHARTS on this page: a chart of the selection is Plan's
-# answer, and offering a weaker copy of it here is what made the two pages
-# indistinguishable before this one was rebuilt.
+# WHAT IS IN HERE, AND EVERY ONE OF IT. This page answers two questions that
+# belong together: what does FWISE hold, and where is the individual attempt I
+# am looking for. The database panel and the three summary graphics answer the
+# first; the map and the table answer the second.
+#
+# PLAN IS ABOUT A SITUATION, THIS PAGE IS ABOUT THE DATABASE. The report builder
+# narrows to attempts like the reader's own and produces a citable file about
+# THAT. Everything here describes the whole record, or the whole of a very
+# lightly filtered slice of it - which is why the graphics here are proportions
+# and growth, and the graphics there are comparisons within a selection.
+#
+# THERE ARE CHARTS HERE NOW, and this is a reversal. This page used to carry
+# none, on the reasoning that a chart of the selection was Plan's answer and a
+# weaker copy of it here made the two pages indistinguishable. That reasoning
+# held while the two pages had the same ten filters. They no longer do: four
+# simple filters cannot produce the narrow, unrepresentative slice that made a
+# chart here dangerous, and the three graphics below are about the shape of the
+# record rather than about a comparison the reader might act on.
 #
 # LIVE, NOT GATED - the opposite of the report builder, on purpose. A report is
 # something the reader will cite, so Plan makes them commit before it draws. A
 # list is something they scan, and the whole value is watching it narrow as
 # they move a control. Do not "make the two pages consistent".
 #
-# SIX FILTERS, NOT TEN. Place, animal (either side), method and outcome are the
-# questions a reader has when looking for an attempt. Waterbody, regime, the
-# named-species pickers and the year range are questions about a group of
-# attempts, and belong with the charts on Plan. The set is FW_EXPLORE_FILTERS;
-# the controls, the state and the matching all come from the one registry in
-# filters.R, so a filter here is the same filter there.
+# FOUR FILTERS, NOT TEN, and they are all SIMPLE ones: where, and which animals.
+# Everything else - waterbody, regime, size, the named-species pickers and the
+# year range - is a question about a group of attempts and belongs with the
+# report builder. The set is FW_EXPLORE_FILTERS; the controls, the state and the
+# matching all come from the one registry in filters.R, so a filter here is the
+# same filter there.
 #
-# OUTCOME IS FILTERABLE HERE and deliberately not on the report builder.
-# Reasoning in mod_plan.R.
+# OUTCOME IS NOT FILTERABLE, HERE OR ANYWHERE. It used to be filterable on this
+# page and deliberately not on the report builder; the client's decision is now
+# that it is an answer rather than a question, on both pages. It is shown in
+# every graphic, the donut, the map markers and the table - just never used to
+# narrow. The reasoning is in mod_plan.R and it applies with more force here,
+# where the whole point is to show what the database contains.
 #
-# THE RECORD OPENS IN THE MAP'S PANEL. A card click writes the attempt id into
-# the same input a marker click does, so there is one way of asking for a
+# THE RECORD OPENS IN THE MAP'S PANEL. A table row click writes the attempt id
+# into the same input a marker click does, so there is one way of asking for a
 # record and one panel that shows it (fw_map_detail_server() in maps.R). That
 # is also what makes previous/next work from either: the server steps through
 # the list in the order the reader is looking at.
+#
+# A TABLE, NOT A GRID OF CARDS. The cards showed one photograph each and one
+# attempt per card; the table shows both species - the one targeted and the one
+# meant to benefit - which is the pairing a reader scans for, and fits more of
+# them on a screen. Every photograph still carries its credit and its licence,
+# which is a condition of use rather than decoration: see fw_explore_table().
 #
 # THE DATABASE PANEL IS NEVER FILTERED. It is the size of the whole record,
 # and it sits above the filters so it cannot be read as the size of a
@@ -41,8 +62,7 @@ library(dplyr)
 
 # The filters this page offers, by registry id. Everything else in FW_FILTERS
 # is dropped here and kept on the report builder.
-FW_EXPLORE_FILTERS <- c("continent", "country", "taxa", "taxa_beneficiary",
-                        "method", "outcome")
+FW_EXPLORE_FILTERS <- c("continent", "country", "taxa", "taxa_beneficiary")
 
 # The list's sort orders. Copy keys are "sort_<value>" in FW_COPY$explore.
 FW_EXPLORE_SORTS <- c("newest", "oldest", "site", "country")
@@ -59,6 +79,31 @@ mod_explore_ui <- function(id) {
           uiOutput(ns("filters")),
           uiOutput(ns("incoming")),
           uiOutput(ns("summary")),
+
+          # ---- The shape of the selection --------------------------------
+          #
+          # Proportions and growth, which are questions about the record. The
+          # report builder's charts are comparisons within a slice; these are
+          # not, and that is what keeps the two pages from being copies.
+          #
+          # TWO CHARTS ON ONE ROW. There were three - an outcome donut sat above
+          # the method one in a right-hand column - and the client removed it,
+          # so the pair now sit side by side with no wrapper div between them
+          # and the grid. Growth takes the wider cell: it is a time series and
+          # squeezing its x-axis is what makes it unreadable, whereas a ring
+          # only gets more crowded. Below $fw-bp-lg they fold onto two rows.
+          # See .fw-explore-charts.
+          div(
+            class = "fw-explore-charts",
+            fw_block(fw_t("explore", "cumulative"),
+                     fw_t("explore", "cumulative_note"),
+                     plotly::plotlyOutput(ns("cumulative"), height = "auto")),
+            # ITS DENOMINATOR IS USES, NOT ATTEMPTS, and the note says so rather
+            # than leaving it to a footnote. See fw_chart_method_donut().
+            fw_block(fw_t("explore", "donut_method"),
+                     fw_t("explore", "donut_method_note"),
+                     plotly::plotlyOutput(ns("donut_method"), height = "auto"))
+          ),
 
           # One link past the map's seventy-odd focusable cluster markers. See
           # the note on .fw-skip-inline in _components.scss.
@@ -196,6 +241,14 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     })
     fw_map_detail_server(input, session, "map_detail", data, sorted)
 
+    # LIVE, like everything else on this page. These are cheap - two
+    # aggregations over at most 914 rows - and watching them move under the
+    # filters is the whole reason they are here rather than on Plan.
+    output$donut_method <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_method_donut(data, sel())))
+    output$cumulative <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_cumulative(sel())))
+
     # "Show on map" on a card: fly to the marker and bring the map into view.
     # The hover card closes itself on movestart, so nothing is left floating.
     observeEvent(input$locate, {
@@ -242,21 +295,15 @@ mod_explore_server <- function(id, data, in_review = 0L) {
       to <- min(nrow(s), list_page() * per_page())
       rec <- fw_attempt_records(data, s[seq(from, to), ])
       # The figures for THIS PAGE, rendered once per species. Cache only, never
-      # a live fetch: twenty cards are built at once and none of them may reach
-      # Wikimedia while the page is rendering.
+      # a live fetch: a page of rows is built at once and none of them may reach
+      # Wikimedia while the page is rendering. The cache covers BOTH roles -
+      # see fw_map_figure_cache() - because every row now shows two.
       cache <- fw_map_figure_cache(data, rec)
       div(
-        class = "fw-records",
-        lapply(seq_len(nrow(rec)), function(i) {
-          # The lead invasive species' photograph. NULL where there is none:
-          # fw_record_card() draws the placeholder, so the fallback lives in
-          # one place rather than at every call site.
-          lead <- fw_popup_parts(rec$inv_ids[i])[1]
-          fig <- if (!is.na(lead) && lead %in% names(cache)) unname(cache[lead])
-          fw_record_card(rec[i, ], figure = fig,
+        class = "fw-table-scroll",
+        fw_explore_table(rec, figures = cache,
                          detail_input = ns("map_detail"),
                          locate_input = ns("locate"))
-        })
       )
     })
 
@@ -303,8 +350,13 @@ fw_explore_db_panel <- function(s, in_review = 0L) {
       fw_kpi_stat(fw_fmt_num(s$species), fw_t("explore", "db_invasive")),
       fw_kpi_stat(fw_fmt_num(s$beneficiaries), fw_t("explore", "db_beneficiary"),
                   tooltip = fw_t("explore", "db_beneficiary_tip")),
-      fw_kpi_stat(fw_fmt_num(s$successful), fw_t("explore", "db_successful"),
-                  tooltip = fw_t("explore", "db_successful_tip")),
+      # THE SUCCESS COUNT USED TO SIT HERE and is gone at the client's request.
+      # It was the one figure in the strip that was an OUTCOME rather than a
+      # size: four counts saying how much is in the database, and a fifth
+      # inviting the reader to divide it by the first. That ratio is the
+      # headline this app deliberately does not publish - the reasoning is at
+      # the top of charts.R - and the outcome donut below the filters gives the
+      # whole breakdown without handing anyone a numerator on its own.
       fw_kpi_stat(fw_fmt_num(in_review), fw_t("explore", "in_review"),
                   tooltip = fw_t("explore", "in_review_tip"))
     )

@@ -62,7 +62,11 @@ All in `R/copy.R` unless stated. Search the file for `[PLACEHOLDER]` to find the
 | `networking$outro_email` | Currently `hello@example.org` |
 | `about$feedback_email` | Where the About feedback box addresses its mail. Currently `hello@example.org` |
 | `about$method2` | The search strategy and review protocol |
-| `about$citation` | The DOI inside the citation block |
+| `about$method_paper` | The FWISE paper's methods section, in full. A character vector - the panel renders one paragraph per element |
+| `about$citation` / `about$citation_db` | The DOI inside each citation block. Two of them: the dashboard and the database are cited separately |
+| `about$signup_url` | The mailing list the "Sign up for updates" button links out to, currently `#` |
+| `about$stories` / `stories_action` | Success stories panel. The stories themselves belong on the landing page (see the case studies section of the spec in `R/mod_home.R`); when they exist, point `stories_action` at them rather than at the top of Home |
+| `about$related` / `about$related_items` | Related databases. Each item is a `name`, a `url` and a `note` - the note is the point of the panel, since a list of names does not tell anyone which one to follow |
 | `contribute$consent$terms_link_label` / `terms_url` | Full terms of data use |
 | `contribute$confirm$followup` | "within X working days" |
 | `R/data_load.R` `fw_country_burden()` | Placeholder choropleth source |

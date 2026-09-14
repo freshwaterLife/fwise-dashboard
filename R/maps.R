@@ -518,81 +518,13 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
   )
 }
 
-#' One attempt as a card in the Explore list
-#'
-#' THE HOVER CARD, ON THE PAGE. The same rows fw_map_hover_html() shows over a
-#' marker - place, species, what was done, what happened, who recorded it -
-#' plus the photograph the hover card leaves out (a page of twenty is a fixed,
-#' known cost; a pointer crossing 900 markers is not) and the years it ran.
-#'
-#' The whole card is ONE BUTTON that asks for the full record, and it asks
-#' through the same input a marker click uses, so a card and a marker open the
-#' same panel by the same route. Built with tags rather than strings because it
-#' lives in a renderUI, where escaping is done for us.
-#'
-#' @param row one row of fw_attempt_records()
-#' @param figure the ready-made figure HTML for the lead invasive species, or
-#'   NULL for none
-#' @param detail_input the namespaced input a click writes the attempt id into
-#' @param locate_input the namespaced input "Show on map" writes it into, or
-#'   NULL to leave the link out
-fw_record_card <- function(row, figure = NULL, detail_input, locate_input = NULL) {
-  outcome <- if (is.na(row$outcome)) "Unknown" else row$outcome
-  recorded <- row$primary_contact_name
-  if (is.na(recorded) || !nzchar(recorded)) recorded <- row$reference
-  methods <- fw_popup_parts(row$method_pairs)
-  set_input <- function(id, value) {
-    sprintf("Shiny.setInputValue('%s', '%s', {priority:'event'});",
-            id, gsub("'", "\\\\'", value))
-  }
-  item <- function(label, value) {
-    if (length(value) != 1 || is.na(value) || !nzchar(as.character(value))) return(NULL)
-    div(class = "fw-popup__row",
-        span(class = "fw-popup__key", label),
-        span(class = "fw-popup__val", value))
-  }
-  located <- !is.na(row$latitude) && !is.na(row$longitude)
-
-  tags$article(
-    class = "fw-record",
-    `data-fw-id` = row$attempt_id,
-    tags$button(
-      type = "button",
-      class = "fw-record__open",
-      onclick = set_input(detail_input, row$attempt_id),
-      div(class = "fw-record__figure", HTML(figure %||% fw_species_figure(NULL, NA))),
-      div(
-        class = "fw-record__body",
-        tags$h3(class = "fw-record__title",
-                row$site_name %|na|% fw_t("species", "unnamed_site")),
-        p(class = "fw-record__place",
-          paste(stats::na.omit(c(row$region, row$country)), collapse = ", ")),
-        item(fw_t("species", "p_species"), row$inv_list),
-        item(fw_t("species", "p_beneficiary"), row$ben_list),
-        if (length(methods)) {
-          div(class = "fw-popup__row",
-              span(class = "fw-popup__key", fw_t("species", "p_method")),
-              tags$ul(class = "fw-popup__list", lapply(methods, tags$li)))
-        },
-        item(fw_t("species", "p_outcome"), outcome),
-        item(fw_t("species", "p_began"),
-             fw_popup_years(row$start_year, row$end_year)),
-        item(fw_t("species", "p_recorded_by"), recorded),
-        p(class = "fw-record__more", fw_t("species", "more_hint"))
-      )
-    ),
-    if (located && !is.null(locate_input)) {
-      div(
-        class = "fw-record__actions",
-        tags$a(
-          href = "#", class = "fw-record__locate",
-          onclick = paste(set_input(locate_input, row$attempt_id), "return false;"),
-          fw_t("explore", "show_on_map")
-        )
-      )
-    }
-  )
-}
+# fw_record_card() USED TO LIVE HERE. The dashboard drew its list as a grid of
+# cards, one photograph each; it is a table now, with both species per row -
+# the one targeted and the one meant to benefit - which a single-photograph
+# card could not show. See R/mod_explore_table.R.
+#
+# The detail panel below is unchanged and is still the one record view: the
+# table writes into the same input a marker click does.
 
 #' The popup for one attempt: the hover card, with the detail panel inside it
 #' when it is being embedded
@@ -666,6 +598,11 @@ function (el, x) {
   var DETAIL_INPUT = '{{INPUT}}';
   var OPEN_DELAY = 120;   // long enough that crossing a marker is not opening it
   var SHUT_DELAY = 260;   // long enough to cross the gap into the card
+  // The width below which the card stops being a tooltip beside a marker and
+  // becomes a sheet at the bottom of the screen. Injected from R so it is the
+  // SAME NUMBER as the media query in .fw-map-card - two copies of a breakpoint
+  // that disagree is a card styled one way and positioned the other.
+  var STACK_BP = {{STACKBP}};
 
   // ONE card for the document. Only one map is ever on screen - they are on
   // different tabs - and a single element stops the listeners below from
@@ -743,6 +680,19 @@ function (el, x) {
     body.innerHTML = '';
   }
   function place(latlng) {
+    // NARROW SCREENS DO NOT ANCHOR TO THE MARKER. The card is as wide as the
+    // viewport there (see .fw-map-card's media query), so there is no room
+    // beside a marker left to aim at - the arithmetic below would clamp it to
+    // the same place every time while still jittering by a pixel or two as the
+    // reader taps around. Pinned to the bottom instead, the way a phone puts a
+    // sheet, which also keeps it clear of the finger that opened it.
+    if (window.matchMedia('(max-width: ' + STACK_BP + 'px)').matches) {
+      card.style.left = '';
+      card.style.top = '';
+      card.classList.add('fw-map-card--sheet');
+      return;
+    }
+    card.classList.remove('fw-map-card--sheet');
     var pt = map.latLngToContainerPoint(latlng);
     var box = map.getContainer().getBoundingClientRect();
     var mx = box.left + pt.x;
@@ -1022,6 +972,9 @@ fw_map_card_js <- function(detail_input = NULL) {
              fixed = TRUE)
   js <- gsub("{{LABEL}}", lit(fw_t("species", "card_label")), js, fixed = TRUE)
   js <- gsub("{{DETAIL}}", lit(fw_t("species", "detail_label")), js, fixed = TRUE)
+  # The breakpoint goes in as a bare number, from the same FW_BREAKPOINTS entry
+  # the stylesheet uses, so the script and .fw-map-card cannot drift apart.
+  js <- gsub("{{STACKBP}}", sub("px$", "", FW_BREAKPOINTS$sm), js, fixed = TRUE)
   gsub("{{INPUT}}", lit(detail_input %||% ""), js, fixed = TRUE)
 }
 
@@ -1085,10 +1038,17 @@ fw_record_neighbour <- function(ids, id, step) {
 #'
 #' The numbers live in FW_MAP$cluster (config.R); the reasoning is there too.
 #' The group icon is drawn by .fw-cluster in _components.scss, not the plugin's
-#' default green blob: a marker-sized stack dot at coarse zoom, a counted ring
-#' from the fine zoom up. A cluster object belongs to one zoom level, and that
-#' is what the icon function reads to choose. The legs of a fanned-out group
-#' are the muted ink so they read as chrome rather than as data.
+#' default green blob: one counted ring, at every zoom.
+#'
+#' IT USED TO BE TWO LOOKS - a plain indigo dot the size of a marker below
+#' FW_MAP$cluster$fine_zoom, the counted ring above it - chosen by reading
+#' `c._zoom`, since a cluster object belongs to one zoom level. The client asked
+#' for the number everywhere, because an unlabelled dot is indistinguishable
+#' from a single attempt.
+#'
+#' The title is still set even though the count is now drawn: it is what says
+#' what the number means, to a screen reader and on hover. The legs of a
+#' fanned-out group are the muted ink so they read as chrome rather than data.
 fw_cluster_options <- function() {
   cl <- FW_MAP$cluster
   # The copy lands inside a single-quoted JavaScript string.
@@ -1106,15 +1066,11 @@ fw_cluster_options <- function() {
     iconCreateFunction = htmlwidgets::JS(sprintf(paste0(
       "function (c) {",
       "  var n = c.getChildCount();",
-      "  if (c._zoom >= %d) {",
-      "    return L.divIcon({ html: '<span>' + n + '</span>', className: 'fw-cluster',",
-      "                       iconSize: [%d, %d] });",
-      "  }",
       "  var title = '%s'.replace('{n}', n);",
-      "  return L.divIcon({ html: '<span title=\"' + title + '\" aria-label=\"' + title + '\"></span>',",
-      "                     className: 'fw-cluster fw-cluster--stack', iconSize: [%d, %d] });",
+      "  return L.divIcon({ html: '<span title=\"' + title + '\" aria-label=\"' + title + '\">' + n + '</span>',",
+      "                     className: 'fw-cluster', iconSize: [%d, %d] });",
       "}"),
-      cl$fine_zoom, cl$icon_size, cl$icon_size, title, cl$stack_size, cl$stack_size))
+      title, cl$icon_size, cl$icon_size))
   )
 }
 

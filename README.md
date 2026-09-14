@@ -465,9 +465,13 @@ reached by the user's own filtering. Do not add a hero statistic about it.
 the map labels each marker with its outcome, and the table below holds the same
 information. Colourblind safety is a stated client requirement.
 
-**The caveats panel is always visible**, never an accordion, and the same text
-goes into every export from the same function, so the two cannot say different
-things.
+**The caveats panel folds on the About page** and does not anywhere else. It was
+always visible and never an accordion; the client later asked for it to be one of
+the About page's click-to-open panels, so it is a `<details>` there whose summary
+names what is inside ("How success is defined, what is missing, and why there is
+no success rate") rather than saying "caveats". In every export it is still
+unfoldable text, and it comes from the same function in both places, so the two
+cannot say different things.
 
 ### The export
 
@@ -732,10 +736,15 @@ names.
 **No text in the app is set below 1rem**, captions and labels included. That is
 a client instruction, and holding it took three things:
 
-- `$fw-size-caption` is now `1rem` rather than `0.85rem`. Caption text is
-  separated from body text by **colour and weight**, not by size. `$fw-size-min`
-  is the same value named for the places that used to reach for something
-  smaller still.
+- `$fw-size-caption` is now `1.15rem` rather than `0.85rem`, and `$fw-size-min`
+  is `1rem`. **These are no longer the same value.** The client later asked for
+  subtitles - the qualifying line under a block heading, which is caption - at
+  `1.15rem`, and raising caption alone would have put it above body text at
+  `1.0625rem`; so the whole scale moved up together, keeping the ratios between
+  its steps, and the floor stayed where it was. Caption is now separated from
+  body text by size **as well as** by colour. Use `$fw-size-caption` for small
+  print that should ride the scale and `$fw-size-min` only where something must
+  not grow.
 - **Bootstrap's own small-text variables are set in `R/theme.R`.** A dozen of
   its components size themselves off separate variables that default to
   `0.875em` or less - form help text, validation feedback, small buttons,
@@ -751,13 +760,16 @@ a client instruction, and holding it took three things:
 Plotly takes pixels rather than rem, so `FW_TYPE$floor_px` is 16 and
 `uniformtext` is `minsize = FW_TYPE$floor_px, mode = "hide"` - a segment too
 narrow for the floor shows no number rather than an unreadable one, and the
-hover still carries it.
+hover still carries it. That applies to the **stacked bars**; the dashboard's
+donut prints nothing on its ring at all, at the client's request, so it needs
+no `uniformtext` - see `fw_chart_donut()`.
 
 **The one exemption is pop-ups**, granted explicitly by the client: the
 information popovers behind the (i) glyphs and the map popup may sit under the
 floor, at `$fw-size-popup` (`0.9rem`). It applies to **transient overlay text
 only**. Anything that stays on the page - the map legend, the attribution line,
-photo credits, table cells, captions - is page text and takes `$fw-size-min`.
+photo credits, table cells, captions - is page text and sits at or above
+`$fw-size-min`.
 
 One consequence worth knowing about: the CC BY credit on a species tile used to
 be held down by size (`0.6rem`). The floor takes that lever away, so it is held
