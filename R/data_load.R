@@ -682,20 +682,23 @@ fw_last_updated <- function(data, meta = NULL) {
   if (is.infinite(d) || is.na(d)) NA else d
 }
 
-#' Headline counts for the landing page KPI strip
+#' Headline counts for the whole database
 #'
-#' Computed at runtime from the loaded data, never hardcoded.
+#' Computed at runtime from the loaded data, never hardcoded. Read by the
+#' Explore page's database panel, the About page's scale sentence and citation,
+#' and reserved for the landing page's KPI strip. Counts only, never a rate.
 fw_headline_stats <- function(data) {
-  invasive_ids <- data$attempt_species |>
-    filter(role == "invasive") |>
-    pull(species_id) |>
-    unique()
+  role_ids <- function(role_name) {
+    unique(data$attempt_species$species_id[data$attempt_species$role == role_name])
+  }
 
   list(
     attempts       = nrow(data$attempt),
     countries      = n_distinct(data$attempt$country),
     earliest_year  = suppressWarnings(min(data$attempt$start_year, na.rm = TRUE)),
-    species        = length(invasive_ids),
+    latest_year    = suppressWarnings(max(data$attempt$start_year, na.rm = TRUE)),
+    species        = length(role_ids("invasive")),
+    beneficiaries  = length(role_ids("beneficiary")),
     successful     = sum(data$attempt$outcome == "Successful", na.rm = TRUE)
   )
 }

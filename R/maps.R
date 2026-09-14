@@ -134,17 +134,23 @@ fw_map_output <- function(output_id, class = NULL) {
 # name, method name or note in the data.
 FW_POPUP_SEP <- "|"
 
-#' Everything a popup needs, joined once for the whole selection
+#' Everything a record needs, joined once for the whole selection
 #'
-#' Built as a table rather than looked up per marker: 914 markers each running
-#' their own filter over the bridge tables is the difference between a map that
-#' opens and one that hangs.
-fw_map_points <- function(data, sel) {
-  pts <- sel[!is.na(sel$latitude) & !is.na(sel$longitude), ]
+#' One row per attempt in `sel`, in the order given, with the species of each
+#' role, the methods with their notes and the contacts joined on. Built as a
+#' table rather than looked up per record: 914 markers each running their own
+#' filter over the bridge tables is the difference between a map that opens and
+#' one that hangs.
+#'
+#' THIS IS THE RECORD, WHEREVER IT IS SHOWN. The map's markers, the map's detail
+#' panel and the Explore page's cards all read from this frame, so a record
+#' cannot say one thing on the map and another in the list. The three attempts
+#' with no coordinates are here too; fw_map_points() is the located subset.
+fw_attempt_records <- function(data, sel) {
+  pts <- sel
   # RETURNS A NARROWER FRAME WHEN EMPTY: none of the joins below have run, so
   # the popup columns are absent rather than present-and-empty. Every caller has
-  # to test nrow() before touching a popup column, which fw_add_attempt_markers()
-  # does - it is the only caller, and it returns a bare map at this point.
+  # to test nrow() before touching a popup column.
   if (!nrow(pts)) return(pts)
 
   species <- fw_species_label(data$species)
@@ -236,6 +242,15 @@ fw_map_points <- function(data, sel) {
   out$method_pairs[orphan] <- gsub(FW_NOTES_SEP, FW_POPUP_SEP,
                                    out$method_notes[orphan], fixed = TRUE)
   out
+}
+
+#' The located attempts of a selection, as the map draws them
+#'
+#' fw_attempt_records() for the rows that have coordinates. Same narrower-frame
+#' rule when empty; fw_add_attempt_markers() tests nrow() before touching a
+#' popup column and returns a bare map at that point.
+fw_map_points <- function(data, sel) {
+  fw_attempt_records(data, sel[!is.na(sel$latitude) & !is.na(sel$longitude), ])
 }
 
 # ---- Popup building ----------------------------------------------------------
@@ -342,6 +357,30 @@ fw_map_hover_html <- function(row) {
 #'   HTML keyed by species_id, from fw_map_figure_cache(). A species found
 #'   there is not rendered again; anything else is built as before.
 fw_map_detail_html <- function(row, species_tbl, live = FALSE, figure_cache = NULL) {
+  # A <template>, NOT a hidden div, and this is not a style preference.
+  # display:none does not stop a browser fetching an <img src>: a hidden div
+  # here meant every hover card quietly pulled up to eight Wikimedia
+  # photographs that nobody was going to look at, which is the exact cost the
+  # hover card exists to avoid. Template content is inert - parsed, never
+  # rendered, nothing fetched - until the script clones it on click.
+  paste0(
+    '<template class="fw-popup__detail">',
+    fw_record_detail_html(row, species_tbl, live, figure_cache = figure_cache),
+    "</template>"
+  )
+}
+
+#' The whole record, as the panel shows it
+#'
+#' The markup inside fw_map_detail_html()'s template, on its own. The map
+#' embeds it in a marker; fw_map_detail_server() sends it straight to the panel
+#' when a marker or an Explore card is clicked.
+#'
+#' @param nav whether to add previous/next buttons at the foot. TRUE when a
+#'   server is there to answer them (the lazy mode); FALSE in a saved report,
+#'   where there is nothing to step through.
+fw_record_detail_html <- function(row, species_tbl, live = FALSE,
+                                  figure_cache = NULL, nav = FALSE) {
   esc <- htmltools::htmlEscape
 
   # A labelled column of photographs for one role. Several species become
@@ -406,14 +445,23 @@ fw_map_detail_html <- function(row, species_tbl, live = FALSE, figure_cache = NU
           row$area_unit %|na|% "")
   } else NA_character_
 
-  # A <template>, NOT a hidden div, and this is not a style preference.
-  # display:none does not stop a browser fetching an <img src>: a hidden div
-  # here meant every hover card quietly pulled up to eight Wikimedia
-  # photographs that nobody was going to look at, which is the exact cost the
-  # hover card exists to avoid. Template content is inert - parsed, never
-  # rendered, nothing fetched - until the script clones it on click.
+  # Previous and next. The buttons carry the id of THIS record; the server
+  # works out its neighbours in the order the reader is looking at, so the
+  # markup never has to know where the record sits in the list.
+  nav_html <- if (isTRUE(nav)) {
+    btn <- function(step, label) {
+      paste0('<button type="button" class="fw-popup-detail__navbtn"',
+             ' data-fw-record-step="', step, '"',
+             ' data-fw-record-id="', esc(row$attempt_id), '">',
+             esc(label), "</button>")
+    }
+    paste0('<div class="fw-popup-detail__nav">',
+           btn(-1L, fw_t("species", "rec_prev")),
+           btn(1L, fw_t("species", "rec_next")),
+           "</div>")
+  } else ""
+
   paste0(
-    '<template class="fw-popup__detail">',
     '<div class="fw-popup-detail">',
     '<h2 class="fw-popup-detail__title">',
     esc(row$site_name %|na|% fw_t("species", "unnamed_site")),
@@ -465,8 +513,84 @@ fw_map_detail_html <- function(row, species_tbl, live = FALSE, figure_cache = NU
              esc(fw_t("species", "p_read_source")), "</a></p>")
     } else "",
     "</div>",
-    "</div>",
-    "</template>"
+    nav_html,
+    "</div>"
+  )
+}
+
+#' One attempt as a card in the Explore list
+#'
+#' THE HOVER CARD, ON THE PAGE. The same rows fw_map_hover_html() shows over a
+#' marker - place, species, what was done, what happened, who recorded it -
+#' plus the photograph the hover card leaves out (a page of twenty is a fixed,
+#' known cost; a pointer crossing 900 markers is not) and the years it ran.
+#'
+#' The whole card is ONE BUTTON that asks for the full record, and it asks
+#' through the same input a marker click uses, so a card and a marker open the
+#' same panel by the same route. Built with tags rather than strings because it
+#' lives in a renderUI, where escaping is done for us.
+#'
+#' @param row one row of fw_attempt_records()
+#' @param figure the ready-made figure HTML for the lead invasive species, or
+#'   NULL for none
+#' @param detail_input the namespaced input a click writes the attempt id into
+#' @param locate_input the namespaced input "Show on map" writes it into, or
+#'   NULL to leave the link out
+fw_record_card <- function(row, figure = NULL, detail_input, locate_input = NULL) {
+  outcome <- if (is.na(row$outcome)) "Unknown" else row$outcome
+  recorded <- row$primary_contact_name
+  if (is.na(recorded) || !nzchar(recorded)) recorded <- row$reference
+  methods <- fw_popup_parts(row$method_pairs)
+  set_input <- function(id, value) {
+    sprintf("Shiny.setInputValue('%s', '%s', {priority:'event'});",
+            id, gsub("'", "\\\\'", value))
+  }
+  item <- function(label, value) {
+    if (length(value) != 1 || is.na(value) || !nzchar(as.character(value))) return(NULL)
+    div(class = "fw-popup__row",
+        span(class = "fw-popup__key", label),
+        span(class = "fw-popup__val", value))
+  }
+  located <- !is.na(row$latitude) && !is.na(row$longitude)
+
+  tags$article(
+    class = "fw-record",
+    `data-fw-id` = row$attempt_id,
+    tags$button(
+      type = "button",
+      class = "fw-record__open",
+      onclick = set_input(detail_input, row$attempt_id),
+      div(class = "fw-record__figure", HTML(figure %||% fw_species_figure(NULL, NA))),
+      div(
+        class = "fw-record__body",
+        tags$h3(class = "fw-record__title",
+                row$site_name %|na|% fw_t("species", "unnamed_site")),
+        p(class = "fw-record__place",
+          paste(stats::na.omit(c(row$region, row$country)), collapse = ", ")),
+        item(fw_t("species", "p_species"), row$inv_list),
+        item(fw_t("species", "p_beneficiary"), row$ben_list),
+        if (length(methods)) {
+          div(class = "fw-popup__row",
+              span(class = "fw-popup__key", fw_t("species", "p_method")),
+              tags$ul(class = "fw-popup__list", lapply(methods, tags$li)))
+        },
+        item(fw_t("species", "p_outcome"), outcome),
+        item(fw_t("species", "p_began"),
+             fw_popup_years(row$start_year, row$end_year)),
+        item(fw_t("species", "p_recorded_by"), recorded),
+        p(class = "fw-record__more", fw_t("species", "more_hint"))
+      )
+    ),
+    if (located && !is.null(locate_input)) {
+      div(
+        class = "fw-record__actions",
+        tags$a(
+          href = "#", class = "fw-record__locate",
+          onclick = paste(set_input(locate_input, row$attempt_id), "return false;"),
+          fw_t("explore", "show_on_map")
+        )
+      )
+    }
   )
 }
 
@@ -663,8 +787,23 @@ function (el, x) {
     panel.fwReturn = null;
   }
 
+  // Put a record in the panel and show it. The focus to return to is taken
+  // once and kept: a reader who steps through several records with the
+  // previous/next buttons still lands back on the marker or card they opened
+  // the first one from.
+  function panelMount(node) {
+    shut();
+    if (!panel.fwReturn) panel.fwReturn = document.activeElement;
+    panelBody.innerHTML = '';
+    panelBody.appendChild(node);
+    panel.hidden = false;
+    panelDialog.scrollTop = 0;
+    panelDialog.focus({ preventScroll: true });
+  }
+
   // Open the panel on the detail template found in a popup string. Returns
-  // false when the string holds no template, which is the lazy case below.
+  // false when the string holds no template, which is the lazy case below -
+  // panelOpen() depends on that false to know it must ask the server.
   function panelOpenHtml(html) {
     var holder = document.createElement('div');
     holder.innerHTML = html;
@@ -672,19 +811,26 @@ function (el, x) {
     if (!tpl) return false;
     // Cloning the template's content is the moment the photographs are asked
     // for. Until here they are inert markup and no request has been made.
-    var detail = tpl.content.cloneNode(true);
-    shut();
-    if (!panel.fwReturn) panel.fwReturn = document.activeElement;
-    panelBody.innerHTML = '';
-    panelBody.appendChild(detail);
-    panel.hidden = false;
-    panelDialog.scrollTop = 0;
-    panelDialog.focus({ preventScroll: true });
+    panelMount(tpl.content.cloneNode(true));
     return true;
   }
+
+  // Open the panel on a record the SERVER sent. No template to look for and
+  // none wanted: a template keeps photographs inert while a record rides
+  // inside a hover card nobody may open, and this record was asked for by
+  // name and is going straight onto the screen.
+  function panelOpenDetail(html) {
+    var holder = document.createElement('div');
+    holder.innerHTML = html;
+    if (!holder.firstElementChild) return false;
+    panelMount(holder.firstElementChild);
+    return true;
+  }
+
   // The server's answer to a request arrives through the 'fw-map-detail'
-  // message handler in fw_client_script(), which calls this.
+  // message handler in fw_client_script(), which calls fwOpenDetail.
   panel.fwOpenHtml = panelOpenHtml;
+  panel.fwOpenDetail = panelOpenDetail;
 
   function panelOpen(layer) {
     if (!layer.fwCard) return;
@@ -712,6 +858,20 @@ function (el, x) {
 
     panel.addEventListener('click', function (e) {
       if (e.target.closest('[data-fw-dismiss]')) { panelShut(); return; }
+
+      // Previous / next record. The server knows the order; this only says
+      // which record the reader is on and which way they want to go. The
+      // focus to return to is kept, so closing after several steps still
+      // lands back on the marker or card that opened the first one.
+      var nav = e.target.closest('[data-fw-record-step]');
+      if (nav) {
+        if (!DETAIL_INPUT || !window.Shiny) return;
+        Shiny.setInputValue(DETAIL_INPUT + '_step', {
+          id: nav.getAttribute('data-fw-record-id'),
+          step: parseInt(nav.getAttribute('data-fw-record-step'), 10)
+        }, { priority: 'event' });
+        return;
+      }
 
       var btn = e.target.closest('[data-fw-step]');
       if (!btn) return;
@@ -865,30 +1025,60 @@ fw_map_card_js <- function(detail_input = NULL) {
   gsub("{{INPUT}}", lit(detail_input %||% ""), js, fixed = TRUE)
 }
 
-#' Serve the record behind a marker when it is clicked
+#' Serve the record behind a marker, or a card, when it is clicked
 #'
 #' The server half of detail = "lazy" in fw_add_attempt_markers(). The click
 #' arrives in input[[input_name]] as an attempt id, the record is built for
 #' that one attempt - a few milliseconds - and sent back as the same HTML the
 #' embedded mode would have carried, which the card script then opens.
 #'
-#' @param sel a reactive returning the current selection. An id outside it is
-#'   ignored rather than answered, so a stale click after a rebuild cannot show
-#'   a record the reader did not select.
+#' PREVIOUS AND NEXT arrive in input[[<input_name>_step]] as {id, step}. The
+#' neighbour is found in `sel()`'s row order, which is whatever order the page
+#' is showing - the Explore list's sort, the report's order - and wraps at
+#' either end.
+#'
+#' @param sel a reactive returning the current selection, in display order. An
+#'   id outside it is ignored rather than answered, so a stale click after a
+#'   rebuild cannot show a record the reader did not select.
 fw_map_detail_server <- function(input, session, input_name, data, sel) {
-  observeEvent(input[[input_name]], {
-    id <- input[[input_name]]
-    if (!is.character(id) || length(id) != 1) return()
+  send <- function(id) {
+    if (!is.character(id) || length(id) != 1 || is.na(id)) return()
     s <- sel()
     row <- s[!is.na(s$attempt_id) & s$attempt_id == id, ]
     if (!nrow(row)) return()
-    pts <- fw_map_points(data, row)
-    if (!nrow(pts)) return()
+    # fw_attempt_records(), not fw_map_points(): an attempt with no
+    # coordinates has no marker, but it has a card, and the card must open.
+    rec <- fw_attempt_records(data, row)
+    if (!nrow(rec)) return()
     session$sendCustomMessage(
       "fw-map-detail",
-      list(html = fw_map_detail_html(pts[1, ], data$species))
+      list(html = fw_record_detail_html(rec[1, ], data$species, nav = TRUE))
     )
+  }
+
+  observeEvent(input[[input_name]], send(input[[input_name]]))
+
+  observeEvent(input[[paste0(input_name, "_step")]], {
+    msg <- input[[paste0(input_name, "_step")]]
+    send(fw_record_neighbour(sel()$attempt_id, msg$id, msg$step))
   })
+}
+
+#' The record `step` places from `id` in a list, wrapping at either end
+#'
+#' Wrapping rather than stopping: a reader stepping through a selection at the
+#' last record is asking for the next one, and a dead button that looks live is
+#' worse than coming round to the first. Returns NULL for anything it cannot
+#' answer - an id that is not in the list, a step that is not a number - so the
+#' caller sends nothing rather than sending the wrong record.
+fw_record_neighbour <- function(ids, id, step) {
+  step <- suppressWarnings(as.integer(step))
+  if (!is.character(id) || length(id) != 1 || length(step) != 1 || is.na(step)) {
+    return(NULL)
+  }
+  at <- match(id, ids)
+  if (is.na(at) || !length(ids)) return(NULL)
+  ids[((at - 1L + step) %% length(ids)) + 1L]
 }
 
 #' How overlapping markers are grouped
@@ -958,8 +1148,15 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE,
   }
   pts <- fw_map_points(data, sel)
   if (!nrow(pts)) {
+    # STILL WIRE THE CARD SCRIPT. It is what creates the record panel on
+    # <body>, and the Explore list can open a record for an attempt that has
+    # no coordinates - so the panel has to exist even when the map is empty.
     v <- FW_MAP$empty_view
-    return(leaflet::setView(map, v$lng, v$lat, zoom = v$zoom))
+    return(
+      map |>
+        leaflet::setView(v$lng, v$lat, zoom = v$zoom) |>
+        htmlwidgets::onRender(fw_map_card_js(if (detail == "lazy") detail_input))
+    )
   }
 
   outcome <- ifelse(is.na(pts$outcome), "Unknown", pts$outcome)

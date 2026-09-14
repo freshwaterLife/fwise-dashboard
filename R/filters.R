@@ -56,6 +56,12 @@ FW_FILTERS <- list(
     copy = "beneficiary", kind = "multi", tip = "tip_beneficiary",
     bridge = "species", role = "beneficiary", match = "label"
   ),
+  # The beneficiary side's answer to `taxa`. Same bridge, other role: "attempts
+  # meant to help a fish" rather than "attempts against one".
+  taxa_beneficiary = list(
+    copy = "taxa_beneficiary", kind = "multi", tip = "tip_taxa_beneficiary",
+    bridge = "species", role = "beneficiary", match = "taxa"
+  ),
   method = list(
     copy = "method", kind = "multi", tip = "tip_method",
     bridge = "method", match = "method_name"
@@ -109,7 +115,7 @@ fw_filter_ids <- function(drop = character(0)) {
 # zero-hints want, so the UI walks this instead of names(FW_FILTERS).
 FW_FILTER_ORDER <- c("continent", "country", "regime", "waterbody",
                      "taxa", "species", "method", "beneficiary",
-                     "outcome", "years")
+                     "taxa_beneficiary", "outcome", "years")
 
 fw_filter_draw_order <- function(drop = character(0)) {
   intersect(FW_FILTER_ORDER, fw_filter_ids(drop))
@@ -155,6 +161,7 @@ fw_filter_choices <- function(data) {
     taxa        = taxa_for(inv),
     species     = by_freq(inv$species_id, sp_labels),
     beneficiary = by_freq(ben$species_id, sp_labels),
+    taxa_beneficiary = taxa_for(ben),
     method      = data$method$method_name[order(match(
       data$method$method_id,
       names(sort(table(data$attempt_method$method_id), decreasing = TRUE))

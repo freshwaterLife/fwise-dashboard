@@ -13,10 +13,10 @@ back to **1934**.
 > client can publish new data by pushing there, without touching or redeploying
 > this app. See [How the data layer works](#how-the-data-layer-works).
 
-> **Status.** Contribute, Networking and Plan an eradication (the report
-> builder) are built. Home, Explore the data and About are deliberate stubs with
-> their intended structure recorded in comments inside each module. See
-> [HANDOVER.md](HANDOVER.md) for exactly what is and is not done.
+> **Status.** Contribute, Networking, About, Explore the data (the record
+> browser) and Plan an eradication (the report builder) are built. Home is a
+> deliberate stub with its intended structure recorded in comments inside the
+> module. See [HANDOVER.md](HANDOVER.md) for exactly what is and is not done.
 
 ---
 
@@ -26,6 +26,8 @@ back to **1934**.
 - [Repository layout](#repository-layout)
 - [How the data layer works](#how-the-data-layer-works)
 - [Updating the data](#updating-the-data)
+- [The record browser](#the-record-browser)
+- [The report builder](#the-report-builder)
 - [Submissions](#submissions)
 - [Environment variables](#environment-variables)
 - [The design system](#the-design-system)
@@ -368,6 +370,60 @@ reaches users when the app restarts.
 
 ---
 
+## The record browser
+
+`R/mod_explore.R`, drawing its records from `fw_attempt_records()` in `maps.R`,
+its filters from `filters.R` and its record panel from the same map card script
+everything else uses.
+
+**This page is about the one attempt; the report builder is about the many.**
+That is the whole distinction between them, and it is worth holding on to: the
+two pages were previously the same filters over the same charts with a Build
+button between them, which gave a reader no reason to pick one. Explore is where
+you find a single attempt, see where it is, and read everything recorded about
+it. Plan is where you ask what attempts like yours look like in aggregate and
+take a file away.
+
+The page, top to bottom:
+
+| Block | What it is |
+|---|---|
+| Database panel | Six figures for the **whole database**, never filtered, above the controls so it cannot be read as the size of a selection. From `fw_headline_stats()`. |
+| Filter bar | Six live filters: continent, country, invasive taxa, beneficiary taxa, method, outcome. |
+| Selection strip | `fw_plan_summary_ui()`, shared with the report, showing what the filters left. |
+| Map | The same map as everywhere else, markers coloured by outcome. |
+| List | One card per attempt, sorted and paged. Cards look like the map's hover card with the species photograph added. |
+| Record panel | The full record, opened by a card **or** a marker, with previous and next through the selection. |
+
+**There are no charts here, on purpose.** A chart of a selection is the report
+builder's answer, and it belongs there with the caveats beside it and a
+downloadable file under it. Adding a second weaker copy to this page is what
+made the two indistinguishable before.
+
+**Six filters, not ten.** Place, animal on either side, method and outcome are
+the questions someone has when looking for an attempt. Waterbody, regime, the
+named-species pickers and the year range are questions about a *group* of
+attempts and stay on the report builder. The set is `FW_EXPLORE_FILTERS`; both
+pages draw from the single registry in `filters.R`, so a filter here is the same
+filter there.
+
+**One record, one route.** A card click and a marker click write the same
+attempt id into the same Shiny input, and `fw_map_detail_server()` answers both
+out of `fw_attempt_records()`. This is what stops a record saying one thing in
+the list and another on the map. It also means previous/next follows whatever
+order the reader is looking at, because the server steps through the *sorted*
+selection.
+
+**Attempts with no coordinates are in the list.** Three of them have none. They
+have no marker, so the map cannot show them, but they are real records and the
+list and the record panel both reach them - `fw_map_points()` is just the
+located subset of `fw_attempt_records()`.
+
+**The list is live; the report builder is gated.** Browsing is watching the list
+narrow under the controls. Citing is not. Do not make the two consistent.
+
+---
+
 ## The report builder
 
 `R/mod_plan.R`, with filters in `mod_plan_filters.R`, rendering in
@@ -393,7 +449,7 @@ Three states, all of which must keep working:
 
 | State | When | What it does |
 |---|---|---|
-| Empty | before any build | explains what the page does and what you will get |
+| Empty | before any build | nothing at all - the page's introduction is in the page header, and `dev/plan_test.R` asserts the results area is genuinely empty |
 | Zero | filters match nothing | says so plainly and **names which filter to relax** |
 | Results | otherwise | summary, outcomes, map, method comparison, cumulative, table |
 

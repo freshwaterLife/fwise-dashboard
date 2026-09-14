@@ -461,7 +461,7 @@ fw_client_script <- function() {
       // by then, because only a click on a drawn marker can have asked.
       Shiny.addCustomMessageHandler('fw-map-detail', function (msg) {
         var panel = document.getElementById('fw-map-detail');
-        if (panel && panel.fwOpenHtml) panel.fwOpenHtml(msg.html);
+        if (panel && panel.fwOpenDetail) panel.fwOpenDetail(msg.html);
       });
       // Bring a block into view by id. The report builder uses this after a
       // build: its results now sit BELOW the questions rather than beside them,

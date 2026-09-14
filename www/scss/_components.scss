@@ -1982,6 +1982,256 @@
   margin-block-start: $fw-space-3;
 }
 
+// ---- Explore ---------------------------------------------------------------
+
+// The database panel: the whole record, never filtered, above everything.
+.fw-explore-db {
+  margin-block-end: $fw-space-4;
+
+  h2 { margin-block-end: $fw-space-1; }
+
+  &__span {
+    color: $fw-ink-muted;
+    margin-block-end: $fw-space-3;
+  }
+}
+
+// The filter bar. One row of controls that wraps rather than a sidebar: the
+// list below is the page, and a sidebar would take a third of its width away.
+.fw-explore-filters {
+  margin-block-end: $fw-space-3;
+
+  &__heading { margin-block-end: $fw-space-1; }
+
+  &__grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $fw-space-2;
+    align-items: end;
+
+    .fw-field { flex: 1 1 12rem; margin-block-end: 0; }
+    .shiny-input-container { width: 100%; margin-block-end: 0; }
+  }
+}
+
+// AN IN-PAGE SKIP LINK, over the map.
+//
+// The map's cluster markers are Leaflet markers, and a Leaflet marker is
+// keyboard-focusable by default, so at world zoom the Explore map puts about
+// seventy unlabelled tab stops between the filters and the record list. Taking
+// that focusability away would fix it here and break the report builder, where
+// a marker is the only keyboard route to a record - the list is what makes it
+// expendable HERE and there is no list THERE. So the map keeps its markers and
+// a keyboard user gets one link past them.
+//
+// Not .fw-skip-link: that one is absolutely positioned against the document
+// and reveals itself at the top of the page, which is right for the first
+// element on the page and wrong for one in the middle of it. This appears
+// where it sits.
+.fw-skip-inline {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+
+  &:focus {
+    position: static;
+    display: inline-block;
+    width: auto; height: auto;
+    margin: 0 0 $fw-space-2;
+    padding: $fw-space-1 $fw-space-2;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    background: $fw-surface;
+    color: $fw-teal-text;
+    border-radius: $fw-radius-input;
+    box-shadow: $fw-shadow-raised;
+  }
+}
+
+// A section of the Explore page: the map, and the list. Its own class rather
+// than .fw-plan__block, which styles an h3 because the report builder's blocks
+// sit under the results heading. These are top-level sections of the page.
+.fw-explore-block {
+  margin-block-start: $fw-space-4;
+
+  h2 { margin-block: 0 $fw-space-1; }
+
+  &__note {
+    margin-block: 0 $fw-space-2;
+    color: $fw-ink-muted;
+    font-size: $fw-size-caption;
+  }
+}
+
+// The list's heading row: the count on the left, the sort and page-size
+// controls on the right, wrapping under it on a phone.
+.fw-records-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: $fw-space-2;
+  margin-block-end: $fw-space-2;
+
+  &__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $fw-space-2;
+
+    .form-label { margin-block-end: 0; white-space: nowrap; }
+    .shiny-input-container { width: auto; margin-block-end: 0; }
+    select { width: auto; }
+  }
+
+  &__control {
+    display: flex;
+    align-items: center;
+    gap: $fw-space-1;
+  }
+}
+
+// The cards. Two across on a laptop, one on a phone; the minimum is wide
+// enough for the photograph and the rows to sit side by side.
+.fw-records {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(#{"min(100%, 24rem)"}, 1fr));
+  gap: $fw-space-3;
+}
+
+// ONE CARD IS ONE BUTTON. The whole face asks for the full record, the same
+// way a marker does, so there is nothing to hunt for. These are page content,
+// not an overlay: the popup font exemption does not apply and the rows stay at
+// the 1rem floor.
+//
+// THE PHOTOGRAPH SPANS THE TOP rather than sitting in a column beside the
+// rows, and that is a measurement rather than a taste. Beside the rows it took
+// 9rem off a 27rem card, and what was left could not hold "Pumpkinseed
+// (Lepomis gibbosus)" in a value column - scientific names wrapped to four
+// lines and the long ones were clipped mid-word. Full width, the body gets the
+// whole card and every value fits on one or two lines.
+.fw-record {
+  display: flex;
+  flex-direction: column;
+  background: $fw-surface;
+  border: $fw-hairline;
+  border-radius: $fw-radius-card;
+  overflow: hidden;
+
+  &__open {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    width: 100%;
+    padding: 0 0 $fw-space-2;
+    margin: 0;
+    text-align: start;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    transition: background-color $fw-motion-fast $fw-easing;
+
+    &:hover { background: $fw-teal-wash; }
+    // Inset, because the card clips its corners and an outset ring on a
+    // full-bleed photograph is cut off at the top two.
+    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: -2px; }
+  }
+
+  // The photograph, edge to edge across the head of the card. The figure owns
+  // its own credit line and its own placeholder.
+  &__figure {
+    .fw-species-figure { margin: 0; border-radius: 0; }
+    .fw-species-figure__img { height: 132px; }
+    .fw-species-figure--none { min-height: 132px; }
+  }
+
+  &__body {
+    min-width: 0;
+    padding: $fw-space-2 $fw-space-2 0;
+  }
+
+  &__title {
+    font-size: $fw-size-h3;
+    margin-block: 0 0.15rem;
+    color: $fw-teal-text;
+  }
+
+  &__place {
+    color: $fw-ink-muted;
+    margin-block: 0 $fw-space-2;
+  }
+
+  // The key column holds "Species that benefited" at 1rem, and the value column
+  // holds a binomial. Both need a real measure, which is what the full card
+  // width buys. A long name BREAKS rather than being clipped: min-width on a
+  // grid child is auto, so without it the value refuses to shrink and overflows
+  // the card instead of wrapping.
+  .fw-popup__row { grid-template-columns: 8.5rem 1fr; }
+
+  .fw-popup__key,
+  .fw-popup__val,
+  .fw-popup__list {
+    font-size: 1rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .fw-popup__list { padding-inline-start: 1.1rem; }
+
+  &__more {
+    margin-block: $fw-space-2 0;
+    color: $fw-ink-muted;
+  }
+
+  &__actions {
+    padding: 0 $fw-space-2 $fw-space-2;
+  }
+}
+
+// Previous and next at the foot of the record panel.
+//
+// STICKY, and that is the point of it. The dialog scrolls - a record with a
+// long "what was done" runs past the bottom of an 850px scrollport - so a
+// static footer meant scrolling to the end of every record before you could
+// ask for the next one, which is the opposite of stepping through a list. It
+// bleeds through the dialog's own padding so the surface behind it reaches
+// both edges and no text slides out from under it.
+.fw-popup-detail__nav {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: $fw-space-2;
+  margin-block-start: $fw-space-3;
+  margin-inline: -$fw-space-3;
+  margin-block-end: -$fw-space-3;
+  padding: $fw-space-2 $fw-space-3;
+  background: $fw-surface;
+  border-top: $fw-hairline;
+}
+
+.fw-popup-detail__navbtn {
+  padding: 0.4rem $fw-space-2;
+  font: inherit;
+  color: $fw-teal-text;
+  background: $fw-teal-tint;
+  border: 0;
+  border-radius: $fw-radius-input;
+  cursor: pointer;
+
+  &:hover { background: darken($fw-teal-tint, 6%); }
+  &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
+}
+
 .fw-filters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

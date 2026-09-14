@@ -154,54 +154,73 @@ FW_COPY <- list(
 
   explore = list(
     title = "Explore the data",
-    description = paste(
-      "The whole record of eradication attempts against freshwater invasive",
-      "animals shown by place, species, method and outcome.",
-      "Filter the data for your desired view."
+    # THE PROPOSITION. Plan an eradication is about the many: attempts like
+    # yours, aggregated. This page is about the one: every attempt in the
+    # database as a record you can find, place on the map and read in full.
+    description = c(
+      paste(
+        "Every eradication attempt in FWISE, one record at a time. Narrow the",
+        "list by place, animal, method or outcome, find an attempt on the map",
+        "or in the list, and open it for the full record: the species, the",
+        "methods and how they were applied, what happened, who recorded it and",
+        "where it was published."
+      ),
+      "For charts and a downloadable report on a group of attempts, use Plan an eradication."
     ),
 
-    f_heading = "Filter the data",
-    f_note = paste(
-      "Filters are off by default, and apply to",
-      "all charts and tables on this page."
+    # ---- The database panel --------------------------------------------------
+    # The whole database, never filtered. Counts, all the same size, no rate.
+    db_heading = "The database today",
+    db_span = "Attempts recorded from {from} to {to}.",
+    db_attempts    = "attempts recorded",
+    db_countries   = "countries",
+    db_invasive    = "invasive species targeted",
+    db_beneficiary = "species meant to benefit",
+    db_beneficiary_tip = paste(
+      "Species an attempt was carried out to help, as recorded by the person",
+      "reporting it. This is what was claimed, not what recovered, and it is",
+      "recorded less consistently than the species targeted."
     ),
-
+    db_successful  = "attempts recorded as successful",
+    db_successful_tip = paste(
+      "As reported. Read the caveats on Plan an eradication before quoting",
+      "this beside the total: many successful attempts carry no verification."
+    ),
     in_review = "in review",
     in_review_tip = paste(
       "Submissions waiting for review by our team. ",
       "They are not included here."
     ),
 
-    map = "Where eradications have been attempted",
+    # ---- The filters ---------------------------------------------------------
+    f_heading = "Narrow the list",
+    f_note = "Filters are off by default. The map and the list follow them as you change them.",
+
+    # ---- The map -------------------------------------------------------------
+    map = "Where these attempts happened",
     map_note = paste(
-      "Each marker is one attempt, coloured and labelled by outcome. Select one",
-      "for the species targeted, who recorded it, and what happened. Switch the",
-      "base map to Terrain to judge whether a waterbody is isolated."
+      "Each marker is one attempt, coloured and labelled by outcome. Hover for",
+      "a summary, select for the full record. Switch the base map to Terrain",
+      "to judge whether a waterbody is isolated."
     ),
 
-    waterbody = "What kind of water",
-    waterbody_note = paste(
-      "Attempts by the kind of waterbody treated, with the outcome mix in each.",
-      "The {n_word} most common are named and the rest gathered into Other."
+    # ---- The list ------------------------------------------------------------
+    list_heading = "The attempts",
+    list_count   = "{n} attempts",
+    list_note = paste(
+      "One card per attempt. Select a card for the full record, with the",
+      "methods as applied, the verification, the contacts and the reference.",
+      "Attempts with no coordinates are here even though they are not on the map."
     ),
-
-    driver = "Why they were carried out",
-    driver_note = "The main reason recorded for each attempt.",
-
-    invasive = "What gets targeted",
-    invasive_note = paste(
-      "The {n_word} species named most often, counted once per attempt. This is a",
-      "record of what has been REPORTED, so it reflects where the literature is",
-      "as much as where the problem is."
-    ),
-
-    beneficiary = "What was meant to benefit",
-    beneficiary_note = paste(
-      "Read this one carefully. Beneficiary species are recorded far less",
-      "consistently than targets - many attempts name none at all, and those",
-      "that do tend to be the ones written up for a named endangered species.",
-      "It shows what has been claimed, not what recovered."
-    ),
+    skip_map     = "Skip the map, go to the list of attempts",
+    sort_label   = "Sort by",
+    sort_newest  = "Most recent first",
+    sort_oldest  = "Oldest first",
+    sort_site    = "Site name",
+    sort_country = "Country",
+    page_size    = "Show",
+    page_showing = "Showing",
+    show_on_map  = "Show on map",
 
     incoming = "Showing only attempts recorded by {name}.",
     incoming_clear = "Show all attempts"
@@ -234,6 +253,8 @@ FW_COPY <- list(
     more_hint      = "Select for the full record",
     fig_prev       = "Previous species",
     fig_next       = "Next species",
+    rec_prev       = "Previous attempt",
+    rec_next       = "Next attempt",
 
     credit_fallback = "Wikimedia Commons",
     credit_sep      = " / ",
@@ -259,6 +280,7 @@ FW_COPY <- list(
     taxa        = "Kind of animal",
     species     = "Invasive species",
     beneficiary = "Species that benefited",
+    taxa_beneficiary = "Kind of animal that benefited",
     method      = "Method used",
     regime      = "Still or flowing water",
     waterbody   = "Kind of waterbody",
@@ -296,6 +318,10 @@ FW_COPY <- list(
     tip_beneficiary = paste(
       "The species the attempt was meant to help. Note - this is recorded far less",
       "consistently than the invasive species, plus is likely not representative."
+    ),
+    tip_taxa_beneficiary = paste(
+      "The broad group the species that was meant to benefit belongs to - fish,",
+      "amphibian, bird etc. Recorded less consistently than the invasive side."
     ),
     tip_method = paste(
       "The eradication method used. Many attempts used more than one, so picking",

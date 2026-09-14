@@ -152,6 +152,169 @@ oc <- table(factor(outcome_of[inv_rows$attempt_id[inv_rows$species_id == sp1]], 
 ok("tiles: top species outcome split", as.integer(unlist(top[1, FW_OUTCOME_LEVELS])), as.integer(oc))
 
 # ==============================================================================
+cat("\n-- the explore page --\n")
+
+# THE RECORD BROWSER. Its database panel, its selection strip, its list and its
+# paging, read out of the module itself and recomputed here from the raw tables.
+exp_ids <- fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
+ok("explore: offers exactly its six filters", sort(exp_ids), sort(FW_EXPLORE_FILTERS))
+ok("explore: and no year range", "years" %in% exp_ids, FALSE)
+
+ben_rows <- unique(data.frame(
+  attempt_id = as.character(asp$attempt_id[asp$role == "beneficiary"]),
+  species_id = asp$species_id[asp$role == "beneficiary"], stringsAsFactors = FALSE))
+
+# The database panel. Never filtered, so these are the whole-table counts.
+ok("explore db: beneficiary species", s$beneficiaries, length(unique(ben_rows$species_id)))
+ok("explore db: latest year", s$latest_year, max(a$start_year, na.rm = TRUE))
+db <- strip(fw_explore_db_panel(s, 7L))
+for (v in list(c("attempts", nrow(a)), c("countries", length(unique(a$country))),
+               c("invasive", s$species), c("beneficiaries", s$beneficiaries),
+               c("successful", sum(a$outcome == "Successful", na.rm = TRUE)),
+               c("in review", 7L))) {
+  ok(paste("explore db: panel names the", v[1], "count"),
+     grepl(fw_fmt_num(as.integer(v[2])), db, fixed = TRUE))
+}
+ok("explore db: the year span is filled in",
+   grepl(paste0(min(a$start_year, na.rm = TRUE), " to ", max(a$start_year, na.rm = TRUE)), db, fixed = TRUE))
+ok("explore db: no placeholder left", !grepl("\\{[a-z_]+\\}", db))
+
+# Beneficiary taxa: the new filter, matched against the bridge directly.
+taxa_of <- stats::setNames(d$species$taxa, d$species$species_id)
+ben_taxa <- table(taxa_of[ben_rows$species_id])
+pick_taxa <- names(sort(ben_taxa, decreasing = TRUE))[2]
+want_taxa_ids <- unique(ben_rows$attempt_id[taxa_of[ben_rows$species_id] %in% pick_taxa])
+fb <- fw_filter_state(list(), exp_ids); fb$taxa_beneficiary <- pick_taxa
+ok(paste0("explore filter: beneficiary taxa '", pick_taxa, "' selects its attempts"),
+   sort(fw_filter_apply(d, fb)$attempt_id), sort(want_taxa_ids))
+
+# The sort orders. Undated attempts go last under either year order.
+undated <- which(is.na(all_sel$start_year))
+o_new <- fw_explore_order(all_sel, "newest")
+o_old <- fw_explore_order(all_sel, "oldest")
+ok("explore sort: newest starts at the latest year",
+   all_sel$start_year[o_new[1]], max(a$start_year, na.rm = TRUE))
+ok("explore sort: oldest starts at the earliest year",
+   all_sel$start_year[o_old[1]], min(a$start_year, na.rm = TRUE))
+ok("explore sort: undated go last under newest",
+   all(tail(o_new, length(undated)) %in% undated))
+ok("explore sort: and last under oldest too",
+   all(tail(o_old, length(undated)) %in% undated))
+ok("explore sort: every order is a permutation of the selection",
+   all(vapply(FW_EXPLORE_SORTS, function(x)
+     identical(sort(fw_explore_order(all_sel, x)), seq_len(nrow(all_sel))), logical(1))))
+
+# AN ATTEMPT WITH NO COORDINATES STILL HAS A RECORD. It has no marker, so
+# fw_map_points() cannot reach it; the list shows it and opening it must work.
+no_coord_id <- a$attempt_id[is.na(a$latitude) | is.na(a$longitude)][1]
+no_coord_rec <- fw_attempt_records(d, a[a$attempt_id == no_coord_id, ])
+ok("explore: an unlocated attempt is in the record frame", nrow(no_coord_rec), 1L)
+ok("explore: and not in the map's points",
+   no_coord_id %in% fw_map_points(d, a)$attempt_id, FALSE)
+no_coord_html <- fw_record_detail_html(no_coord_rec[1, ], d$species, nav = TRUE)
+ok("explore: its record panel names the site",
+   grepl(a$site_name[a$attempt_id == no_coord_id][1], no_coord_html, fixed = TRUE))
+ok("explore: the panel carries previous and next when a server can answer them",
+   length(gregexpr("data-fw-record-step", no_coord_html, fixed = TRUE)[[1]]), 2L)
+ok("explore: and carries none when nothing can",
+   grepl("data-fw-record-step",
+         fw_record_detail_html(no_coord_rec[1, ], d$species), fixed = TRUE), FALSE)
+ok("explore: the marker's template is that same panel, wrapped",
+   fw_map_detail_html(no_coord_rec[1, ], d$species),
+   paste0('<template class="fw-popup__detail">',
+          fw_record_detail_html(no_coord_rec[1, ], d$species), "</template>"))
+
+# Stepping through the list. Wrapping at both ends, and nothing for a question
+# that cannot be answered.
+step_ids <- head(all_sel$attempt_id, 5)
+ok("explore step: next from the first is the second",
+   fw_record_neighbour(step_ids, step_ids[1], 1L), step_ids[2])
+ok("explore step: previous from the first wraps to the last",
+   fw_record_neighbour(step_ids, step_ids[1], -1L), step_ids[5])
+ok("explore step: next from the last wraps to the first",
+   fw_record_neighbour(step_ids, step_ids[5], 1L), step_ids[1])
+ok("explore step: an id outside the list is unanswerable",
+   fw_record_neighbour(step_ids, "FW-NOPE", 1L), NULL)
+ok("explore step: so is a step that is not a number",
+   fw_record_neighbour(step_ids, step_ids[1], "sideways"), NULL)
+
+# THE CARD SCRIPT MUST BE WIRED EVEN WHEN THE MAP IS EMPTY. It is what puts the
+# record panel on <body>, and the list can open a record for an attempt that has
+# no coordinates - Pakistan's single attempt is exactly that case. Without the
+# onRender on the empty path the panel never exists and no card opens.
+empty_map <- fw_add_attempt_markers(leaflet::leaflet(), d, a[0, ],
+                                    detail = "lazy", detail_input = "x")
+ok("explore: an empty map still installs the record panel",
+   length(empty_map$jsHooks$render), 1L)
+ok("explore: and still falls back to the world view",
+   !is.null(empty_map$x$setView))
+ok("explore: a populated map installs it too",
+   length(fw_add_attempt_markers(leaflet::leaflet(), d, a[1:5, ],
+                                 detail = "lazy", detail_input = "x")$jsHooks$render), 1L)
+
+# A card with no coordinates offers no "show on map" link - the map cannot go
+# there, and a link that does nothing is worse than no link.
+card_located <- as.character(fw_record_card(
+  fw_attempt_records(d, a[!is.na(a$latitude), ][1, ])[1, ],
+  detail_input = "ex-map_detail", locate_input = "ex-locate"))
+card_unlocated <- as.character(fw_record_card(
+  no_coord_rec[1, ], detail_input = "ex-map_detail", locate_input = "ex-locate"))
+ok("explore card: a located attempt offers the map link",
+   grepl("ex-locate", card_located, fixed = TRUE))
+ok("explore card: an unlocated one does not",
+   grepl("ex-locate", card_unlocated, fixed = TRUE), FALSE)
+ok("explore card: but both ask for the record through the same input",
+   all(grepl("ex-map_detail", c(card_located, card_unlocated), fixed = TRUE)))
+ok("explore card: the whole card is one button",
+   grepl('<button type="button" class="fw-record__open"', card_located, fixed = TRUE))
+ok("explore card: a card with no photograph gets the placeholder, not a gap",
+   grepl("fw-species-figure--none",
+         as.character(fw_record_card(no_coord_rec[1, ], figure = NULL,
+                                     detail_input = "x")), fixed = TRUE))
+
+# The module, driven.
+exp_kpis <- exp_sum <- exp_count <- exp_pager <- exp_cards <- NA_character_
+exp_eu <- NA_character_
+eu_n <- 0L
+try(testServer(mod_explore_server, args = list(data = d, in_review = 7L), {
+  session$setInputs(sort = "newest", list_size = "20")
+  exp_kpis  <<- strip(output$kpis)
+  exp_sum   <<- strip(output$summary)
+  exp_count <<- strip(output$list_count)
+  exp_pager <<- strip(output$records_pager)
+  exp_cards <<- as.character(output$records$html)
+  # The list order is what previous/next steps through, so the detail server
+  # must be reading the SORTED selection and not the raw one.
+  ok("explore: the list is sorted newest first",
+     sorted()$start_year[1], max(a$start_year, na.rm = TRUE))
+  # An unlocated attempt is in the list, and asking for its record does not
+  # error even though it has no marker.
+  ok("explore: an unlocated attempt is in the list",
+     no_coord_id %in% sorted()$attempt_id)
+  session$setInputs(map_detail = no_coord_id)
+  session$setInputs(map_detail_step = list(id = sorted()$attempt_id[1], step = -1L))
+  session$setInputs(locate = sorted()$attempt_id[1])
+  session$setInputs(continent = "Europe")
+  exp_eu <<- strip(output$summary)
+  eu_n <<- nrow(sel())
+}), silent = TRUE)
+
+ok("explore: the database panel renders", !is.na(exp_kpis) && nchar(exp_kpis) > 50)
+ok("explore: the strip counts the whole database unfiltered",
+   grepl(paste0(fw_fmt_num(nrow(a)), " attempts"), exp_sum, fixed = TRUE))
+ok("explore: the list count agrees with the strip",
+   grepl(paste0(fw_fmt_num(nrow(a)), " attempts"), exp_count, fixed = TRUE))
+ok("explore: the pager shows the first page of 20",
+   grepl(paste0("Showing 1 - 20 of ", fw_fmt_num(nrow(a))), exp_pager, fixed = TRUE))
+ok("explore: one card per attempt on the page",
+   length(gregexpr('class="fw-record"', exp_cards, fixed = TRUE)[[1]]), 20L)
+ok("explore: a card asks for the record through the map's own input",
+   length(gregexpr("map_detail", exp_cards, fixed = TRUE)[[1]]), 20L)
+ok("explore: filtering to Europe narrows the strip", eu_n, sum(a$continent == "Europe"))
+ok("explore: and the strip says so",
+   grepl(paste0(fw_fmt_num(sum(a$continent == "Europe")), " attempts"), exp_eu, fixed = TRUE))
+
+# ==============================================================================
 cat("\n-- chart maths --\n")
 
 # Cumulative attempts, stacked by outcome.
@@ -428,6 +591,13 @@ ok("export: and the methods column beside it is NA",
    all(is.na(full_export$methods[match(orphan_ids, full_export$attempt_id)])))
 mp <- fw_map_points(d, a)
 ok("map: every located attempt is a point", nrow(mp), sum(!is.na(a$latitude) & !is.na(a$longitude)))
+# THE RECORD FRAME IS THE SAME FRAME. The map draws the located subset of it;
+# the Explore list draws all of it. A record must not differ between the two.
+recs <- fw_attempt_records(d, a)
+ok("map: the record frame holds every attempt, located or not", nrow(recs), nrow(a))
+ok("map: and the located ones are byte-identical to the map's",
+   identical(as.data.frame(recs[match(mp$attempt_id, recs$attempt_id), ], row.names = NULL),
+             as.data.frame(mp, row.names = NULL)))
 ok("map: the orphan notes reach the popup frame",
    all(!is.na(mp$method_pairs[match(intersect(orphan_ids, mp$attempt_id), mp$attempt_id)])))
 

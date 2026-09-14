@@ -13,7 +13,7 @@ data layer.
 | Page                | Description                                                                                                                                                                                                                                                                                                                                                                              |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Home                | Landing page offering case studies, connections to events, and map displaying current work and opportunties.                                                                                                                                                                                                                                                                             |
-| Explore the data    | Dashboard page - users are encouraged to explore and filter the data.                                                                                                                                                                                                                                                                                                                    |
+| Explore the data    | The record browser. The whole database in a panel at the top, then every attempt as a card: six live filters, a map, a sorted and paged list, and the full record on a card or marker click with previous/next through the selection. Deliberately no charts - those are the report builder's answer.                                                                                    |
 | Plan an eradication | This outputs data and a simple report for users based on filters they have applied. Idea is that users will use this to understand similar attempts that they might want to plan, or identify contacts in their area to apply to active conservation work. Users apply filters, click build, read, and can download as a spreadsheet or a self-contained HTML report that prints to PDF. |
 | Contribute data     | One scrolling form allowing users to input data on **their** eradication attempt, whether it failed, is ongoing, or successful.                                                                                                                                                                                                                                                          |
 | Networking          | Reads and displays the contact table.                                                                                                                                                                                                                                                                                                                                                    |
@@ -422,9 +422,37 @@ About's sections would take the same treatment.
 deliberate design, not an oversight or a performance hack. Making the results
 live would be a one-line change and should not be made.
 
-`R/mod_explore.R` is live for the opposite reason: browsing is watching the
-picture change. The two pages look inconsistent and are meant to - and since
-5.22 they no longer share a layout either.
+`R/mod_explore.R` is live for the opposite reason: a list is something you
+scan, and the whole value is watching it narrow as you move a control. The two
+pages look inconsistent and are meant to - and since 5.22 they no longer share a
+layout either.
+
+### 5.23 What each of the three data pages is for
+
+They looked alike because two of them were the same page with a different
+button. They are now separated by the question they answer, and a change that
+blurs that line should be argued for rather than slipped in.
+
+| Page | Question | What it is |
+|---|---|---|
+| Home | "is this worth doing?" | The pitch. Hero, the mismatch map, case studies. Still stubbed, still blocked on the client. |
+| Explore the data | "show me the attempts" | **The one.** Every attempt as a record you can find, place and read in full. Six live filters, a map, a paged list of cards, the record panel with previous/next. No charts. |
+| Plan an eradication | "what do attempts like mine look like?" | **The many.** Ten filters behind a build gate, the charts, the table, the spreadsheet and the HTML report. |
+
+Three consequences worth keeping:
+
+- **No charts on Explore.** A chart of a selection is the report builder's
+  answer and it is better there, behind the gate, with the caveats beside it. A
+  second weaker copy on Explore is what made the two pages indistinguishable.
+- **One record, one route.** A card click and a marker click write the same
+  attempt id into the same input, and `fw_map_detail_server()` answers both from
+  `fw_attempt_records()`. A record cannot say one thing in the list and another
+  on the map.
+- **The database panel is never filtered.** It is the size of the whole record,
+  and it sits above the filters so it cannot be misread as the size of a
+  selection. The landing page will show these same figures from the same
+  `fw_headline_stats()`; that repetition is the accepted overlap in
+  `mod_home.R`.
 
 ### 5.18 One filter engine, one registry
 
@@ -436,7 +464,7 @@ driven from the registry. **Add a filter there and it appears everywhere.**
 
 ### 5.19 The report builder has no outcome filter, on purpose
 
-The dashboard has one; the report builder does not. Graden's reasoning, from the
+Explore has one; the report builder does not. Graden's reasoning, from the
 metrics framework: given their situation, someone planning an eradication should
 see *everything* tried there and its association with success and failure.
 Filtering to successes only produces false optimism about their own site.
@@ -695,8 +723,10 @@ change there.
 3. Replace the placeholder copy in `R/copy.R`, working down section 3.
 4. Confirm the Weird Fishes Advisory URL behind the footer logo
    (`footer$wfa_url`). The FWISE logo already links to freshwaterlife.org.
-5. Build the Explore page, which unblocks the "see their attempts" route from
-   Contacts. `fw_contacts_summary()` already returns an `attempt_ids` list column
-   per contact.
+5. Confirm the Explore database panel's six figures with the client, in
+   particular the "attempts recorded as successful" tile. It is a count and not
+   a rate, so it does not break 5.20, but it is the one figure on the page that
+   could be quoted on its own. Dropping it is one line in
+   `fw_explore_db_panel()`.
 6. Deploy to Connect Cloud early, before the October webinars, so the `sf` system
    dependencies and the custom domain are not a launch-day surprise.
