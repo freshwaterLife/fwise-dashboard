@@ -1,106 +1,202 @@
 # mod_home.R
-# STUB. The landing page is not built.
-#
-# The data behind the map is not ready and the headline copy belongs to the
-# client, so this page renders the standard stub. The full specification is
-# recorded below, as comments, because it is settled and should not be
-# redesigned later. Build against it, do not restart from scratch.
+# BUILT. The Welcome page: what the problem is, that the fix works, where it has
+# and has not been done, and where to go next.
 #
 # ==============================================================================
-# LANDING PAGE SPECIFICATION
+# THE PAGE, in its fixed order
 # ==============================================================================
 #
-# THE JOB
-# Make a first-time visitor understand, within about ten seconds, three things:
-#   1. freshwater eradication is a proven, viable conservation action
-#   2. it has been done many times, but NOT where freshwater biodiversity is
-#      most at risk
-#   3. they can act on it
+# 1. HEADER. The headline and three lead paragraphs in the standard indigo page
+#    header. Numbers are bold (**...** in the copy). The count of successful
+#    recoveries is filled from the loaded data at startup and is NEVER typed;
+#    the "X%" threatened figure comes from outside FWISE and is the client's.
+#    Figures appear at their value - no count-up.
 #
-# TWO CLIENT CONSTRAINTS THAT ARE NOT NEGOTIABLE
-#   - NO single hero statistic is pushed at the user. Certain methods in this
-#     field are socially sensitive, and the client wants users led to their own
-#     caveated understanding rather than sold a headline number. Show the shape
-#     of the evidence, not a slogan with a big number attached.
-#   - The page order is fixed: headline, then KPIs, then map, then case studies.
+# 2. SUCCESS STORIES. One row per continent, A-Z. Each row is a native
+#    <details>: a subtitle across the row, then the invasive species on the
+#    left, a short line of story, and the beneficiary on the right. Opening it
+#    shows the longer account. Rows open independently, not as an accordion.
+#    The invasive plates are greyscale and the beneficiaries are in colour: that
+#    is the client's artwork and is the point, not an accident to "fix".
+#    A picture the client has not supplied (NA in FW_HOME_IMG) draws as a
+#    placeholder box, so a row keeps its shape until the image arrives.
 #
-# SECTION 1 - HERO
-#   Full-bleed. $fw-silt background carrying the dot texture: put the .fw-dots
-#   class on the hero section.
-#   A bold headline. FW_COPY$home$title is a marked placeholder; the final
-#   wording belongs to the client.
-#   A supporting sentence of one or two lines beneath it.
-#   Two actions: "Plan an eradication" primary, "Explore the data" secondary.
-#   One screen height on desktop. Do NOT force that on mobile.
+# 3. CURRENT WORK AND GAPS. Two STATIC map pictures, one over the other, with a
+#    slider that reveals the priorities map from the left. It starts fully on
+#    current work. The only moving part is the reveal - these are not the
+#    interactive Leaflet maps from Explore. The slider is a native range input
+#    laid over the figure, so drag, click and arrow keys all work with one line
+#    of inline JS. The legend printed in the client's pictures was trimmed off
+#    the web copies (the two sat in the same place and the slider cut across
+#    them) and is drawn as page text above the figure instead.
 #
-# SECTION 2 - KPI STRIP
-#   Five figures, computed at runtime from FW_DATA via fw_headline_stats().
-#   NEVER hardcoded. The function already returns exactly this set:
-#     - attempts       total eradication attempts
-#     - countries      countries with at least one attempt
-#     - earliest_year  earliest start year in the data
-#     - species        invasive species targeted
-#     - successful     attempts recorded as successful
-#   Proposed set, to be confirmed with the client.
-#   Render with fw_kpi_stat(value, label, tooltip) inside fw_kpi_strip().
-#   Large Ubuntu Mono figure, plain sentence-case label beneath.
-#   STATIC. No count-up, no staggered reveal. Numbers appear at their value.
+# 4. CLOSING. One paragraph whose phrases link to Explore, Plan and Networking,
+#    and a thank-you. No buttons.
 #
-# SECTION 3 - THE GLOBAL PICTURE
-#   Full-bleed Leaflet map. Two layers with a toggle between them:
-#     a) country choropleth of invasive freshwater fish species per country
-#        (the burden, ie the problem)
-#     b) points for recorded eradication attempts (the response)
-#   THE STORY IS THE MISMATCH BETWEEN THEM. That is the whole point of the
-#   section, so the toggle should make the comparison easy rather than burying
-#   one layer under the other.
-#
-#   The choropleth source is isolated behind fw_country_burden() in data_load.R,
-#   so swapping it is a one-line change. NOTE: that function currently returns a
-#   PLACEHOLDER derived from FWISE's own records, which is the response and not
-#   the burden, so it does not yet tell the mismatch story. A real per-country
-#   invasive fish file has to replace it before this section means anything.
-#
-#   Base map must be a muted, low-chroma tile set so the data layers carry all
-#   the colour. Do NOT use the default OpenStreetMap tiles. CartoDB.PositronNoLabels
-#   with a separate labels pane is the usual choice.
-#   Colour the layers from FW_PALETTE only, never from the interface teals.
-#   The map needs a text alternative (a short summary of what it shows).
-#
-# SECTION 4 - CASE STUDIES
-#   Below the map. Expandable accordion sections grouped by continent.
-#   The client will supply before-and-after content later.
-#   Structure per entry: site, species, method, outcome, a short narrative, and
-#   an image slot. Build three placeholder entries with that shape and mark them.
-#
-# SECTION 5 - CONTRIBUTE BAND
-#   A single calm call to add an eradication attempt, linking to the Contribute
-#   page. One paragraph, one button. Not a hard sell.
-#
-# ACCEPTED OVERLAP
-#   The landing page and the Explore page will both show a map. That is a
-#   deliberate client decision, so that a visitor who never navigates past the
-#   landing page still gets the core message. Do not "fix" it by removing one.
-#
-# DOT MOTIF BUDGET
-#   The hero texture and nothing else. The dotted divider that used to sit
-#   between sections was removed on client feedback; do not bring it back.
+# THE PICTURES ARE WEB COPIES. The client's originals are in resources/ (not
+# served) and are never altered. The copies in www/img/home/ were made with
+# macOS sips and base R's png package:
+#   maps:    sips -Z 2400 <original> ; sips -c 1140 2400 --cropOffset 90 0
+#            (the same crop for both, so they stay in register; it drops the
+#            legend strip, which sits below row 1230 at that width)
+#   species: sips -Z 1000, trimmed to the drawing's alpha bounding box plus
+#            12px (png::readPNG / writePNG), then sips -Z 640
+# Redo both steps if the client sends new artwork.
 # ==============================================================================
 
-mod_home_ui <- function(id) {
+mod_home_ui <- function(id, stats) {
   ns <- NS(id)
+  lead <- fw_fill(fw_t("home", "lead"), successful = fw_fmt_num(stats$successful))
+
   tagList(
-    fw_page_header(fw_t("home", "title"), fw_t("home", "description")),
+    fw_page_header(fw_t("home", "title"), lead),
     tags$main(
       id = "fw-main",
-      fw_section(fw_container(fw_stub_panel()))
+
+      fw_section(
+        fw_container(
+          tags$h2(fw_t("home", "stories_heading")),
+          p(class = "fw-lead", fw_t("home", "stories_intro")),
+          div(
+            class = "fw-stories",
+            lapply(names(fw_t("home", "stories")), function(key) {
+              fw_home_story(fw_t("home", "stories", key), FW_HOME_IMG$stories[[key]])
+            })
+          )
+        )
+      ),
+
+      fw_section(
+        variant = "paper",
+        fw_container(
+          tags$h2(fw_t("home", "map_heading")),
+          p(class = "fw-lead", fw_t("home", "map_intro")),
+          fw_home_compare(ns("map_reveal"))
+        )
+      ),
+
+      fw_section(
+        fw_container(
+          div(class = "fw-prose fw-home-closing",
+              lapply(fw_t("home", "closing"), function(x) p(fw_home_links(x))))
+        )
+      )
     )
   )
 }
 
 mod_home_server <- function(id, data) {
   moduleServer(id, function(input, output, session) {
-    # Nothing to do until the page is built. fw_headline_stats(data) is ready
-    # and returns the five KPI figures when the strip goes in.
+    # Nothing reactive: the page is drawn once, with its one live figure filled
+    # in mod_home_ui() from the data loaded at startup.
   })
+}
+
+# ---- Pieces ------------------------------------------------------------------
+
+#' One success story row
+#'
+#' THE SAME DISCLOSURE AS ABOUT, so the chevron, focus ring and card match. The
+#' summary is what a closed row shows, so it carries the pictures as well as the
+#' title; only the long account waits behind the click.
+fw_home_story <- function(s, img) {
+  figure <- function(role) {
+    src <- img[[role]]
+    sp  <- s[[role]]
+    art <- if (is.null(src) || is.na(src)) {
+      div(class = "fw-story__placeholder", role = "img", `aria-label` = sp$alt,
+          fw_t("home", "image_placeholder"))
+    } else {
+      tags$img(src = src, alt = sp$alt, loading = "lazy")
+    }
+    tags$figure(
+      class = paste0("fw-story__figure fw-story__figure--", role),
+      div(class = "fw-story__art", art),
+      tags$figcaption(
+        tags$span(class = "fw-story__role", fw_t("home", paste0(role, "_label"))),
+        sp$name
+      )
+    )
+  }
+
+  tags$details(
+    class = "fw-disclosure fw-story",
+    tags$summary(
+      class = "fw-disclosure__summary fw-story__summary",
+      tags$span(class = "fw-disclosure__title fw-story__title",
+                tags$span(class = "fw-story__continent", s$continent), " ", s$title),
+      div(
+        class = "fw-story__row",
+        figure("invasive"),
+        p(class = "fw-story__text", s$summary),
+        figure("beneficiary")
+      )
+    ),
+    div(class = "fw-disclosure__body", p(s$body))
+  )
+}
+
+#' The before/after map reveal
+#'
+#' --fw-pos is how much of the priorities map shows, from the left. The input
+#' writes it on every move; the stylesheet does the rest. It starts at 0, fully
+#' on current work, matching the input's value so the first paint is right
+#' without any script having run.
+fw_home_compare <- function(input_id) {
+  swatch <- function(which, label) {
+    tags$span(class = "fw-compare__key",
+              tags$span(class = paste0("fw-compare__swatch fw-compare__swatch--", which),
+                        `aria-hidden` = "true"),
+              label)
+  }
+
+  tags$figure(
+    class = "fw-compare-wrap",
+    div(
+      class = "fw-compare__legend",
+      swatch("next", fw_t("home", "map_next_label")),
+      swatch("now", fw_t("home", "map_now_label"))
+    ),
+    div(
+      class = "fw-compare", style = "--fw-pos: 0%;",
+      tags$img(class = "fw-compare__base", src = FW_HOME_IMG$map_now,
+               alt = "", `aria-hidden` = "true"),
+      div(class = "fw-compare__top",
+          tags$img(src = FW_HOME_IMG$map_next, alt = "", `aria-hidden` = "true")),
+      div(class = "fw-compare__handle", `aria-hidden` = "true"),
+      # NOT a Shiny input: no server reads it, so it takes a plain id and no
+      # binding. The value is a percentage of the width.
+      tags$input(
+        type = "range", id = input_id, class = "fw-compare__range",
+        min = 0, max = 100, step = 1, value = 0,
+        `aria-label` = fw_t("home", "map_slider_label"),
+        oninput = "this.parentNode.style.setProperty('--fw-pos', this.value + '%')"
+      )
+    ),
+    tags$figcaption(class = "fw-caption", fw_t("home", "map_caption"))
+  )
+}
+
+#' Prose with [[page|words]] links to other tabs
+#'
+#' The same cross-page wiring as the About page's contribute link: the click
+#' sets fw_nav_to and app.R switches the tab.
+fw_home_links <- function(text) {
+  pattern <- "\\[\\[([a-z_]+)\\|([^]]+)\\]\\]"
+  hits <- gregexpr(pattern, text)
+  links <- regmatches(text, hits)[[1]]
+  if (!length(links)) return(text)
+  # One more stretch of plain text than there are links, interleaved.
+  plain <- regmatches(text, hits, invert = TRUE)[[1]]
+  parts <- lapply(regmatches(links, regexec(pattern, links)), function(m) {
+    tags$a(
+      href = "#",
+      onclick = sprintf("Shiny.setInputValue('fw_nav_to','%s',{priority:'event'}); return false;", m[2]),
+      m[3]
+    )
+  })
+  out <- vector("list", 2L * length(parts) + 1L)
+  out[seq(1L, length(out), by = 2L)] <- as.list(plain)
+  out[seq(2L, length(out), by = 2L)] <- parts
+  do.call(tagList, out)
 }

@@ -3090,3 +3090,201 @@ table.dataTable,
   // an icon and not text, so it is not a step on the type scale.
   font-size: 1.3rem !important;
 }
+
+// ---- Welcome page ----------------------------------------------------------
+// R/mod_home.R. Two pieces of its own: the success-story rows and the
+// before/after map reveal. Everything else on the page is a standard block.
+
+// SUCCESS STORIES. Each row is a .fw-disclosure, so the card, chevron and
+// focus ring come from there; this only lays out what sits inside the summary.
+.fw-stories { margin-block-start: $fw-space-3; }
+
+.fw-story {
+  // The summary grid puts the chevron in column 1. The title and the picture
+  // row both sit in column 2, so the pictures line up under the title.
+  &__title { grid-column: 2; }
+
+  &__continent {
+    color: $fw-teal-text;
+    font-weight: $fw-weight-bold;
+    &::after { content: " \2014"; color: $fw-ink-muted; font-weight: $fw-weight-regular; }
+  }
+
+  &__row {
+    grid-column: 2;
+    display: grid;
+    // Invasive | the line of story | beneficiary. The text column is the
+    // widest so the sentence is not squeezed between two pictures.
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: $fw-space-3;
+    align-items: center;
+    margin-block-start: $fw-space-2;
+
+    @media (max-width: $fw-bp-sm) {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: $fw-space-2;
+    }
+  }
+
+  &__text {
+    margin: 0;
+    color: $fw-ink;
+    @media (max-width: $fw-bp-sm) { grid-column: 1 / -1; order: 3; }
+  }
+
+  &__figure { margin: 0; }
+
+  // A fixed box so pictures of very different shapes (a galaxias, a carp) sit
+  // at the same height across every row. The plates are transparent, so the
+  // box shows the card behind them and no white is introduced.
+  &__art {
+    aspect-ratio: 16 / 9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  }
+
+  &__placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: $fw-sunken;
+    border: 1px dashed $fw-border-input;
+    border-radius: $fw-radius-card;
+    color: $fw-ink-muted;
+    font-size: $fw-size-caption;
+  }
+
+  figcaption {
+    margin-block-start: $fw-space-1;
+    text-align: center;
+    font-size: $fw-size-caption;
+    color: $fw-ink;
+  }
+
+  &__role {
+    display: block;
+    color: $fw-ink-muted;
+  }
+}
+
+// THE MAP REVEAL. Two pictures in register: the base is current work, the top
+// layer is the priorities map clipped to the left --fw-pos of the width. The
+// range input covers the whole figure invisibly, so a drag, a click or an
+// arrow key moves it; the handle is only its drawing.
+.fw-compare-wrap { margin: $fw-space-3 0 0; }
+
+.fw-compare__legend {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $fw-space-1 $fw-space-3;
+  margin-block-end: $fw-space-2;
+  font-weight: $fw-weight-medium;
+}
+
+.fw-compare__key {
+  display: inline-flex;
+  align-items: center;
+  gap: $fw-space-1;
+}
+
+.fw-compare__swatch {
+  width: 1rem;
+  height: 1rem;
+  border-radius: $fw-radius-input;
+  &--now  { background: $fw-map-now; }
+  &--next { background: $fw-map-next; }
+}
+
+.fw-compare {
+  position: relative;
+  // Set inline by the input; declared here so the first paint agrees with it.
+  --fw-pos: 0%;
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  &__top {
+    position: absolute;
+    inset: 0;
+    clip-path: inset(0 calc(100% - var(--fw-pos)) 0 0);
+  }
+
+  &__handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--fw-pos);
+    width: 3px;
+    transform: translateX(-50%);
+    background: $fw-brand-teal;
+    pointer-events: none;
+
+    // The knob. Small enough that at 0% its overhang stays inside the
+    // container gutter, so it never adds a sideways scroll on a phone.
+    &::after {
+      content: "\2039\00a0\203a";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2.25rem;
+      height: 2.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: $fw-radius-round;
+      background: $fw-surface;
+      border: 2px solid $fw-brand-teal;
+      color: $fw-teal-text;
+      font-weight: $fw-weight-bold;
+      line-height: 1;
+      box-shadow: $fw-shadow-card;
+    }
+  }
+
+  // A focus ring on the drawn knob, since the real control is invisible.
+  &:has(.fw-compare__range:focus-visible) .fw-compare__handle::after {
+    outline: 2px solid $fw-teal-text;
+    outline-offset: 3px;
+  }
+
+  &__range {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: ew-resize;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    // A hairline thumb, so the value under the pointer is the position the
+    // pointer is at rather than off by half a native thumb.
+    &::-webkit-slider-thumb { -webkit-appearance: none; width: 1px; height: 100%; }
+    &::-moz-range-thumb { width: 1px; height: 100%; border: 0; }
+  }
+}
+
+.fw-home-closing p:last-child { font-weight: $fw-weight-medium; }
+
+// The Welcome lead is three paragraphs in the page header, which elsewhere
+// carries one; without a gap they read as a single block.
+.tab-pane[data-value="home"] .fw-page-header__description + .fw-page-header__description {
+  margin-block-start: $fw-space-2;
+}

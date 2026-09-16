@@ -263,6 +263,29 @@ FW_LOGO <- list(
   badge_web  = "img/FWISE-BADGE-256.png"
 )
 
+# The Welcome page's pictures. WEB COPIES of the client's originals in
+# resources/, which are print-sized (3508px species plates, 12600px maps) and
+# not served. How the copies were made is at the top of R/mod_home.R. One entry
+# per success story, keyed as FW_COPY$home$stories is, in page order; NA is a
+# picture the client has not supplied yet and draws as a placeholder.
+FW_HOME_IMG <- list(
+  map_now  = "img/home/map-now.png",
+  map_next = "img/home/map-next.png",
+  stories = list(
+    africa        = list(invasive    = "img/home/success/africa_smallmouth_bass_greyscale.png",
+                         beneficiary = "img/home/success/africa_fiery_redfin.png"),
+    asia          = list(invasive = NA, beneficiary = NA),
+    europe        = list(invasive    = "img/home/success/eu_salmon_fluke_greyscale.png",
+                         beneficiary = "img/home/success/eu_pearl_mussel.png"),
+    latin_america = list(invasive    = "img/home/success/la_rainbow_trout_greyscale.png",
+                         beneficiary = "img/home/success/la_valchetta_frog.png"),
+    north_america = list(invasive    = NA,
+                         beneficiary = "img/home/success/na_apache_trout.png"),
+    oceania       = list(invasive    = "img/home/success/oc_common_carp_greyscale.png",
+                         beneficiary = "img/home/success/oc_golden_galaxias.png")
+  )
+)
+
 # The species photo grids on the report builder, which show FEWER than FW_TOP_N.
 # A tile is a photograph the size of a playing card, so ten of them ran to two
 # full rows and pushed the rest of the report below the fold. It was five, and

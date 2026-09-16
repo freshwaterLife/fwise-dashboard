@@ -65,7 +65,13 @@ FW_COLOURS <- list(
 
   # Text on the indigo ground
   on_indigo       = "#f7f8fc",
-  on_indigo_muted = "#c9c4e3"
+  on_indigo_muted = "#c9c4e3",
+
+  # The two keys of the Welcome page's map pictures. SAMPLED FROM THE CLIENT'S
+  # IMAGES (www/img/home/map-*.png), not chosen: they are swatches beside the
+  # page-text legend and have to match the fill in the picture. Non-text only.
+  map_now         = "#54a1cb",
+  map_next        = "#eebf54"
 )
 
 # ---- Type --------------------------------------------------------------------

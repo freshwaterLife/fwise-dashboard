@@ -56,7 +56,7 @@ FW_COPY <- list(
   # --bs-navbar-nav-link-padding-x in _components.scss; check the 992-1099px
   # band before adding a seventh tab or a longer word.
   nav = list(
-    home       = "Home",
+    home       = "Welcome",
     explore    = "Explore the database",
     plan       = "Plan an eradication",
     contribute = "Add a record",
@@ -170,18 +170,118 @@ FW_COPY <- list(
     stack_title = "{n} attempts at this point - zoom in or click to open them"
   ),
 
-  # ---- Home ------------------------------------------------------------------
+  # ---- Home (the Welcome page) -----------------------------------------------
+  #
+  # **...** is bold (fw_emphasis). {successful} is filled from the loaded data
+  # - the count of attempts recorded as successful - so it is never typed here.
+  # The X% is an outside figure and is the client's to supply.
 
   home = list(
-    title = "Freshwater eradication works. It has just not happened where it is needed most.", # [PLACEHOLDER] final headline belongs to the client
-    lead  = paste(
-      "[PLACEHOLDER] FWISE gathers eradication attempts against freshwater",
-      "invasive animals from around the world, so practitioners can see what has",
-      "been tried, where, and with what result, and importantly, what species has been saved."
+    title = "Freshwater eradication works. It has just not happened where it is needed most.",
+    lead = c(
+      paste(
+        "Globally **X%** of freshwater species are listed as threatened. The", # [PLACEHOLDER] X% belongs to the client
+        "majority of these are threatened due to pressures from invasive species."
+      ),
+      paste(
+        "Freshwater species eradication works, and projects have already been",
+        "helping species recovery globally, with **{successful}** successful",
+        "recoveries logged. However, this conservation intervention is still",
+        "relatively unknown, funding sparse, and work is often carried out in silos."
+      ),
+      paste(
+        "Here, the FWISE database, visualised in the FWISE dashboard, aims to",
+        "improve the dissemination of information on species eradication attempts,",
+        "not just for practitioners, but for those who would seek to support or",
+        "expand freshwater invasive eradication to continue to protect species",
+        "from extinction."
+      )
     ),
-    action_primary   = "Plan an eradication",
-    action_secondary = "Explore the data",
-    description = "What FWISE is, the shape of the evidence, and where to start."
+
+    # ---- Success stories ----
+    # ONE ENTRY PER ROW, in page order, keyed as FW_HOME_IMG$stories is. Every
+    # string is a [PLACEHOLDER] until the client supplies the stories.
+    stories_heading = "Success stories",
+    stories_intro = "[PLACEHOLDER] One eradication from each continent, and the species it brought back. Open a story to read more.",
+    image_placeholder = "Image to come",
+    invasive_label = "Invasive",
+    beneficiary_label = "Beneficiary",
+    stories = list(
+      africa = list(
+        continent = "Africa",
+        title   = "[PLACEHOLDER] Story title",
+        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
+        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
+        invasive    = list(name = "[PLACEHOLDER] Smallmouth bass", alt = "Illustration of a smallmouth bass"),
+        beneficiary = list(name = "[PLACEHOLDER] Fiery redfin",    alt = "Illustration of a fiery redfin")
+      ),
+      asia = list(
+        continent = "Asia",
+        title   = "[PLACEHOLDER] Story title",
+        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
+        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
+        invasive    = list(name = "[PLACEHOLDER] Invasive species",    alt = "Invasive species image to come"),
+        beneficiary = list(name = "[PLACEHOLDER] Beneficiary species", alt = "Beneficiary species image to come")
+      ),
+      europe = list(
+        continent = "Europe",
+        title   = "[PLACEHOLDER] Story title",
+        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
+        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
+        invasive    = list(name = "[PLACEHOLDER] Salmon fluke",            alt = "Illustration of a salmon fluke"),
+        beneficiary = list(name = "[PLACEHOLDER] Freshwater pearl mussel", alt = "Illustration of a freshwater pearl mussel")
+      ),
+      latin_america = list(
+        continent = "Latin America",
+        title   = "[PLACEHOLDER] Story title",
+        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
+        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
+        invasive    = list(name = "[PLACEHOLDER] Rainbow trout", alt = "Illustration of a rainbow trout"),
+        beneficiary = list(name = "[PLACEHOLDER] Valcheta frog", alt = "Illustration of a Valcheta frog")
+      ),
+      north_america = list(
+        continent = "North America",
+        title   = "[PLACEHOLDER] Story title",
+        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
+        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
+        invasive    = list(name = "[PLACEHOLDER] Invasive species", alt = "Invasive species image to come"),
+        beneficiary = list(name = "[PLACEHOLDER] Apache trout",     alt = "Illustration of an Apache trout")
+      ),
+      oceania = list(
+        continent = "Oceania",
+        title   = "[PLACEHOLDER] Story title",
+        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
+        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
+        invasive    = list(name = "[PLACEHOLDER] Common carp",     alt = "Illustration of a common carp"),
+        beneficiary = list(name = "[PLACEHOLDER] Golden galaxias", alt = "Illustration of a golden galaxias")
+      )
+    ),
+
+    # ---- Current work and gaps ----
+    map_heading = "Current work and gaps",
+    map_intro = "[PLACEHOLDER] Drag the slider across the map to compare where eradications have succeeded with where they are needed next.",
+    map_next_label = "Priority gaps",
+    map_now_label  = "Current work",
+    map_slider_label = "Reveal the priority gaps map over the current work map",
+    map_caption = paste(
+      "[PLACEHOLDER] Two world maps. Current work shades the countries with",
+      "successful restorations of invaded freshwaters. Priority gaps shades the",
+      "priority countries for future restorations."
+    ),
+
+    # ---- Closing ----
+    # [[page|words]] is a link to that page (fw_home_links). The page is a nav
+    # value from app.R, not a label, so renaming a tab does not break it.
+    closing = c(
+      paste(
+        "The rest of this tool allows you to [[explore|explore the database]]",
+        "as well as dive into individual attempts,",
+        "[[plan|gather resources to help you plan your own eradication]] in your",
+        "area, and [[networking|network with the community]]. All resources and",
+        "data are downloadable."
+      ),
+      "Thank you for visiting the FWISE dashboard."
+    )
   ),
 
   # ---- Explore ---------------------------------------------------------------
@@ -775,10 +875,9 @@ FW_COPY <- list(
       )
     ),
 
-    # [PLACEHOLDER] THE STORIES THEMSELVES LIVE ON THE LANDING PAGE, which is
-    # not built yet - see the case studies section of the specification in
-    # R/mod_home.R. This panel is the hook for them: when they exist, the link
-    # below points at them rather than at the top of the home page.
+    # [PLACEHOLDER] NOT RENDERED. The stories themselves are on the Welcome
+    # page (FW_COPY$home$stories, R/mod_home.R). These keys are kept for an
+    # About panel that would point at them, should the client want one.
     stories_heading = "Success stories",
     stories_summary = "Eradications that worked, and what they took",
     stories = paste(

@@ -1028,6 +1028,34 @@ ok("place: a territory filed under its state stops the load",
    inherits(try(fw_validate_geography(transform(as.data.frame(a)[1, ], country = "United States", region = "Guam", iso3 = "USA", continent = "North America")), silent = TRUE), "try-error"))
 
 # ==============================================================================
+cat("\n-- welcome page --\n")
+
+home_html <- as.character(mod_home_ui("home", fw_headline_stats(d)))
+n_success <- sum(as.character(d$attempt$outcome) %in% "Successful")
+ok("welcome: the lead states the successful count, in bold",
+   grepl(paste0("<strong>", fw_fmt_num(n_success), "</strong>"), home_html, fixed = TRUE))
+ok("welcome: no unfilled slot left in the page", !grepl("{successful}", home_html, fixed = TRUE))
+ok("welcome: the tab is called Welcome", fw_t("nav", "home"), "Welcome")
+ok("welcome: story copy and pictures are keyed alike, in order",
+   names(fw_t("home", "stories")), names(FW_HOME_IMG$stories))
+ok("welcome: stories run A-Z by continent",
+   { cn <- vapply(fw_t("home", "stories"), `[[`, "", "continent"); identical(cn, sort(cn)) })
+ok("welcome: one story row per entry",
+   lengths(regmatches(home_html, gregexpr('class="fw-disclosure fw-story"', home_html))),
+   length(fw_t("home", "stories")))
+pics <- na.omit(unlist(c(FW_HOME_IMG$stories, FW_HOME_IMG[c("map_now", "map_next")])))
+ok("welcome: every picture named exists under www/", all(file.exists(file.path("www", pics))))
+ok("welcome: placeholders drawn for the three missing pictures",
+   lengths(regmatches(home_html, gregexpr("fw-story__placeholder", home_html))),
+   sum(is.na(unlist(FW_HOME_IMG$stories))))
+nav_to <- regmatches(home_html, gregexpr("fw_nav_to&#39;,&#39;[a-z_]+", home_html))[[1]]
+nav_to <- sub(".*&#39;", "", nav_to)
+ok("welcome: closing links go to explore, plan and networking",
+   nav_to, c("explore", "plan", "networking"))
+ok("welcome: the reveal starts fully on current work",
+   grepl('value="0"', home_html) && grepl("--fw-pos: 0%", home_html, fixed = TRUE))
+
+# ==============================================================================
 cat("\n-- design values --\n")
 
 rem <- function(x) as.numeric(sub("rem$", "", x))
