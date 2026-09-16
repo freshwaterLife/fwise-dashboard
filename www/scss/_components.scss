@@ -3179,8 +3179,12 @@ table.dataTable,
 // THE MAP REVEAL. Two pictures in register: the base is current work, the top
 // layer is the priorities map clipped to the left --fw-pos of the width. The
 // range input covers the whole figure invisibly, so a drag, a click or an
-// arrow key moves it; the handle is only its drawing.
-.fw-compare-wrap { margin: $fw-space-3 0 0; }
+// arrow key moves it; the handle is only its drawing. Held to 80% of the
+// column and centred, so the map does not dominate the page.
+.fw-compare-wrap {
+  max-width: 80%;
+  margin: $fw-space-3 auto 0;
+}
 
 .fw-compare__legend {
   display: flex;

@@ -225,7 +225,7 @@ FW_COPY <- list(
         summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
         body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
         invasive    = list(name = "[PLACEHOLDER] Invasive species", alt = "Invasive species image to come"),
-        beneficiary = list(name = "[PLACEHOLDER] Apache trout",     alt = "Illustration of an Apache trout")
+        beneficiary = list(name = "Apache trout",     alt = "Illustration of an Apache trout")
       ),
       oceania = list(
         continent = "Oceania",

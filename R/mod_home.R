@@ -154,8 +154,8 @@ fw_home_compare <- function(input_id) {
     class = "fw-compare-wrap",
     div(
       class = "fw-compare__legend",
-      swatch("next", fw_t("home", "map_next_label")),
-      swatch("now", fw_t("home", "map_now_label"))
+      swatch("now", fw_t("home", "map_now_label")),
+      swatch("next", fw_t("home", "map_next_label"))
     ),
     div(
       class = "fw-compare", style = "--fw-pos: 0%;",
