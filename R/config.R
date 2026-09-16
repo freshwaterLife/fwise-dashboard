@@ -323,6 +323,10 @@ FW_MAP <- list(
   # Where a map with nothing on it points: the whole world, centred a little
   # north of the equator, where most of the land is.
   empty_view = list(lng = 0, lat = 20, zoom = 2),
+  # The closest a fit to a selection may zoom. Below cluster$fine_zoom, so a
+  # single-site selection still opens with its stack as one counted group and
+  # with enough of the surrounding water to place it. See fw_fit_points().
+  fit_max_zoom = 10L,
   # Attempt markers. The stroke colour is FW_COLOURS$surface.
   marker = list(radius = 6, weight = 1.5, opacity = 1, fill_opacity = 0.75),
   # The no-JavaScript fallback popup. Kept in step with .fw-map-card's width

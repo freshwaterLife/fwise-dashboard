@@ -347,6 +347,34 @@ ok("hover: with nothing cached, no card carries a photograph",
 ok("hover: but every card still holds both slots open",
    all(grepl("data-fw-figures=\"2\"", blank_cards, fixed = TRUE)))
 
+# ON A PAGE THE PHOTOGRAPHS TRAVEL ONCE. A lazy map's cards name their two
+# species and the card script fills them in from a dictionary sent with the
+# widget. These pin that the cards carry no figure markup, that the dictionary
+# covers every id they name, and that the payload actually shrank - the 2.5 MB
+# a full map used to send is the reason this exists.
+ref_cards <- vapply(seq_len(nrow(map_pts)), function(i)
+  fw_map_popup(map_pts[i, ], d$species, detail = "lazy", thumbs = thumbs,
+               thumb_ref = TRUE), character(1))
+ok("hover: a by-reference card carries no figure markup",
+   any(grepl("fw-species-figure", ref_cards, fixed = TRUE)), FALSE)
+ok("hover: but still holds both slots, by id",
+   all(grepl('data-fw-figures="2" data-fw-thumbs="', ref_cards, fixed = TRUE)))
+ref_ids <- unlist(strsplit(sub('.*data-fw-thumbs="([^"]*)".*', "\\1", ref_cards),
+                           FW_POPUP_SEP, fixed = TRUE))
+ok("hover: every id a card names is in the whole-database dictionary",
+   all(setdiff(ref_ids, "") %in% names(fw_map_thumbs_all(d))))
+full_map <- fw_add_attempt_markers(leaflet::leaflet(), d, all_sel,
+                                   detail = "lazy", detail_input = "x")
+full_json <- htmlwidgets:::toJSON(htmlwidgets:::createPayload(full_map))
+# 2.49 MB with the figures inline, 1.47 MB by reference on 16 September 2026.
+ok("map: a full lazy map is under 1.6 MB", nchar(full_json, "bytes") < 1.6e6)
+ok("map: and hands its dictionary to the card script",
+   length(full_map$jsHooks$render[[1]]$data$thumbs), length(thumbs))
+ok("map: an embedded map hands none, its cards carry their own",
+   is.null(fw_plan_map(d, a[1:20, ], detail = "embed")$jsHooks$render[[1]]$data))
+ok("hover: the card script fills a by-reference slot",
+   grepl("fillThumbs(body)", fw_map_card_js("x"), fixed = TRUE))
+
 # THE YEARS ARE ON THE CARD, at the client's request - a reader deciding whether
 # to open a record wants to know whether it is from this decade or the eighties.
 dated <- map_pts[!is.na(map_pts$start_year), ][1, ]
@@ -976,6 +1004,15 @@ w <- fw_plan_map(d, a[1:20, ], detail = "embed")
 calls <- vapply(w$x$calls, function(x) x$method, character(1))
 ok("map: markers are added with cluster options", "addCircleMarkers" %in% calls &&
    !is.null(w$x$calls[[which(calls == "addCircleMarkers")]]$args[[which(vapply(w$x$calls[[which(calls == "addCircleMarkers")]]$args, function(z) is.list(z) && !is.null(z$maxClusterRadius), logical(1)))[1]]]))
+# A selection on one coordinate (Belgium, Austria) fitted at infinite zoom and
+# drew a grey map. Every fit carries the cap.
+one_site <- fw_map_points(d, a[a$country == "Belgium", ])
+ok("map: Belgium's attempts share one coordinate",
+   nrow(unique(one_site[, c("latitude", "longitude")])), 1L)
+fit <- fw_fit_points(leaflet::leaflet(), one_site)$x$fitBounds
+ok("map: a fit is capped at FW_MAP$fit_max_zoom", fit[[5]]$maxZoom, FW_MAP$fit_max_zoom)
+ok("map: the cap still shows a stack as one group",
+   FW_MAP$fit_max_zoom < FW_MAP$cluster$fine_zoom)
 
 # Place: the stored geography follows the ISO lookup.
 iso <- fw_read_lookup("lookup_iso3166.csv")

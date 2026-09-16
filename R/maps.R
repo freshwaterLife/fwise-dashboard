@@ -348,7 +348,9 @@ fw_popup_years <- function(start, end) {
 #'
 #' @param thumbs figure HTML keyed by species_id, from fw_map_thumb_cache(), or
 #'   NULL for no photograph at all
-fw_map_hover_html <- function(row, thumbs = NULL) {
+#' @param thumb_ref carry the photographs by species id rather than inline; see
+#'   fw_popup_thumb()
+fw_map_hover_html <- function(row, thumbs = NULL, thumb_ref = FALSE) {
   esc <- htmltools::htmlEscape
   outcome <- if (is.na(row$outcome)) "Unknown" else row$outcome
   recorded <- row$primary_contact_name
@@ -361,7 +363,7 @@ fw_map_hover_html <- function(row, thumbs = NULL) {
     '<h3 class="fw-popup__title">',
     esc(row$site_name %|na|% fw_t("species", "unnamed_site")),
     "</h3>",
-    fw_popup_thumb(row, thumbs),
+    fw_popup_thumb(row, thumbs, ref = thumb_ref),
     fw_popup_row(fw_t("species", "p_country"), row$country),
     # THE YEARS, at the client's request. A reader deciding whether to open a
     # record wants to know whether it is from this decade or the nineteen
@@ -423,7 +425,26 @@ fw_map_hover_html <- function(row, thumbs = NULL) {
 #' A PLACEHOLDER COSTS NO REQUEST. It is a div with a line of text in it - see
 #' fw_species_figure() - so forcing both slots does not undo what the thumbnail
 #' cache exists to save, which is the Wikimedia fetches.
-fw_popup_thumb <- function(row, thumbs) {
+#'
+#' BY REFERENCE ON A PAGE. With `ref = TRUE` the block carries only the two
+#' species ids and the card script fills it in from a dictionary the map was
+#' given once (see fw_map_card_render()). Inline, the same 215 figures were
+#' repeated across 911 cards: 1 MB of a 2.5 MB widget, sent on every
+#' redraw. The saved report keeps them inline, because the file has nothing
+#' to be handed a dictionary by except its own markers - and it is the same
+#' markup either way, so one stylesheet rule still covers both.
+fw_popup_thumb <- function(row, thumbs, ref = FALSE) {
+  if (ref) {
+    first <- function(x) {
+      ids <- fw_popup_parts(x)
+      if (length(ids)) ids[1] else ""
+    }
+    return(paste0('<div class="fw-popup__figure" data-fw-figures="2" data-fw-thumbs="',
+                  htmltools::htmlEscape(first(row$inv_ids), attribute = TRUE),
+                  FW_POPUP_SEP,
+                  htmltools::htmlEscape(first(row$ben_ids), attribute = TRUE),
+                  '"></div>'))
+  }
   one <- function(ids_col, role_key) {
     ids <- fw_popup_parts(ids_col)
     fig <- if (length(ids)) thumbs[[ids[1]]] else NULL
@@ -640,9 +661,9 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
 #'   hover card alone and leaves the record to fw_map_detail_server().
 fw_map_popup <- function(row, species_tbl, live = FALSE,
                          detail = c("embed", "lazy"), figure_cache = NULL,
-                         thumbs = NULL) {
+                         thumbs = NULL, thumb_ref = FALSE) {
   detail <- match.arg(detail)
-  hover <- fw_map_hover_html(row, thumbs)
+  hover <- fw_map_hover_html(row, thumbs, thumb_ref = thumb_ref)
   if (detail == "lazy") return(hover)
   paste0(hover, fw_map_detail_html(row, species_tbl, live, figure_cache = figure_cache))
 }
@@ -737,8 +758,15 @@ fw_map_figure_cache <- function(data, pts) {
 # and a 120ms hover intent keeps a pointer crossing the map from asking for a
 # dozen of them. Tapping still works, for touch, where there is no hover at all.
 FW_MAP_CARD_JS <- "
-function (el, x) {
+function (el, x, data) {
   var map = this;
+  // The hover cards' photographs, sent ONCE with the map rather than inside
+  // every card: species id to figure markup, plus the blank tile and the two
+  // role captions. See fw_popup_thumb() and fw_map_card_render(). Absent in a
+  // saved report, whose cards carry their figures inline.
+  var THUMBS = (data && data.thumbs) || {};
+  var THUMB_NONE = (data && data.none) || '';
+  var THUMB_ROLES = (data && data.roles) || ['', ''];
   var CLOSE_LABEL = '{{CLOSE}}';
   var CARD_LABEL = '{{LABEL}}';
   var DETAIL_LABEL = '{{DETAIL}}';
@@ -865,6 +893,24 @@ function (el, x) {
     card.style.left = Math.max(8, left) + 'px';
     card.style.top = top + 'px';
   }
+  // A card that carries its photographs by reference gets them here, from
+  // this map's dictionary. The slot is always two tiles wide: a role with no
+  // cached image gets the blank tile, as it does inline.
+  function fillThumbs(root) {
+    var slots = root.querySelectorAll('[data-fw-thumbs]');
+    slots.forEach(function (slot) {
+      var ids = slot.getAttribute('data-fw-thumbs').split('|');
+      var html = '';
+      for (var i = 0; i < 2; i++) {
+        var fig = (ids[i] && THUMBS[ids[i]]) || THUMB_NONE;
+        html += '<div class=\"fw-popup__figure-item\">' +
+                '<p class=\"fw-popup-fig__role\">' + THUMB_ROLES[i] + '</p>' +
+                fig + '</div>';
+      }
+      slot.innerHTML = html;
+      slot.removeAttribute('data-fw-thumbs');
+    });
+  }
   function open(layer) {
     if (!layer.fwCard) return;
     cancel();
@@ -879,6 +925,7 @@ function (el, x) {
     // the layer instead, so it is always this map's.
     card.fwOpen = panelOpen;
     body.innerHTML = layer.fwCard;
+    fillThumbs(body);
     // Measured while still invisible, so it never flashes at the last marker's
     // position on its way to this one's.
     card.style.visibility = 'hidden';
@@ -1231,6 +1278,11 @@ fw_cluster_options <- function() {
 #' megabytes of records that almost nobody would open. Measured: the embedded
 #' payload was 6.2 MB and the detail templates were 4.7 MB of it.
 #'
+#' A LAZY MAP ALSO SENDS EACH PHOTOGRAPH ONCE. Its cards name their two species
+#' and the card script fills them in from a dictionary shipped with the widget
+#' (fw_map_card_render()). With the figures inline the full map was still
+#' 2.5 MB, and is 1.5 MB this way; see fw_popup_thumb().
+#'
 #' STACKED MARKERS ARE GROUPED. See FW_MAP$cluster for the rule; in short,
 #' only markers that sit on top of one another group until the reader is
 #' zoomed well in, so the coarse view is still coloured dots.
@@ -1249,6 +1301,11 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE,
          call. = FALSE)
   }
   pts <- fw_map_points(data, sel)
+  lazy <- detail == "lazy"
+  # Built in BOTH modes, unlike the figure cache: the hover card carries its
+  # thumbnail whether or not the record behind it is embedded. A lazy map hands
+  # the set to the card script once; an embedded one writes it into each card.
+  thumbs <- if (nrow(pts)) fw_map_thumb_cache(data, pts) else character(0)
   if (!nrow(pts)) {
     # STILL WIRE THE CARD SCRIPT. It is what creates the record panel on
     # <body>, and the Explore list can open a record for an attempt that has
@@ -1257,18 +1314,37 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE,
     return(
       map |>
         leaflet::setView(v$lng, v$lat, zoom = v$zoom) |>
-        htmlwidgets::onRender(fw_map_card_js(if (detail == "lazy") detail_input))
+        fw_map_card_render(if (lazy) detail_input)
     )
   }
 
+  map |>
+    fw_add_marker_layer(data, pts, live = live, detail = detail,
+                        thumbs = thumbs) |>
+    fw_add_outcome_legend() |>
+    fw_map_card_render(if (lazy) detail_input, if (lazy) thumbs)
+}
+
+#' The markers for a set of located attempts, and the view that fits them
+#'
+#' The half of fw_add_attempt_markers() that changes with the selection, split
+#' out so the Explore page can send it through leaflet::leafletProxy() and
+#' leave the tiles, the legend and the card script where they are. Everything
+#' here is a call a proxy accepts.
+#'
+#' @param pts fw_map_points() output, at least one row
+#' @param thumbs fw_map_thumb_cache() output covering `pts`. For "lazy" the
+#'   cards only name their species, and whatever dictionary the map was
+#'   rendered with has to cover them - see fw_map_card_render().
+fw_add_marker_layer <- function(map, data, pts, live = FALSE,
+                                detail = c("embed", "lazy"), thumbs = NULL) {
+  detail <- match.arg(detail)
   outcome <- ifelse(is.na(pts$outcome), "Unknown", pts$outcome)
   figure_cache <- if (detail == "embed") fw_map_figure_cache(data, pts) else NULL
-  # Built in BOTH modes, unlike figure_cache: the hover card carries its
-  # thumbnail whether or not the record behind it is embedded.
-  thumbs <- fw_map_thumb_cache(data, pts)
   popups <- vapply(seq_len(nrow(pts)), function(i) {
     fw_map_popup(pts[i, ], data$species, live = live, detail = detail,
-                 figure_cache = figure_cache, thumbs = thumbs)
+                 figure_cache = figure_cache, thumbs = thumbs,
+                 thumb_ref = detail == "lazy")
   }, character(1))
 
   map |>
@@ -1292,12 +1368,69 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE,
                                            minWidth = FW_MAP$popup$min_width,
                                            className = "fw-popup-wrap")
     ) |>
-    leaflet::addLegend(
-      position = "bottomright", colors = unname(FW_OUTCOME_COLOURS),
-      labels = names(FW_OUTCOME_COLOURS), opacity = FW_MAP$legend_opacity,
-      title = fw_t("species", "p_outcome")
-    ) |>
-    leaflet::fitBounds(min(pts$longitude), min(pts$latitude),
-                       max(pts$longitude), max(pts$latitude)) |>
-    htmlwidgets::onRender(fw_map_card_js(if (detail == "lazy") detail_input))
+    fw_fit_points(pts)
 }
+
+#' Fit the view to a set of points
+#'
+#' CAPPED AT FW_MAP$fit_max_zoom. A selection whose attempts all share one
+#' coordinate - Belgium's and Austria's do - has a bounding box of zero size,
+#' and Leaflet fits that at an infinite zoom: no tiles load and the map is
+#' grey. The cap is also what stops two neighbouring sites opening at street
+#' level.
+fw_fit_points <- function(map, pts) {
+  leaflet::fitBounds(map, min(pts$longitude), min(pts$latitude),
+                     max(pts$longitude), max(pts$latitude),
+                     options = list(maxZoom = FW_MAP$fit_max_zoom))
+}
+
+#' The outcome legend
+fw_add_outcome_legend <- function(map) {
+  leaflet::addLegend(
+    map, position = "bottomright", colors = unname(FW_OUTCOME_COLOURS),
+    labels = names(FW_OUTCOME_COLOURS), opacity = FW_MAP$legend_opacity,
+    title = fw_t("species", "p_outcome")
+  )
+}
+
+#' Install the card script, with the photograph dictionary if there is one
+#'
+#' The dictionary is what cards built with thumb_ref = TRUE are filled from.
+#' It rides in onRender()'s data argument, so it is sent once with the widget
+#' rather than once per marker, and a proxy that swaps the markers later does
+#' not have to send it again - provided the set given here covers them, which
+#' is why the Explore page passes the whole database's (fw_map_thumbs_all()).
+#'
+#' @param detail_input as for fw_map_card_js()
+#' @param thumbs fw_map_thumb_cache() output, or NULL for cards with their
+#'   figures inline
+fw_map_card_render <- function(map, detail_input = NULL, thumbs = NULL) {
+  js <- fw_map_card_js(detail_input)
+  if (is.null(thumbs)) return(htmlwidgets::onRender(map, js))
+  esc <- htmltools::htmlEscape
+  htmlwidgets::onRender(map, js, data = list(
+    # A list, not a named vector, so it arrives as an object even when empty
+    # or of length one.
+    thumbs = as.list(thumbs),
+    none = fw_popup_thumb_none(),
+    roles = c(esc(fw_t("species", "fig_invasive")),
+              esc(fw_t("species", "fig_beneficiary")))
+  ))
+}
+
+#' The hover-card photographs for the whole database, built once per process
+#'
+#' What the Explore page renders its map with, so any selection its proxy
+#' draws later is already covered. Cached against the data it was built from;
+#' `identical()` on the same object is a pointer comparison, so the check
+#' costs nothing on the app's one shared FW_DATA.
+fw_map_thumbs_all <- local({
+  cache <- NULL
+  function(data) {
+    if (is.null(cache) || !identical(cache$data, data)) {
+      cache <<- list(data = data,
+                     thumbs = fw_map_thumb_cache(data, fw_map_points(data, data$attempt)))
+    }
+    cache$thumbs
+  }
+})

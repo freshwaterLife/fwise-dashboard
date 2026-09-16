@@ -30,6 +30,10 @@ FW_META <- fw_load_metadata()
 # through without a code change.
 FW_CHOICES <- fw_startup_choices(FW_DATA)
 
+# The Explore page's filter bar is drawn in its static UI, so its choices are
+# needed before any session exists. See mod_explore_ui().
+FW_FILTER_CHOICES <- fw_filter_choices(FW_DATA)
+
 FW_LAST_UPDATED <- fw_last_updated(FW_DATA, FW_META)
 
 # Records waiting on review: pending rows carried into the schema, plus whatever
@@ -79,7 +83,7 @@ ui <- page_navbar(
   ),
 
   nav_panel(fw_t("nav", "home"),       value = "home",       mod_home_ui("home")),
-  nav_panel(fw_t("nav", "explore"),    value = "explore",    mod_explore_ui("explore")),
+  nav_panel(fw_t("nav", "explore"),    value = "explore",    mod_explore_ui("explore", FW_FILTER_CHOICES)),
   nav_panel(fw_t("nav", "plan"),       value = "plan",       mod_plan_ui("plan")),
   nav_panel(fw_t("nav", "contribute"), value = "contribute", mod_contribute_ui("contribute")),
   nav_panel(fw_t("nav", "networking"), value = "networking", mod_networking_ui("networking")),
@@ -92,11 +96,16 @@ ui <- page_navbar(
 
 server <- function(input, output, session) {
 
+  # The contact the Networking page asked Explore to narrow to. Created here,
+  # per session, and handed to both: a module-level reactiveVal is shared by
+  # every visitor to the process.
+  explore_request <- reactiveVal(NULL)
+
   mod_home_server("home", FW_DATA)
-  mod_explore_server("explore", FW_DATA, FW_IN_REVIEW)
+  mod_explore_server("explore", FW_DATA, FW_IN_REVIEW, request = explore_request)
   mod_plan_server("plan", FW_DATA, FW_META)
   mod_contribute_server("contribute", FW_DATA, FW_CHOICES)
-  mod_networking_server("networking", FW_DATA)
+  mod_networking_server("networking", FW_DATA, request = explore_request)
   mod_about_server("about", FW_DATA, FW_META)
 
   # Cross-page links (the stub actions, the hero buttons) set this rather than

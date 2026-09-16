@@ -112,21 +112,6 @@ mod_about_server <- function(id, data, meta = NULL) {
           ),
 
           fw_disclosure(
-            fw_t("about", "stories_heading"),
-            note = fw_t("about", "stories_summary"),
-            para("stories"),
-            # THE STORIES THEMSELVES ARE ON THE LANDING PAGE, which is a stub -
-            # see the case studies section of the specification in mod_home.R.
-            # Point this at them when they exist; until then it lands a reader
-            # on the page they will be on.
-            p(tags$a(
-              href = "#",
-              onclick = "Shiny.setInputValue('fw_nav_to','home',{priority:'event'}); return false;",
-              fw_t("about", "stories_action")
-            ))
-          ),
-
-          fw_disclosure(
             fw_t("about", "related_heading"),
             note = fw_t("about", "related_summary"),
             para("related"),

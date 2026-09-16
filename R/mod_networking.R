@@ -94,7 +94,9 @@ mod_networking_ui <- function(id) {
 # the served markup as a mailto href.
 jsonlite_quote <- function(x) paste0("'", gsub("'", "\\\\'", x), "'")
 
-mod_networking_server <- function(id, data) {
+#' @param request the session's Explore request, a reactiveVal; see
+#'   mod_explore_server()
+mod_networking_server <- function(id, data, request = shiny::reactiveVal(NULL)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -319,7 +321,7 @@ mod_networking_server <- function(id, data) {
     # Route through to the dashboard, which reads the request and narrows to
     # this person's attempts. See mod_explore.R.
     observeEvent(input$view_contact, {
-      fw_set_explore_request(input$view_contact)
+      request(input$view_contact)
       session$sendCustomMessage("fw-nav", "explore")
     })
   })

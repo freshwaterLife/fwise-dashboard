@@ -72,8 +72,16 @@ FW_EXPLORE_FILTERS <- c("continent", "country", "taxa", "taxa_beneficiary")
 # The list's sort orders. Copy keys are "sort_<value>" in FW_COPY$explore.
 FW_EXPLORE_SORTS <- c("newest", "oldest", "site", "country")
 
-mod_explore_ui <- function(id) {
+#' @param choices fw_filter_choices() of the loaded data. The filter bar is
+#'   built here rather than in a renderUI, and that is the fix for the page
+#'   loading twice: an input drawn by renderUI does not exist on the first
+#'   flush, so the selection was computed without it, the map and both charts
+#'   were drawn and sent, and then the input's first (empty) value arrived as a
+#'   change and all of it went again. An input in the static UI is in the set
+#'   the browser sends when it connects, so the selection is computed once.
+mod_explore_ui <- function(id, choices) {
   ns <- NS(id)
+  ids <- fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
   tagList(
     fw_page_header(fw_t("explore", "title"), fw_t("explore", "description")),
     tags$main(
@@ -81,7 +89,7 @@ mod_explore_ui <- function(id) {
       fw_section(
         fw_container(
           uiOutput(ns("kpis")),
-          uiOutput(ns("filters")),
+          fw_explore_filter_bar(ns, choices, ids),
           uiOutput(ns("incoming")),
           uiOutput(ns("summary")),
 
@@ -136,18 +144,22 @@ mod_explore_ui <- function(id) {
 #' @param in_review how many submissions are waiting on review. Passed in
 #'   rather than read from a global: app.R evaluates in its own environment, so
 #'   FW_IN_REVIEW is not visible to a module sourced from R/.
-mod_explore_server <- function(id, data, in_review = 0L) {
+#' @param request a reactiveVal holding the contact id the Networking page
+#'   asked this page to narrow to, or NULL. ONE PER SESSION, created in app.R's
+#'   server and handed to both modules. It used to be a reactiveVal at the top
+#'   of this file, which is one for the whole PROCESS: a click on "view
+#'   attempts" by one visitor narrowed, and redrew, every other visitor's page.
+mod_explore_server <- function(id, data, in_review = 0L,
+                               request = shiny::reactiveVal(NULL)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     choices <- fw_filter_choices(data)
     ids <- fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
 
-    output$filters <- renderUI(fw_explore_filter_bar(ns, choices, ids))
-
     observeEvent(input$clear, {
       fw_filter_clear(session, ids, choices)
-      fw_set_explore_request(NULL)
+      request(NULL)
     })
 
     # ---- The two geography filters, linked ----------------------------------
@@ -184,7 +196,7 @@ mod_explore_server <- function(id, data, in_review = 0L) {
       out <- fw_filter_apply(data, fw_filter_state(input, ids))
       # A deep link from the Networking page narrows to one person's attempts.
       # Applied AFTER the filters so the bar still does what it says.
-      cid <- fw_explore_request()
+      cid <- request()
       if (!is.null(cid)) {
         keep <- fw_contact_attempt_ids(data, cid)
         out <- out[out$attempt_id %in% keep, ]
@@ -203,7 +215,7 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     # ---- Arriving from the Networking page ----------------------------------
 
     output$incoming <- renderUI({
-      cid <- fw_explore_request()
+      cid <- request()
       req(cid)
       contact <- data$contact[data$contact$contact_id == cid, ]
       if (nrow(contact) == 0) return(NULL)
@@ -215,17 +227,72 @@ mod_explore_server <- function(id, data, in_review = 0L) {
       )
     })
 
-    observeEvent(input$clear_contact, fw_set_explore_request(NULL))
+    observeEvent(input$clear_contact, request(NULL))
 
     # ---- The strip and the map ----------------------------------------------
 
     output$summary <- renderUI(fw_plan_summary_ui(fw_plan_summary(data, sel())))
 
+    # ---- The map: drawn once, markers swapped ------------------------------
+    #
+    # THE WIDGET DOES NOT DEPEND ON THE SELECTION. It used to, so every filter
+    # change rebuilt the whole map - tiles, legend, card script and 911 cards,
+    # 2.5 MB - and the reader watched it blank and reload. Now the tiles, the
+    # legend, the card script and the photograph dictionary are sent once, and
+    # a filter change sends only the markers, through a proxy.
+    #
+    # THE DICTIONARY IS THE WHOLE DATABASE'S, so any selection the proxy draws
+    # later is already covered by it. See fw_map_card_render().
+    all_pts <- fw_map_points(data, data$attempt)
     output$map <- leaflet::renderLeaflet({
-      leaflet::leaflet(options = leaflet::leafletOptions(worldCopyJump = TRUE)) |>
+      m <- leaflet::leaflet(options = leaflet::leafletOptions(worldCopyJump = TRUE)) |>
         fw_add_basemaps() |>
-        fw_add_attempt_markers(data, sel(), detail = "lazy",
-                               detail_input = ns("map_detail"))
+        fw_add_outcome_legend()
+      # Opened on the whole database's extent, which is what the first
+      # selection is, so the markers arrive without the view jumping.
+      m <- if (nrow(all_pts)) fw_fit_points(m, all_pts) else {
+        v <- FW_MAP$empty_view
+        leaflet::setView(m, v$lng, v$lat, zoom = v$zoom)
+      }
+      fw_map_card_render(m, ns("map_detail"), fw_map_thumbs_all(data))
+    })
+
+    # WAITS FOR THE MAP TO EXIST. A proxy call sent before the widget has been
+    # drawn is dropped by the browser, and the widget is only drawn once the
+    # tab is shown. input$map_bounds is the widget announcing itself; it is
+    # copied into a reactiveVal so that panning, which sends it again with a
+    # new value, does not rerun the observer below.
+    map_ready <- reactiveVal(FALSE)
+    observeEvent(input$map_bounds, map_ready(TRUE))
+
+    # WHAT IS ON THE MAP NOW, as the ids drawn. Not reactive: it is only there
+    # so a rerun that would draw the same thing - the tab being shown again -
+    # sends nothing.
+    drawn <- NULL
+    observe({
+      req(map_ready())
+      s <- sel()
+      # NOT WHILE THE TAB IS HIDDEN. A selection can change from another page
+      # (the Networking link), and Leaflet fits bounds against a hidden map's
+      # zero size. Reading this also reruns the observer when the tab is shown,
+      # which is when the deferred draw happens.
+      if (isTRUE(session$clientData[[paste0("output_", ns("map"), "_hidden")]])) return()
+      key <- s$attempt_id
+      if (identical(key, drawn)) return()
+      drawn <<- key
+
+      pts <- fw_map_points(data, s)
+      proxy <- leaflet::leafletProxy("map", session = session) |>
+        leaflet::clearMarkerClusters()
+      if (!nrow(pts)) {
+        v <- FW_MAP$empty_view
+        leaflet::setView(proxy, v$lng, v$lat, zoom = v$zoom)
+        return()
+      }
+      # The card script wires the new cluster group itself: it listens for
+      # layers added to the map, not only for the ones there when it ran.
+      fw_add_marker_layer(proxy, data, pts, detail = "lazy",
+                          thumbs = fw_map_thumbs_all(data))
     })
     fw_map_detail_server(input, session, "map_detail", data, sorted)
 
@@ -327,13 +394,6 @@ fw_explore_order <- function(s, sort = FW_EXPLORE_SORTS[1]) {
     country = order(s$country, site, na.last = TRUE)
   )
 }
-
-# Set by the Networking page, read by the list. A tiny shared reactive rather
-# than a module return, because the two modules are siblings and neither owns
-# the other.
-.fw_explore_request <- shiny::reactiveVal(NULL)
-fw_explore_request <- function() .fw_explore_request()
-fw_set_explore_request <- function(contact_id) .fw_explore_request(contact_id)
 
 #' Every attempt a contact is attached to, in either slot
 fw_contact_attempt_ids <- function(data, contact_id) {

@@ -67,8 +67,196 @@ mod_plan_ui <- function(id) {
         fw_container(
           uiOutput(ns("filters")),
           div(id = ns("results_anchor"), class = "fw-plan__results",
-              uiOutput(ns("results")))
+              uiOutput(ns("zero")),
+              # Shown only while the last build matched something. See
+              # output$state in the server.
+              conditionalPanel("output.state == 'results'", ns = ns,
+                               fw_plan_results_ui(ns)))
         )
+      )
+    )
+  )
+}
+
+#' The results, as a fixed skeleton
+#'
+#' THE CHARTS AND THE MAP ARE STATIC OUTPUTS, and they used to live inside one
+#' renderUI that was rebuilt on every Build. That was the bug the client
+#' reported as "some figures update when I change country and some do not":
+#' each rebuild destroyed and recreated every chart's element while the chart
+#' itself was re-rendering, and whether a chart's new value reached the new
+#' element or the dying one came down to message timing. The map, rebuilt from
+#' scratch into a fresh element, sometimes came up grey for the same reason.
+#' Same fix as the Explore page: the elements exist once, and only their
+#' contents change. What still varies with the selection - the summary, the
+#' species tiles, the outcome bars and the captions - is plain HTML in small
+#' uiOutputs that contain no outputs of their own. Keep it that way: an output
+#' inside any of those renderUIs brings the bug back.
+#'
+#' Ids here share one DOM id space with the filters - see the note above the
+#' waterbody chart.
+fw_plan_results_ui <- function(ns) {
+  tagList(
+    # THE DOWNLOAD SITS AT THE TOP, beside the heading. It used to be the
+    # last thing on the page, below two tables, and the client's objection
+    # was that a reader had no way of knowing any of this was exportable
+    # until they had scrolled past all of it. Exporting is the point of this
+    # page, so it is the first thing the results say.
+    #
+    # IT DOES NOT NEED DISABLING BEFORE A BUILD. This whole skeleton is hidden
+    # until a build has matched something, so the button cannot be seen until
+    # there is a report behind it - which is the same guarantee, without a
+    # disabled control sitting on the page inviting a click.
+    div(
+      class = "fw-plan__results-head",
+      h2(fw_t("plan", "r_heading")),
+      actionButton(ns("download_open"), fw_t("plan", "download_open"),
+                   class = "btn btn-primary fw-plan__download-open",
+                   icon = icon("download"))
+    ),
+    uiOutput(ns("summary")),
+
+    # THE ORDER, AND IT IS THE CLIENT'S. It used to be a pure funnel -
+    # general to specific, with the species photographs at the narrow end -
+    # and the objection was that the photographs were the one part of this
+    # report a reader recognises on sight and they were below the fold.
+    #
+    # So: WHAT, then WHERE, then WHAT HAPPENED, then HOW LONG, then IN WHAT
+    # KIND OF WATER, then WHO. The species lead because they are the thing a
+    # reader can identify with their own site; the map follows because it is
+    # the only view that says whether this evidence is anywhere near them
+    # before they read anything into it; the two outcome charts sit together
+    # because the second is the first broken down by method; and duration
+    # follows them because "how long" is the next question after "did it
+    # work", not a footnote after the waterbody pair.
+    #
+    # The species block is drawn by output$species; the reasoning for its
+    # layout is there.
+    uiOutput(ns("species")),
+
+    fw_block(
+      fw_t("plan", "r_map"), fw_t("plan", "r_map_note"),
+      tagList(
+        fw_map_output(ns("map")),
+        uiOutput(ns("map_missing"))
+      )
+    ),
+
+    fw_block(
+      fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
+      uiOutput(ns("outcome_bars"))
+    ),
+
+    # ABOVE THE WATERBODY PAIR, at the client's request. This is the
+    # Outcomes block broken down by method, so the two belong together: a
+    # reader who has just seen four outcome bars reads this as the same
+    # four bars split by what was tried, which is not what it looks like
+    # after two blocks about water in between.
+    fw_block(
+      fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
+      tagList(
+        # One chart, two questions. "Count" answers how much evidence stands
+        # behind a method; "share" answers how often it worked. Count leads,
+        # so nobody reads a share off three attempts as a success rate.
+        fw_mode_toggle(ns("method_mode"),
+                       fw_t("plan", "r_method_count"),
+                       fw_t("plan", "r_method_share")),
+        plotly::plotlyOutput(ns("methods"), height = "auto"),
+        uiOutput(ns("method_missing"))
+      )
+    ),
+
+    # ---- How long ---------------------------------------------------------
+    #
+    # STRAIGHT AFTER THE TWO OUTCOME CHARTS, at the client's request. It sat
+    # at the foot of the results, on the reasoning that it is about time
+    # rather than about the reader's situation and is drawn from less than
+    # the full selection. The client's answer is that "how long will this
+    # take" is the second question a planner asks after "does it work", and
+    # burying it under the waterbody charts answered it last.
+    #
+    # It still carries its caption saying how much of the selection it
+    # actually draws, which is the part that made it a narrow-end block.
+    #
+    # The cumulative chart used to sit beside it and is now on the dashboard
+    # (FW_COPY$explore$cumulative). It answers how the DATABASE has grown,
+    # which is not a question about the reader's situation at all, and on a
+    # narrow selection it was actively misleading.
+    fw_block(
+      fw_t("plan", "r_duration"), fw_t("plan", "r_duration_note"),
+      tagList(
+        plotly::plotlyOutput(ns("duration"), height = "auto"),
+        uiOutput(ns("duration_missing"))
+      )
+    ),
+
+    # ---- What kind of water -----------------------------------------------
+    #
+    # chart_ PREFIX, AND IT IS NOT DECORATION. Inputs and outputs share one
+    # DOM id space, and "waterbody" is already a filter's input id - so an
+    # output of that name renders a second element with the same id, the
+    # output binding attaches to the selectize control instead, and the
+    # chart silently never draws. Any chart named after the thing it plots
+    # has to clear the filter registry in R/filters.R first.
+    fw_block(
+      fw_t("plan", "r_waterbody"), fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
+      plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
+    ),
+
+    # Segmented by METHOD, not by outcome, and on its own colour scale. ITS
+    # OWN TOGGLE, because its denominator is different: a bar here is
+    # uses (one per attempt-method pair), not attempts, so the control
+    # says "uses" and switches this chart alone.
+    #
+    # DIRECTLY UNDER THE WATERBODY CHART it breaks down, which is the same
+    # pairing the two method charts above have.
+    fw_block(
+      fw_t("plan", "r_method_wb"), fw_t("plan", "r_method_wb_note"),
+      tagList(
+        fw_mode_toggle(ns("method_wb_mode"),
+                       fw_t("plan", "r_method_wb_count"),
+                       fw_t("plan", "r_method_wb_share")),
+        plotly::plotlyOutput(ns("chart_method_waterbody"), height = "auto")
+      )
+    ),
+
+    # THE TABLE OF MATCHING ATTEMPTS USED TO SIT HERE, and the client
+    # removed it. It was the same rows, in the same order, that the Explore
+    # page was showing on its own tab - and a reader who has just been given
+    # eight figures about a slice does not then read three hundred raw rows
+    # of it. Every record is still in the export, and the map above is still
+    # the way to open one.
+    #
+    # THE CONTACTS TABLE BELOW IS NOT THE SAME THING and stays: it is the
+    # one part of this page that tells a reader who to talk to rather than
+    # what happened, which is a stated year-one success measure.
+
+    # THE NETWORKING SIDE, at the point it is useful. A reader has just seen
+    # what was tried near them; who did it is the next question, and it is
+    # one of the client's stated year-one success measures. Reads only from
+    # fw_contacts_summary(), so a redacted address cannot reach this page.
+    fw_block(
+      fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note"),
+      tagList(
+        div(
+          class = "fw-table-toolbar",
+          div(
+            class = "fw-table-toolbar__size",
+            tags$label(class = "form-label", `for` = ns("contacts_size"),
+                       fw_t("plan", "r_contacts_size")),
+            selectInput(ns("contacts_size"), label = NULL,
+                        choices = FW_PLAN_CONTACTS_PAGE_SIZES,
+                        selected = FW_PLAN_CONTACTS_PAGE_SIZES[1],
+                        selectize = FALSE, width = "auto")
+          )
+        ),
+        div(class = "fw-table-scroll", uiOutput(ns("contacts_body"))),
+        uiOutput(ns("contacts_pager")),
+        p(tags$a(
+          href = "#",
+          onclick = "Shiny.setInputValue('fw_nav_to','networking',{priority:'event'}); return false;",
+          fw_t("plan", "r_contacts_all")
+        ))
       )
     )
   )
@@ -211,241 +399,119 @@ mod_plan_server <- function(id, data, meta = NULL) {
       session$sendCustomMessage("fw-announce", fw_fill(fw_t("plan", "built_announce"), n = fw_fmt_num(nrow(report()$sel))))
     })
 
-    output$results <- renderUI({
-      # NOTHING here before a build. The page's introduction moved into the page
-      # header, where a reader meets it before the controls rather than after
-      # them, so there is no longer a second block to show in the meantime.
+    # WHICH OF THE THREE STATES THE PAGE IS IN: nothing asked yet, asked and
+    # nothing matched, or results. The skeleton in fw_plan_results_ui() is
+    # shown only for the last, through a conditionalPanel that reads this.
+    # Never suspended - it is not drawn anywhere, and a suspended output would
+    # leave the panel's condition unanswered.
+    output$state <- renderText({
+      if (!built()) return("none")
+      if (nrow(report()$sel) == 0) "zero" else "results"
+    })
+    outputOptions(output, "state", suspendWhenHidden = FALSE)
+
+    # NOTHING here before a build. The page's introduction moved into the page
+    # header, where a reader meets it before the controls rather than after
+    # them, so there is no longer a second block to show in the meantime.
+    output$zero <- renderUI({
       if (!built()) return(NULL)
       r <- report()
+      if (nrow(r$sel) > 0) return(NULL)
+      fw_plan_zero_ui(fw_filter_zero_hints(data, r$filters))
+    })
 
-      if (nrow(r$sel) == 0) {
-        return(fw_plan_zero_ui(fw_filter_zero_hints(data, r$filters)))
-      }
+    # Everything below reads a report with at least one attempt in it. While
+    # the page is in either other state the skeleton is hidden and these are
+    # suspended, so the req() is for the moment the state changes.
+    results <- reactive({
+      req(built())
+      r <- report()
+      req(nrow(r$sel) > 0)
+      r
+    })
 
-      s <- fw_plan_summary(data, r$sel)
-      n_no_coords <- sum(is.na(r$sel$latitude) | is.na(r$sel$longitude))
-      n_no_method <- fw_n_no_method(data, r$sel)
-      # THE COUNT THE CHART ACTUALLY DRAWS, not the count with a duration. The
-      # chart drops attempts that used more than one method - see
-      # fw_duration_sel() - so counting duration alone here would promise the
-      # reader more points than they can see.
-      n_duration <- nrow(fw_duration_sel(data, r$sel))
+    # A count caption, or nothing when there is nothing to say.
+    caption <- function(key, n) {
+      if (n > 0) p(class = "fw-caption", fw_fill(fw_t("plan", key), n = fw_fmt_num(n)))
+    }
+
+    output$summary <- renderUI(fw_plan_summary_ui(fw_plan_summary(data, results()$sel)))
+
+    # ---- What these attempts were about -------------------------------------
+    #
+    # ONE BLOCK, TWO ROWS - the targeted species, then the ones that stood
+    # to gain, each row across the full width of the page with its tiles
+    # sharing that width equally. The two used to sit side by side, which
+    # at three tiles each left half-width photographs and dead space at
+    # the end of every row; the client asked for the width to be used.
+    # See .fw-plan__species-pair and .fw-species-tiles.
+    #
+    # THE HALF NOTES ARE GONE, and the beneficiary half used to keep one on
+    # the explicit reasoning that a warning about how thinly beneficiaries
+    # are recorded has to sit with the tiles it qualifies. The client has
+    # reversed that: three tiles under a heading under a note under a
+    # heading was more apparatus than the grids themselves. The warning now
+    # sits in the block note above both halves (r_species_pair_note), which
+    # is the one place left that says it - so that note is load-bearing, not
+    # an introduction that can be trimmed next.
+    output$species <- renderUI({
+      sel <- results()$sel
       # Whether the selection records any beneficiary at all. This used to be a
       # pair of counts feeding the two notes under the tile grids - "the five
       # named most often, of 212" - and the client removed the notes. The
       # beneficiary count survives them because the half itself is dropped when
       # it would be empty, which is a layout decision rather than a caption.
       n_beneficiary <- dplyr::n_distinct(
-        fw_species_rows(data, r$sel, "beneficiary")$species_id)
-
-      tagList(
-        # THE DOWNLOAD SITS AT THE TOP, beside the heading. It used to be the
-        # last thing on the page, below two tables, and the client's objection
-        # was that a reader had no way of knowing any of this was exportable
-        # until they had scrolled past all of it. Exporting is the point of this
-        # page, so it is the first thing the results say.
-        #
-        # IT DOES NOT NEED DISABLING BEFORE A BUILD. This whole block is inside
-        # `if (!built()) return(NULL)` above, so the button cannot exist until
-        # there is a report behind it - which is the same guarantee, without a
-        # disabled control sitting on the page inviting a click.
+        fw_species_rows(data, sel, "beneficiary")$species_id)
+      fw_block(
+        fw_t("plan", "r_species_pair"), fw_t("plan", "r_species_pair_note"),
         div(
-          class = "fw-plan__results-head",
-          h2(fw_t("plan", "r_heading")),
-          actionButton(ns("download_open"), fw_t("plan", "download_open"),
-                       class = "btn btn-primary fw-plan__download-open",
-                       icon = icon("download"))
-        ),
-        fw_plan_summary_ui(s),
-
-        # THE ORDER, AND IT IS THE CLIENT'S. It used to be a pure funnel -
-        # general to specific, with the species photographs at the narrow end -
-        # and the objection was that the photographs were the one part of this
-        # report a reader recognises on sight and they were below the fold.
-        #
-        # So: WHAT, then WHERE, then WHAT HAPPENED, then HOW LONG, then IN WHAT
-        # KIND OF WATER, then WHO. The species lead because they are the thing a
-        # reader can identify with their own site; the map follows because it is
-        # the only view that says whether this evidence is anywhere near them
-        # before they read anything into it; the two outcome charts sit together
-        # because the second is the first broken down by method; and duration
-        # follows them because "how long" is the next question after "did it
-        # work", not a footnote after the waterbody pair.
-
-        # ---- What these attempts were about -----------------------------------
-        #
-        # ONE BLOCK, TWO ROWS - the targeted species, then the ones that stood
-        # to gain, each row across the full width of the page with its tiles
-        # sharing that width equally. The two used to sit side by side, which
-        # at three tiles each left half-width photographs and dead space at
-        # the end of every row; the client asked for the width to be used.
-        # See .fw-plan__species-pair and .fw-species-tiles.
-        #
-        # THE HALF NOTES ARE GONE, and the beneficiary half used to keep one on
-        # the explicit reasoning that a warning about how thinly beneficiaries
-        # are recorded has to sit with the tiles it qualifies. The client has
-        # reversed that: three tiles under a heading under a note under a
-        # heading was more apparatus than the grids themselves. The warning now
-        # sits in the block note above both halves (r_species_pair_note), which
-        # is the one place left that says it - so that note is load-bearing, not
-        # an introduction that can be trimmed next.
-        fw_block(
-          fw_t("plan", "r_species_pair"), fw_t("plan", "r_species_pair_note"),
+          class = "fw-plan__species-pair",
           div(
-            class = "fw-plan__species-pair",
+            class = "fw-plan__species-half",
+            h4(fw_t("plan", "r_invasive")),
+            fw_species_tiles_ui(data, sel, "invasive", limit = FW_PLAN_SPECIES_N)
+          ),
+          # Dropped entirely rather than shown empty: the grid is two columns
+          # of 1fr, so the surviving half takes the full width on its own.
+          if (n_beneficiary > 0) {
             div(
               class = "fw-plan__species-half",
-              h4(fw_t("plan", "r_invasive")),
-              fw_species_tiles_ui(data, r$sel, "invasive",
-                                  limit = FW_PLAN_SPECIES_N)
-            ),
-            # Dropped entirely rather than shown empty: the grid is two columns
-            # of 1fr, so the surviving half takes the full width on its own.
-            if (n_beneficiary > 0) {
-              div(
-                class = "fw-plan__species-half",
-                h4(fw_t("plan", "r_beneficiary")),
-                fw_species_tiles_ui(data, r$sel, "beneficiary",
-                                    limit = FW_PLAN_SPECIES_N)
-              )
-            }
-          )
-        ),
-
-        fw_block(
-          fw_t("plan", "r_map"), fw_t("plan", "r_map_note"),
-          tagList(
-            fw_map_output(ns("map")),
-            if (n_no_coords > 0) {
-              p(class = "fw-caption",
-                fw_fill(fw_t("plan", "r_map_missing"), n = fw_fmt_num(n_no_coords)))
-            }
-          )
-        ),
-
-        fw_block(
-          fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
-          fw_outcome_bars_ui(r$sel)
-        ),
-
-        # ABOVE THE WATERBODY PAIR, at the client's request. This is the
-        # Outcomes block broken down by method, so the two belong together: a
-        # reader who has just seen four outcome bars reads this as the same
-        # four bars split by what was tried, which is not what it looks like
-        # after two blocks about water in between.
-        fw_block(
-          fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
-          tagList(
-            # One chart, two questions. "Count" answers how much evidence stands
-            # behind a method; "share" answers how often it worked. Count leads,
-            # so nobody reads a share off three attempts as a success rate.
-            fw_mode_toggle(ns("method_mode"),
-                           fw_t("plan", "r_method_count"),
-                           fw_t("plan", "r_method_share")),
-            plotly::plotlyOutput(ns("methods"), height = "auto"),
-            if (n_no_method > 0) {
-              p(class = "fw-caption",
-                fw_fill(fw_t("plan", "r_method_missing"), n = fw_fmt_num(n_no_method)))
-            }
-          )
-        ),
-
-        # ---- How long ---------------------------------------------------------
-        #
-        # STRAIGHT AFTER THE TWO OUTCOME CHARTS, at the client's request. It sat
-        # at the foot of the results, on the reasoning that it is about time
-        # rather than about the reader's situation and is drawn from less than
-        # the full selection. The client's answer is that "how long will this
-        # take" is the second question a planner asks after "does it work", and
-        # burying it under the waterbody charts answered it last.
-        #
-        # It still carries its caption saying how much of the selection it
-        # actually draws, which is the part that made it a narrow-end block.
-        #
-        # The cumulative chart used to sit beside it and is now on the dashboard
-        # (FW_COPY$explore$cumulative). It answers how the DATABASE has grown,
-        # which is not a question about the reader's situation at all, and on a
-        # narrow selection it was actively misleading.
-        fw_block(
-          fw_t("plan", "r_duration"), fw_t("plan", "r_duration_note"),
-          tagList(
-            plotly::plotlyOutput(ns("duration"), height = "auto"),
-            p(class = "fw-caption",
-              fw_fill(fw_t("plan", "r_duration_missing"), n = fw_fmt_num(n_duration)))
-          )
-        ),
-
-        # ---- What kind of water -----------------------------------------------
-        #
-        # chart_ PREFIX, AND IT IS NOT DECORATION. Inputs and outputs share one
-        # DOM id space, and "waterbody" is already a filter's input id - so an
-        # output of that name renders a second element with the same id, the
-        # output binding attaches to the selectize control instead, and the
-        # chart silently never draws. Any chart named after the thing it plots
-        # has to clear the filter registry in R/filters.R first.
-        fw_block(
-          fw_t("plan", "r_waterbody"), fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
-          plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
-        ),
-
-        # Segmented by METHOD, not by outcome, and on its own colour scale. ITS
-        # OWN TOGGLE, because its denominator is different: a bar here is
-        # uses (one per attempt-method pair), not attempts, so the control
-        # says "uses" and switches this chart alone.
-        #
-        # DIRECTLY UNDER THE WATERBODY CHART it breaks down, which is the same
-        # pairing the two method charts above have.
-        fw_block(
-          fw_t("plan", "r_method_wb"), fw_t("plan", "r_method_wb_note"),
-          tagList(
-            fw_mode_toggle(ns("method_wb_mode"),
-                           fw_t("plan", "r_method_wb_count"),
-                           fw_t("plan", "r_method_wb_share")),
-            plotly::plotlyOutput(ns("chart_method_waterbody"), height = "auto")
-          )
-        ),
-
-        # THE TABLE OF MATCHING ATTEMPTS USED TO SIT HERE, and the client
-        # removed it. It was the same rows, in the same order, that the Explore
-        # page was showing on its own tab - and a reader who has just been given
-        # eight figures about a slice does not then read three hundred raw rows
-        # of it. Every record is still in the export, and the map above is still
-        # the way to open one.
-        #
-        # THE CONTACTS TABLE BELOW IS NOT THE SAME THING and stays: it is the
-        # one part of this page that tells a reader who to talk to rather than
-        # what happened, which is a stated year-one success measure.
-
-        # THE NETWORKING SIDE, at the point it is useful. A reader has just seen
-        # what was tried near them; who did it is the next question, and it is
-        # one of the client's stated year-one success measures. Reads only from
-        # fw_contacts_summary(), so a redacted address cannot reach this page.
-        fw_block(
-          fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note"),
-          tagList(
-            # Page size in static UI, same reason as the table above.
-            div(
-              class = "fw-table-toolbar",
-              div(
-                class = "fw-table-toolbar__size",
-                tags$label(class = "form-label", `for` = ns("contacts_size"),
-                           fw_t("plan", "r_contacts_size")),
-                selectInput(ns("contacts_size"), label = NULL,
-                            choices = FW_PLAN_CONTACTS_PAGE_SIZES,
-                            selected = FW_PLAN_CONTACTS_PAGE_SIZES[1],
-                            selectize = FALSE, width = "auto")
-              )
-            ),
-            div(class = "fw-table-scroll", uiOutput(ns("contacts_body"))),
-            uiOutput(ns("contacts_pager")),
-            p(tags$a(
-              href = "#",
-              onclick = "Shiny.setInputValue('fw_nav_to','networking',{priority:'event'}); return false;",
-              fw_t("plan", "r_contacts_all")
-            ))
-          )
-        ),
+              h4(fw_t("plan", "r_beneficiary")),
+              fw_species_tiles_ui(data, sel, "beneficiary", limit = FW_PLAN_SPECIES_N)
+            )
+          }
+        )
       )
+    })
+
+    output$outcome_bars <- renderUI(fw_outcome_bars_ui(results()$sel))
+
+    output$map_missing <- renderUI({
+      sel <- results()$sel
+      caption("r_map_missing", sum(is.na(sel$latitude) | is.na(sel$longitude)))
+    })
+    output$method_missing <- renderUI(
+      caption("r_method_missing", fw_n_no_method(data, results()$sel)))
+    # THE COUNT THE CHART ACTUALLY DRAWS, not the count with a duration. The
+    # chart drops attempts that used more than one method - see
+    # fw_duration_sel() - so counting duration alone here would promise the
+    # reader more points than they can see. Shown even at zero, as it always
+    # was: "drawn from 0 attempts" explains an empty chart.
+    output$duration_missing <- renderUI(p(
+      class = "fw-caption",
+      fw_fill(fw_t("plan", "r_duration_missing"),
+              n = fw_fmt_num(nrow(fw_duration_sel(data, results()$sel))))))
+
+    # COUNT LEADS ON EVERY BUILD. The toggles used to be redrawn with the
+    # results, which put them back to count each time; now that they persist,
+    # a build does that explicitly. See fw_mode_toggle().
+    observeEvent(input$build, {
+      for (id in c("method_mode", "method_wb_mode")) {
+        if (!identical(input[[id]] %||% "count", "count")) {
+          updateRadioButtons(session, id, selected = "count")
+        }
+      }
     })
 
     # ---- The download picker, in an overlay ---------------------------------
@@ -480,35 +546,72 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # download still happens; this only closes the box behind it.
     observeEvent(input$download_taken, removeModal())
 
+    # ---- The map: drawn once, markers swapped -------------------------------
+    #
+    # THE SAME PATTERN AS THE EXPLORE PAGE, and the reasoning is at its copy in
+    # mod_explore.R. It used to be rebuilt whole on every Build - tiles, legend,
+    # card script and markers - which was slow and, inside the old renderUI,
+    # sometimes left the map grey.
+    #
     # detail = "lazy": the map carries the hover card for every marker and
-    # fetches the full record when one is clicked, which is what keeps a
-    # 900-marker build to a fraction of the payload. See fw_add_attempt_markers().
+    # fetches the full record when one is clicked. The photograph dictionary is
+    # the whole database's, so any selection the proxy draws is covered by it.
+    #
+    # The widget is first drawn when the results are first shown - it is
+    # suspended while the skeleton is hidden - so it opens at the right size.
     output$map <- leaflet::renderLeaflet({
-      req(built())
-      fw_plan_map(data, report()$sel, detail = "lazy", detail_input = ns("map_detail"))
+      leaflet::leaflet(options = leaflet::leafletOptions(worldCopyJump = TRUE)) |>
+        fw_add_basemaps() |>
+        fw_add_outcome_legend() |>
+        leaflet::setView(FW_MAP$empty_view$lng, FW_MAP$empty_view$lat,
+                         zoom = FW_MAP$empty_view$zoom) |>
+        fw_map_card_render(ns("map_detail"), fw_map_thumbs_all(data))
     })
-    fw_map_detail_server(input, session, "map_detail", data, reactive(report()$sel))
+
+    # Waits for the widget, and skips a redraw of what is already there. See
+    # the same three pieces in mod_explore.R.
+    map_ready <- reactiveVal(FALSE)
+    observeEvent(input$map_bounds, map_ready(TRUE))
+    drawn <- NULL
+    observe({
+      req(map_ready())
+      s <- results()$sel
+      if (isTRUE(session$clientData[[paste0("output_", ns("map"), "_hidden")]])) return()
+      key <- s$attempt_id
+      if (identical(key, drawn)) return()
+      drawn <<- key
+
+      pts <- fw_map_points(data, s)
+      proxy <- leaflet::leafletProxy("map", session = session) |>
+        leaflet::clearMarkerClusters()
+      if (!nrow(pts)) {
+        v <- FW_MAP$empty_view
+        leaflet::setView(proxy, v$lng, v$lat, zoom = v$zoom)
+        return()
+      }
+      fw_add_marker_layer(proxy, data, pts, detail = "lazy",
+                          thumbs = fw_map_thumbs_all(data))
+    })
+    fw_map_detail_server(input, session, "map_detail", data, reactive(results()$sel))
 
     # The mode toggle is the ONE control that redraws without a rebuild. It does
     # not change the selection, only how the same numbers are drawn, so it does
     # not undermine the deliberate build step above.
     output$methods <- plotly::renderPlotly({
-      req(built())
       fw_chart_or_empty(
-        fw_chart_method(data, report()$sel, mode = input$method_mode %||% "count"))
+        fw_chart_method(data, results()$sel, mode = input$method_mode %||% "count"))
     })
     # Its own toggle, same reason: it redraws the same numbers a different way
     # and does not change the selection.
     output$chart_method_waterbody <- plotly::renderPlotly({
-      req(built())
       fw_chart_or_empty(
-        fw_chart_method_waterbody(data, report()$sel,
+        fw_chart_method_waterbody(data, results()$sel,
                                   mode = input$method_wb_mode %||% "count"))
     })
-    output$chart_waterbody <- plotly::renderPlotly({
-      req(built()); fw_chart_or_empty(fw_chart_waterbody(report()$sel)) })
-    output$duration   <- plotly::renderPlotly({
-      req(built()); fw_chart_or_empty(fw_chart_duration(data, report()$sel)) })
+    output$chart_waterbody <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_waterbody(results()$sel)))
+    output$duration <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_duration(data, results()$sel)))
 
     # THE RESULTS TABLE'S PAGING WENT WITH THE TABLE. It owned its page number
     # as server state rather than reading it back off the buttons, because
@@ -522,10 +625,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # Reads fw_contacts_summary() ONLY. Redaction happens inside that function
     # and nowhere downstream, so there is no code path here that can see an
     # address a contact asked to keep private.
-    contacts <- reactive({
-      req(built())
-      fw_plan_contacts(data, report()$sel)
-    })
+    contacts <- reactive(fw_plan_contacts(data, results()$sel))
 
     contacts_per_page <- reactive(
       as.integer(input$contacts_size %||% FW_PLAN_CONTACTS_PAGE_SIZES[1]))

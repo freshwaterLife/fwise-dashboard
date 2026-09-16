@@ -215,19 +215,33 @@ ok("no underscore-nested taxa",
 ok("contributor notes are not exported", "notes_for_fwise" %in% names(full), FALSE)
 
 cat("\n-- the build gate and the three states --\n")
+# THE RESULTS ARE A STATIC SKELETON now, shown by a conditionalPanel that reads
+# output$state, with small HTML-only uiOutputs for what varies. The charts and
+# the map used to sit inside one renderUI rebuilt on every Build, and some of
+# them kept the previous selection's figures - see fw_plan_results_ui().
+#
 # THE EMPTY STATE IS EMPTY. The page's introduction lives in the page header,
-# so before a build the results output renders nothing at all - not a prompt.
+# so before a build nothing renders at all - not a prompt.
 is_empty <- function(x) is.null(x) || !nzchar(trimws(paste(strip(x), collapse = "")))
+skeleton <- as.character(fw_plan_results_ui(NS("plan")))
+# What a reader sees in the results state: the skeleton plus what fills it.
+shown <- function(output) {
+  paste(strip(list(html = skeleton)), strip(output$summary), strip(output$species),
+        strip(output$outcome_bars))
+}
 testServer(mod_plan_server, args = list(data = d, meta = m), {
-  ok("state 1: empty before any build", is_empty(output$results), TRUE)
+  ok("state 1: nothing asked yet", output$state, "none")
+  ok("state 1: empty before any build", is_empty(output$zero), TRUE)
 
   # THE GATE. Results must not appear just because a filter moved.
   session$setInputs(country = "Norway", years = c(1934, 2025), include_no_year = TRUE)
-  ok("changing a filter does not render results", is_empty(output$results), TRUE)
+  ok("changing a filter does not render results", output$state, "none")
 
   session$setInputs(build = 1)
-  h <- strip(output$results)
-  ok("state 3: results render on build",
+  ok("state 3: results render on build", output$state, "results")
+  ok("and the zero message does not", is_empty(output$zero), TRUE)
+  h <- shown(output)
+  ok("the results heading is there",
      grepl("What the matching attempts show", h), TRUE)
   ok("all four outcomes stay visible",
      all(vapply(c("Successful", "Failed", "Ongoing", "Unknown"), grepl, logical(1), h)), TRUE)
@@ -242,8 +256,38 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("export matches the selection",
      nrow(report()$export), nrow(report()$sel))
 
-  session$setInputs(taxa = "Turtle", build = 2)
-  h <- strip(output$results)
+  # A REBUILD REDRAWS EVERY FIGURE. The reported bug: after changing country,
+  # some charts still showed the last country. Each figure's data is compared
+  # with the same figure computed independently for the new selection.
+  chart_x <- function(json) {
+    j <- jsonlite::fromJSON(json, simplifyVector = FALSE)
+    as.character(unlist(lapply(j$x$data, function(t) t$x)))
+  }
+  expect_x <- function(p) {
+    b <- plotly::plotly_build(p)
+    as.character(unlist(lapply(b$x$data, function(t) t$x)))
+  }
+  for (cc in c("Italy", "Sweden", "Norway")) {
+    session$setInputs(country = cc, build = input$build + 1)
+    # The selection recomputed from the recorded filters, not read back off
+    # report(), and it has to be this country and nothing else.
+    s <- fw_filter_apply(d, report()$filters)
+    ok(paste0(cc, ": the build is of ", cc),
+       nrow(s) > 0 && all(s$country == cc) &&
+         setequal(report()$sel$attempt_id, s$attempt_id))
+    ok(paste0(cc, ": method chart redrawn"),
+       identical(chart_x(output$methods), expect_x(fw_chart_method(d, s, mode = "count"))))
+    ok(paste0(cc, ": waterbody chart redrawn"),
+       identical(chart_x(output$chart_waterbody), expect_x(fw_chart_waterbody(s))))
+    ok(paste0(cc, ": duration chart redrawn"),
+       identical(chart_x(output$duration), expect_x(fw_chart_duration(d, s))))
+    ok(paste0(cc, ": summary counts the new selection"),
+       grepl(fw_fmt_num(nrow(s)), strip(output$summary), fixed = TRUE))
+  }
+
+  session$setInputs(taxa = "Turtle", build = input$build + 1)
+  ok("state 2: nothing matched", output$state, "zero")
+  h <- strip(output$zero)
   ok("state 2: zero result says so plainly",
      grepl("No attempts match those filters", h), TRUE)
   ok("and names a filter to relax", grepl("Try relaxing one of these first", h), TRUE)
@@ -255,19 +299,20 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # ONE HANDLER AND A PICKER. The methods-and-caveats text is NOT one of the
   # choices: it travels whatever else is ticked, which is the whole reason the
   # panel could move off the page without the qualifications going with it.
-  session$setInputs(taxa = character(0), build = 3)
+  session$setInputs(taxa = character(0), build = input$build + 1)
+  ok("back from zero to results", output$state, "results")
 
   # ---- Where the download lives now ---------------------------------------
   #
   # AT THE TOP, AND IN AN OVERLAY. It used to be a block at the foot of the
   # page, below two tables; the client's objection was that a reader could not
   # tell any of this was exportable without scrolling past all of it.
-  head_html <- as.character(output$results$html)
+  head_html <- skeleton
   ok("the download button is in the results head",
      grepl("fw-plan__download-open", head_html, fixed = TRUE))
   # Ahead of the summary strip, which is the first thing under the heading.
-  ok("and it comes before the summary strip",
-     regexpr("download_open", head_html) < regexpr("fw-summary-strip", head_html))
+  ok("and it comes before the summary",
+     regexpr("download_open", head_html) < regexpr("plan-summary", head_html))
   # EXACTLY ONE PICKER EXISTS AT A TIME. Every input in this module shares one
   # DOM id space, so a copy on the page AND a copy in the modal would put two
   # controls called download_parts in the document and the handler would read
@@ -279,6 +324,20 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
      grepl("table_body", head_html, fixed = TRUE), FALSE)
   ok("the contacts table is still there",
      grepl("contacts_body", head_html, fixed = TRUE))
+  # THE FIGURES ARE IN THE SKELETON, and nothing that renders HTML for the
+  # results carries an output of its own - that nesting was the bug.
+  ok("every figure is a static output",
+     all(vapply(c("plan-map", "plan-methods", "plan-duration", "plan-chart_waterbody",
+                  "plan-chart_method_waterbody"),
+                function(id) grepl(sprintf('id="%s"', id), head_html, fixed = TRUE),
+                logical(1))))
+  ok("no output nested in a results renderUI",
+     any(vapply(list(output$summary, output$species, output$outcome_bars,
+                     output$map_missing, output$method_missing,
+                     output$duration_missing, output$zero),
+                function(x) grepl("shiny-(html|text|plot)-output|html-widget-output",
+                                  as.character(x$html %||% "")),
+                logical(1))), FALSE)
   unzip_names <- function(p) utils::unzip(p, list = TRUE)$Name
 
   session$setInputs(download_parts = c("xlsx", "html"))
