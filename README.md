@@ -518,9 +518,10 @@ the difference is what a chart *is* in each format.
   standing in for it. Here the real map is in the document, with the country
   table kept beside it for print and for readers with no connection.
 - **The page's own components.** The summary strip, the outcome bars, the
-  attempts table and the caveats panel are the *same functions* the page
-  renders (`fw_plan_summary_ui()`, `fw_outcome_bars_ui()`, `fw_plan_table()`,
-  `fw_plan_caveats_ui()`), under the *same compiled stylesheet*
+  contacts table and the caveats panel are the *same functions* the page
+  renders (`fw_plan_summary_ui()`, `fw_outcome_bars_ui()`,
+  `fw_plan_contacts_ui()`, `fw_plan_caveats_ui()`), under the *same compiled
+  stylesheet*
   (`fw_html_app_css()` runs the same `main.scss` the app serves). Nothing is
   translated into Word table primitives, so the report cannot drift away from
   the screen, and a component restyled in `_components.scss` is restyled in
@@ -760,9 +761,10 @@ a client instruction, and holding it took three things:
 Plotly takes pixels rather than rem, so `FW_TYPE$floor_px` is 16 and
 `uniformtext` is `minsize = FW_TYPE$floor_px, mode = "hide"` - a segment too
 narrow for the floor shows no number rather than an unreadable one, and the
-hover still carries it. That applies to the **stacked bars**; the dashboard's
-donut prints nothing on its ring at all, at the client's request, so it needs
-no `uniformtext` - see `fw_chart_donut()`.
+hover still carries it. That applies to every **stacked bar** in the app, which
+is now all of them: both proportion donuts were removed at the client's request
+(the outcome ring first, the method ring in September 2026), so there is no
+longer a chart that opts out of `uniformtext`.
 
 **The one exemption is pop-ups**, granted explicitly by the client: the
 information popovers behind the (i) glyphs and the map popup may sit under the

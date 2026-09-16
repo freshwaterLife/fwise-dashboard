@@ -72,6 +72,14 @@ FW_METHODS <- data.frame(
   stringsAsFactors = FALSE
 )
 
+# The two methods that are not methods. "Other chemical" and "Other mechanical"
+# are the remainder of the list rather than a treatment anyone chose, so every
+# chart that ranks methods pins these to the bottom whatever their counts - the
+# client's standard, and the same rule fw_chart_category() applies to its own
+# "Other" bar. Held as ids, not names: renaming either above must not quietly
+# unpin it. See fw_chart_method() in charts.R.
+FW_METHOD_OTHER <- c("ME05", "ME06")
+
 # ---- Environment -------------------------------------------------------------
 
 # Small helper so a missing or empty environment variable behaves the same way.
@@ -232,15 +240,42 @@ FW_COORD_DP <- 6
 # this as well, so changing it here changes the sentence under the chart.
 FW_TOP_N <- 10L
 
+# ---- Logo files ---------------------------------------------------------------
+#
+# THE MARK IS FWISE-SIMPLE NOW, at the client's request, and it replaced both the
+# badge in the navbar and the full FWISE-LOGO-ALL-6 lockup everywhere else - the
+# lockup files are no longer in www/img. The report and the Word question list
+# both skip a logo that is not there rather than failing, so while they still
+# named the lockup they were quietly printing with no mark at all.
+#
+# DOWNSCALED COPIES, NEVER THE ORIGINALS. FWISE-SIMPLE.png and FWISE-BADGE.png
+# are 8334px client assets and are not to be edited or regenerated; the -600,
+# -1200 and -256 files are copies made beside them (sips -Z) so a page does not
+# pull a megabyte to draw a mark a few hundred pixels wide.
+#
+# `_web` paths are what the browser asks for (Shiny serves www/ at the root);
+# `_file` paths are read from disk by R, for the documents that embed the mark.
+# The badge is still in use - it is the loader and the busy spinner, where a
+# square mark turns on its own centre and a wordmark would not.
+FW_LOGO <- list(
+  mark_web   = "img/FWISE-SIMPLE-600.png",
+  mark_file  = "www/img/FWISE-SIMPLE-1200.png",
+  badge_web  = "img/FWISE-BADGE-256.png"
+)
+
 # The species photo grids on the report builder, which show FEWER than FW_TOP_N.
 # A tile is a photograph the size of a playing card, so ten of them ran to two
-# full rows and pushed the rest of the report below the fold; five is one row and
-# is the client's decision. The charts that rank into a top-n-plus-Other still use
-# FW_TOP_N - a bar costs a line, not a photograph.
+# full rows and pushed the rest of the report below the fold. It was five, and
+# the client has since cut it to three. Each role is now one full-width row and
+# the tiles split that width between them (see .fw-species-tiles), so this
+# number is also the number of columns - three is what keeps each photograph
+# large enough to recognise the animal without the row running on. The charts that rank into a top-n-plus-Other still
+# use FW_TOP_N - a bar costs a line, not a photograph.
 #
-# The copy that says "five" in words is filled from this too, so the note under
-# the grid cannot promise a different number from the one shown.
-FW_PLAN_SPECIES_N <- 5L
+# NOTHING IN THE COPY COUNTS THIS OUT IN WORDS ANY MORE. The notes under the two
+# grids used to be filled from it; they are gone, so this number can move again
+# without a sentence to keep in step with it.
+FW_PLAN_SPECIES_N <- 3L
 
 # The country table in the HTML report. Longer than FW_TOP_N because a printed
 # list is scanned rather than read off a bar.
@@ -255,7 +290,19 @@ FW_HTML_TABLE_ROWS <- Inf
 # report builder is read a screen at a time, so it starts smaller than the
 # contacts directory.
 FW_PLAN_PAGE_SIZES     <- c(10L, 20L, 50L, 100L)
+
+# THE CONTACTS DIRECTORY on the Networking page. That page IS the directory, so
+# a reader arrives there to browse a list and 25 rows is a list; ten would be a
+# pager with a table attached.
 FW_CONTACTS_PAGE_SIZES <- c(25L, 50L, 100L)
+
+# THE CONTACTS BLOCK ON THE REPORT BUILDER, which is a different question and
+# now has its own sizes rather than borrowing the directory's. It is the eighth
+# block of a long report and the reader is still reading about their own
+# situation, so it opens at ten - a glance at who is worth writing to, with the
+# pager and the "see every contact" link below for anyone who wants the rest.
+# The client asked for ten specifically.
+FW_PLAN_CONTACTS_PAGE_SIZES <- c(10L, 25L, 50L, 100L)
 
 # The years a contributor may enter. Nothing before FW_YEAR_MIN is plausible,
 # and an end year may run this many years past today for planned work.
@@ -368,6 +415,19 @@ FW_CHART <- list(
   # The named ticks on the duration chart's log axis, in days. The labels are
   # fw_t("charts", "duration_ticks") and must stay the same length.
   duration_ticks = c(1, 7, 30, 365, 1825, 3650),
+  # The weight of the dotted unit-break gridlines on that axis, in px. See the
+  # xaxis comment in fw_chart_duration() for why a dotted line needs this much.
+  duration_grid = 2,
+  # duration_bands AND duration_band_alpha USED TO SIT HERE - the edges and the
+  # tint of the shaded magnitude bands behind the duration chart. The client
+  # replaced them with a dotted gridline on each unit break, which the axis
+  # draws from duration_ticks above, so neither has a reader any more.
+  # The breathing room either side of the duration chart's data, as a fraction
+  # of the span it covers, with a floor in log10 units for a selection that
+  # spans almost nothing. See fw_duration_range() - this axis sets its own
+  # bounds because plotly's autorange for a box trace on a log scale does not.
+  duration_pad = 0.04,
+  duration_pad_min = 0.05,
   # The dots on the duration chart, and the box under them.
   point    = list(size = 7, opacity = 0.75, stroke = 1),
   box_line = 1.5,

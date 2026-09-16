@@ -217,5 +217,11 @@ body { margin: 0; }
   .js-plotly-plot, .plot-container, .svg-container { max-width: 100% !important; }
   .main-svg { max-width: 100% !important; height: auto !important; }
 
+  // The download button, which is now on screen at all times rather than on
+  // hover (displayModeBar = TRUE in fw_plotly_style()). On paper it is a camera
+  // icon in a box offering to save a file, which is nothing on a printed page -
+  // so it comes off, the way the report's own toolbar does.
+  .modebar, .modebar-container { display: none !important; }
+
   a { text-decoration: none; color: inherit; }
 }

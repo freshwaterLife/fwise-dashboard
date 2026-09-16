@@ -138,6 +138,20 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
            b = 52)
     },
     hoverlabel = list(font = fw_plot_font()),
+    # THE CAMERA ICON'S COLOUR HAS TO BE SET HERE, and a CSS rule will not do
+    # it. plotly picks the modebar's colour from paper_bgcolor, and ours is
+    # transparent (FW_TRANSPARENT) - which it reads as a dark ground and answers
+    # with a near-white icon at 30% opacity. On our light surface that is an
+    # empty white pill with nothing visible in it, which is what the client was
+    # looking at when they reported the download button as not visible. The
+    # colour is written onto the path as an inline attribute, so it beats
+    # anything .modebar-btn can say from the stylesheet - hence the colours live
+    # here and _components.scss only gives the bar its surface.
+    modebar = list(
+      bgcolor = FW_TRANSPARENT,
+      color = FW_COLOURS$ink_muted,
+      activecolor = FW_COLOURS$teal_text
+    ),
     showlegend = legend,
     # traceorder IS NOT REDUNDANT. plotly.js flips its default to "reversed" as
     # soon as a chart has stacked bars or a filled area, which is every chart
@@ -163,7 +177,8 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
     #
     # This travels into the downloaded HTML report too - the report embeds these
     # same widgets (see fw_html_figure() in R/report_html.R) - so its charts
-    # become saveable as well. _report_frame.scss hides the bar when printing.
+    # become saveable as well. The print block in _report_frame.scss takes the
+    # bar off the page, which matters more now that it is always on screen.
     plotly::config(
       responsive = TRUE,
       displaylogo = FALSE,
@@ -178,6 +193,15 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
       # The nesting is plotly's: the outer list is groups, the inner is the
       # buttons in a group. One of each.
       modeBarButtons = list(list("toImage")),
+      # ALWAYS ON, NOT ON HOVER. plotly's default is displayModeBar = "hover",
+      # which fades the one button we keep to nothing until the pointer is over
+      # the chart - so on a page of charts the way to save a PNG was invisible
+      # until you happened to find it, and on touch there is no hover to find it
+      # with. The client reported the button as not visible enough; this is the
+      # half of the fix that makes it present at all. The rest of it - a surface
+      # and a border, so it reads as a control over a transparent chart - is in
+      # .modebar-group in _components.scss.
+      displayModeBar = TRUE,
       toImageButtonOptions = list(format = "png", scale = 2,
                                   filename = filename)
     )
@@ -292,126 +316,31 @@ fw_chart_cumulative <- function(sel) {
     )
 }
 
-# ---- The proportion donut ----------------------------------------------------
-
-#' A proportion donut
-#'
-#' ON THE DASHBOARD ONLY. The report builder answers "how much evidence is
-#' there" and leads with counts; the dashboard answers "what is in here" and a
-#' share is the honest answer to that. This is the one place in the app a
-#' percentage leads, and it earns that by never appearing without the number
-#' behind it: the denominator sits in the hole, which is what makes this a donut
-#' rather than a pie, and every slice carries its own count, share and
-#' denominator in the hover.
-#'
-#' NOTHING IS PRINTED ON THE RING ITSELF, at the client's request. It used to
-#' print "n  p%" inside any slice holding at least FW_CHART$label_min_share of
-#' the circle, which meant the big slices were labelled, the small ones were
-#' not, and the ring read as though the labelled ones were the answer. The
-#' numbers did not go anywhere - they are in the hover, which is where the
-#' narrow slices always kept them - so this removes an inconsistency rather than
-#' information.
-#'
-#' THE NUMBER IN THE HOLE STAYS. That is not a label, it is the denominator,
-#' and it is the whole reason this is a ring with a hole in it. A percentage
-#' with no visible n behind it is the thing this file exists to avoid.
-#'
-#' Colour is decoration here as everywhere else - the key is text.
-#'
-#' @param d a data frame of `label` and `n`, in the order the slices go round
-#' @param colours fill per label
-#' @param centre_label what the number in the hole counts
-#' @param filename what a PNG export of this donut is called
-fw_chart_donut <- function(d, colours, centre_label,
-                           filename = "fwise-donut") {
-  d <- d[!is.na(d$n) & d$n > 0, , drop = FALSE]
-  if (!nrow(d)) return(NULL)
-  total <- sum(d$n)
-  font <- fw_plot_font()
-
-  # fw_fmt_num() formats ONE number - it reports an empty value for NA and so
-  # cannot be handed a vector. Everything here is per slice.
-  n_text <- vapply(d$n, fw_fmt_num, character(1))
-
-  plotly::plot_ly(height = FW_CHART$height$donut) |>
-    plotly::add_trace(
-      type = "pie", hole = FW_CHART$donut_hole,
-      # THE RING TAKES THE LEFT, THE KEY TAKES THE REST. plotly reserves margin
-      # for a legend outside the paper but not for one inside it at x > 1, so
-      # the room has to be made here - without this the key is drawn over the
-      # right-hand slices. The two numbers are one decision and live together in
-      # FW_CHART.
-      domain = list(x = c(0, FW_CHART$donut_domain_x)),
-      labels = d$label, values = d$n, sort = FALSE, direction = "clockwise",
-      # NOTHING ON THE RING. See the note above - the counts and shares are in
-      # the hover and the key, and the denominator is in the hole.
-      textinfo = "none",
-      marker = list(colors = unname(colours[d$label]),
-                    line = list(color = FW_COLOURS$surface,
-                                width = FW_CHART$separator_method)),
-      customdata = paste0(n_text, fw_t("charts", "hover_of"), fw_fmt_num(total)),
-      hovertemplate = "%{label}<br>%{customdata} (%{percent})<extra></extra>"
-    ) |>
-    fw_plotly_style(legend_labels = d$label, legend_side = "right",
-                    filename = filename) |>
-    plotly::layout(
-      annotations = list(list(
-        # Centred on THE RING, not on the paper. The pie no longer fills the
-        # width, so a label at x = 0.5 of the paper would sit off to the right
-        # of the hole it is supposed to be inside.
-        text = paste0("<b>", fw_fmt_num(total), "</b><br>", centre_label),
-        showarrow = FALSE, x = FW_CHART$donut_domain_x / 2, y = 0.5,
-        xref = "paper", yref = "paper",
-        font = list(family = font$family, size = font$size, color = font$color)
-      ))
-    )
-}
-
-# THE OUTCOME DONUT USED TO LIVE HERE, beside this one - "what came of these
-# attempts", one slice per level of FW_OUTCOME_LEVELS over a denominator of
-# attempts. The client removed it: the outcome split is already the segmentation
-# of every stacked bar in the app and the colour of every marker on the map, so
-# the ring was a fourth telling of it and the one that carried the least. Its
-# counts are not lost - fw_outcome_counts() still feeds the report builder's
-# summary (R/mod_plan_results.R) and the dashboard's own summary strip.
+# ---- The proportion donuts, both of which are gone ---------------------------
 #
-# Nothing needs to come back here to restore it: fw_chart_donut() below is
-# generic, so it is a data.frame of label and n away.
-
-#' Method as a share of USES, not of attempts
-#'
-#' THE DENOMINATOR IS USES, NOT ATTEMPTS, and that is not a detail. Many
-#' attempts used more than one method, so these slices sum to the number of
-#' attempt-method pairs, which is larger than the number of attempts. The hole
-#' says "uses" for that reason, and the note above the chart says it again -
-#' this is the same distinction fw_chart_method_waterbody() makes.
-#'
-#' distinct() first, so an attempt that lists a method twice counts once.
-fw_chart_method_donut <- function(data, sel) {
-  me <- data$attempt_method |>
-    filter(attempt_id %in% sel$attempt_id) |>
-    distinct(attempt_id, method_id) |>
-    count(method_id, name = "n")
-  if (!nrow(me)) return(NULL)
-
-  # Palette order, not frequency order: the fills are arranged so that touching
-  # segments separate under colour-vision deficiency, and going round the ring
-  # in that order keeps the property. See FW_METHOD_COLOURS in config.R.
-  ids <- intersect(names(FW_METHOD_COLOURS), me$method_id)
-  me <- me[match(ids, me$method_id), ]
-  names <- data$method$method_name[match(me$method_id, data$method$method_id)]
-
-  # Keyed by NAME for the chart, by id for the colours, because a renamed method
-  # must not silently re-colour the ring.
-  colours <- stats::setNames(unname(FW_METHOD_COLOURS[me$method_id]), names)
-
-  fw_chart_donut(
-    data.frame(label = names, n = me$n, stringsAsFactors = FALSE),
-    colours = colours,
-    centre_label = fw_t("charts", "donut_uses"),
-    filename = "fwise-methods-share-of-uses"
-  )
-}
+# THERE WERE TWO RINGS HERE and the client removed them one at a time.
+#
+# The outcome donut went first - "what came of these attempts", one slice per
+# level of FW_OUTCOME_LEVELS. The outcome split is already the segmentation of
+# every stacked bar in the app and the colour of every marker on the map, so the
+# ring was a fourth telling of it and the one that carried the least.
+#
+# The method donut followed, for the same reason and with the same argument made
+# out loud: the stacked bars of outcome-by-method say everything the ring said
+# about the method mix AND say what happened to each method, so the ring was the
+# weaker of two tellings. fw_chart_method() is what the dashboard draws in its
+# place.
+#
+# WHAT THE METHOD RING COUNTED IS NOT WHAT REPLACED IT COUNTS. The ring's
+# denominator was USES - an attempt using three methods put three slices on it -
+# and fw_chart_method() counts ATTEMPTS, once under each of its methods. The
+# totals differ, the copy under the chart says which is which, and anyone
+# comparing a screenshot of the old ring to the new bars needs to know that.
+#
+# None of the counts are lost: fw_outcome_counts() still feeds the report
+# builder's summary (R/mod_plan_results.R) and the dashboard's summary strip.
+# fw_chart_donut() was generic - a data.frame of label and n - so if a ring is
+# ever wanted again it is a small function, not a recovery job.
 
 # ---- Outcome by method -------------------------------------------------------
 
@@ -437,12 +366,26 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
   me <- data$attempt_method |>
     filter(attempt_id %in% sel$attempt_id) |>
     left_join(select(data$method, method_id, method_name), by = "method_id") |>
-    distinct(attempt_id, method_name) |>
+    distinct(attempt_id, method_name, method_id) |>
     left_join(select(sel, attempt_id, outcome), by = "attempt_id") |>
     mutate(outcome = ifelse(is.na(outcome), "Unknown", outcome))
   if (nrow(me) == 0) return(NULL)
 
-  totals <- me |> count(method_name, name = "total") |> arrange(total)
+  # THE TWO "OTHER" METHODS SIT AT THE BOTTOM, whatever their counts. This is
+  # the client's standard and it is the same rule fw_chart_category() applies to
+  # its own "Other" bar: an "other" bucket is not a method, it is the remainder
+  # of a list, so ranking it against real methods invites a reader to compare
+  # the two. Everything else is still ordered by frequency, ascending, because
+  # plotly draws the first category at the bottom.
+  #
+  # ON method_id, NOT THE DISPLAY NAME. FW_METHODS in config.R is what makes
+  # ME05/ME06 "Other chemical"/"Other mechanical", and renaming either there
+  # must not quietly unpin it here.
+  totals <- me |>
+    count(method_name, method_id, name = "total") |>
+    mutate(is_other = method_id %in% FW_METHOD_OTHER) |>
+    arrange(desc(is_other), total) |>
+    select(method_name, total)
   d <- me |>
     count(method_name, outcome, name = "n") |>
     left_join(totals, by = "method_name") |>
@@ -464,8 +407,17 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
       marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
                     line = list(color = FW_COLOURS$surface,
                                 width = FW_CHART$separator_outcome)),
-      # The count inside the segment. Colour alone never carries the value.
-      text = ~ifelse(share >= FW_CHART$label_min_share, as.character(n), ""),
+      # The value inside the segment. Colour alone never carries it.
+      #
+      # IT FOLLOWS THE MODE. It used to print the count in both modes, so a 100%
+      # stacked bar carried raw counts that summed to the method's total rather
+      # than to the 100% the axis promised - the client caught it on a call, and
+      # a reader who trusted the numbers over the axis would have read the chart
+      # backwards. The floor that blanks a label is still a share either way:
+      # what makes a label unreadable is how narrow the segment is, not which
+      # number is in it.
+      text = ~ifelse(share < FW_CHART$label_min_share, "",
+                     if (mode == "share") paste0(round(share), "%") else as.character(n)),
       textposition = "inside",
       # Indigo, not white. See FW_OUTCOME_LABEL_INK in config.R: none of the
       # four Wong fills is dark enough to carry white numerals.
@@ -515,7 +467,74 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
 #' Every attempt is drawn as a point on top of its box, coloured by outcome, so
 #' the reader sees the actual spread rather than a summary of it - and a method
 #' with four durations cannot masquerade as a distribution.
+#'
+#' SINGLE-METHOD ATTEMPTS ONLY. See fw_duration_sel() for why.
+
+#' The attempts this chart is allowed to draw
+#'
+#' ONE RECORDED METHOD, plus a usable duration. The second condition is obvious;
+#' the first is the one that needs saying.
+#'
+#' duration_days is a property of the ATTEMPT, not of a method within it, and
+#' this chart puts it against a method. For an attempt that used one method that
+#' is the same statement. For an attempt that ran rotenone in 1994 and was still
+#' netting in 2021, it is not: the ten thousand days it contributes is how long
+#' the CAMPAIGN ran, and drawing it against both methods says each of them took
+#' twenty-eight years. That outlier is what the client saw on the call.
+#'
+#' The cost is small - the large majority of attempts with a duration record a
+#' single method - and the caption under the chart says what it was.
+#'
+#' THE HONEST ALTERNATIVE IS PER-METHOD DATES, which the database does not hold.
+#' If it ever does, this filter is what should be removed first.
+#'
+#' @return the rows of `sel` this chart draws, which is what the caption counts
+fw_duration_sel <- function(data, sel) {
+  one <- data$attempt_method |>
+    filter(attempt_id %in% sel$attempt_id) |>
+    distinct(attempt_id, method_id) |>
+    count(attempt_id, name = "n_methods") |>
+    filter(n_methods == 1L)
+  sel |>
+    filter(attempt_id %in% one$attempt_id,
+           !is.na(duration_days), duration_days > 0)
+}
+
+# fw_duration_bands() USED TO LIVE HERE - alternating tinted rects behind the
+# duration chart, one per order of magnitude, drawn to make the compression of a
+# log axis visible. The client asked for a plain background with a dotted line on
+# each unit break instead, which the axis draws itself (see the gridlines in
+# fw_chart_duration()), so the shapes and their two FW_CHART entries are gone.
+#
+# THE WARNING IT CARRIED IS WORTH KEEPING AND HAS MOVED to the xaxis comment in
+# fw_chart_duration(): on one log axis, layout.xaxis.range is in log10 and
+# tickvals and shape coordinates are in data units. Every edge here once went
+# through log10() on the reasoning that a log axis takes log coordinates, and the
+# first band landed at ten to the zeroth of a day - about six thousand pixels off
+# the left of the canvas, tinting everything left of the data. If shapes ever
+# come back to this chart, they take raw days.
+
+#' The x bounds of the duration chart, as the log10 values a log axis wants
+#'
+#' AN EXPLICIT RANGE, BECAUSE THE AUTOMATIC ONE IS UNUSABLE HERE. plotly pads
+#' the autorange of a BOX trace to leave room for the boxes, and on a log axis it
+#' does that arithmetic in the wrong space: seven boxes over durations of one day
+#' to twenty years came out as a range of 10^-67.5 to 10^8.1. The data then
+#' occupied about a twentieth of the width at the right-hand edge, all six named
+#' ticks piled up on top of one another under it, and the rest of the chart was
+#' one large empty panel. That is what the client saw.
+#'
+#' The pad is a fraction of the span rather than a fixed number of decades, so a
+#' selection spanning one order of magnitude is not given four.
+fw_duration_range <- function(days) {
+  lx <- log10(range(days))
+  pad <- max(FW_CHART$duration_pad_min, diff(lx) * FW_CHART$duration_pad)
+  c(lx[1] - pad, lx[2] + pad)
+}
+
 fw_chart_duration <- function(data, sel) {
+  sel <- fw_duration_sel(data, sel)
+  if (!nrow(sel)) return(NULL)
   d <- data$attempt_method |>
     filter(attempt_id %in% sel$attempt_id) |>
     left_join(select(data$method, method_id, method_name), by = "method_id") |>
@@ -569,14 +588,51 @@ fw_chart_duration <- function(data, sel) {
       boxmode = "group",
       xaxis = list(
         title = fw_t("charts", "x_duration"),
-        type = "log", gridcolor = FW_COLOURS$border, zeroline = FALSE,
+        type = "log", zeroline = FALSE,
+        # A DOTTED LINE ON EACH UNIT BREAK, ON A PLAIN GROUND, and that is the
+        # client's instruction. This chart used to carry alternating tinted
+        # bands behind it - see the note where fw_duration_bands() was - and the
+        # breaks are now drawn by the axis's own gridlines instead: dotted, one
+        # per named tick, nothing else behind the data.
+        #
+        # THE GRIDLINES LAND ON THE BREAKS BECAUSE THE TICKS DO. tickmode is
+        # "array" below, so plotly draws a gridline at each of tickvals and
+        # nowhere else - a day, a week, a month, a year, five years, ten - which
+        # is exactly the set of unit breaks asked for. Leave tickmode alone and
+        # the axis reverts to decades and the breaks stop being units.
+        #
+        # INK, NOT THE BORDER GREY, and heavier than a hairline. They were
+        # $fw-border at 1px and the client could not see them - a dotted line
+        # is mostly gaps, so it needs more weight and contrast than a solid rule
+        # to read as a line at all. FW_COLOURS$ink is the off-black the text is
+        # set in, so the breaks read as part of the axis rather than as a
+        # second colour.
+        showgrid = TRUE, griddash = "dot",
+        gridcolor = FW_COLOURS$ink, gridwidth = FW_CHART$duration_grid,
+        # EXPLICIT, and not a preference - see fw_duration_range() for what
+        # plotly's own autorange does to a horizontal box trace on a log axis.
+        range = fw_duration_range(d$duration_days),
         # Named ticks, because 10^3 means nothing to a practitioner deciding
         # whether they can commit a season or a decade.
+        #
+        # RAW DAYS HERE, NOT log10 - and this is the asymmetry that catches
+        # everyone who edits this chart, including whoever reads this next. On
+        # a log axis plotly wants layout COORDINATES in log10 (the range above
+        # goes through log10(), and so did every shape back when this chart had
+        # any) and tickvals in DATA units, which it logs itself. Wrapping these
+        # in log10() looks like the consistent thing to do and is not: the ticks
+        # come out log-logged, bunched into the left tenth of the axis, and
+        # "1 day" disappears entirely because log10(0) is -Inf. The gridlines
+        # ride on these values, so getting them wrong loses the unit breaks too.
         tickmode = "array",
         tickvals = FW_CHART$duration_ticks,
         ticktext = fw_t("charts", "duration_ticks")
       ),
-      yaxis = list(title = "", automargin = TRUE)
+      # NO HORIZONTAL RULES. "Plain background" means the vertical unit breaks
+      # and nothing else; a y gridline here would be a line through the middle
+      # of every box rather than a reference of any kind, since this axis is
+      # method names.
+      yaxis = list(title = "", automargin = TRUE, showgrid = FALSE)
     )
 }
 
@@ -807,8 +863,11 @@ fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
                     line = list(color = FW_COLOURS$surface,
                                 width = FW_CHART$separator_method)),
       # The threshold is on SHARE, so the label only appears where the segment
-      # is actually wide enough to hold it, whichever mode the chart is in.
-      text = ~ifelse(share >= FW_CHART$label_min_share, as.character(n), ""),
+      # is actually wide enough to hold it, whichever mode the chart is in - but
+      # the NUMBER follows the mode, the same fix as fw_chart_method(). Printing
+      # a count inside a 100% stacked bar contradicts the axis above it.
+      text = ~ifelse(share < FW_CHART$label_min_share, "",
+                     if (mode == "share") paste0(round(share), "%") else as.character(n)),
       textposition = "inside",
       # PER METHOD, not white throughout. Three of the seven fills are light
       # enough that white numerals on them fall under 4.5:1. See

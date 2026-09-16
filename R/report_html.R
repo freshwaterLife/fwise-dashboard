@@ -195,7 +195,7 @@ fw_html_dependency_tags <- function(deps) {
 #'
 #' THE SAME SASS THE APP SERVES, not a second stylesheet written for print. That
 #' is the whole reason the report can reuse fw_plan_summary_ui(),
-#' fw_outcome_bars_ui(), fw_plan_table() and fw_caveats_ui() directly: the
+#' fw_outcome_bars_ui() and fw_caveats_ui() directly: the
 #' markup and the rules that draw it travel together, so a component restyled in
 #' _components.scss is restyled in every report built afterwards, with no second
 #' edit and no chance of the two disagreeing.
@@ -387,7 +387,7 @@ fw_report_country_table <- function(sel, limit = FW_REPORT_COUNTRY_ROWS) {
 #' The logo is inlined as a data URI, so the mark survives the file being
 #' emailed, saved to a stick, or opened with the network down.
 fw_html_letterhead <- function(title, subtitle) {
-  logo <- fw_html_data_uri("www/img/FWISE-LOGO-ALL-6.png")
+  logo <- fw_html_data_uri(FW_LOGO$mark_file)
   tags$header(
     class = "fw-report__head",
     if (!is.null(logo)) {
@@ -485,10 +485,11 @@ fw_write_html_report <- function(path, data, sel, export, filters,
   s <- fw_plan_summary(data, sel)
   n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
   n_no_method <- fw_n_no_method(data, sel)
-  n_duration <- sum(!is.na(sel$duration_days) & sel$duration_days > 0)
-  n_invasive <- dplyr::n_distinct(fw_species_rows(data, sel, "invasive")$species_id)
-  n_beneficiary <- dplyr::n_distinct(
-    fw_species_rows(data, sel, "beneficiary")$species_id)
+  # THE COUNT THE CHART ACTUALLY DRAWS, not the count with a duration. The
+  # chart drops attempts that used more than one method - see
+  # fw_duration_sel() - so counting duration alone here would promise the
+  # reader more points than they can see.
+  n_duration <- nrow(fw_duration_sel(data, sel))
   # FW_PLAN_SPECIES_N, the same limit the page uses, so the document and the
   # screen show the same species rather than the report quietly showing more.
   tiles_invasive <- fw_species_tiles_ui(data, sel, "invasive",
@@ -575,19 +576,17 @@ fw_write_html_report <- function(path, data, sel, export, filters,
     # NULL here: a block with NULL content still prints its heading, and
     # building them twice to ask whether they exist would repeat ten image
     # lookups for nothing.
+    # NO NOTE UNDER EITHER HEADING, matching the page. These two carried one
+    # each and they were WRONG as well as unwanted: both were filled with
+    # FW_TOP_N while the grids under them were built with FW_PLAN_SPECIES_N, so
+    # the downloaded report promised the ten named most often above a grid of
+    # three. The surviving note is on the page's own pair block; this document
+    # states the same caveat in r_species_pair_note where it introduces them.
     if (!is.null(tiles_invasive)) {
-      fw_html_block(
-        fw_t("plan", "r_invasive"),
-        fw_fill(fw_t("plan", "r_invasive_note"), n = fw_fmt_num(n_invasive), n_word = fw_num_word(FW_TOP_N)),
-        tiles_invasive
-      )
+      fw_html_block(fw_t("plan", "r_invasive"), NULL, tiles_invasive)
     },
     if (!is.null(tiles_beneficiary)) {
-      fw_html_block(
-        fw_t("plan", "r_beneficiary"),
-        fw_fill(fw_t("plan", "r_beneficiary_note"), n = fw_fmt_num(n_beneficiary), n_word = fw_num_word(FW_TOP_N)),
-        tiles_beneficiary
-      )
+      fw_html_block(fw_t("plan", "r_beneficiary"), NULL, tiles_beneficiary)
     },
 
     fw_html_figure(
@@ -601,21 +600,22 @@ fw_write_html_report <- function(path, data, sel, export, filters,
     # than anything about the selection this report is about. A report is read
     # as being about its selection, which is exactly what made it misleading.
 
-    # ---- The attempts --------------------------------------------------------
-    # Every matching row, not the Word file's first forty. The page's own table
-    # function draws it, so the seven columns and their shortened multi-value
-    # cells are identical to the screen - and the note says where the unshortened
-    # values are, which is inside this same file.
-    if (nrow(export) > 0) {
-      tagList(
-        fw_html_block(
-          fw_t("plan", "r_table"),
-          fw_fill(fw_t("plan", "report_table_note"), n = fw_fmt_num(nrow(export)))
-        ),
-        div(class = "fw-table-scroll",
-            fw_plan_table(export, page = 1L, per_page = nrow(export)))
-      )
-    },
+    # ---- The attempts, which are no longer rendered here ---------------------
+    #
+    # EVERY MATCHING ROW USED TO BE PRINTED HERE, drawn by the page's own table
+    # function so the columns matched the screen exactly. Both are gone: the
+    # client removed the table from the page, and this followed it so the
+    # document and the page stay the same document.
+    #
+    # THE RECORDS THEMSELVES ARE NOT LOST. The CSV and the workbook in this same
+    # bundle carry every row with its full, unshortened values - more than this
+    # table ever showed, since it truncated multi-value cells - and the map above
+    # still holds the full record behind every marker.
+    #
+    # WHAT IS LOST IS THE NARRATIVE READING, and the client asked on the same
+    # call for a record-by-record appendix in prose. That is the opposite
+    # direction from a table and was deferred to the next round; when it
+    # arrives it belongs here, and it should not be built out of cells.
 
     # ---- The people ----------------------------------------------------------
     # The page's own contacts block, drawn by the same function, so the document

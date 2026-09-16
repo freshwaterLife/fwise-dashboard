@@ -64,6 +64,14 @@ ui <- page_navbar(
       # fw_compile_css() for why the cache key has to include the partials.
       tags$style(HTML(fw_compile_css("www/scss/main.scss")))
     ),
+    fw_loader(),
+    # A SPINNING BADGE ON ANY CHART OR MAP THAT IS TAKING A WHILE. Shiny's own
+    # busy indicators decide when - an output marked .recalculating, after the
+    # delay, so a quick redraw never flashes one - and _components.scss decides
+    # what: its default is a colour-filled mask, which would draw the badge as
+    # a flat silhouette. No page-top pulse bar; the loader is the one bar.
+    useBusyIndicators(spinners = TRUE, pulse = FALSE),
+    busyIndicatorOptions(spinner_delay = "400ms", spinner_size = "64px"),
     fw_skip_link(),
     fw_popover_script(),
     fw_client_script(),

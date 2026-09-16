@@ -203,8 +203,14 @@ for (v in list(c("attempts", nrow(a)), c("countries", length(unique(a$country)))
 # the only outcome in a strip of sizes, and printed beside the total it is a
 # success RATE with the division left to the reader - the one headline this app
 # does not publish. Asserted as an absence so it cannot quietly come back.
+# ASSERTED AGAINST A LITERAL, and it has to be. This read fw_t("explore",
+# "db_successful") - the key of the tile it is checking for the absence of -
+# which meant that removing the tile's copy, which is exactly what "removed at
+# the client's request" means, made fw_t() raise "No copy defined" and took the
+# rest of this file with it. An absence test cannot depend on the thing being
+# absent still existing.
 ok("explore db: the panel does NOT name a success count",
-   !grepl(fw_t("explore", "db_successful"), db, fixed = TRUE))
+   !grepl("success", db, ignore.case = TRUE))
 ok("explore db: the year span is filled in",
    grepl(paste0(min(a$start_year, na.rm = TRUE), " to ", max(a$start_year, na.rm = TRUE)), db, fixed = TRUE))
 ok("explore db: no placeholder left", !grepl("\\{[a-z_]+\\}", db))
@@ -241,32 +247,124 @@ no_coord_rec <- fw_attempt_records(d, a[a$attempt_id == no_coord_id, ])
 ok("explore: an unlocated attempt is in the record frame", nrow(no_coord_rec), 1L)
 ok("explore: and not in the map's points",
    no_coord_id %in% fw_map_points(d, a)$attempt_id, FALSE)
-no_coord_html <- fw_record_detail_html(no_coord_rec[1, ], d$species, nav = TRUE)
+no_coord_html <- fw_record_detail_html(no_coord_rec[1, ], d$species)
 ok("explore: its record panel names the site",
    grepl(a$site_name[a$attempt_id == no_coord_id][1], no_coord_html, fixed = TRUE))
-ok("explore: the panel carries previous and next when a server can answer them",
-   length(gregexpr("data-fw-record-step", no_coord_html, fixed = TRUE)[[1]]), 2L)
-ok("explore: and carries none when nothing can",
-   grepl("data-fw-record-step",
-         fw_record_detail_html(no_coord_rec[1, ], d$species), fixed = TRUE), FALSE)
+# PREVIOUS AND NEXT ARE GONE, and this asserts their absence rather than simply
+# not testing for it: the buttons, their script branch and the server observer
+# were removed together, and a stray one left behind is a control that looks
+# live and does nothing.
+ok("explore: the panel carries no previous/next buttons",
+   grepl("data-fw-record-step", no_coord_html, fixed = TRUE), FALSE)
 ok("explore: the marker's template is that same panel, wrapped",
    fw_map_detail_html(no_coord_rec[1, ], d$species),
    paste0('<template class="fw-popup__detail">',
           fw_record_detail_html(no_coord_rec[1, ], d$species), "</template>"))
 
-# Stepping through the list. Wrapping at both ends, and nothing for a question
-# that cannot be answered.
-step_ids <- head(all_sel$attempt_id, 5)
-ok("explore step: next from the first is the second",
-   fw_record_neighbour(step_ids, step_ids[1], 1L), step_ids[2])
-ok("explore step: previous from the first wraps to the last",
-   fw_record_neighbour(step_ids, step_ids[1], -1L), step_ids[5])
-ok("explore step: next from the last wraps to the first",
-   fw_record_neighbour(step_ids, step_ids[5], 1L), step_ids[1])
-ok("explore step: an id outside the list is unanswerable",
-   fw_record_neighbour(step_ids, "FW-NOPE", 1L), NULL)
-ok("explore step: so is a step that is not a number",
-   fw_record_neighbour(step_ids, step_ids[1], "sideways"), NULL)
+# ---- The hover card ---------------------------------------------------------
+#
+# TWO PHOTOGRAPHS ARE IN IT NOW - the first invasive species and the first
+# beneficiary - both at the client's request and both against the reasoning that
+# made the card cheap in the first place. These pin the things that keep it
+# affordable, because the cost was the whole argument against the picture.
+map_pts <- fw_map_points(d, all_sel)
+thumbs <- fw_map_thumb_cache(d, map_pts)
+cards <- vapply(seq_len(nrow(map_pts)), function(i)
+  fw_map_popup(map_pts[i, ], d$species, detail = "lazy", thumbs = thumbs),
+  character(1))
+# CARDS THAT CARRY AN ACTUAL PHOTOGRAPH, which is no longer the same set as
+# cards with a figure block: every card has the block now, and a role with no
+# cached image gets a blank tile inside it. The obligations below - lazy
+# loading, the credit - are about <img>s, so they are asserted against the cards
+# that have one.
+with_img <- cards[grepl("fw-species-figure__img", cards, fixed = TRUE)]
+
+first_of <- function(col) vapply(col, function(x) {
+  ids <- fw_popup_parts(x); if (length(ids)) ids[1] else NA_character_
+}, character(1), USE.NAMES = FALSE)
+# ONE ENTRY PER DISTINCT SPECIES, ACROSS BOTH ROLES - and keyed by species, so a
+# species that leads an attempt in one role and another attempt in the other is
+# rendered once, not twice.
+ok("hover: the cache holds one entry per distinct first species of either role",
+   length(thumbs),
+   length(unique(stats::na.omit(c(first_of(map_pts$inv_ids),
+                                  first_of(map_pts$ben_ids))))))
+# TWO IMAGES, NOT SIXTEEN. The detail panel still shows every species in both
+# roles; if this ever counts more than two per card, the cost argument that
+# allowed the pictures back has quietly stopped holding.
+ok("hover: no card carries more than two photographs",
+   max(lengths(regmatches(cards, gregexpr("fw-species-figure__img", cards,
+                                          fixed = TRUE)))), 2L)
+ok("hover: most cards have at least one",
+   length(with_img) > 0.5 * length(cards))
+# BOTH SLOTS ON EVERY CARD, at the client's request. The block used to be
+# omitted when neither role had a photograph and to go one-up when only one did,
+# so the rows underneath started at a different height card to card.
+ok("hover: every card carries the figure block",
+   all(grepl("fw-popup__figure", cards, fixed = TRUE)))
+ok("hover: and every one of them is two tiles wide",
+   all(grepl("data-fw-figures=\"2\"", cards, fixed = TRUE)))
+# EACH PICTURE IS LABELLED WITH ITS ROLE. Two unlabelled photographs side by
+# side do not say which is the target and which is the beneficiary.
+ok("hover: a two-photograph card labels both roles",
+   all(vapply(cards[grepl("data-fw-figures=\"2\"", cards, fixed = TRUE)],
+              function(x) grepl(fw_t("species", "fig_invasive"), x, fixed = TRUE) &&
+                          grepl(fw_t("species", "fig_beneficiary"), x, fixed = TRUE),
+              logical(1))))
+# EVERY IMAGE IS DEFERRED. The card markup sits in the marker's popup string
+# from the start, so an eager <img> would have the browser fetching hundreds of
+# thumbnails before anybody hovered anything.
+ok("hover: every photograph is lazy and async",
+   all(grepl('loading="lazy"', with_img, fixed = TRUE)) &&
+     all(grepl('decoding="async"', with_img, fixed = TRUE)))
+# THE CREDIT IS A CONDITION OF USE, not decoration. See R/species_images.R.
+ok("hover: every photograph carries its credit",
+   all(grepl("fw-species-figure__credit", with_img, fixed = TRUE)))
+# A ROLE WITH NO PHOTOGRAPH GETS A BLANK TILE, and this used to assert the
+# opposite - no tile at all. The client asked for the slot to be held open and
+# captioned, because an absent tile tells the reader nothing about whether a
+# beneficiary was recorded, which is the question the card is being read for.
+ok("hover: a role with no photograph gets the blank tile",
+   any(grepl("fw-species-figure--none", cards, fixed = TRUE)))
+ok("hover: and the blank tile says so in words",
+   all(vapply(cards[grepl("fw-species-figure--none", cards, fixed = TRUE)],
+              function(x) grepl(fw_t("species", "fig_none"), x, fixed = TRUE),
+              logical(1))))
+# CACHE ONLY. If a live lookup ever crept in, a build would reach Wikimedia
+# once per uncached species while rendering - which is the thing the cache
+# exists to prevent. Asserted by building with an empty species image column:
+# every card still draws its two slots, and not one of them holds an <img>.
+#
+# THIS IS WHAT MAKES FORCING BOTH SLOTS FREE. A blank tile is a div with a line
+# of text in it, so holding the slot open costs no request - which is the whole
+# reason the cost argument that allowed the pictures back still holds.
+blank <- d; blank$species$image_url <- NA_character_
+blank_cards <- vapply(seq_len(min(20L, nrow(map_pts))), function(i)
+  fw_map_popup(map_pts[i, ], blank$species, detail = "lazy",
+               thumbs = fw_map_thumb_cache(blank, map_pts)), character(1))
+ok("hover: with nothing cached, no card carries a photograph",
+   any(grepl("fw-species-figure__img", blank_cards, fixed = TRUE)), FALSE)
+ok("hover: but every card still holds both slots open",
+   all(grepl("data-fw-figures=\"2\"", blank_cards, fixed = TRUE)))
+
+# THE YEARS ARE ON THE CARD, at the client's request - a reader deciding whether
+# to open a record wants to know whether it is from this decade or the eighties.
+dated <- map_pts[!is.na(map_pts$start_year), ][1, ]
+ok("hover: the card names the years",
+   grepl(fw_popup_years(dated$start_year, dated$end_year),
+         fw_map_popup(dated, d$species, detail = "lazy"), fixed = TRUE))
+
+# "SELECT FOR THE FULL RECORD" IS A BUTTON NOW, not a line of quiet text.
+ok("hover: the open affordance is styled as a button",
+   all(grepl("fw-popup__more-btn", cards, fixed = TRUE)))
+# NOT a real <button>: the whole card is the click target, and a button inside
+# it would swallow the click it advertises.
+ok("hover: and is not a focusable control inside the card's own click target",
+   any(grepl("<button", cards, fixed = TRUE)), FALSE)
+
+# THE fw_record_neighbour() TESTS USED TO SIT HERE - five of them, covering
+# wrapping at both ends and the two unanswerable questions. The function went
+# with the previous/next buttons it served.
 
 # THE CARD SCRIPT MUST BE WIRED EVEN WHEN THE MAP IS EMPTY. It is what puts the
 # record panel on <body>, and the list can open a record for an attempt that has
@@ -282,84 +380,127 @@ ok("explore: a populated map installs it too",
    length(fw_add_attempt_markers(leaflet::leaflet(), d, a[1:5, ],
                                  detail = "lazy", detail_input = "x")$jsHooks$render), 1L)
 
-# THE CARD RENDERER IS GONE. The dashboard's list is a table now, and the
+# THE CARD RENDERER IS GONE, and so is the table that replaced it. The
 # assertions that used to live here - one button per card, the placeholder for a
 # species with no photograph, the map link only where there are coordinates -
-# are made against the table below, where the markup actually is.
+# have nowhere left to point: the Explore page renders no list at all.
 
 # The module, driven.
-exp_kpis <- exp_sum <- exp_count <- exp_pager <- exp_cards <- NA_character_
+exp_kpis <- exp_sum <- NA_character_
 exp_eu <- NA_character_
 eu_n <- 0L
+au_n <- 0L
 try(testServer(mod_explore_server, args = list(data = d, in_review = 7L), {
-  session$setInputs(sort = "newest", list_size = "20")
   exp_kpis  <<- strip(output$kpis)
   exp_sum   <<- strip(output$summary)
-  exp_count <<- strip(output$list_count)
-  exp_pager <<- strip(output$records_pager)
-  exp_cards <<- as.character(output$records$html)
-  # The list order is what previous/next steps through, so the detail server
-  # must be reading the SORTED selection and not the raw one.
-  ok("explore: the list is sorted newest first",
+  # sorted() is what previous/next steps through. THE LIST IT WAS NAMED FOR IS
+  # GONE - the client removed the table - so this is now the only thing that
+  # pins the order a reader walks records in, and it still has to be
+  # most-recent-first rather than whatever order the filter left behind.
+  ok("explore: the record order is newest first",
      sorted()$start_year[1], max(a$start_year, na.rm = TRUE))
-  # An unlocated attempt is in the list, and asking for its record does not
-  # error even though it has no marker.
-  ok("explore: an unlocated attempt is in the list",
+  # An attempt with no coordinates has no marker, so nothing on the page can
+  # reach it any more - but it is still IN the selection, which is what keeps
+  # it in the counts and the charts. Asking for its record must not error.
+  ok("explore: an unlocated attempt is still in the selection",
      no_coord_id %in% sorted()$attempt_id)
   session$setInputs(map_detail = no_coord_id)
   session$setInputs(map_detail_step = list(id = sorted()$attempt_id[1], step = -1L))
-  session$setInputs(locate = sorted()$attempt_id[1])
   session$setInputs(continent = "Europe")
   exp_eu <<- strip(output$summary)
   eu_n <<- nrow(sel())
+  # The linkage itself is asserted against fw_geo_allowed() below - a mock
+  # session does not expose the update messages an observer sends, and the
+  # arithmetic is the part worth pinning anyway.
+  session$setInputs(continent = character(0), country = "Australia")
+  au_n <<- nrow(sel())
 }), silent = TRUE)
 
 ok("explore: the database panel renders", !is.na(exp_kpis) && nchar(exp_kpis) > 50)
 ok("explore: the strip counts the whole database unfiltered",
    grepl(paste0(fw_fmt_num(nrow(a)), " attempts"), exp_sum, fixed = TRUE))
-ok("explore: the list count agrees with the strip",
-   grepl(paste0(fw_fmt_num(nrow(a)), " attempts"), exp_count, fixed = TRUE))
-ok("explore: the pager shows the first page of 20",
-   grepl(paste0("Showing 1 - 20 of ", fw_fmt_num(nrow(a))), exp_pager, fixed = TRUE))
-# A TABLE NOW, not a grid of cards. One row per attempt, each carrying both
-# species - the one targeted and the one meant to benefit - which is the pairing
-# a reader scans for and which a single-photograph card could not show.
-ok("explore: one table row per attempt on the page",
-   length(gregexpr('data-fw-id=', exp_cards, fixed = TRUE)[[1]]), 20L)
-ok("explore: a row asks for the record through the map's own input",
-   length(gregexpr("map_detail", exp_cards, fixed = TRUE)[[1]]), 20L)
-# EVERY PHOTOGRAPH CARRIES ITS CREDIT. That is a condition of using these
-# images, not decoration, so it is rendered in the cell rather than hidden in a
-# title attribute - see the header of mod_explore_table.R.
-ok("explore: the thumbnails carry their credit line",
-   grepl("fw-species-figure__credit", exp_cards, fixed = TRUE))
+# THE TABLE'S ASSERTIONS ARE GONE WITH THE TABLE. They covered one row per
+# attempt, the credit line on every thumbnail, the map link only where there
+# were coordinates, and both species columns on every row. Nothing on the
+# Explore page renders any of that now; the record panel's own markup is
+# asserted further up, against fw_record_detail_html().
 
-# The behaviours the card renderer used to be tested for, now asserted where the
-# markup actually is. Built directly rather than through the module so the
-# located and unlocated cases can be put side by side.
-row_located <- as.character(fw_explore_table(
-  fw_attempt_records(d, a[!is.na(a$latitude), ][1, ]),
-  detail_input = "ex-map_detail", locate_input = "ex-locate"))
-row_unlocated <- as.character(fw_explore_table(
-  no_coord_rec, detail_input = "ex-map_detail", locate_input = "ex-locate"))
-ok("explore table: a located attempt offers the map link",
-   grepl("ex-locate", row_located, fixed = TRUE))
-# A link that cannot go anywhere is worse than no link.
-ok("explore table: an unlocated one does not",
-   grepl("ex-locate", row_unlocated, fixed = TRUE), FALSE)
-ok("explore table: but both ask for the record through the map's own input",
-   all(grepl("ex-map_detail", c(row_located, row_unlocated), fixed = TRUE)))
-ok("explore table: the site name is the button",
-   grepl('class="fw-explore-table__open"', row_located, fixed = TRUE))
-# A species with no photograph gets the placeholder, never a gap.
-ok("explore table: a row with no photograph gets the placeholder",
-   grepl("fw-species-figure--none",
-         as.character(fw_explore_table(no_coord_rec, figures = list(),
-                                       detail_input = "x")), fixed = TRUE))
-# BOTH ROLES, which is the whole reason this is a table rather than a card.
-ok("explore table: every row carries both species columns",
-   grepl(fw_t("explore", "col_invasive"), row_located, fixed = TRUE) &&
-     grepl(fw_t("explore", "col_beneficiary"), row_located, fixed = TRUE))
+# ---- The geography filters, pinned ------------------------------------------
+#
+# THE RECOMPUTING BUG THIS GUARDS AGAINST. The client reported the summary strip
+# disagreeing with the country and continent filters. What was actually wrong
+# was that the two filters could contradict each other - Europe AND Australia
+# matches nothing, correctly - and a blank page is indistinguishable from a
+# broken one. The linkage in mod_explore.R makes that unreachable; these pin the
+# arithmetic underneath it so a future change to either cannot drift.
+#
+# Counted from the attempt table directly, never from the filter engine, so this
+# cannot agree with itself.
+geo_ids <- fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
+geo_apply <- function(...) {
+  st <- list(...); st$.ids <- geo_ids
+  fw_filter_apply(d, st)
+}
+one_country <- names(sort(table(a$country), decreasing = TRUE))[1]
+one_cont <- a$continent[a$country == one_country][1]
+sel_c <- geo_apply(country = one_country)
+sel_k <- geo_apply(continent = one_cont)
+ok("geo: a country filter selects exactly that country's attempts",
+   nrow(sel_c), sum(a$country == one_country))
+ok("geo: and the strip counts one country",
+   fw_plan_summary(d, sel_c)$countries, 1L)
+ok("geo: a continent filter selects exactly that continent's attempts",
+   nrow(sel_k), sum(a$continent == one_cont))
+ok("geo: and the strip counts the countries actually in the selection",
+   fw_plan_summary(d, sel_k)$countries,
+   dplyr::n_distinct(a$country[a$continent == one_cont]))
+# The two together are an AND, and a country inside its own continent must not
+# be narrowed away by it.
+ok("geo: continent AND its own country is the country",
+   nrow(geo_apply(continent = one_cont, country = one_country)), nrow(sel_c))
+# The contradiction still resolves to nothing - the linkage prevents a reader
+# REACHING it, it does not change what the engine means.
+other_cont <- setdiff(unique(a$continent), one_cont)[1]
+ok("geo: a country outside the chosen continent still matches nothing",
+   nrow(geo_apply(continent = other_cont, country = one_country)), 0L)
+# THE STRIP NEVER COUNTS AN ABSENT COUNTRY. n_distinct() counts NA as a level,
+# so a blank country column would inflate this the moment one appeared.
+ok("geo: every attempt has a country and a continent",
+   sum(is.na(a$country) | is.na(a$continent)), 0L)
+
+# ---- The linkage, as arithmetic ---------------------------------------------
+#
+# What the two observers in mod_explore.R compute. Pinned here rather than
+# through the module because a mock session does not expose the update messages
+# they send, and this is the part that would be wrong if either were.
+geo_pairs <- unique(a[, c("continent", "country")])
+ok("link: choosing a continent narrows the country picker",
+   fw_geo_allowed(geo_pairs, "continent", "country", "Europe", ch_all$country),
+   sort(unique(a$country[a$continent == "Europe"])))
+ok("link: choosing a country narrows the continent picker",
+   fw_geo_allowed(geo_pairs, "country", "continent", "Australia", ch_all$continent),
+   unique(a$continent[a$country == "Australia"]))
+# SEVERAL CONTINENTS IS A UNION, not an intersection - the picker is multi-select
+# and two continents must offer the countries of both.
+two <- c("Europe", "Oceania")
+ok("link: two continents offer the countries of both",
+   fw_geo_allowed(geo_pairs, "continent", "country", two, ch_all$country),
+   sort(unique(a$country[a$continent %in% two])))
+# CLEARING RESTORES THE FULL LIST. If an empty selection narrowed to nothing,
+# clearing the continent would leave the country picker permanently empty -
+# which is the failure mode this whole linkage exists to avoid.
+ok("link: clearing the continent restores every country",
+   fw_geo_allowed(geo_pairs, "continent", "country", character(0), ch_all$country),
+   ch_all$country)
+ok("link: and a NULL selection is treated the same as an empty one",
+   fw_geo_allowed(geo_pairs, "continent", "country", NULL, ch_all$country),
+   ch_all$country)
+# The narrowed list is always a subset of what the picker offered to begin with,
+# so the linkage can never invent a country the filter engine cannot match.
+ok("link: the narrowed list never leaves the picker's own choices",
+   all(fw_geo_allowed(geo_pairs, "continent", "country", "Europe", ch_all$country)
+       %in% ch_all$country))
+
 ok("explore: filtering to Europe narrows the strip", eu_n, sum(a$continent == "Europe"))
 ok("explore: and the strip says so",
    grepl(paste0(fw_fmt_num(sum(a$continent == "Europe")), " attempts"), exp_eu, fixed = TRUE))
@@ -427,19 +568,117 @@ sums <- tapply(unlist(lapply(tr_share, `[[`, "x")),
                unlist(lapply(tr_share, function(t) as.character(t$y))), sum)
 ok("method: shares sum to 100 per method", all(abs(sums - 100) < 1e-9))
 
-# Duration.
+# THE IN-BAR LABEL FOLLOWS THE MODE. It used to print the count in both, so a
+# 100% stacked bar carried numbers that summed to the method's total instead of
+# to the 100% its own axis promised. A reader trusting the numbers over the axis
+# read the chart backwards, which is the worst way for a chart to be wrong.
+label_text <- function(tr) {
+  x <- unlist(lapply(tr, `[[`, "text"))
+  x[!is.na(x) & nzchar(x)]
+}
+ok("method: share mode labels every visible segment as a percentage",
+   all(grepl("%$", label_text(tr_share))))
+ok("method: and there is at least one to check",
+   length(label_text(tr_share)) > 0)
+# tr is the SHARE traces here - the loop above leaves it on its last mode - so
+# the count chart is built fresh rather than reusing a name that moved.
+tr_count <- traces(fw_chart_method(d, all_sel, "count"))
+ok("method: count mode labels stay counts",
+   all(grepl("^[0-9]+$", label_text(tr_count))))
+# The same fix, the same bug, the other chart.
+ok("method by waterbody: share mode labels are percentages too",
+   all(grepl("%$", label_text(traces(fw_chart_method_waterbody(d, all_sel, "share"))))))
+
+# THE TWO "OTHER" METHODS SIT AT THE BOTTOM whatever their counts. plotly draws
+# the first category at the bottom, so they must come FIRST in the level order.
+# Asserted on the ids in FW_METHOD_OTHER rather than the display names, which is
+# the whole reason that constant is held as ids.
+lv <- levels(tr_count[[1]]$y)
+other_names <- d$method$method_name[match(FW_METHOD_OTHER, d$method$method_id)]
+other_names <- other_names[!is.na(other_names)]
+is_other_lv <- vapply(lv, function(l) label_name(l) %in% other_names, logical(1))
+ok("method: the Other methods are pinned to the bottom of the order",
+   all(which(is_other_lv) <= sum(is_other_lv)))
+ok("method: and Other mechanical sits below Other chemical",
+   identical(label_name(lv[1]), "Other mechanical"))
+# Everything that is NOT an Other is still ordered by frequency, ascending.
+real_lv <- lv[!is_other_lv]
+ok("method: the real methods are still ordered by frequency",
+   !is.unsorted(vapply(real_lv, label_n, numeric(1))))
+
+# Duration. SINGLE-METHOD ATTEMPTS ONLY - fw_duration_sel() drops any attempt
+# that records more than one method, because duration_days belongs to the
+# attempt and this chart puts it against a method. The expected frame is built
+# the same way, from the bridge rather than from the chart, so a change to the
+# filter shows up here as a failure rather than as agreement with itself.
 dur <- stats::setNames(all_sel$duration_days, as.character(all_sel$attempt_id))
-dm <- me; dm$dur <- dur[dm$attempt_id]; dm <- dm[!is.na(dm$dur) & dm$dur > 0, ]
+n_methods <- table(unique(d$attempt_method[, c("attempt_id", "method_id")])$attempt_id)
+solo <- names(n_methods)[n_methods == 1L]
+dm <- me; dm$dur <- dur[dm$attempt_id]
+dm <- dm[!is.na(dm$dur) & dm$dur > 0 & dm$attempt_id %in% solo, ]
 tr <- traces(fw_chart_duration(d, all_sel))
 box <- Filter(function(t) identical(t$type, "box"), tr)[[1]]
 pts <- Filter(function(t) identical(t$type, "scatter"), tr)
-ok("duration: the box holds every positive duration", length(box$x), nrow(dm))
+# THE FILTER COSTS REAL ROWS and the test says how many rather than leaving it
+# to be discovered. Multi-method attempts are a third of those with a duration.
+ok("duration: the filter drops the multi-method attempts",
+   nrow(dm) < sum(!is.na(dm$dur)) || nrow(dm) < sum(!is.na(dur) & dur > 0))
+ok("duration: the box holds every positive single-method duration",
+   length(box$x), nrow(dm))
 ok("duration: one point per (attempt, method) with a duration",
    sum(vapply(pts, function(t) length(t$x), integer(1))), nrow(dm))
 ok("duration: per-outcome point counts",
    all(vapply(pts, function(t) length(t$x) == sum(dm$outcome == t$name), logical(1))))
 ok("duration: the (n) in each label counts durations, not attempts",
    all(vapply(unique(as.character(box$y)), function(l) label_n(l) == sum(dm$method == label_name(l)), logical(1))))
+# A single-method attempt contributes exactly one (attempt, method) row, so the
+# points and the attempts drawn are the same number. That is the whole point of
+# the filter: every point on this chart is a duration of the method it sits on.
+ok("duration: one point per attempt, because each has one method",
+   nrow(dm), nrow(fw_duration_sel(d, all_sel)))
+
+# THE BACKGROUND IS PLAIN NOW, and these used to be four assertions about the
+# alternating tinted bands that stood behind the data. The client replaced them
+# with a dotted line on each unit break, so what is pinned here is their
+# absence: a chart that quietly regrows shapes is the fault these replaced.
+dur_shapes <- plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$shapes
+ok("duration: nothing is drawn behind the data", length(dur_shapes), 0L)
+
+# THE AXIS RANGE IS THE ONE THING THAT IS log10, and it is set explicitly
+# because plotly's autorange for a horizontal box trace on a log scale returned
+# 10^-67.5 to 10^8.1 - which squashed every point into a sliver at one edge and
+# left the rest of the chart as one large empty panel.
+dur_x <- plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$xaxis
+ok("duration: the axis sets its own range rather than letting plotly guess",
+   length(dur_x$range), 2L)
+ok("duration: and that range is in log10, close around the data",
+   {
+     span <- log10(range(fw_duration_sel(d, all_sel)$duration_days))
+     dur_x$range[1] < span[1] && dur_x$range[2] > span[2] &&
+       (span[1] - dur_x$range[1]) < 1 && (dur_x$range[2] - span[2]) < 1
+   })
+# THE TICKS ARE THE THIRD SPACE: data units, logged by plotly itself. Wrapping
+# them in log10() bunches them into the left tenth of the axis and loses "1 day"
+# entirely, because log10(0) is -Inf.
+ok("duration: the tick values are day counts, not log10 of them",
+   identical(dur_x$tickvals, FW_CHART$duration_ticks))
+# THE UNIT BREAKS, which is what replaced the bands. They are the axis's own
+# gridlines rather than shapes, so they land on tickvals and nowhere else - one
+# dotted vertical on a day, a week, a month, a year, five years and ten.
+ok("duration: the unit breaks are dotted", dur_x$griddash, "dot")
+# THE CLIENT COULD NOT SEE THEM at the border grey and 1px, so they are pinned
+# to the ink and the configured weight.
+ok("duration: and drawn in the off-black ink", dur_x$gridcolor, FW_COLOURS$ink)
+ok("duration: at the configured weight", dur_x$gridwidth, FW_CHART$duration_grid)
+ok("duration: and they are drawn at all", isTRUE(dur_x$showgrid))
+# tickmode "array" is what confines the gridlines to the named ticks. Without it
+# plotly picks its own decades and the breaks stop being units.
+ok("duration: the ticks are the only thing the axis draws a line at",
+   dur_x$tickmode, "array")
+# No horizontal rules through the boxes: the y axis is method names, so a
+# gridline there is a reference to nothing.
+ok("duration: the method axis draws no gridlines",
+   isFALSE(plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$yaxis$showgrid))
 
 # A category chart with Other.
 wb <- all_sel$waterbody_type[!is.na(all_sel$waterbody_type)]
@@ -583,9 +822,37 @@ html <- tempfile(fileext = ".html")
 fw_write_html_report(html, d, sel1, export, f1, m)
 doc <- fw_html_read_text(html)
 tables <- regmatches(doc, gregexpr('(?s)<table class="fw-table">.*?</table>', doc, perl = TRUE))[[1]]
-attempts_table <- tables[grepl(paste0(">", fw_t("plan", "col_site"), "<"), tables)][1]
-n_rows <- lengths(regmatches(attempts_table, gregexpr("<tr>", attempts_table, fixed = TRUE))) - 1L
-ok("report: the attempts table lists every selected attempt", n_rows, nrow(sel1))
+# THE ATTEMPTS TABLE IS NOT IN THE DOCUMENT ANY MORE. It used to be asserted
+# here as "one row per selected attempt"; the client removed it from the page
+# and this file followed, so the assertion is now that it is absent. Written
+# against the CONTACTS heading as the thing that should still be there, so a
+# report that renders no tables at all fails rather than passes.
+# Named by what each remaining table is FOR, so this says which survive rather
+# than only how many.
+#
+# MATCHED ON HEADER CELLS ONLY. Matching anywhere in the table finds "Invasive
+# species" in the FILTERS table, where it is the name of a filter the reader
+# set rather than a column of attempts - which is exactly the false positive
+# that made the first version of the absence test below fail.
+headings <- function(t) gsub("<[^>]*>", "",
+                             regmatches(t, gregexpr("<th[^>]*>[^<]*</th>", t))[[1]])
+has_table <- function(heading) any(vapply(tables, function(t)
+  heading %in% headings(t), logical(1)))
+ok("report: the contacts table is still there",
+   has_table(fw_t("plan", "col_contact_name")))
+ok("report: the attempts-by-country table is still there",
+   has_table(fw_t("export", "col_country")))
+# THE ROW-PER-ATTEMPT TABLE IS GONE. Asserted on a literal rather than a copy
+# key, because the keys it used were deleted with it - and an absence test that
+# depends on the absent thing still existing is how dev/value_test.R broke once
+# already (see the success-count assertion further up).
+ok("report: the row-per-attempt table is gone",
+   !has_table("Site") && !has_table("Invasive species"))
+# It is only acceptable to drop it because every row still leaves the building
+# in the CSV below, which the next assertion is what pins.
+# EVERY RECORD MUST STILL LEAVE THE BUILDING. Dropping the table from the
+# document is only acceptable because the CSV below carries the same rows -
+# that is asserted a few lines down, and the two belong together.
 payload <- function(id) {
   one <- regmatches(doc, regexpr(paste0('<script id="', id, '".*?</script>'), doc, perl = TRUE))
   jsonlite::base64_dec(sub("</script>$", "", sub("^<script[^>]*>", "", one)))

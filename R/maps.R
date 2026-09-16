@@ -276,10 +276,19 @@ fw_popup_parts <- function(x) {
 
 # One label/value row. Returns "" for an absent value, so a row a record does
 # not have simply is not drawn.
-fw_popup_row <- function(label, value, html = FALSE) {
+#
+# UNLESS A FALLBACK IS GIVEN, in which case the row is drawn with the fallback
+# in place of the value. That is for the two species roles on the hover card:
+# see fw_map_hover_html() for why a missing role has to say it is missing rather
+# than vanish. Everywhere else a field with nothing in it is still no row.
+fw_popup_row <- function(label, value, html = FALSE, fallback = NULL) {
   esc <- htmltools::htmlEscape
   if (length(value) != 1 || is.na(value) || !nzchar(as.character(value))) {
-    return("")
+    if (is.null(fallback)) return("")
+    return(paste0('<div class="fw-popup__row"><span class="fw-popup__key">',
+                  esc(label),
+                  '</span><span class="fw-popup__val fw-popup__val--none">',
+                  esc(fallback), "</span></div>"))
   }
   paste0('<div class="fw-popup__row"><span class="fw-popup__key">',
          esc(label), '</span><span class="fw-popup__val">',
@@ -306,10 +315,40 @@ fw_popup_years <- function(start, end) {
 
 #' The hover card: enough to decide whether to open the record
 #'
-#' NO PHOTOGRAPH. Hovering is cheap precisely because opening a card is one
-#' innerHTML and no request; a picture in every card would put a Wikimedia fetch
-#' behind every pointer that crosses the map.
-fw_map_hover_html <- function(row) {
+#' PHOTOGRAPHS, AND THIS IS A REVERSAL. The card carried none, on the
+#' reasoning that hovering is cheap precisely because opening a card is one
+#' innerHTML and no request. The client asked for the picture back: a species
+#' photograph is what makes somebody stop on a marker, and they would rather
+#' test that with readers than reason about it.
+#'
+#' WHAT KEEPS THE COST BOUNDED, because the original reasoning was not wrong:
+#'
+#'   TWO IMAGES, NOT SIXTEEN. The first invasive species and the first
+#'   beneficiary - what the attempt was against, and what it was for. The
+#'   detail panel still shows every species in both roles.
+#'
+#'   CACHE ONLY, NEVER A LIVE LOOKUP. The URL comes from species.csv through
+#'   fw_map_thumb_cache(). A species with no cached image gets no thumbnail and
+#'   no request - see fw_species_figure(), which returns a placeholder rather
+#'   than a gap.
+#'
+#'   RENDERED ONCE PER SPECIES, not once per marker, for the same reason the
+#'   detail figures are.
+#'
+#'   loading="lazy" ON THE IMG, which fw_species_figure() already sets. The card
+#'   markup sits in the marker's popup string from the start, so without it a
+#'   900-marker map would fetch 900 thumbnails before anyone hovered anything.
+#'
+#' IT IS HIDDEN ON A SMALL SCREEN. See .fw-popup__figure - on a phone the card
+#' is most of the viewport and the picture pushed the outcome off the bottom.
+#'
+#' THE CREDIT TRAVELS WITH IT. fw_species_figure() renders the caption and the
+#' licence link, and that is a condition of using these images rather than
+#' decoration. Do not strip it to save the space.
+#'
+#' @param thumbs figure HTML keyed by species_id, from fw_map_thumb_cache(), or
+#'   NULL for no photograph at all
+fw_map_hover_html <- function(row, thumbs = NULL) {
   esc <- htmltools::htmlEscape
   outcome <- if (is.na(row$outcome)) "Unknown" else row$outcome
   recorded <- row$primary_contact_name
@@ -322,16 +361,98 @@ fw_map_hover_html <- function(row) {
     '<h3 class="fw-popup__title">',
     esc(row$site_name %|na|% fw_t("species", "unnamed_site")),
     "</h3>",
+    fw_popup_thumb(row, thumbs),
     fw_popup_row(fw_t("species", "p_country"), row$country),
-    fw_popup_row(fw_t("species", "p_species"), row$inv_list),
-    fw_popup_row(fw_t("species", "p_beneficiary"), row$ben_list),
+    # THE YEARS, at the client's request. A reader deciding whether to open a
+    # record wants to know whether it is from this decade or the nineteen
+    # eighties, and that was previously only in the record itself.
+    fw_popup_row(fw_t("species", "p_began"),
+                 fw_popup_years(row$start_year, row$end_year)),
+    # BOTH ROLES, ALWAYS, at the client's request. These two used to drop out
+    # when a record had nothing in them, and a card showing only "Invasive
+    # species" left the reader unable to tell an attempt that helped nothing in
+    # particular from one whose beneficiary nobody wrote down. Beneficiaries are
+    # the more thinly recorded half of the database (see the note in
+    # mod_plan.R), so that silence was the common case rather than the odd one.
+    fw_popup_row(fw_t("species", "p_species"), row$inv_list,
+                 fallback = fw_t("species", "p_none")),
+    fw_popup_row(fw_t("species", "p_beneficiary"), row$ben_list,
+                 fallback = fw_t("species", "p_none")),
     fw_popup_row(fw_t("species", "p_method"), row$method_list),
     # The outcome is words as well as colour, so it never depends on the dot.
     fw_popup_row(fw_t("species", "p_outcome"), outcome),
     fw_popup_row(fw_t("species", "p_recorded_by"), recorded),
-    '<p class="fw-popup__more">', esc(fw_t("species", "more_hint")), "</p>",
+    # A BUTTON, NOT A LINE OF QUIET TEXT. It read as a caption and the client
+    # reported readers not realising the card opened into anything.
+    #
+    # IT IS A <span>, AND THE CARD IS WHAT LISTENS. The card's own click handler
+    # in FW_MAP_CARD_JS opens the record from anywhere inside it, this included,
+    # so a real <button> here would be a second control doing the same job. That
+    # handler was missing for a release and clicking this did nothing at all -
+    # which is what the client reported next.
+    '<p class="fw-popup__more"><span class="fw-popup__more-btn">',
+    esc(fw_t("species", "more_hint")), "</span></p>",
     "</div>"
   )
+}
+
+#' The hover card's thumbnails: what was targeted, and what benefited
+#'
+#' TWO PICTURES NOW, and it was one. The client asked for the beneficiary
+#' alongside the target, on the reasoning that "carp removed" and "what the carp
+#' were removed FOR" are the same story and the card was only telling half of
+#' it. Still the FIRST species of each role and no more - the detail panel is
+#' where every species in an attempt is shown, behind a pair of arrows.
+#'
+#' EACH PICTURE IS LABELLED, IN ONE WORD. With one photograph the reader could
+#' assume it was the target; with two side by side and nothing to tell them
+#' apart, they cannot. The labels are fig_invasive and fig_beneficiary rather
+#' than the p_* pair the text rows use, because a column this narrow wraps
+#' "Species that benefited" onto a second line and then the two photographs
+#' under the two labels no longer start at the same height.
+#'
+#' BOTH SLOTS, ALWAYS, and this used to be the opposite. A role with no cached
+#' photograph drew nothing, a role with no species drew nothing, and an attempt
+#' with neither got no figure block - so the card was two pictures wide on one
+#' marker, one picture wide on the next and text-only on the third, and the rows
+#' underneath started at a different height on each. The client asked for the
+#' beneficiary to be there whether or not there is a photograph of it, on the
+#' same reasoning the text rows were fixed on: a blank card saying "None noted"
+#' tells the reader the beneficiary was not recorded, where an absent tile tells
+#' them nothing and looks like a layout fault.
+#'
+#' A PLACEHOLDER COSTS NO REQUEST. It is a div with a line of text in it - see
+#' fw_species_figure() - so forcing both slots does not undo what the thumbnail
+#' cache exists to save, which is the Wikimedia fetches.
+fw_popup_thumb <- function(row, thumbs) {
+  one <- function(ids_col, role_key) {
+    ids <- fw_popup_parts(ids_col)
+    fig <- if (length(ids)) thumbs[[ids[1]]] else NULL
+    if (is.null(fig) || !nzchar(fig)) fig <- fw_popup_thumb_none()
+    paste0('<div class="fw-popup__figure-item">',
+           '<p class="fw-popup-fig__role">',
+           htmltools::htmlEscape(fw_t("species", role_key)), "</p>",
+           fig, "</div>")
+  }
+
+  paste0('<div class="fw-popup__figure" data-fw-figures="2">',
+         one(row$inv_ids, "fig_invasive"),
+         one(row$ben_ids, "fig_beneficiary"),
+         "</div>")
+}
+
+#' The blank tile a hover card shows where there is no photograph
+#'
+#' The same markup fw_species_figure() returns for a species with no image, so
+#' one rule in _components.scss styles both, with the hover card's own wording:
+#' "None noted" answers the card's question - was anything recorded here - where
+#' "No photograph available" answers a question about the picture library.
+fw_popup_thumb_none <- function() {
+  as.character(htmltools::tags$div(
+    class = "fw-species-figure fw-species-figure--none",
+    htmltools::tags$span(class = "fw-species-figure__placeholder",
+                         fw_t("species", "fig_none"))
+  ))
 }
 
 #' The detail panel: the whole record, opened on click
@@ -376,11 +497,15 @@ fw_map_detail_html <- function(row, species_tbl, live = FALSE, figure_cache = NU
 #' embeds it in a marker; fw_map_detail_server() sends it straight to the panel
 #' when a marker or an Explore card is clicked.
 #'
-#' @param nav whether to add previous/next buttons at the foot. TRUE when a
-#'   server is there to answer them (the lazy mode); FALSE in a saved report,
-#'   where there is nothing to step through.
+#' PREVIOUS AND NEXT USED TO SIT AT THE FOOT, drawn here when a server was
+#' there to answer them and omitted in a saved report. The client removed them:
+#' a reader opens a record from the marker they chose on the map, and stepping
+#' sideways into whatever happened to be next in the selection's row order is
+#' not a journey any of them were making. The panel is closed and the next
+#' marker is clicked instead, which is the same two actions with the map still
+#' in front of the reader. fw_record_neighbour() went with the buttons.
 fw_record_detail_html <- function(row, species_tbl, live = FALSE,
-                                  figure_cache = NULL, nav = FALSE) {
+                                  figure_cache = NULL) {
   esc <- htmltools::htmlEscape
 
   # A labelled column of photographs for one role. Several species become
@@ -445,22 +570,6 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
           row$area_unit %|na|% "")
   } else NA_character_
 
-  # Previous and next. The buttons carry the id of THIS record; the server
-  # works out its neighbours in the order the reader is looking at, so the
-  # markup never has to know where the record sits in the list.
-  nav_html <- if (isTRUE(nav)) {
-    btn <- function(step, label) {
-      paste0('<button type="button" class="fw-popup-detail__navbtn"',
-             ' data-fw-record-step="', step, '"',
-             ' data-fw-record-id="', esc(row$attempt_id), '">',
-             esc(label), "</button>")
-    }
-    paste0('<div class="fw-popup-detail__nav">',
-           btn(-1L, fw_t("species", "rec_prev")),
-           btn(1L, fw_t("species", "rec_next")),
-           "</div>")
-  } else ""
-
   paste0(
     '<div class="fw-popup-detail">',
     '<h2 class="fw-popup-detail__title">',
@@ -513,7 +622,6 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
              esc(fw_t("species", "p_read_source")), "</a></p>")
     } else "",
     "</div>",
-    nav_html,
     "</div>"
   )
 }
@@ -532,11 +640,53 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
 #' @param detail "embed" puts the whole record in the string, "lazy" sends the
 #'   hover card alone and leaves the record to fw_map_detail_server().
 fw_map_popup <- function(row, species_tbl, live = FALSE,
-                         detail = c("embed", "lazy"), figure_cache = NULL) {
+                         detail = c("embed", "lazy"), figure_cache = NULL,
+                         thumbs = NULL) {
   detail <- match.arg(detail)
-  hover <- fw_map_hover_html(row)
+  hover <- fw_map_hover_html(row, thumbs)
   if (detail == "lazy") return(hover)
   paste0(hover, fw_map_detail_html(row, species_tbl, live, figure_cache = figure_cache))
+}
+
+#' The thumbnail each hover card needs, rendered once per species
+#'
+#' A MUCH SMALLER SET THAN fw_map_figure_cache(). That one renders every species
+#' in either role across the whole selection - 306 of them on a full build. This
+#' one renders only the FIRST invasive species of each attempt, which is far
+#' fewer distinct species and is all the hover card shows.
+#'
+#' live = FALSE, always. A build renders these all at once and not one of them
+#' may reach Wikimedia while it does.
+fw_map_thumb_cache <- function(data, pts) {
+  first_of <- function(col) {
+    vapply(col, function(x) {
+      ids <- fw_popup_parts(x)
+      if (length(ids)) ids[1] else NA_character_
+    }, character(1), USE.NAMES = FALSE)
+  }
+  # BOTH ROLES NOW, at the client's request: the card shows the animal that was
+  # targeted and the one that stood to gain. Still the FIRST of each and no
+  # more, which is what keeps this set far smaller than fw_map_figure_cache()'s.
+  # A species that appears in both roles is rendered once - the cache is keyed
+  # by species_id, not by role.
+  first <- c(first_of(pts$inv_ids), first_of(pts$ben_ids))
+  ids <- unique(first[!is.na(first)])
+  if (!length(ids)) return(character(0))
+  labels <- fw_species_label(data$species)
+  names_for <- labels$label[match(ids, labels$species_id)]
+  stats::setNames(
+    vapply(seq_along(ids), function(i) {
+      # AN EMPTY STRING FOR A SPECIES WITH NO CACHED IMAGE, and the decision
+      # about what to draw in its place is fw_popup_thumb()'s rather than this
+      # function's - it renders the blank "None noted" tile, because the client
+      # wants the slot held open whether or not there is a photograph in it.
+      # This one only answers whether an image exists.
+      img <- fw_species_image_cached(data$species, ids[i])
+      if (is.null(img)) return("")
+      fw_species_figure(img, names_for[i])
+    }, character(1)),
+    ids
+  )
 }
 
 #' Every species figure a set of markers will need, rendered once each
@@ -678,6 +828,10 @@ function (el, x) {
     // Emptied rather than just hidden, so a card nobody is looking at is not
     // still holding a Wikimedia image request open.
     body.innerHTML = '';
+    // The layer the card was showing, dropped with the markup it belonged to.
+    // A stale one here would send a click on the NEXT card to the last
+    // marker's record.
+    card.fwLayer = null;
   }
   function place(latlng) {
     // NARROW SCREENS DO NOT ANCHOR TO THE MARKER. The card is as wide as the
@@ -714,6 +868,10 @@ function (el, x) {
   function open(layer) {
     if (!layer.fwCard) return;
     cancel();
+    // WHICH RECORD THE CARD IS SHOWING, so a click on the card can open it.
+    // The card is a child of document.body rather than of the map, so it has
+    // no route back to the marker it came from except this.
+    card.fwLayer = layer;
     body.innerHTML = layer.fwCard;
     // Measured while still invisible, so it never flashes at the last marker's
     // position on its way to this one's.
@@ -809,20 +967,6 @@ function (el, x) {
     panel.addEventListener('click', function (e) {
       if (e.target.closest('[data-fw-dismiss]')) { panelShut(); return; }
 
-      // Previous / next record. The server knows the order; this only says
-      // which record the reader is on and which way they want to go. The
-      // focus to return to is kept, so closing after several steps still
-      // lands back on the marker or card that opened the first one.
-      var nav = e.target.closest('[data-fw-record-step]');
-      if (nav) {
-        if (!DETAIL_INPUT || !window.Shiny) return;
-        Shiny.setInputValue(DETAIL_INPUT + '_step', {
-          id: nav.getAttribute('data-fw-record-id'),
-          step: parseInt(nav.getAttribute('data-fw-record-step'), 10)
-        }, { priority: 'event' });
-        return;
-      }
-
       var btn = e.target.closest('[data-fw-step]');
       if (!btn) return;
       var fig = btn.closest('[data-fw-figure]');
@@ -856,6 +1000,19 @@ function (el, x) {
     card.addEventListener('mouseenter', cancel);
     card.addEventListener('mouseleave', shut);
     card.querySelector('.fw-map-card__close').addEventListener('click', shut);
+    // THE CARD IS THE CLICK TARGET, and it was not - the whole of this file
+    // and the stylesheet said it was, the button at the foot of every card
+    // advertised it, and nothing was listening. The card sits on
+    // document.body, outside the Leaflet container, so the marker's own click
+    // handler never sees it and the capturing document handler below
+    // deliberately ignores it. This is the missing half.
+    //
+    // The close button is excluded because it has its own handler above and
+    // would otherwise open the record it is being asked to dismiss.
+    card.addEventListener('click', function (e) {
+      if (e.target.closest('.fw-map-card__close')) return;
+      if (card.fwLayer) panelOpen(card.fwLayer);
+    });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' || e.key === 'Esc') shut();
     });
@@ -985,10 +1142,10 @@ fw_map_card_js <- function(detail_input = NULL) {
 #' that one attempt - a few milliseconds - and sent back as the same HTML the
 #' embedded mode would have carried, which the card script then opens.
 #'
-#' PREVIOUS AND NEXT arrive in input[[<input_name>_step]] as {id, step}. The
-#' neighbour is found in `sel()`'s row order, which is whatever order the page
-#' is showing - the Explore list's sort, the report's order - and wraps at
-#' either end.
+#' ONE CLICK, ONE RECORD. This used to answer a second input as well -
+#' input[[<input_name>_step]], the panel's previous/next buttons, resolved
+#' against `sel()`'s row order - and the client removed those buttons. What
+#' `sel()` is still for is the guard below.
 #'
 #' @param sel a reactive returning the current selection, in display order. An
 #'   id outside it is ignored rather than answered, so a stale click after a
@@ -1005,34 +1162,16 @@ fw_map_detail_server <- function(input, session, input_name, data, sel) {
     if (!nrow(rec)) return()
     session$sendCustomMessage(
       "fw-map-detail",
-      list(html = fw_record_detail_html(rec[1, ], data$species, nav = TRUE))
+      list(html = fw_record_detail_html(rec[1, ], data$species))
     )
   }
 
   observeEvent(input[[input_name]], send(input[[input_name]]))
-
-  observeEvent(input[[paste0(input_name, "_step")]], {
-    msg <- input[[paste0(input_name, "_step")]]
-    send(fw_record_neighbour(sel()$attempt_id, msg$id, msg$step))
-  })
 }
 
-#' The record `step` places from `id` in a list, wrapping at either end
-#'
-#' Wrapping rather than stopping: a reader stepping through a selection at the
-#' last record is asking for the next one, and a dead button that looks live is
-#' worse than coming round to the first. Returns NULL for anything it cannot
-#' answer - an id that is not in the list, a step that is not a number - so the
-#' caller sends nothing rather than sending the wrong record.
-fw_record_neighbour <- function(ids, id, step) {
-  step <- suppressWarnings(as.integer(step))
-  if (!is.character(id) || length(id) != 1 || length(step) != 1 || is.na(step)) {
-    return(NULL)
-  }
-  at <- match(id, ids)
-  if (is.na(at) || !length(ids)) return(NULL)
-  ids[((at - 1L + step) %% length(ids)) + 1L]
-}
+# fw_record_neighbour() USED TO LIVE HERE - the record `step` places from an id
+# in the selection's row order, wrapping at either end. It had one caller, the
+# previous/next observer above, and went with it.
 
 #' How overlapping markers are grouped
 #'
@@ -1117,9 +1256,12 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE,
 
   outcome <- ifelse(is.na(pts$outcome), "Unknown", pts$outcome)
   figure_cache <- if (detail == "embed") fw_map_figure_cache(data, pts) else NULL
+  # Built in BOTH modes, unlike figure_cache: the hover card carries its
+  # thumbnail whether or not the record behind it is embedded.
+  thumbs <- fw_map_thumb_cache(data, pts)
   popups <- vapply(seq_len(nrow(pts)), function(i) {
     fw_map_popup(pts[i, ], data$species, live = live, detail = detail,
-                 figure_cache = figure_cache)
+                 figure_cache = figure_cache, thumbs = thumbs)
   }, character(1))
 
   map |>

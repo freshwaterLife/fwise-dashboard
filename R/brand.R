@@ -96,14 +96,35 @@ FW_TYPE <- list(
   # The Word question list. Word on the reader's machine will not have Ubuntu.
   font_docx = "Calibri",
 
-  size_display = "2.9rem",
-  size_h1      = "2.25rem",
-  size_h2      = "1.8rem",
-  size_h3      = "1.45rem",
+  # THE SCALE MOVED IN TWO DIRECTIONS AT ONCE, and that was the instruction:
+  # headings and the navigation up a step, everything else down a step. The
+  # app read as uniformly large - a note and the heading above it were four
+  # hundredths of a rem apart - so nothing was emphasised by being big.
+  #
+  # THEN THE SMALL HALF CAME BACK UP ONE NOTCH, on a later client instruction:
+  # the running text had ended up a shade too small to read comfortably. Only
+  # the small half moved - lead, body, caption and the floor - so the headings
+  # keep the sizes they were given and the emphasis the earlier reduction bought
+  # is not spent. The gap between size_h3 and size_lead is narrower than it was;
+  # that is the cost, and it was accepted.
+  #
+  # NOTHING WENT BELOW size_min, which is now 1.05rem. The floor is a client
+  # instruction and not a preference. size_popup is the one exemption and did
+  # NOT move with the rest: it sizes transient overlays - the (i) popovers and
+  # the map hover card - and raising it would grow every card on the map.
+  size_display = "3.05rem",
+  size_h1      = "2.4rem",
+  size_h2      = "1.9rem",
+  size_h3      = "1.55rem",
+  # The navigation, which is bigger than the body text rather than smaller than
+  # it. It used to take size_caption, so the six tabs were the smallest chrome
+  # on the page; the client asked for the tabs and the logo to carry the top of
+  # the page together. Its own step, because it is neither a heading nor body.
+  size_nav     = "1.3rem",
   size_lead    = "1.3rem",
   size_body    = "1.2rem",
-  size_caption = "1.15rem",    # subtitles and notes. A client instruction.
-  size_min     = "1rem",       # THE FLOOR. Not a step on the scale; do not raise.
+  size_caption = "1.15rem",    # subtitles and notes
+  size_min     = "1.05rem",    # THE FLOOR. Not a step on the scale; do not lower.
   size_popup   = "0.9rem",     # THE ONE EXEMPTION: transient overlays only
 
   # THE SECOND EXEMPTION, and a client instruction rather than a drift. A
@@ -120,9 +141,9 @@ FW_TYPE <- list(
   size_credit  = "0.8rem",     # credit lines in the dashboard's table only
 
   # Narrow screens (under FW_BREAKPOINTS$xs) step the headings down.
-  size_h1_narrow = "1.95rem",
-  size_h2_narrow = "1.6rem",
-  size_h3_narrow = "1.35rem",
+  size_h1_narrow = "2.1rem",
+  size_h2_narrow = "1.7rem",
+  size_h3_narrow = "1.45rem",
 
   floor_px = 16L,              # the 1rem floor for plotly, which takes pixels
 

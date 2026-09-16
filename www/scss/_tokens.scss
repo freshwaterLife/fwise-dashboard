@@ -36,17 +36,20 @@
 // $fw-teal-text. Do not set body-sized text in $fw-brand-teal. Re-verify with
 // `Rscript dev/check_contrast.R` after changing any colour in R/brand.R.
 //
-// THE 1rem FLOOR. No text that stays on the page may be set below
-// $fw-size-min. $fw-size-popup is the one exemption, for transient overlays
-// (the (i) popovers and the map card) only. If the thing you are sizing does
-// not disappear when the user clicks elsewhere, it is the wrong token.
+// THE FLOOR, which is $fw-size-min and is currently 1.05rem. It is a VALUE
+// THAT MOVES - it has been 1rem and is now a step above that - so never write
+// the number: no text that stays on the page may be set below $fw-size-min, and
+// the way to honour that is to use the token. $fw-size-popup is the one
+// exemption, for transient overlays (the (i) popovers and the map card) only.
+// If the thing you are sizing does not disappear when the user clicks
+// elsewhere, it is the wrong token.
 //
-// $fw-size-min IS NO LONGER THE SAME VALUE AS $fw-size-caption. Caption went to
-// 1.15rem on a client instruction and the rest of the scale went up with it;
-// the floor stayed at 1rem. So the two are not interchangeable any more:
-// $fw-size-caption for subtitles, notes and small print that should ride the
-// scale, $fw-size-min only where something must not grow. See FW_TYPE in
-// R/brand.R.
+// $fw-size-min IS NOT THE SAME VALUE AS $fw-size-caption and the two are not
+// interchangeable: $fw-size-caption for subtitles, notes and small print that
+// should ride the scale, $fw-size-min only where something must not grow.
+// Caption sits one step above the floor and both moved up together on the
+// client's last instruction, while $fw-size-popup deliberately did not. See
+// FW_TYPE in R/brand.R.
 
 // ---- Derived ---------------------------------------------------------------
 
@@ -63,3 +66,22 @@ $fw-section-y: $fw-space-4;
 // this is the smallest gutter it keeps either side on a narrow screen. See
 // .fw-container in _components.scss.
 $fw-container-gutter: $fw-space-3;
+
+// WHERE THE NAVBAR ENDS, which is where anything else that sticks has to begin.
+// .fw-navbar is itself sticky at top: 0, so a second sticky element at top: 0
+// slides underneath it and is never seen. These are its heights at each width -
+// it grows with the brand mark at $fw-bp-md, and the xl band is the row where
+// the brand and the six nav items are squeezed onto one line.
+//
+// A MIXIN RATHER THAN THREE NUMBERS COPIED TWICE. Both the contribution form's
+// progress rail and the report builder's results heading stick under this bar,
+// and when the navbar's min-height last moved only one of them would have
+// followed it. Anything else that sticks to the top of the page uses this too.
+@mixin fw-sticky-under-navbar($z: 900) {
+  position: sticky;
+  top: 64px;
+  z-index: $z;
+
+  @media (min-width: $fw-bp-md) { top: 7rem; }
+  @media (min-width: $fw-bp-xl) and (max-width: $fw-bp-xl-max) { top: 5rem; }
+}

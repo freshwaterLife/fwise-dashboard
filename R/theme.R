@@ -72,7 +72,10 @@ fw_theme <- function() {
     "popover-font-size"       = FW_TYPE$size_popup,
     "dropdown-font-size"      = FW_TYPE$size_caption,
     "legend-font-size"        = FW_TYPE$size_caption,
-    "nav-link-font-size"      = FW_TYPE$size_caption,
+    # UP, not down, while the rest of the scale went the other way. See the note
+    # on size_nav in brand.R: the tabs used to be the smallest chrome on the
+    # page, and the client wants them and the logo carrying the top of it.
+    "nav-link-font-size"      = FW_TYPE$size_nav,
 
     # Colour. `primary` drives Bootstrap's buttons, links and focus states, so it
     # is set to the teal that passes AA as text rather than the brand teal. See
@@ -116,6 +119,20 @@ fw_theme <- function() {
     "card-border-color" = FW_COLOURS$border,
     "card-cap-bg"       = FW_COLOURS$surface,
     "card-bg"           = FW_COLOURS$surface,
+
+    # THE MODAL, WHICH BOOTSTRAP MAKES WHITE. The download picker moved into an
+    # overlay at the client's request, and $modal-content-bg defaults to #fff -
+    # which would put the one pure-white surface in the app on top of everything
+    # else, against the client's instruction and against dev/check_literals.R.
+    # It takes the same surface tone as a card, because that is what it is.
+    "modal-content-bg"           = FW_COLOURS$surface,
+    "modal-content-border-color" = FW_COLOURS$border,
+    "modal-header-border-color"  = FW_COLOURS$border,
+    "modal-footer-border-color"  = FW_COLOURS$border,
+    # The backdrop is the indigo rather than Bootstrap's black, so dimming the
+    # page reads as the brand going quiet rather than as a light going out.
+    "modal-backdrop-bg"          = FW_COLOURS$brand_indigo,
+    "modal-backdrop-opacity"     = "0.5",
 
     # FIELDS TAKE THE SURFACE COLOUR, NOT THE PAGE COLOUR. Bootstrap defaults
     # every form control's background to $body-bg. Left alone, an unchecked

@@ -24,16 +24,22 @@ fw_intro_panel <- function(ns) {
     block(fw_t("contribute", "intro", "no_save_heading"), fw_t("contribute", "intro", "no_save")),
     block(fw_t("contribute", "intro", "time_heading"), fw_t("contribute", "intro", "time")),
 
+    # THE SAME SIZE, BOTH OF THEM. The text version was btn-sm, on the
+    # reasoning that it was the fallback to the Word file; the client read two
+    # sizes as two kinds of thing and asked for a pair. Equal width as well as
+    # equal height - see .fw-contribute__downloads.
     div(
-      style = "margin-block: 1.5rem;",
-      downloadButton(ns("download_questions"),
-                     fw_t("contribute", "intro", "download_label"),
-                     class = "btn btn-outline-primary"),
-      downloadButton(ns("download_questions_txt"),
-                     fw_t("contribute", "intro", "download_label_txt"),
-                     class = "btn btn-outline-primary btn-sm"),
-      div(class = "fw-caption", style = "margin-block-start:.4rem;",
-          fw_t("contribute", "intro", "download_hint"))
+      class = "fw-contribute__downloads",
+      div(
+        class = "fw-contribute__download-buttons",
+        downloadButton(ns("download_questions"),
+                       fw_t("contribute", "intro", "download_label"),
+                       class = "btn btn-outline-primary"),
+        downloadButton(ns("download_questions_txt"),
+                       fw_t("contribute", "intro", "download_label_txt"),
+                       class = "btn btn-outline-primary")
+      ),
+      div(class = "fw-caption", fw_t("contribute", "intro", "download_hint"))
     ),
 
     tags$hr(),

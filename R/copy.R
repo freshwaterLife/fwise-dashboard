@@ -29,17 +29,38 @@ FW_COPY <- list(
     title      = "FWISE",
     full_title = "FWISE: Freshwater Invasive Species Eradication database",
     tagline    = "A world evidence base for freshwater invasive species eradication",
+    # Read out by a screen reader while the app is starting, and on nothing
+    # else - the loader is the badge and a bar. See fw_loader().
+    loading    = "Loading FWISE",
     org        = "Freshwater Life",
-    built_by   = "Built by Weird Fishes Advisory"
+    # TWO CREDITS, AND THE DISTINCTION IS THE POINT. A single "Built by Weird
+    # Fishes Advisory" under the FWISE mark could be read as a claim on the
+    # database as well as on the app. It is not one: the tool was built by Weird
+    # Fishes Advisory, the database is Freshwater Life's and its contributors'.
+    # The client asked for both said plainly rather than for the ambiguity to be
+    # resolved by whoever is reading.
+    built_by   = "This tool was built by Weird Fishes Advisory.",
+    data_by    = "The FWISE database is built and maintained by Freshwater Life and friends."
   ),
 
   # Navigation labels. Order here is the order in the navbar.
+  # RENAMED AT THE CLIENT'S REQUEST, and they are longer than what they replaced.
+  # "Explore the data" became "Explore the database" because the tab is the only
+  # place the app says there IS a database; "Contribute data" became "Add a
+  # record" because it names the thing the reader does rather than the category
+  # it falls under; "Networking" became "Contact the community" for the same
+  # reason - it was the one label that described a feature instead of an action.
+  #
+  # THE BAR IS TIGHT AT 1024px. Six labels and the logo only just fit before
+  # this, and the logo grew at the same time. The padding that gives way is
+  # --bs-navbar-nav-link-padding-x in _components.scss; check the 992-1099px
+  # band before adding a seventh tab or a longer word.
   nav = list(
     home       = "Home",
-    explore    = "Explore the data",
+    explore    = "Explore the database",
     plan       = "Plan an eradication",
-    contribute = "Contribute data",
-    networking = "Networking",
+    contribute = "Add a record",
+    networking = "Contact the community",
     about      = "About"
   ),
 
@@ -162,7 +183,7 @@ FW_COPY <- list(
       paste(
         "The FWISE database aggregates attempts of freshwater invasive species eradications from all over the globe.",
         "Narrow by place and by the animals involved, see the details of the database in",
-        "the summaries below, then find an attempt on the map or in the table",
+        "the summaries below, then find an attempt on the map",
         "and open it for the full record: the species, the methods and how they",
         "were applied, what happened, who recorded it and where it was published."
       ),
@@ -196,17 +217,22 @@ FW_COPY <- list(
 
     # ---- The summary graphics ------------------------------------------------
     #
-    # THE DONUT COUNTS USES, NOT ATTEMPTS, and the note says so. One attempt can
-    # use several methods, so the slices are uses. Leaving that to a footnote is
-    # how a reader ends up quoting a share of the wrong denominator.
+    # THE METHOD BARS COUNT ATTEMPTS, NOT USES, and the note says so. The donut
+    # they replaced counted uses - one attempt using three methods put three
+    # slices on the ring - and these bars count that attempt once in each of its
+    # three methods instead. The totals differ; saying which is which is how a
+    # reader avoids quoting a share of the wrong denominator.
     #
-    # THE OUTCOME DONUT WAS REMOVED at the client's request - the outcome split
-    # is already the segmentation of every stacked bar and the colour of every
-    # marker on the map, so a ring of it was the fourth telling and the thinnest.
-    donut_method = "Breakdown of methods used",
-    donut_method_note = paste(
-      "Each slice is one use of a method, There may have been multiple methods used for one attempt. Hover a slice for",
-      "its count and share."
+    # BOTH DONUTS ARE GONE. The outcome ring went first: the outcome split is
+    # already the segmentation of every stacked bar and the colour of every
+    # marker on the map, so a ring of it was the fourth telling and the
+    # thinnest. The method ring followed for the same reason - these bars carry
+    # the same split and add what happened to each method.
+    method = "Methods used, and how they turned out",
+    method_note = paste(
+      "One bar per method, split by outcome. An attempt that used more than one",
+      "method is counted once under each of them, so the bars add up to more",
+      "than the number of attempts. Hover a segment for its count."
     ),
     cumulative = "Eradication attempts over time are increasing",
     cumulative_note = paste(
@@ -221,36 +247,14 @@ FW_COPY <- list(
       "a summary, select for the full record."
     ),
 
-    # ---- The list ------------------------------------------------------------
-    list_heading = "The attempts",
-    list_count   = "{n} attempts",
-    list_note = paste(
-      "One row per attempt, with the species it targeted and the species it was",
-      "meant to help. Select a row for the full record: the methods as applied,",
-      "the verification, the contacts and the reference. Attempts with no",
-      "coordinates are here even though they are not on the map."
-    ),
-    skip_map     = "Skip the map, go to the table of attempts",
-
-    # ---- The table -----------------------------------------------------------
-    col_invasive    = "Targeted",
-    col_beneficiary = "Meant to benefit",
-    col_site        = "Site",
-    col_country     = "Country",
-    col_began       = "Began",
-    col_outcome     = "Outcome",
-    col_open        = "Open the full record",
-    open_record     = "Open record",
-    no_beneficiary  = "None recorded",
-
-    sort_label   = "Sort by",
-    sort_newest  = "Most recent first",
-    sort_oldest  = "Oldest first",
-    sort_site    = "Site name",
-    sort_country = "Country",
-    page_size    = "Show",
-    page_showing = "Showing",
-    show_on_map  = "Show on map",
+    # ---- The list, and why there is no copy for it ----------------------------
+    #
+    # The table of attempts was removed at the client's request, and every
+    # string it needed went with it: the heading and count, the eight column
+    # labels, the four sort orders, the page-size and pager labels, the skip
+    # link past the map and "show on map". The record panel's own labels live
+    # in FW_COPY$map, not here. Nothing on this page reaches a record except
+    # the map now - see the header of mod_explore.R.
 
     incoming = "Showing only attempts recorded by {name}.",
     incoming_clear = "Show all attempts"
@@ -260,11 +264,27 @@ FW_COPY <- list(
 
   species = list(
     no_image   = "No photograph available",
+    # The hover card's blank tile. Shorter and about the RECORD rather than
+    # the picture library - see fw_popup_thumb_none() in R/maps.R.
+    fig_none   = "None noted",
     alt_prefix = "Photograph of",
     unnamed_site = "Unnamed site",
     p_country  = "Country",
     p_species  = "Invasive species",
     p_beneficiary = "Species that benefited",
+    # What the two species rows on the hover card say when the record names
+    # nobody in that role. Both rows are always drawn - see fw_map_hover_html()
+    # - so this is the text that keeps "nothing recorded" from reading as
+    # "nothing happened".
+    p_none     = "Not recorded",
+    # THE SAME TWO ROLES, IN ONE WORD EACH, for the labels over the hover card's
+    # two photographs. They cannot be p_species and p_beneficiary above: those
+    # label a row of text across the full width of the card, while these sit in
+    # a column about 130px wide, where "Species that benefited" wraps to two
+    # lines and "Invasive species" does not - so the two photographs beneath
+    # them started at different heights and stopped lining up.
+    fig_invasive = "Targeted",
+    fig_beneficiary = "Benefited",
     p_outcome  = "Outcome",
     p_began    = "Ran",
     p_recorded_by = "Recorded by",
@@ -283,8 +303,6 @@ FW_COPY <- list(
     more_hint      = "Select for the full record",
     fig_prev       = "Previous species",
     fig_next       = "Next species",
-    rec_prev       = "Previous attempt",
-    rec_next       = "Next attempt",
 
     credit_fallback = "Wikimedia Commons",
     credit_sep      = " / ",
@@ -345,8 +363,21 @@ FW_COPY <- list(
     tip_continent = paste(
       "Choose a continent to filter for."
     ),
+    # THE HINT IS THE POINT OF THIS ONE. The country list holds only countries
+    # that actually appear in the attempts table - thirty of them - so most
+    # readers will look for theirs and not find it, and an absence with no
+    # explanation reads as a broken filter rather than as a gap in the database.
+    # Saying what to do instead is the difference between a dead end and a next
+    # step, which is the same reasoning as fw_filter_zero_hints().
+    #
+    # It rides the tooltip rather than a help line under the control because
+    # fw_info() is a real button with an aria-label and a focus trigger, so it
+    # is reachable by keyboard and by a screen reader - "hover instruction" was
+    # the client's wording, not a decision to hide it from anyone.
     tip_country = paste(
-      "Country of the eradication attempt(s)."
+      "Country of the eradication attempt(s). Only countries with attempts",
+      "recorded in FWISE are listed. If yours is not here, filter by continent",
+      "instead - that will show you the closest evidence there is."
     ),
     tip_regime = paste(
       "Still water (Lotic) is lakes, ponds and reservoirs, etc; flowing water (lentic)",
@@ -444,6 +475,13 @@ FW_COPY <- list(
     stale   = "Filters have changed since this report was built.",
     clear   = "Clear all filters",
     download_heading = "Take this away",
+    # THE BUTTON AT THE TOP OF THE RESULTS, which is what opens the picker. It
+    # says "download" rather than "export" because the reader's question at that
+    # point is whether they can keep any of this, and the answer has to be
+    # visible before they have scrolled anything - the client's instruction, and
+    # the reason the picker moved into an overlay at the same time.
+    download_open = "Download this report",
+    download_close = "Close",
     # ONE BUTTON AND A PICKER, not a row of buttons. Two buttons made the reader
     # choose between the data and the document when most of them wanted both,
     # and neither carried the methods and caveats out of the building with it.
@@ -463,7 +501,7 @@ FW_COPY <- list(
     download_html = "Interactive report (.html)",
     download_html_note = paste(
       "Self-contained report on FWISE letterhead, with the charts, the map and",
-      "the table. Every plot stays interactive. Opens in any browser."
+      "the contacts. Every plot stays interactive. Opens in any browser."
     ),
     download_pdf = "Formatted PDF",
     download_pdf_note = paste(
@@ -518,10 +556,6 @@ FW_COPY <- list(
       "The map above plots each attempt at its own coordinates. This is what",
       "the map is read for on paper, and it is what is left when the tiles",
       "cannot load."
-    ),
-    report_table_note = paste(
-      "All {n} matching attempts. Species and method lists are shortened here",
-      "to keep the columns readable - the downloads contain full values."
     ),
     report_footer = paste(
       "FWISE, the Freshwater Invasive Species Eradication database. Data",
@@ -579,47 +613,70 @@ FW_COPY <- list(
     r_method_wb_count = "Number of uses",
 
     # ---- The species tiles ----------------------------------------------------
+    #
+    # ONE BLOCK HOLDING BOTH ROLES, and it leads the results. They were two
+    # blocks near the foot of the page, and the client's objection was that the
+    # photographs - the one place the reader meets the animal rather than a
+    # count of it - were the last thing anybody saw. Paired, they also stop
+    # being two nearly-full-width grids of five tiles each.
+    #
+    # THE TWO HALVES KEEP THEIR HEADINGS AND HAVE LOST THEIR NOTES. The client
+    # removed the note under each grid; this one is what is left, so the
+    # BENEFICIARY WARNING HAS BEEN FOLDED INTO IT rather than deleted with the
+    # note that used to carry it. That warning is about the data - beneficiaries
+    # are recorded far less evenly than targets, and a reader who takes the
+    # right-hand grid for a survey of what benefited has misread the database,
+    # not the chart. It is the one part of the old r_beneficiary_note that was
+    # never decoration. Do not trim this note back to the tile explanation.
+    r_species_pair = "Most targeted species and beneficiaries",
+    r_species_pair_note = paste(
+      "What these attempts were against, and what stood to gain. Each tile is",
+      "one species, with the number of attempts naming it and the outcome mix",
+      "of those attempts. Beneficiaries are recorded far less consistently than",
+      "targets, sometimes not at all, so the second row is a record of what was",
+      "claimed rather than a complete account of what benefited."
+    ),
     r_tile_attempt  = "attempt",
     r_tile_attempts = "attempts",
+    # r_invasive_note AND r_beneficiary_note USED TO FOLLOW THESE - one note
+    # under each grid, naming how many species the tiles were the top of. Both
+    # went at the client's request; the half that mattered is in
+    # r_species_pair_note above.
     r_invasive   = "What these attempts targeted",
-    r_invasive_note = paste(
-      "The {n_word} invasive species named most often in this selection, counted",
-      "once per attempt, out of {n} species in total. The bar under each is its outcome",
-      "mix."
-    ),
     r_beneficiary = "What benefited",
-    r_beneficiary_note = paste(
-      "Beneficiary species are recorded far less consistently than targets, sometimes not at all.",
-      "Where they are stated, this is not a complete list of what benefited, but a record of what was claimed.",
-      "These are the {n_word} named most often of {n} species."
-    ),
 
     r_duration   = "How long these attempts took",
+    # THE DOTTED LINES, NOT SHADING. This said "shaded by order of magnitude"
+    # until the bands were replaced with a dotted line at each unit break; the
+    # note is what tells a reader the axis is compressed, so it has to describe
+    # what is actually drawn.
     r_duration_note = paste(
-      "Start to finish, on a log scale. Each point is one attempt."
+      "Start to finish, on a log scale, with a dotted line at a day, a week, a",
+      "month, a year, five years and ten. Each point is one attempt that used a",
+      "single method, so the dates on it describe that one treatment."
     ),
+    # BOTH RESTRICTIONS, SAID OUT LOUD. The duration is only as good as the
+    # attempt it came from: an attempt that ran rotenone in 1994 and netting
+    # until 2021 has a recorded duration of ten thousand days, and none of that
+    # is how long either method took. Dropping those is what makes the chart
+    # readable, and a reader has to be told how many attempts it cost.
     r_duration_missing = paste(
-      "Based on the {n} of these attempts with both a start and an end recorded."
+      "Based on the {n} of these attempts that have a start, an end and a",
+      "single recorded method. Attempts using more than one method are left",
+      "out: their start and end dates span every method, not any one of them."
     ),
     # The cumulative chart LIVES ON EXPLORE NOW (FW_COPY$explore$cumulative). It
     # answers how the database has grown, which is a question about the record
     # rather than about the reader's own situation, and it was the one block
     # here that a narrow selection made actively misleading.
-    r_table      = "The matching attempts",
-    r_table_note = paste(
-      "All {n} of them, a page at a time. Long species and method lists are",
-      "shortened here; the spreadsheet contains all in full."
-    ),
-    r_table_size    = "Rows per page",
-    # The results table. Column headings, and how a long list is shortened.
-    col_site     = "Site",
-    col_country  = "Country",
-    col_began    = "Began",
-    col_species  = "Invasive species",
-    col_methods  = "Methods",
-    col_outcome  = "Outcome",
-    col_contact  = "Contact",
-    more_suffix  = " +{n} more",
+    # THE MATCHING-ATTEMPTS TABLE IS GONE, from the page and from the HTML
+    # report, and its copy went with it: the heading and note, the rows-per-page
+    # label, the seven column headings and the "+{n} more" suffix that shortened
+    # a long species or method list to fit a cell. The downloads were always
+    # where the unshortened values lived, and they still are.
+    #
+    # r_table_showing STAYS. It reads "Showing", and the contacts pager below
+    # uses it - it was never specific to the attempts table.
     r_table_showing = "Showing",
 
     # ---- Potential relevant contacts -----------------------------------------

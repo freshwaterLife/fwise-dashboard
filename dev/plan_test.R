@@ -256,6 +256,29 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # choices: it travels whatever else is ticked, which is the whole reason the
   # panel could move off the page without the qualifications going with it.
   session$setInputs(taxa = character(0), build = 3)
+
+  # ---- Where the download lives now ---------------------------------------
+  #
+  # AT THE TOP, AND IN AN OVERLAY. It used to be a block at the foot of the
+  # page, below two tables; the client's objection was that a reader could not
+  # tell any of this was exportable without scrolling past all of it.
+  head_html <- as.character(output$results$html)
+  ok("the download button is in the results head",
+     grepl("fw-plan__download-open", head_html, fixed = TRUE))
+  # Ahead of the summary strip, which is the first thing under the heading.
+  ok("and it comes before the summary strip",
+     regexpr("download_open", head_html) < regexpr("fw-summary-strip", head_html))
+  # EXACTLY ONE PICKER EXISTS AT A TIME. Every input in this module shares one
+  # DOM id space, so a copy on the page AND a copy in the modal would put two
+  # controls called download_parts in the document and the handler would read
+  # whichever Shiny bound last. The page must carry none.
+  ok("the picker is not on the page",
+     grepl("download_parts", head_html, fixed = TRUE), FALSE)
+  # THE MATCHING-ATTEMPTS TABLE IS GONE and the contacts table is not.
+  ok("the attempts table is gone from the page",
+     grepl("table_body", head_html, fixed = TRUE), FALSE)
+  ok("the contacts table is still there",
+     grepl("contacts_body", head_html, fixed = TRUE))
   unzip_names <- function(p) utils::unzip(p, list = TRUE)$Name
 
   session$setInputs(download_parts = c("xlsx", "html"))

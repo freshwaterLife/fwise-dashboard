@@ -103,8 +103,15 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
   top <- fw_species_top_n(data, sel, role_name, limit)
   if (!nrow(top)) return(NULL)
 
+  # THE COLUMN COUNT IS THE TILE COUNT, handed to the stylesheet as a custom
+  # property. The grid used to be auto-fill, which lays out as many tracks as
+  # fit and leaves the ones it has no tile for standing empty - the dead space
+  # the client objected to once each role became a full-width row. A selection
+  # with two species gets two columns that share the width, not three with a
+  # gap at the end.
   div(
     class = "fw-species-tiles",
+    style = sprintf("--fw-tiles:%d;", nrow(top)),
     lapply(seq_len(nrow(top)), function(i) {
       row <- top[i, ]
       counts <- vapply(FW_OUTCOME_LEVELS, function(o) as.integer(row[[o]]), 1L)
@@ -161,61 +168,19 @@ fw_plan_map <- function(data, sel, detail = c("embed", "lazy"), detail_input = N
 }
 
 # ---- Table -------------------------------------------------------------------
-
-# Page sizes come from FW_PLAN_PAGE_SIZES in R/config.R.
-
-#' One page of the matching attempts
-#'
-#' Hand-built rather than DT: the table is read as text and exported as a
-#' spreadsheet, and a datatable would add a second sorting and paging model
-#' beside the one the page already has.
-#'
-#' The contact column is what turns a row into a next step - the whole point of
-#' the networking side of FWISE - so it travels with the attempt here as well as
-#' in the export.
-fw_plan_table <- function(export, page = 1L, per_page = FW_PLAN_PAGE_SIZES[1]) {
-  cols <- c(site_name = fw_t("plan", "col_site"),
-            country = fw_t("plan", "col_country"),
-            start_year = fw_t("plan", "col_began"),
-            invasive_species = fw_t("plan", "col_species"),
-            methods = fw_t("plan", "col_methods"),
-            outcome = fw_t("plan", "col_outcome"),
-            primary_contact_name = fw_t("plan", "col_contact"))
-  have <- cols[names(cols) %in% names(export)]
-
-  # Multi-value cells are TRUNCATED HERE, not in the export. An attempt against
-  # nine species turns one table row into a fifteen-line block, which pushes the
-  # contact column off the side and makes the page unreadable. The full list is
-  # one download away and is stated as such under the table.
-  trim <- function(x, keep = FW_TABLE_CELL_ITEMS) {
-    vapply(x, function(v) {
-      if (is.na(v) || !nzchar(as.character(v))) return(NA_character_)
-      parts <- trimws(strsplit(as.character(v), FW_MULTI_SEP, fixed = TRUE)[[1]])
-      if (length(parts) <= keep) return(paste(parts, collapse = ", "))
-      paste0(paste(parts[seq_len(keep)], collapse = ", "),
-             fw_fill(fw_t("plan", "more_suffix"), n = length(parts) - keep))
-    }, character(1), USE.NAMES = FALSE)
-  }
-  for (col in intersect(c("invasive_species", "methods"), names(export))) {
-    export[[col]] <- trim(export[[col]])
-  }
-
-  from <- (page - 1L) * per_page + 1L
-  to <- min(nrow(export), page * per_page)
-  rows <- if (from > nrow(export)) export[0, ] else export[seq(from, to), ]
-
-  tags$table(
-    class = "fw-table",
-    tags$thead(tags$tr(lapply(unname(have), function(h) tags$th(scope = "col", h)))),
-    tags$tbody(lapply(seq_len(nrow(rows)), function(i) {
-      tags$tr(lapply(names(have), function(c) {
-        v <- rows[[c]][i]
-        tags$td(if (is.na(v) || !nzchar(as.character(v))) fw_t("common", "empty_value")
-                else as.character(v))
-      }))
-    }))
-  )
-}
+#
+# fw_plan_table() USED TO LIVE HERE - one page of the matching attempts, hand
+# built rather than DT so the page did not carry a second sorting and paging
+# model beside its own. The client removed the table from the report builder,
+# and the HTML report's copy of it went at the same time, so it had no callers
+# left.
+#
+# Page sizes (FW_PLAN_PAGE_SIZES in R/config.R) and fw_plan_pages() below are
+# still used - the contacts directory pages the same way.
+#
+# IF A RECORD-BY-RECORD SECTION COMES BACK, and the client has asked for one in
+# prose for the next round, it should not be this: a table of truncated cells is
+# what the CSV in the same bundle already does better.
 
 #' How many pages a selection needs
 fw_plan_pages <- function(n_rows, per_page) {
@@ -259,7 +224,7 @@ fw_plan_contacts <- function(data, sel) {
 #' served markup does not harvest it in one pass, and a contact with no public
 #' address gets an empty cell rather than a badge advertising a hidden one.
 fw_plan_contacts_ui <- function(contacts, page = 1L,
-                                per_page = FW_CONTACTS_PAGE_SIZES[1]) {
+                                per_page = FW_PLAN_CONTACTS_PAGE_SIZES[1]) {
   if (!nrow(contacts)) return(p(fw_t("plan", "r_contacts_none")))
 
   from <- (page - 1L) * per_page + 1L

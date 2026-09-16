@@ -366,11 +366,14 @@ What follows from the change, all of it a gain rather than a trade:
   background needs a connection and a printed page wants a list.
 - **The figures are vector and still interactive.** Crisp at any zoom and at
   print resolution, and they keep their hover readouts.
-- **The report is the page.** The summary strip, outcome bars, attempts table
+- **The report is the page.** The summary strip, outcome bars, contacts table
   and caveats panel are the same functions the page renders, under the same
   compiled `main.scss`. There is no second implementation to drift.
-- **The attempts table carries every row**, not the Word file's first forty, and
-  stays upright rather than needing landscape pages.
+- **There is no row-per-attempt table**, in the report or on the page. The
+  client removed it from both in September 2026; the CSV and the workbook in
+  the same bundle carry every row with its full, unshortened values. A
+  record-by-record section in prose was asked for and deferred to a later
+  round - when it arrives it should not be rebuilt out of table cells.
 - **PDF is the browser's own print engine**, driven by the `@media print` rules
   in `fw_html_report_css()` and a Save as PDF button. No PDF library is bundled;
   `html2pdf.js` and `jsPDF` rasterise the DOM, which would throw away the vector

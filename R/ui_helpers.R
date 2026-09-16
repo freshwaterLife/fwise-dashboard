@@ -289,8 +289,9 @@ fw_stub_panel <- function(extra = NULL) {
 
 # ---- Paging ------------------------------------------------------------------
 
-# The page sizes offered on paged tables are FW_CONTACTS_PAGE_SIZES and
-# FW_PLAN_PAGE_SIZES in R/config.R.
+# The page sizes offered on paged tables are FW_CONTACTS_PAGE_SIZES (the
+# Networking directory), FW_PLAN_CONTACTS_PAGE_SIZES (the report builder's
+# contacts block, which opens at ten) and FW_PLAN_PAGE_SIZES, all in R/config.R.
 
 #' A numbered pager
 #'
@@ -365,13 +366,21 @@ fw_skip_link <- function(target = "#fw-main") {
 
 # ---- Chrome ------------------------------------------------------------------
 
+#' The navbar's logo
+#'
+#' THE FWISE-SIMPLE WORDMARK, at the client's request. It was the badge, which
+#' replaced the full lockup because the lockup's subtext was unreadable at bar
+#' height; SIMPLE is the lockup without the subtext, so it keeps the word FWISE
+#' - which the badge alone did not carry - at a size that can still be read.
+#' The badge moved to the loader and the busy spinner. See FW_LOGO in config.R
+#' for the files and why they are copies.
 fw_brand <- function() {
   tags$a(
     class = "navbar-brand",
     href = "#",
     onclick = "Shiny.setInputValue('fw_nav_to', 'home', {priority:'event'}); return false;",
     tags$img(
-      src = "img/FWISE-LOGO-ALL-6.png",
+      src = FW_LOGO$mark_web,
       alt = fw_t("footer", "logo_alt_fwise")
     )
   )
@@ -403,14 +412,39 @@ fw_footer <- function(last_updated, in_review = 0L) {
     div(
       class = "fw-footer__top",
       fw_container(
+        # ---- Who built what, and whose logos those are ----------------------
+        #
+        # THE WORDS ON THE LEFT, THE MARKS ON THE RIGHT, with a rule between
+        # them. The client asked for the organisational logos grouped in the
+        # bottom right behind a separator, so that the credit beside them reads
+        # as a caption on the app rather than on the logos.
+        #
+        # TWO STATEMENTS, NOT ONE. This was a single line reading "Built by
+        # Weird Fishes Advisory" under both logos, which - sitting under the
+        # FWISE mark - could be read as claiming the database as well as the
+        # app. It does not: Weird Fishes Advisory built this tool, and the
+        # database is Freshwater Life's and its contributors'. Two sentences
+        # rather than one, so neither can be read into the other.
         div(
-          class = "fw-footer__logos",
-          logo(fw_t("footer", "fwise_url"), "img/FWISE-LOGO-ALL-6.png",
-               fw_t("footer", "logo_alt_fwise")),
-          logo(fw_t("footer", "wfa_url"), "img/wfa-logo-rect-dark.png",
-               fw_t("footer", "logo_alt_wfa"))
-        ),
-        p(class = "fw-footer__built-by", fw_t("app", "built_by"))
+          class = "fw-footer__row",
+          div(
+            class = "fw-footer__credits",
+            p(class = "fw-footer__built-by", fw_t("app", "built_by")),
+            p(class = "fw-footer__built-by", fw_t("app", "data_by"))
+          ),
+          # THE PARTNER LOGOS ARE INCOMPLETE. Graden is sending the full set of
+          # contributing organisations; these two are what is on hand. Adding
+          # the rest is adding logo() calls here - the row wraps, and the
+          # separator is on the group rather than between the items, so nothing
+          # else has to change.
+          div(
+            class = "fw-footer__logos",
+            logo(fw_t("footer", "fwise_url"), FW_LOGO$mark_web,
+                 fw_t("footer", "logo_alt_fwise")),
+            logo(fw_t("footer", "wfa_url"), "img/wfa-logo-rect-dark-320.png",
+                 fw_t("footer", "logo_alt_wfa"))
+          )
+        )
       )
     ),
     div(
@@ -464,6 +498,52 @@ fw_slider_prettify <- function(tag) {
 
 #' Client-side handlers shared by every page
 #'
+#' The loader: the whole page, until the app has drawn itself
+#'
+#' The badge over an indeterminate bar, on the page ground, covering everything
+#' until Shiny first goes idle - which is the point the first page's charts and
+#' map have been sent. Before this a visitor on a cold start saw the navbar and
+#' a set of empty boxes for several seconds, which read as a broken page rather
+#' than a loading one.
+#'
+#' IN THE MARKUP, NOT ADDED BY SCRIPT, so it is on screen from the first paint
+#' rather than from whenever a script gets to run.
+#'
+#' IT ALSO GOES ON A DISCONNECT. A server that fails at startup never goes idle,
+#' and a loader waiting for it would cover Shiny's own "disconnected" message
+#' for ever. There is deliberately no timeout: a cold start on Connect Cloud
+#' can legitimately take longer than any number worth picking.
+#'
+#' The badge's URL goes in as a custom property from here, so the stylesheet's
+#' busy spinner (see the .recalculating rule in _components.scss) draws the
+#' same file FW_LOGO names rather than a second copy of the path.
+fw_loader <- function() {
+  tagList(
+    tags$style(HTML(sprintf(":root{--fw-badge-url:url('%s');}",
+                            FW_LOGO$badge_web))),
+    div(
+      id = "fw-loader", class = "fw-loader",
+      role = "status", `aria-live` = "polite",
+      tags$img(class = "fw-loader__badge", src = FW_LOGO$badge_web, alt = ""),
+      div(class = "fw-loader__bar", div(class = "fw-loader__fill")),
+      span(class = "visually-hidden", fw_t("app", "loading"))
+    ),
+    tags$script(HTML("
+      $(document).one('shiny:idle shiny:disconnected', function () {
+        var el = document.getElementById('fw-loader');
+        if (!el) return;
+        el.classList.add('fw-loader--done');
+        // Removed once faded, so an invisible full-screen layer is never left
+        // sitting over the page. The timeout covers reduced motion, where the
+        // transition is too short to fire an event reliably.
+        var gone = function () { if (el.parentNode) el.parentNode.removeChild(el); };
+        el.addEventListener('transitionend', gone, { once: true });
+        setTimeout(gone, 600);
+      });
+    "))
+  )
+}
+
 #' Two messages: one writes into the polite live region so validation and step
 #' changes are announced, the other moves the navbar from the server, which is
 #' how the stub actions and the contacts page change page.

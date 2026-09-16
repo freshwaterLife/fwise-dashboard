@@ -416,6 +416,94 @@ fw_filter_clear <- function(session, ids, ch) {
   }
 }
 
+# ---- Linked geography --------------------------------------------------------
+
+#' The values one geography picker may still offer, given the other
+#'
+#' CONTINENT AND COUNTRY NARROW WITH AND, like every other filter, so nothing
+#' stops a reader asking for Europe and Australia and getting the correct answer
+#' of nothing at all. A blank result with no explanation is indistinguishable
+#' from a broken page, and that is what the client reported. Rather than explain
+#' the contradiction after the fact, each picker offers only what is still
+#' possible given the other, and the contradiction cannot be expressed.
+#'
+#' Pure, and separate from the observers that call it, because the interesting
+#' part is this arithmetic rather than the plumbing - see mod_explore.R.
+#'
+#' @param geo distinct continent/country pairs, from the attempt table. NOT from
+#'   the ISO lookup: the pickers have only ever offered values that actually
+#'   appear in the data, and a list that offered more would narrow to nothing.
+#' @param from the column the reader has chosen in
+#' @param to the column being narrowed
+#' @param keep what they chose, or empty for "no choice"
+#' @param all what `to` offers when nothing is chosen
+#' @return the allowed values of `to`, sorted
+fw_geo_allowed <- function(geo, from, to, keep, all) {
+  # NO CHOICE MEANS NO NARROWING, not "nothing matches". An empty selection is
+  # the reader clearing the box, and it has to restore the full list rather than
+  # leave the other picker holding whatever the last choice left behind.
+  if (!length(keep)) return(all)
+  sort(unique(geo[[to]][geo[[from]] %in% keep]))
+}
+
+#' Wire the two geography pickers together for one page
+#'
+#' THIS USED TO LIVE IN mod_explore.R AND ONLY THERE, which was the bug the
+#' client reported next: the dashboard's pickers narrowed each other and the
+#' report builder's did not, so the contradiction fw_geo_allowed() exists to
+#' make unreachable was still reachable one page over. A page that offers a
+#' continent filter and a country filter gets both halves or neither, so the
+#' observers live here beside the arithmetic and both modules call this.
+#'
+#' WHY THIS DOES NOT LOOP. Each observer writes only to the OTHER control, and
+#' Shiny does not invalidate a reactive when a value is set to something
+#' identical to what it already held. A write that changes nothing therefore
+#' stops there. A write that DOES change something - a selected country falling
+#' outside a newly chosen continent, which is the only case - runs one more
+#' round and then stops, because by then both are consistent.
+#'
+#' BOTH WAYS ROUND, because a reader who knows their country should not have to
+#' know its continent first: picking Australia narrows the continent list to
+#' Oceania rather than leaving Europe selectable beside it.
+#'
+#' The pairs come from the attempt table rather than the ISO lookup on purpose.
+#' The country picker has only ever offered countries that actually appear in
+#' the data (see fw_filter_choices()), and the continent filter has to agree
+#' with it or the narrowing would offer empty options.
+#'
+#' @param input,session the calling module's own input and session
+#' @param data the loaded data, for its attempt table
+#' @param choices fw_filter_choices(data), for the full list each picker
+#'   returns to when the other is cleared
+#' @return invisibly, the two observers
+fw_link_geo_filters <- function(input, session, data, choices) {
+  geo <- unique(data$attempt[, c("continent", "country")])
+  geo <- geo[!is.na(geo$continent) & !is.na(geo$country), ]
+
+  # Both selections come back as NULL when the reader empties the box and as
+  # character(0) from fw_filter_clear(), and those must not read as different
+  # states or the two observers would trade writes forever.
+  picked <- function(x) if (length(x)) as.character(x) else character(0)
+
+  a <- shiny::observeEvent(picked(input$continent), {
+    allowed <- fw_geo_allowed(geo, "continent", "country",
+                              picked(input$continent), choices$country)
+    shiny::updateSelectizeInput(session, "country", choices = allowed,
+                                selected = intersect(picked(input$country),
+                                                     allowed))
+  }, ignoreNULL = FALSE, ignoreInit = TRUE)
+
+  b <- shiny::observeEvent(picked(input$country), {
+    allowed <- fw_geo_allowed(geo, "country", "continent",
+                              picked(input$country), choices$continent)
+    shiny::updateSelectizeInput(session, "continent", choices = allowed,
+                                selected = intersect(picked(input$continent),
+                                                     allowed))
+  }, ignoreNULL = FALSE, ignoreInit = TRUE)
+
+  invisible(list(a, b))
+}
+
 # ---- Applying ----------------------------------------------------------------
 
 #' Apply the filters, returning the matching attempt rows

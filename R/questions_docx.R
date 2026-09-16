@@ -34,8 +34,10 @@ fw_docx_fp <- function(size = 11, colour = FW_COLOURS$ink, bold = FALSE,
 #' The question list as an officer document
 #'
 #' @param choices the startup choice lists, so dropdown options can be listed
-#' @param logo path to the FWISE lockup, placed at the top
-fw_questions_docx <- function(choices, logo = "www/img/FWISE-LOGO-ALL-6.png") {
+#' @param logo path to the FWISE mark, placed at the top. Sized by its own
+#'   aspect ratio below, which is what let SIMPLE replace the taller lockup
+#'   without a change here.
+fw_questions_docx <- function(choices, logo = FW_LOGO$mark_file) {
   ns <- shiny::NS(NULL)
   doc <- read_docx()
 
