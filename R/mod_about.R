@@ -235,11 +235,6 @@ fw_about_citations <- function(meta, s) {
   year <- substr(as.character(release), 1, 4)
 
   tagList(
-    tags$h3(fw_t("about", "cite_dashboard_heading")),
-    tags$pre(class = "fw-citation",
-             fw_fill(fw_t("about", "citation"),
-                     year = year, release = as.character(release))),
-    tags$h3(fw_t("about", "cite_database_heading")),
     tags$pre(class = "fw-citation",
              fw_fill(fw_t("about", "citation_db"),
                      year = year, release = as.character(release),

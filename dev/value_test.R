@@ -357,10 +357,21 @@ ok("hover: the card names the years",
 # "SELECT FOR THE FULL RECORD" IS A BUTTON NOW, not a line of quiet text.
 ok("hover: the open affordance is styled as a button",
    all(grepl("fw-popup__more-btn", cards, fixed = TRUE)))
-# NOT a real <button>: the whole card is the click target, and a button inside
-# it would swallow the click it advertises.
-ok("hover: and is not a focusable control inside the card's own click target",
-   any(grepl("<button", cards, fixed = TRUE)), FALSE)
+# A REAL <button>, AND THE ONLY CLICK TARGET IN THE CARD. The client asked for
+# the record to open from the marker or this button, not the whole card, so
+# the button carries the data-fw-open hook the card script listens for.
+ok("hover: and is a real button carrying the open hook",
+   all(grepl('<button type="button" class="fw-popup__more-btn" data-fw-open>',
+             cards, fixed = TRUE)))
+# The card script opens only from that hook, and through the opener of the map
+# that showed the card - a listener wired once with the first map's opener
+# sent Explore's clicks to the Plan page's input.
+card_js <- fw_map_card_js("x-map_detail")
+ok("hover: the card listens for the button, not for any click",
+   grepl("closest('[data-fw-open]')", card_js, fixed = TRUE))
+ok("hover: and opens through the showing map's own opener",
+   grepl("card.fwOpen = panelOpen", card_js, fixed = TRUE) &&
+     grepl("card.fwOpen(card.fwLayer)", card_js, fixed = TRUE))
 
 # THE fw_record_neighbour() TESTS USED TO SIT HERE - five of them, covering
 # wrapping at both ends and the two unanswerable questions. The function went

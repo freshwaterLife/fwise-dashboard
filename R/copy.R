@@ -77,9 +77,18 @@ FW_COPY <- list(
     licence       = "Data released under CC BY-NC 4.0 - non-commercial data. Code released under the MIT license.",
     logo_alt_fwise = "FWISE, the Freshwater Invasive Species Eradication database",
     logo_alt_wfa   = "Weird Fishes Advisory",
+    # The collaborating organisations, in the footer's right-hand group.
+    logo_alt_ucsc    = "University of California, Santa Cruz",
+    logo_alt_scripps = "Scripps Institution of Oceanography, UC San Diego",
+    logo_alt_fwl     = "Freshwater Life",
+    logo_alt_issg    = "IUCN SSC Invasive Species Specialist Group",
     # Each footer logo links out to the organisation it belongs to.
-    fwise_url     = "https://www.freshwaterlife.org",
-    wfa_url       = "https://weirdfishesadvisory.com" # [PLACEHOLDER] confirm the Weird Fishes Advisory URL
+    fwise_url     = "https://fwlife.org/",
+    wfa_url       = "https://www.weirdfishes.fish", # [PLACEHOLDER] confirm the Weird Fishes Advisory URL
+    ucsc_url      = "https://www.ucsc.edu/",
+    scripps_url   = "https://scripps.ucsd.edu/",
+    fwl_url       = "https://fwlife.org/",
+    issg_url      = "https://issg.org/"
   ),
 
   # ---- Shared UI -------------------------------------------------------------
@@ -195,7 +204,7 @@ FW_COPY <- list(
 
     # ---- The database panel --------------------------------------------------
     # The whole database, never filtered. Counts, all the same size, no rate.
-    db_heading = "The database today",
+    db_heading = "The database",
     db_span = "Attempts recorded from {from} to {to}.",
     db_attempts    = "attempts recorded",
     db_countries   = "countries",
@@ -613,21 +622,7 @@ FW_COPY <- list(
     r_method_wb_count = "Number of uses",
 
     # ---- The species tiles ----------------------------------------------------
-    #
-    # ONE BLOCK HOLDING BOTH ROLES, and it leads the results. They were two
-    # blocks near the foot of the page, and the client's objection was that the
-    # photographs - the one place the reader meets the animal rather than a
-    # count of it - were the last thing anybody saw. Paired, they also stop
-    # being two nearly-full-width grids of five tiles each.
-    #
-    # THE TWO HALVES KEEP THEIR HEADINGS AND HAVE LOST THEIR NOTES. The client
-    # removed the note under each grid; this one is what is left, so the
-    # BENEFICIARY WARNING HAS BEEN FOLDED INTO IT rather than deleted with the
-    # note that used to carry it. That warning is about the data - beneficiaries
-    # are recorded far less evenly than targets, and a reader who takes the
-    # right-hand grid for a survey of what benefited has misread the database,
-    # not the chart. It is the one part of the old r_beneficiary_note that was
-    # never decoration. Do not trim this note back to the tile explanation.
+
     r_species_pair = "Most targeted species and beneficiaries",
     r_species_pair_note = paste(
       "What these attempts were against, and what stood to gain. Each tile is",
@@ -638,50 +633,23 @@ FW_COPY <- list(
     ),
     r_tile_attempt  = "attempt",
     r_tile_attempts = "attempts",
-    # r_invasive_note AND r_beneficiary_note USED TO FOLLOW THESE - one note
-    # under each grid, naming how many species the tiles were the top of. Both
-    # went at the client's request; the half that mattered is in
-    # r_species_pair_note above.
     r_invasive   = "What these attempts targeted",
     r_beneficiary = "What benefited",
 
     r_duration   = "How long these attempts took",
-    # THE DOTTED LINES, NOT SHADING. This said "shaded by order of magnitude"
-    # until the bands were replaced with a dotted line at each unit break; the
-    # note is what tells a reader the axis is compressed, so it has to describe
-    # what is actually drawn.
     r_duration_note = paste(
       "Start to finish, on a log scale, with a dotted line at a day, a week, a",
       "month, a year, five years and ten. Each point is one attempt that used a",
       "single method, so the dates on it describe that one treatment."
     ),
-    # BOTH RESTRICTIONS, SAID OUT LOUD. The duration is only as good as the
-    # attempt it came from: an attempt that ran rotenone in 1994 and netting
-    # until 2021 has a recorded duration of ten thousand days, and none of that
-    # is how long either method took. Dropping those is what makes the chart
-    # readable, and a reader has to be told how many attempts it cost.
     r_duration_missing = paste(
       "Based on the {n} of these attempts that have a start, an end and a",
       "single recorded method. Attempts using more than one method are left",
       "out: their start and end dates span every method, not any one of them."
     ),
-    # The cumulative chart LIVES ON EXPLORE NOW (FW_COPY$explore$cumulative). It
-    # answers how the database has grown, which is a question about the record
-    # rather than about the reader's own situation, and it was the one block
-    # here that a narrow selection made actively misleading.
-    # THE MATCHING-ATTEMPTS TABLE IS GONE, from the page and from the HTML
-    # report, and its copy went with it: the heading and note, the rows-per-page
-    # label, the seven column headings and the "+{n} more" suffix that shortened
-    # a long species or method list to fit a cell. The downloads were always
-    # where the unshortened values lived, and they still are.
-    #
-    # r_table_showing STAYS. It reads "Showing", and the contacts pager below
-    # uses it - it was never specific to the attempts table.
     r_table_showing = "Showing",
 
     # ---- Potential relevant contacts -----------------------------------------
-    # The networking side of FWISE, brought to the point where a reader has just
-    # seen what was tried near them and the obvious next question is who did it.
     r_contacts = "Potential relevant contacts",
     r_contacts_note = paste(
       "The people recorded against the attempts above, most involved first.",
@@ -703,13 +671,6 @@ FW_COPY <- list(
   # ---- About -----------------------------------------------------------------
 
   about = list(
-    # [PLACEHOLDER] MOST OF THE BODY COPY ON THIS PAGE IS LOREM IPSUM, on the
-    # client's instruction, while they write the real wording. The headings are
-    # the real ones and the structure is settled, so replacing this is a copy
-    # edit rather than a rebuild. Three things here are NOT placeholder and must
-    # survive that edit: `scale`, whose {placeholders} are filled from the loaded
-    # data, and `citation`/`citation_db`, which are the citation formats.
-    #
     # THE PAGE IS A SHORT SUMMARY WITH DEPTH BEHIND IT, at the client's request.
     # What is in FWISE, the sign-up and how to cite it are always visible; the
     # caveats, the methods, the success stories and the related databases are
@@ -718,8 +679,7 @@ FW_COPY <- list(
     # who has to apply the definition is.
     title = "About FWISE",
     description = paste(
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod",
-      "tempor incididunt ut labore et dolore magna aliqua."
+      "What FWISE is, "
     ),
 
     database_heading = "About FWISE",
@@ -749,7 +709,7 @@ FW_COPY <- list(
     # a delivery failure to hide. Same reasoning as the feedback box below.
     signup_heading = "Keep up with FWISE",
     signup_body = paste(
-      "[PLACEHOLDER] We send an occasional update when a new release of the",
+      "We send an occasional update when a new release of the",
       "database goes out, or when something is published from it. No more than",
       "a few times a year."
     ),
@@ -757,21 +717,11 @@ FW_COPY <- list(
     signup_url = "#", # [PLACEHOLDER] awaiting the mailing list URL
 
     # ---- Citation ------------------------------------------------------------
-    # TWO CITATIONS, because they are two different things to cite and a reader
-    # quoting a figure needs the one that pins the release they read it in.
     cite_heading = "How to cite FWISE",
     cite = paste(
-      "Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse",
-      "quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo",
-      "voluptas nulla pariatur."
+      "FWISE data is open source and freely available for use. Please cite it in any publication that uses it with the below citation."
     ),
-    cite_dashboard_heading = "The dashboard",
     cite_database_heading  = "The database",
-    citation = paste(
-      "Freshwater Life ({year}). FWISE: Freshwater Invasive Species",
-      "Eradication dashboard, release {release}.",
-      "https://doi.org/[PLACEHOLDER]"
-    ),
     citation_db = paste(
       "Freshwater Life ({year}). FWISE: Freshwater Invasive Species",
       "Eradication database, release {release} ({n} attempts).",
@@ -789,12 +739,10 @@ FW_COPY <- list(
     # qualifications of that selection alone. The blocks themselves are computed
     # - see fw_caveat_blocks() in R/export.R - and the same text still travels
     # inside every download.
-    caveats_heading = "Important to note whilst reading the data",
+    caveats_heading = "Data caveats",
     caveats_summary = "How success is defined, what is missing, and why there is no success rate",
     caveats_lead = paste(
-      "These apply to every figure in FWISE, on every page and in every",
-      "download. The numbers in them are counted from the data as it stands",
-      "today, not written down and left to go stale."
+      "Caveats apply to all data within FWISE, and should be bared in mind when analyzing data or viewing the dashboard."
     ),
 
     method_heading = "How it was built",
@@ -809,10 +757,7 @@ FW_COPY <- list(
       "fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem",
       "sequi nesciunt."
     ),
-    # [PLACEHOLDER] THE GAPS MATTER AS MUCH AS THE COVERAGE and the client is
-    # explicit about wanting them stated rather than glossed. The caveats panel
-    # carries the detail; the real wording for this paragraph has to say plainly
-    # that there is one.
+
     method3 = paste(
       "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet,",
       "consectetur, adipisci velit, sed quia non numquam eius modi tempora",

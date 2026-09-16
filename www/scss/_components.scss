@@ -256,11 +256,10 @@
     padding-block: $fw-space-4;
   }
 
-  // CREDITS LEFT, LOGOS RIGHT, at the client's request. The credit used to sit
-  // UNDER both marks, where "Built by Weird Fishes Advisory" directly beneath
-  // the FWISE lockup could be read as a caption on it. Side by side with a rule
-  // between them, the words are plainly about the app and the marks are plainly
-  // a group of organisations.
+  // ORG LOGOS, CREDITS, RULE, COLLABORATOR LOGOS, left to right, at the
+  // client's request. The FWISE and Weird Fishes marks lead, the credit sits
+  // beside them, and the collaborating organisations are a separate group on
+  // the right behind the rule.
   &__row {
     display: flex;
     flex-wrap: wrap;
@@ -276,12 +275,27 @@
     min-width: 0;
   }
 
+  // Both logo groups share the sizing. Equal height, deliberately: the lockups
+  // are close enough in aspect that matching the height matches the presence.
+  &__org,
   &__logos {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: flex-end;
     gap: $fw-space-4;
+
+    a { display: inline-flex; text-decoration: none; }
+
+    img { display: block; width: auto; height: 44px; }
+
+    @media (max-width: $fw-bp-sm) {
+      gap: $fw-space-2;
+      img { height: 34px; }
+    }
+  }
+
+  &__logos {
+    justify-content: flex-end;
 
     // THE SEPARATOR, and it is on the GROUP rather than between the items. The
     // client asked for the organisations grouped clearly, which is a line
@@ -293,17 +307,6 @@
     @media (min-width: $fw-bp-md) {
       padding-inline-start: $fw-space-4;
       border-inline-start: 1px solid $fw-border;
-    }
-
-    a { display: inline-flex; text-decoration: none; }
-
-    // Equal height, deliberately. The two lockups are close enough in aspect
-    // (about 2.5:1 and 2.3:1) that matching the height matches the presence.
-    img { display: block; width: auto; height: 44px; }
-
-    @media (max-width: $fw-bp-sm) {
-      gap: $fw-space-2;
-      img { height: 34px; }
     }
   }
 
@@ -633,9 +636,10 @@
 // screens past it and has to go back up to act on what they have just read.
 //
 // UNDER THE NAVBAR, not at top: 0, or it slides beneath a bar that is itself
-// sticky. z-index 900 clears Leaflet's panes (400-800), which matters because
-// the map is the second block down, and stays under the navbar's 1030 and the
-// download modal's own layer.
+// sticky. z-index 1010 clears Leaflet's panes (400-800) AND its control corners
+// (1000, where the legend lives), which matters because the map is the second
+// block down, and stays under the navbar's 1030 and the download modal's own
+// layer. See fw-sticky-under-navbar.
 //
 // THE GROUND AND THE HAIRLINE ARE WHAT MAKE IT READABLE. The row is transparent
 // while it sits in the flow; pinned over scrolling charts it needs a ground of
@@ -1000,26 +1004,32 @@
   // THE POINTER IS PART OF THE BUTTON. It read as a caption once and the fix
   // was to make it look like a button; it still carried the text caret on
   // hover, which is the one cue that says "this is prose" no matter what the
-  // fill looks like, and the client reported it reading as text again. The card
-  // is what listens for the click, so the cursor goes on the card as well -
-  // hovering anywhere in it is a click that opens the record.
+  // fill looks like, and the client reported it reading as text again.
+  //
+  // A REAL <button> NOW, and the only thing in the card that opens the record.
+  // The whole card used to, and the client asked for the click to belong to
+  // the marker and this button alone. So the pointer and the hover are on the
+  // button only, and the native button chrome is reset here.
   &__more-btn {
     display: inline-block;
     padding: 0.3rem $fw-space-2;
+    border: 0;
     border-radius: $fw-radius-input;
     background: $fw-teal-text;
     color: $fw-on-indigo;
+    font-family: inherit;
     font-size: $fw-size-caption;
     font-weight: $fw-weight-bold;
+    line-height: inherit;
     cursor: pointer;
-    // Nothing here is focusable (see above), so this is the only hover the
-    // control has. It exists so the pointer landing on it changes something.
     user-select: none;
-  }
 
-  &:hover &__more-btn,
-  &__more-btn:hover {
-    background: $fw-teal-hover;
+    &:hover { background: $fw-teal-hover; }
+
+    &:focus-visible {
+      outline: 2px solid $fw-teal-text;
+      outline-offset: 2px;
+    }
   }
 
   // The detail half of the string is a <template>, so it never renders inside
@@ -1129,11 +1139,9 @@
   box-shadow: $fw-shadow-raised;
   font-family: $fw-font-body;
   line-height: $fw-leading-body;
-  // THE WHOLE CARD OPENS THE RECORD - the click handler in FW_MAP_CARD_JS
-  // listens on the card, not on the button inside it - so the pointer is the
-  // truth about the card and not only about the button. The close button sets
-  // its own, and the credit links under the thumbnails keep theirs.
-  cursor: pointer;
+  // NO POINTER ON THE CARD ITSELF. Only the marker and the card's green
+  // button open the record (see FW_MAP_CARD_JS), so the card body is not a
+  // click target and must not look like one.
 
   &[hidden] { display: none; }
 

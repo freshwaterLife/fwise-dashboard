@@ -77,7 +77,12 @@ $fw-container-gutter: $fw-space-3;
 // progress rail and the report builder's results heading stick under this bar,
 // and when the navbar's min-height last moved only one of them would have
 // followed it. Anything else that sticks to the top of the page uses this too.
-@mixin fw-sticky-under-navbar($z: 900) {
+//
+// 1010, NOT 900. Leaflet's panes run 400-800, but its control corners
+// (.leaflet-top / .leaflet-bottom, which hold the outcome legend) sit at 1000,
+// and at 900 the report builder's download row slid under the legend. Still
+// under the navbar's 1030 and the map card's 1200.
+@mixin fw-sticky-under-navbar($z: 1010) {
   position: sticky;
   top: 64px;
   z-index: $z;

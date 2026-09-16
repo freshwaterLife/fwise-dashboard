@@ -45,14 +45,7 @@ fw_scss_digest <- function(dir = "www/scss") {
 #' The standard content column
 fw_container <- function(...) div(class = "fw-container", ...)
 
-#' A vertical band of content
-#'
-#' @param variant one of "default", "paper", "shoal", "lagoon", "indigo".
-#'   "lagoon" and "indigo" are the workshop poster's two coloured bands; both
-#'   are meant to be used with `bleed = TRUE` and neither may be nested inside
-#'   the other. See .fw-section in _components.scss.
-#' @param tight   halve the vertical padding
-#' @param bleed   break out of the container to the full viewport width
+
 fw_section <- function(..., variant = c("default", "paper", "shoal",
                                         "lagoon", "indigo"),
                        tight = FALSE, bleed = FALSE, flush = NULL, id = NULL) {
@@ -67,13 +60,7 @@ fw_section <- function(..., variant = c("default", "paper", "shoal",
   tags$section(class = paste(classes, collapse = " "), id = id, ...)
 }
 
-#' Render the one piece of markup the copy file is allowed to carry
-#'
-#' The copy deck is plain text so it stays diffable and easy to hand back to the
-#' client. A couple of sentences need a single word emphasised mid-clause, and
-#' chopping those strings into fragments to wrap in tags$strong() makes them
-#' unreadable at the point they are written. So **this** is understood, nothing
-#' else is, and every part still goes through htmltools' escaping.
+
 fw_emphasis <- function(text) {
   parts <- strsplit(text, "**", fixed = TRUE)[[1]]
   if (length(parts) < 2) return(text)
@@ -414,10 +401,10 @@ fw_footer <- function(last_updated, in_review = 0L) {
       fw_container(
         # ---- Who built what, and whose logos those are ----------------------
         #
-        # THE WORDS ON THE LEFT, THE MARKS ON THE RIGHT, with a rule between
-        # them. The client asked for the organisational logos grouped in the
-        # bottom right behind a separator, so that the credit beside them reads
-        # as a caption on the app rather than on the logos.
+        # ORG LOGOS, THEN THE WORDS, THEN A RULE, THEN THE COLLABORATORS, in
+        # that order at the client's request. The FWISE and Weird Fishes marks
+        # lead the row with the credit beside them, and the collaborating
+        # organisations sit in their own group on the right behind the rule.
         #
         # TWO STATEMENTS, NOT ONE. This was a single line reading "Built by
         # Weird Fishes Advisory" under both logos, which - sitting under the
@@ -428,21 +415,27 @@ fw_footer <- function(last_updated, in_review = 0L) {
         div(
           class = "fw-footer__row",
           div(
-            class = "fw-footer__credits",
-            p(class = "fw-footer__built-by", fw_t("app", "built_by")),
-            p(class = "fw-footer__built-by", fw_t("app", "data_by"))
-          ),
-          # THE PARTNER LOGOS ARE INCOMPLETE. Graden is sending the full set of
-          # contributing organisations; these two are what is on hand. Adding
-          # the rest is adding logo() calls here - the row wraps, and the
-          # separator is on the group rather than between the items, so nothing
-          # else has to change.
-          div(
-            class = "fw-footer__logos",
+            class = "fw-footer__org",
             logo(fw_t("footer", "fwise_url"), FW_LOGO$mark_web,
                  fw_t("footer", "logo_alt_fwise")),
             logo(fw_t("footer", "wfa_url"), "img/wfa-logo-rect-dark-320.png",
                  fw_t("footer", "logo_alt_wfa"))
+          ),
+          div(
+            class = "fw-footer__credits",
+            p(class = "fw-footer__built-by", fw_t("app", "built_by")),
+            p(class = "fw-footer__built-by", fw_t("app", "data_by"))
+          ),
+          div(
+            class = "fw-footer__logos",
+            logo(fw_t("footer", "fwl_url"), "img/collab/FRESHWATER_LIFE.png",
+                 fw_t("footer", "logo_alt_fwl")),
+            logo(fw_t("footer", "ucsc_url"), "img/collab/UCSC.png",
+                 fw_t("footer", "logo_alt_ucsc")),
+            logo(fw_t("footer", "scripps_url"), "img/collab/UCSD_SCRIPPS.png",
+                 fw_t("footer", "logo_alt_scripps")),
+            logo(fw_t("footer", "issg_url"), "img/collab/ISSG_SSC_IUCN.png",
+                 fw_t("footer", "logo_alt_issg"))
           )
         )
       )

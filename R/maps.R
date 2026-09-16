@@ -385,13 +385,12 @@ fw_map_hover_html <- function(row, thumbs = NULL) {
     # A BUTTON, NOT A LINE OF QUIET TEXT. It read as a caption and the client
     # reported readers not realising the card opened into anything.
     #
-    # IT IS A <span>, AND THE CARD IS WHAT LISTENS. The card's own click handler
-    # in FW_MAP_CARD_JS opens the record from anywhere inside it, this included,
-    # so a real <button> here would be a second control doing the same job. That
-    # handler was missing for a release and clicking this did nothing at all -
-    # which is what the client reported next.
-    '<p class="fw-popup__more"><span class="fw-popup__more-btn">',
-    esc(fw_t("species", "more_hint")), "</span></p>",
+    # IT IS THE ONLY CLICK TARGET IN THE CARD. The whole card used to open the
+    # record, and the client asked for that to belong to the marker and this
+    # button alone. data-fw-open is what the delegated handler in
+    # FW_MAP_CARD_JS looks for; a click anywhere else in the card does nothing.
+    '<p class="fw-popup__more"><button type="button" class="fw-popup__more-btn" data-fw-open>',
+    esc(fw_t("species", "more_hint")), "</button></p>",
     "</div>"
   )
 }
@@ -832,6 +831,7 @@ function (el, x) {
     // A stale one here would send a click on the NEXT card to the last
     // marker's record.
     card.fwLayer = null;
+    card.fwOpen = null;
   }
   function place(latlng) {
     // NARROW SCREENS DO NOT ANCHOR TO THE MARKER. The card is as wide as the
@@ -872,6 +872,12 @@ function (el, x) {
     // The card is a child of document.body rather than of the map, so it has
     // no route back to the marker it came from except this.
     card.fwLayer = layer;
+    // AND WHICH MAP'S OPENER TO USE. The card's click listener is wired once
+    // for the page, by whichever map rendered first, so a panelOpen captured
+    // there sent Explore's clicks to the Plan page's detail input - where the
+    // server dropped them as not in its selection. The opener travels with
+    // the layer instead, so it is always this map's.
+    card.fwOpen = panelOpen;
     body.innerHTML = layer.fwCard;
     // Measured while still invisible, so it never flashes at the last marker's
     // position on its way to this one's.
@@ -1000,18 +1006,19 @@ function (el, x) {
     card.addEventListener('mouseenter', cancel);
     card.addEventListener('mouseleave', shut);
     card.querySelector('.fw-map-card__close').addEventListener('click', shut);
-    // THE CARD IS THE CLICK TARGET, and it was not - the whole of this file
-    // and the stylesheet said it was, the button at the foot of every card
-    // advertised it, and nothing was listening. The card sits on
+    // THE GREEN BUTTON IS THE CLICK TARGET, not the card. The client asked
+    // for the record to open from the marker or this button only. Delegated,
+    // because the card's contents are replaced on every open. The card sits on
     // document.body, outside the Leaflet container, so the marker's own click
-    // handler never sees it and the capturing document handler below
-    // deliberately ignores it. This is the missing half.
+    // handler never sees this and the capturing document handler below
+    // deliberately ignores it.
     //
-    // The close button is excluded because it has its own handler above and
-    // would otherwise open the record it is being asked to dismiss.
+    // card.fwOpen, NOT panelOpen: this listener is wired once for the page,
+    // and the panelOpen in scope here belongs to whichever map ran first. See
+    // open().
     card.addEventListener('click', function (e) {
-      if (e.target.closest('.fw-map-card__close')) return;
-      if (card.fwLayer) panelOpen(card.fwLayer);
+      if (!e.target.closest('[data-fw-open]')) return;
+      if (card.fwLayer && card.fwOpen) card.fwOpen(card.fwLayer);
     });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' || e.key === 'Esc') shut();
