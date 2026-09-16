@@ -779,8 +779,8 @@
   h2 { margin-block-start: $fw-space-4; }
   h2:first-of-type { margin-block-start: 0; }
 
-  // The four disclosures are a group. Set apart from the prose above and below
-  // so the page reads as summary / panels / the rest, which is the structure
+  // The disclosures are a group. Set apart from the prose above and below
+  // so the page reads as summary / panels / feedback, which is the structure
   // the client asked for, rather than as one continuous column.
   &__panels {
     margin-block: $fw-space-5;

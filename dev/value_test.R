@@ -130,16 +130,16 @@ try(testServer(mod_about_server, args = list(data = d, meta = m), {
 }), silent = TRUE)
 ok("about: the page renders", !is.na(about_html) && nchar(about_html) > 1000)
 # Every heading on the page, whether it is an always-visible section or the
-# summary of one of the four disclosures. Add a section, add it here.
+# summary of one of the five disclosures. Add a section, add it here.
 ok("about: every section heading is present",
-   all(vapply(c("database", "signup", "cite", "caveats", "method", "stories",
+   all(vapply(c("database", "signup", "cite", "caveats", "method",
                 "related", "other", "images", "licence", "links"),
               function(k) grepl(fw_t("about", paste0(k, "_heading")), about_html, fixed = TRUE),
               logical(1))))
 # The panels are click-to-open, and a <details> that lost its <summary> is a
 # block of prose nobody can close.
-ok("about: the four panels are disclosures",
-   lengths(regmatches(about_html, gregexpr("fw-disclosure__summary", about_html)))[[1]], 4L)
+ok("about: the five panels are disclosures",
+   lengths(regmatches(about_html, gregexpr("fw-disclosure__summary", about_html)))[[1]], 5L)
 # The preamble moved to Contribute only. If it comes back here, the page opens
 # on scope rules again.
 ok("about: no eradication preamble",

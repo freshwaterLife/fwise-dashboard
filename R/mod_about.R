@@ -8,11 +8,12 @@
 # loaded data - never by typing a number that will be wrong by next quarter.
 #
 # THE SHAPE OF THE PAGE, which is a client decision and not a layout accident:
-# a short summary that is always visible - what FWISE is, how big it is, how to
-# hear about it, how to cite it - and then four click-to-open panels holding the
-# depth. A reader who wants to know whether to trust a figure opens the caveats;
-# a reader who wants to know where the records came from opens the methods;
-# nobody has to scroll past either to reach the citation.
+# a short summary that is always visible - what FWISE is, how big it is and how
+# to hear about it - and then five click-to-open panels holding the depth, the
+# citation and the small print included. A reader who wants to know whether to
+# trust a figure opens the caveats; a reader who wants to know where the records
+# came from opens the methods; nobody has to scroll past either to reach the
+# feedback box.
 #
 # WHAT COUNTS AS AN ERADICATION USED TO OPEN THIS PAGE. It is the definition the
 # whole database is built on, shared with the contribute form through
@@ -42,7 +43,7 @@ mod_about_ui <- function(id) {
         )
       ),
       # ITS OWN BAND, outside .fw-about. On the page ground it read as a fifth
-      # panel among the four above it; on a tinted band of its own it reads as
+      # panel among the ones above it; on a tinted band of its own it reads as
       # the end of the page, which is what it is.
       fw_section(
         variant = "shoal",
@@ -78,21 +79,25 @@ mod_about_server <- function(id, data, meta = NULL) {
           p(class = "fw-lead", fw_about_scale(s, n_contributors, ns)),
 
           # ---- Hear about it ---------------------------------------------
-          fw_about_signup(),
-
-          # ---- Cite it ---------------------------------------------------
-          section("cite",
-                  para("cite"),
-                  fw_about_citations(meta, s))
+          fw_about_signup()
         ),
 
-        # ---- The depth, behind four disclosures ---------------------------
+        # ---- The depth, behind disclosures --------------------------------
         #
-        # ORDER IS THE CLIENT'S. Caveats first because they qualify everything
-        # else on the page; related databases last because it is the one panel
-        # that sends the reader away.
+        # ORDER IS THE CLIENT'S. The citation first, because it was the last
+        # thing on the always-visible summary before the client asked for it to
+        # fold; then caveats, because they qualify everything else on the page;
+        # related databases after the methods because that panel sends the
+        # reader away; other information last, as the page's small print.
         div(
           class = "fw-about__panels",
+
+          fw_disclosure(
+            fw_t("about", "cite_heading"),
+            note = fw_t("about", "cite_summary"),
+            para("cite"),
+            fw_about_citations(meta, s)
+          ),
 
           fw_disclosure(
             fw_t("about", "caveats_heading"),
@@ -116,25 +121,24 @@ mod_about_server <- function(id, data, meta = NULL) {
             note = fw_t("about", "related_summary"),
             para("related"),
             fw_about_related()
-          )
-        ),
+          ),
 
-        # ---- Everything else ----------------------------------------------
-        div(
-          class = "fw-prose",
-          section("other"),
-          tags$h3(fw_t("about", "images_heading")),
-          p(fw_t("species", "image_note")),
-          tags$h3(fw_t("about", "licence_heading")),
-          p(fw_t("footer", "licence")),
-          tags$h3(fw_t("about", "links_heading")),
-          tags$ul(
-            tags$li(tags$a(href = fw_t("footer", "github_url"),
-                           fw_t("footer", "github_label"))),
-            tags$li(tags$a(href = fw_t("footer", "fwise_url"),
-                           fw_t("about", "link_fwise"))),
-            tags$li(tags$a(href = fw_t("footer", "doi_url"),
-                           fw_t("about", "link_zenodo")))
+          fw_disclosure(
+            fw_t("about", "other_heading"),
+            note = fw_t("about", "other_summary"),
+            tags$h3(fw_t("about", "images_heading")),
+            p(fw_t("species", "image_note")),
+            tags$h3(fw_t("about", "licence_heading")),
+            p(fw_t("footer", "licence")),
+            tags$h3(fw_t("about", "links_heading")),
+            tags$ul(
+              tags$li(tags$a(href = fw_t("footer", "github_url"),
+                             fw_t("footer", "github_label"))),
+              tags$li(tags$a(href = fw_t("footer", "fwise_url"),
+                             fw_t("about", "link_fwise"))),
+              tags$li(tags$a(href = fw_t("footer", "doi_url"),
+                             fw_t("about", "link_zenodo")))
+            )
           )
         )
       )
