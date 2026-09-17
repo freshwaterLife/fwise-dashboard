@@ -1,37 +1,33 @@
 # mod_home.R
-# BUILT. The Welcome page: what the problem is, that the fix works, where it has
-# and has not been done, and where to go next.
+# BUILT. The Welcome page ("The solution"): why freshwater eradication matters,
+# that it works, where it has and has not been done, and where to go next.
 #
 # ==============================================================================
-# THE PAGE, in its fixed order
+# THE PAGE, in its fixed order. BUILT TO FIT ONE LAPTOP SCREEN (client, Sept
+# 2026): every part is sized so a 1366x768 window shows the lot with little or
+# no scroll. Add nothing below the map without re-measuring.
 # ==============================================================================
 #
-# 1. HEADER. The headline and three lead paragraphs in the standard indigo page
-#    header. Numbers are bold (**...** in the copy). The count of successful
-#    recoveries is filled from the loaded data at startup and is NEVER typed;
-#    the "X%" threatened figure comes from outside FWISE and is the client's.
-#    Figures appear at their value - no count-up.
+# 1. HEADER. The two-sentence headline and three short lines in the indigo page
+#    header, set a step smaller than other pages (.fw-page-header--home). The
+#    last line's phrases link to Explore, Plan, Contribute and Networking.
 #
-# 2. SUCCESS STORIES. One row per continent, A-Z. Each row is a native
-#    <details>: a subtitle across the row, then the invasive species on the
-#    left, a short line of story, and the beneficiary on the right. Opening it
-#    shows the longer account. Rows open independently, not as an accordion.
-#    The invasive plates are greyscale and the beneficiaries are in colour: that
-#    is the client's artwork and is the point, not an accident to "fix".
-#    A picture the client has not supplied (NA in FW_HOME_IMG) draws as a
-#    placeholder box, so a row keeps its shape until the image arrives.
+# 2. THE STRIP. One figure - species protected, the distinct beneficiaries of
+#    SUCCESSFUL attempts, filled from the data and never typed - then one
+#    picture per success story, then the hint. Each picture is a button that
+#    opens that story's card. The row shows beneficiaries only, in colour.
 #
-# 3. CURRENT WORK AND GAPS. Two STATIC map pictures, one over the other, with a
-#    slider that reveals the priorities map from the left. It starts fully on
-#    current work. The only moving part is the reveal - these are not the
-#    interactive Leaflet maps from Explore. The slider is a native range input
-#    laid over the figure, so drag, click and arrow keys all work with one line
-#    of inline JS. The legend printed in the client's pictures was trimmed off
-#    the web copies (the two sat in the same place and the slider cut across
-#    them) and is drawn as page text above the figure instead.
+# 3. STORY CARDS. Native popovers (the HTML popover attribute), so opening,
+#    Esc, clicking away and the top layer need no script. A card holds the
+#    invasive plate (greyscale - the client's artwork, not an accident to
+#    "fix") beside the beneficiary, then the title and the account. A picture
+#    the client has not supplied (NA in FW_HOME_IMG) draws as a placeholder.
 #
-# 4. CLOSING. One paragraph whose phrases link to Explore, Plan and Networking,
-#    and a thank-you. No buttons.
+# 4. CURRENT WORK AND GAPS. Two STATIC map pictures in register with a slider
+#    that reveals the priorities map from the left, starting fully on current
+#    work. The slider is a native range input laid over the figure. There is no
+#    separate legend: the caption names the two states in the map's own hues.
+#    The map's width follows the window HEIGHT (see .fw-compare-wrap).
 #
 # THE PICTURES ARE WEB COPIES. The client's originals are in resources/ (not
 # served) and are never altered. The copies in www/img/home/ were made with
@@ -46,41 +42,33 @@
 
 mod_home_ui <- function(id, stats) {
   ns <- NS(id)
-  lead <- fw_fill(fw_t("home", "lead"), successful = fw_fmt_num(stats$successful))
+  keys <- names(fw_t("home", "stories"))
 
   tagList(
-    fw_page_header(fw_t("home", "title"), lead),
+    fw_page_header(fw_t("home", "title"), fw_t("home", "lead"),
+                   format = fw_home_links, modifier = "home"),
     tags$main(
       id = "fw-main",
-
       fw_section(
+        tight = TRUE,
         fw_container(
-          tags$h2(fw_t("home", "stories_heading")),
-          p(class = "fw-lead", fw_t("home", "stories_intro")),
           div(
-            class = "fw-stories",
-            lapply(names(fw_t("home", "stories")), function(key) {
-              fw_home_story(fw_t("home", "stories", key), FW_HOME_IMG$stories[[key]])
-            })
-          )
-        )
-      ),
-
-      fw_section(
-        variant = "paper",
-        fw_container(
-          tags$h2(fw_t("home", "map_heading")),
-          p(class = "fw-lead", fw_t("home", "map_intro")),
+            class = "fw-home-strip",
+            div(class = "fw-home-strip__kpi",
+                fw_kpi_stat(fw_fmt_num(stats$protected), fw_t("home", "kpi_label"),
+                            tooltip = fw_t("home", "kpi_tooltip"))),
+            div(class = "fw-home-strip__species",
+                lapply(keys, function(key) {
+                  fw_home_tile(key, fw_t("home", "stories", key), FW_HOME_IMG$stories[[key]])
+                })),
+            p(class = "fw-home-strip__hint", fw_t("home", "stories_hint"))
+          ),
           fw_home_compare(ns("map_reveal"))
         )
       ),
-
-      fw_section(
-        fw_container(
-          div(class = "fw-prose fw-home-closing",
-              lapply(fw_t("home", "closing"), function(x) p(fw_home_links(x))))
-        )
-      )
+      lapply(keys, function(key) {
+        fw_home_card(key, fw_t("home", "stories", key), FW_HOME_IMG$stories[[key]])
+      })
     )
   )
 }
@@ -94,45 +82,64 @@ mod_home_server <- function(id, data) {
 
 # ---- Pieces ------------------------------------------------------------------
 
-#' One success story row
-#'
-#' THE SAME DISCLOSURE AS ABOUT, so the chevron, focus ring and card match. The
-#' summary is what a closed row shows, so it carries the pictures as well as the
-#' title; only the long account waits behind the click.
-fw_home_story <- function(s, img) {
+fw_home_card_id <- function(key) paste0("fw-home-story-", key)
+
+#' A picture, or the placeholder box when the client has not supplied one
+fw_home_art <- function(src, alt) {
+  if (is.null(src) || is.na(src)) {
+    div(class = "fw-story__placeholder", role = "img", `aria-label` = alt,
+        fw_t("home", "image_placeholder"))
+  } else {
+    tags$img(src = src, alt = alt, loading = "lazy")
+  }
+}
+
+#' One beneficiary in the strip: a button that opens its story card
+fw_home_tile <- function(key, s, img) {
+  sp <- s$beneficiary
+  tags$button(
+    type = "button",
+    class = "fw-home-species",
+    popovertarget = fw_home_card_id(key),
+    title = sp$name,
+    `aria-label` = fw_fill(fw_t("home", "stories_open"),
+                           continent = s$continent, name = sp$name),
+    # The button's label says it all, so the picture is not announced twice.
+    tagAppendAttributes(fw_home_art(img$beneficiary, ""), `aria-hidden` = "true")
+  )
+}
+
+#' One success story, as a popover card
+fw_home_card <- function(key, s, img) {
   figure <- function(role) {
-    src <- img[[role]]
-    sp  <- s[[role]]
-    art <- if (is.null(src) || is.na(src)) {
-      div(class = "fw-story__placeholder", role = "img", `aria-label` = sp$alt,
-          fw_t("home", "image_placeholder"))
-    } else {
-      tags$img(src = src, alt = sp$alt, loading = "lazy")
-    }
+    sp <- s[[role]]
     tags$figure(
       class = paste0("fw-story__figure fw-story__figure--", role),
-      div(class = "fw-story__art", art),
+      div(class = "fw-story__art", fw_home_art(img[[role]], sp$alt)),
       tags$figcaption(
         tags$span(class = "fw-story__role", fw_t("home", paste0(role, "_label"))),
         sp$name
       )
     )
   }
+  title_id <- paste0(fw_home_card_id(key), "-title")
 
-  tags$details(
-    class = "fw-disclosure fw-story",
-    tags$summary(
-      class = "fw-disclosure__summary fw-story__summary",
-      tags$span(class = "fw-disclosure__title fw-story__title",
-                tags$span(class = "fw-story__continent", s$continent), " ", s$title),
-      div(
-        class = "fw-story__row",
-        figure("invasive"),
-        p(class = "fw-story__text", s$summary),
-        figure("beneficiary")
-      )
+  div(
+    id = fw_home_card_id(key), popover = "auto",
+    class = "fw-home-card", role = "dialog", `aria-labelledby` = title_id,
+    tags$button(
+      type = "button", class = "fw-home-card__close",
+      popovertarget = fw_home_card_id(key), popovertargetaction = "hide",
+      `aria-label` = fw_t("home", "card_close"),
+      HTML("&times;")
     ),
-    div(class = "fw-disclosure__body", p(s$body))
+    tags$h2(
+      id = title_id, class = "fw-home-card__title",
+      tags$span(class = "fw-story__continent", s$continent), " ", s$title
+    ),
+    div(class = "fw-story__row", figure("invasive"), figure("beneficiary")),
+    p(class = "fw-home-card__summary", s$summary),
+    p(s$body)
   )
 }
 
@@ -143,20 +150,14 @@ fw_home_story <- function(s, img) {
 #' on current work, matching the input's value so the first paint is right
 #' without any script having run.
 fw_home_compare <- function(input_id) {
-  swatch <- function(which, label) {
-    tags$span(class = "fw-compare__key",
-              tags$span(class = paste0("fw-compare__swatch fw-compare__swatch--", which),
-                        `aria-hidden` = "true"),
-              label)
+  cap <- fw_t("home", "map_caption")
+  piece <- function(i) {
+    nm <- names(cap)[i]
+    if (nzchar(nm)) tags$span(class = paste0("fw-compare__", nm), cap[[i]]) else cap[[i]]
   }
 
   tags$figure(
     class = "fw-compare-wrap",
-    div(
-      class = "fw-compare__legend",
-      swatch("now", fw_t("home", "map_now_label")),
-      swatch("next", fw_t("home", "map_next_label"))
-    ),
     div(
       class = "fw-compare", style = "--fw-pos: 0%;",
       tags$img(class = "fw-compare__base", src = FW_HOME_IMG$map_now,
@@ -173,7 +174,7 @@ fw_home_compare <- function(input_id) {
         oninput = "this.parentNode.style.setProperty('--fw-pos', this.value + '%')"
       )
     ),
-    tags$figcaption(class = "fw-caption", fw_t("home", "map_caption"))
+    tags$figcaption(class = "fw-compare__caption", lapply(seq_along(cap), piece))
   )
 }
 
@@ -190,6 +191,8 @@ fw_home_links <- function(text) {
   plain <- regmatches(text, hits, invert = TRUE)[[1]]
   parts <- lapply(regmatches(links, regexec(pattern, links)), function(m) {
     tags$a(
+      # No whitespace around the link, or "words ," gets a space before the comma.
+      .noWS = "outside",
       href = "#",
       onclick = sprintf("Shiny.setInputValue('fw_nav_to','%s',{priority:'event'}); return false;", m[2]),
       m[3]

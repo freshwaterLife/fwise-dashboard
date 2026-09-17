@@ -162,7 +162,7 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
 #' @param detail,detail_input passed to fw_add_attempt_markers(): the page
 #'   fetches each record on click, the HTML report carries them all.
 fw_plan_map <- function(data, sel, detail = c("embed", "lazy"), detail_input = NULL) {
-  leaflet::leaflet(options = leaflet::leafletOptions(worldCopyJump = TRUE)) |>
+  fw_leaflet() |>
     fw_add_basemaps() |>
     fw_add_attempt_markers(data, sel, detail = detail, detail_input = detail_input)
 }
@@ -175,8 +175,7 @@ fw_plan_map <- function(data, sel, detail = c("embed", "lazy"), detail_input = N
 # and the HTML report's copy of it went at the same time, so it had no callers
 # left.
 #
-# Page sizes (FW_PLAN_PAGE_SIZES in R/config.R) and fw_plan_pages() below are
-# still used - the contacts directory pages the same way.
+# fw_plan_pages() below is still used - the contacts block pages the same way.
 #
 # IF A RECORD-BY-RECORD SECTION COMES BACK, and the client has asked for one in
 # prose for the next round, it should not be this: a table of truncated cells is

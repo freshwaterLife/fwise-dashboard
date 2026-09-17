@@ -221,4 +221,11 @@ small, .small, .fw-caption {
   }
 }
 
+// NO BOOTSTRAP GUTTER on any container, at the client's request: the page
+// runs edge to edge and .fw-container sets its own side space.
+.container-fluid, .container-xxl, .container-xl, .container-lg, .container-md, .container-sm {
+  --bs-gutter-x: 0rem;
+  --bs-gutter-y: 0;
+}
+
 @import "components";

@@ -49,8 +49,7 @@ library(dplyr)
 #' The report builder page
 #'
 #' STACKED, NOT SIDE BY SIDE. The filter panel is the whole width of the page
-#' and the results sit underneath it. The dashboard still uses
-#' fw_sidebar_layout(); this page deliberately does not. See the note at the top
+#' and the results sit underneath it. See the note at the top
 #' of mod_plan_filters.R for the three reasons, the first of which is that a
 #' reader should answer the questions before they can see any answer.
 #'
@@ -60,7 +59,8 @@ library(dplyr)
 mod_plan_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    fw_page_header(fw_t("plan", "title"), fw_t("plan", "description")),
+    fw_page_header(fw_t("plan", "title"), fw_t("plan", "description"),
+                   show_title = FALSE),
     tags$main(
       id = "fw-main",
       fw_section(
@@ -109,7 +109,7 @@ fw_plan_results_ui <- function(ns) {
     # disabled control sitting on the page inviting a click.
     div(
       class = "fw-plan__results-head",
-      h2(fw_t("plan", "r_heading")),
+      h2(class = "fw-visually-hidden", fw_t("plan", "r_heading")),
       actionButton(ns("download_open"), fw_t("plan", "download_open"),
                    class = "btn btn-primary fw-plan__download-open",
                    icon = icon("download"))
@@ -560,7 +560,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # The widget is first drawn when the results are first shown - it is
     # suspended while the skeleton is hidden - so it opens at the right size.
     output$map <- leaflet::renderLeaflet({
-      leaflet::leaflet(options = leaflet::leafletOptions(worldCopyJump = TRUE)) |>
+      fw_leaflet() |>
         fw_add_basemaps() |>
         fw_add_outcome_legend() |>
         leaflet::setView(FW_MAP$empty_view$lng, FW_MAP$empty_view$lat,

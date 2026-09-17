@@ -115,7 +115,7 @@ fw_plan_filters_ui <- function(ns, ch) {
   tags$section(
     class = "fw-plan-filters",
     `aria-labelledby` = ns("filters_heading"),
-    h2(id = ns("filters_heading"), class = "fw-plan-filters__heading",
+    h2(id = ns("filters_heading"), class = "fw-plan-filters__heading fw-visually-hidden",
        fw_t("plan", "f_heading")),
     p(class = "fw-plan-filters__lead", fw_t("plan", "f_lead")),
 

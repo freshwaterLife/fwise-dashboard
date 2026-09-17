@@ -709,23 +709,10 @@ fw_chart_waterbody <- function(sel) {
                     filename = "fwise-waterbody-types")
 }
 
-#' Why the eradications were carried out
-fw_chart_driver <- function(sel) {
-  d <- sel |>
-    filter(!is.na(driver)) |>
-    transmute(category = driver, outcome)
-  fw_chart_category(d, fw_t("charts", "x_attempts"),
-                    filename = "fwise-drivers")
-}
-
 #' One row per (attempt, species) for a role, labelled and with its outcome
 #'
 #' DEDUPED PER ATTEMPT. An attempt listing a species twice must count once, or a
 #' messily recorded row quietly inflates its species up the ranking.
-#'
-#' Pulled out of fw_chart_species() so the photo tiles on the report builder
-#' count the same way the bar chart does. Two joins that are meant to agree and
-#' are written twice are two joins that will eventually disagree.
 #'
 #' @param role_name "invasive" or "beneficiary"
 fw_species_rows <- function(data, sel, role_name = c("invasive", "beneficiary")) {
@@ -773,16 +760,6 @@ fw_species_top_n <- function(data, sel, role_name, limit = FW_TOP_N) {
       for (o in FW_OUTCOME_LEVELS) if (is.null(x[[o]])) x[[o]] <- 0L
       x
     })()
-}
-
-#' The species most often targeted, or most often said to have benefited
-#'
-#' @param role_name "invasive" or "beneficiary"
-fw_chart_species <- function(data, sel, role_name = c("invasive", "beneficiary")) {
-  d <- fw_species_rows(data, sel, role_name) |>
-    transmute(category = label, outcome)
-  fw_chart_category(d, fw_t("charts", "x_attempts"), limit = FW_TOP_N,
-                    filename = paste0("fwise-species-", role_name))
 }
 
 # ---- Methods against waterbody -----------------------------------------------

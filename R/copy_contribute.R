@@ -333,8 +333,8 @@ FW_COPY_CONTRIBUTE <- list(
       target_taxa_other = "Please describe the group targeted",
       species          = "Which species?",
       benefit_heading  = "Beneficiary",
-      benefit_taxa     = "What kind of species benefited?",
-      benefit_taxa_other = "Please describe the group that benefited",
+      benefit_taxa     = "What kind of species was protected?",
+      benefit_taxa_other = "Please describe the group protected",
       remove           = "Remove"
     ),
 

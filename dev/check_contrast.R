@@ -34,6 +34,8 @@ pairs <- list(
   list("Muted text on page",        "ink_muted",  "page",         4.5),
   list("Muted text on surface",     "ink_muted",  "surface",      4.5),
   list("Muted text on sunken",      "ink_muted",  "sunken",       4.5),  # Welcome picture placeholders
+  list("Map caption blue on page",  "map_now_text",  "page",      4.5),
+  list("Map caption amber on page", "map_next_text", "page",      3.0),  # 1.3rem bold: large text
   list("Link on page",              "teal_text",  "page",         4.5),
   list("Link on surface",           "teal_text",  "surface",      4.5),
   list("Link on sunken",            "teal_text",  "sunken",       4.5),

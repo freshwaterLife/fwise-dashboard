@@ -18,7 +18,7 @@ fw_intro_panel <- function(ns) {
 
   div(
     class = "fw-panel fw-prose",
-    tags$h2(fw_t("contribute", "intro", "heading")),
+    tags$h2(class = "fw-visually-hidden", fw_t("contribute", "intro", "heading")),
     block(fw_t("contribute", "intro", "what_heading"), fw_t("contribute", "intro", "what")),
     block(fw_t("contribute", "intro", "review_heading"), fw_t("contribute", "intro", "review")),
     block(fw_t("contribute", "intro", "no_save_heading"), fw_t("contribute", "intro", "no_save")),
@@ -77,12 +77,12 @@ fw_intro_panel <- function(ns) {
 fw_preamble <- function() {
   div(
     class = "fw-preamble",
-    tags$h2(fw_t("contribute", "preamble", "heading")),
+    tags$h2(class = "fw-visually-hidden", fw_t("contribute", "preamble", "heading")),
     p(class = "fw-lead",
       tags$strong(fw_t("contribute", "preamble", "definition")),
       " - ",
       tags$em(fw_t("contribute", "preamble", "citation"))),
-    tags$h2(fw_t("contribute", "preamble", "scope_heading")),
+    tags$h2(class = "fw-visually-hidden", fw_t("contribute", "preamble", "scope_heading")),
     tags$ul(lapply(fw_t("contribute", "preamble", "scope"),
                    function(point) tags$li(fw_emphasis(point))))
   )
@@ -112,7 +112,7 @@ fw_form_shell <- function(ns, choices) {
       id = ns(paste0("section_", sec$id)),
       `data-fw-section` = title,
       tags$h2(
-        class = "fw-form-section__title",
+        class = "fw-form-section__title fw-visually-hidden",
         tags$span(class = "fw-form-section__num fw-num", i),
         title
       ),

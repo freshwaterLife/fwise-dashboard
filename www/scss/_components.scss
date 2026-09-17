@@ -98,10 +98,10 @@
 // reader which page they are on before they read the title, and it is where
 // the indigo lives now that the navbar has to stay light behind the logo.
 .fw-page-header {
-  padding-block: $fw-space-4;
+  padding-block: $fw-space-3;
   background: $fw-brand-indigo;
   color: $fw-on-indigo;
-  border-bottom: 3px solid $fw-brand-teal;
+  border-bottom: 7px solid $fw-brand-teal;
 
   &__title {
     font-size: $fw-size-h1;
@@ -117,6 +117,14 @@
     max-width: 100%;
     margin-block-end: 0;
   }
+}
+
+// NO GAP BETWEEN THE NAVBAR AND THE BAND, at the client's request. bslib puts
+// a 20px margin on every tab pane under the navbar, declared on the pane itself
+// (so it cannot be reset from a parent) with a selector worth six classes; this
+// one is worth seven. Only the active pane is ever seen.
+.navbar.fw-navbar:not(.fixed-bottom):not(.navbar-fixed-bottom) + div > .tab-content > .tab-pane.active {
+  margin-top: 0;
 }
 
 // ---- Navbar ----------------------------------------------------------------
@@ -166,10 +174,10 @@
   // Bootstrap crops the mark the way it did at 38px.
   @media (min-width: $fw-bp-md) { min-height: 7.5rem; }
   overflow: visible;
-  // Sticky on scroll. The z-index clears Leaflet, which sets 400 to 800 on its
-  // own panes and would otherwise sit over the menu.
-  position: sticky;
-  top: 0;
+  // NOT STICKY, at the client's request: it scrolls away with the page. The
+  // z-index still clears Leaflet, which sets 400 to 800 on its own panes and
+  // would otherwise sit over the open mobile menu.
+  position: relative;
   z-index: 1030;
 
   .navbar-brand {
@@ -194,7 +202,7 @@
       object-fit: contain;
     }
 
-    @media (min-width: $fw-bp-md) { img { height: 4.5rem; } }
+    @media (min-width: $fw-bp-md) { img { height: 7rem; } }
 
     // The one band where the brand and the nav genuinely compete. Below 992px
     // the items are behind the hamburger and the brand has the bar to itself;
@@ -286,11 +294,11 @@
 
     a { display: inline-flex; text-decoration: none; }
 
-    img { display: block; width: auto; height: 44px; }
+    img { display: block; width: auto; height: 52px; }
 
     @media (max-width: $fw-bp-sm) {
       gap: $fw-space-2;
-      img { height: 34px; }
+      img { height: 40px; }
     }
   }
 
@@ -312,8 +320,12 @@
 
   // Two sentences, so they are two paragraphs with the tighter spacing of a
   // block rather than the gap between unrelated lines.
+  &__updated { font-family: $fw-font-mono; }
+
+  // At the credit size rather than caption, on the client's instruction: the
+  // three sentences are small print beside the logos, not a subtitle.
   &__built-by {
-    font-size: $fw-size-caption;
+    font-size: $fw-size-credit;
     color: $fw-ink-muted;
     margin-block: 0;
 
@@ -325,6 +337,8 @@
     color: $fw-on-indigo-muted;
     padding-block: $fw-space-3;
     font-size: $fw-size-caption;
+    // The same teal rule the page-title band carries on its base, mirrored.
+    border-top: 3px solid $fw-brand-teal;
 
     a {
       color: $fw-teal-light;
@@ -380,56 +394,6 @@
   &__item a {
     color: inherit;
     text-underline-offset: 2px;
-  }
-}
-
-// ---- Report builder --------------------------------------------------------
-
-// ---- Sidebar layout --------------------------------------------------------
-// A filter panel beside a results column, shared by the report builder and the
-// dashboard. See fw_sidebar_layout() in R/ui_helpers.R.
-
-.fw-layout {
-  display: grid;
-  gap: $fw-space-4;
-  // minmax(0, 1fr) IS LOAD-BEARING. Without the 0 minimum, plotly and leaflet
-  // size themselves to their content and push the column wider than the
-  // viewport, which is horizontal scroll on every screen.
-  grid-template-columns: minmax(0, 1fr);
-
-  @media (min-width: $fw-bp-lg) {
-    grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
-    align-items: start;
-  }
-
-  // The results column needs the same 0 minimum for the same reason.
-  &__main { min-width: 0; }
-
-  &__sidebar {
-    .fw-field { margin-block-end: $fw-space-2; }
-
-    @media (min-width: $fw-bp-lg) {
-      position: sticky;
-      top: $fw-space-3;
-      max-height: calc(100vh - #{$fw-space-5});
-      overflow-y: auto;
-      padding-inline-end: $fw-space-1;
-    }
-  }
-
-  &__summary {
-    cursor: pointer;
-    font-size: $fw-size-h3;
-    font-weight: $fw-weight-medium;
-    color: $fw-teal-text;
-    padding-block: $fw-space-1;
-    margin-block-end: $fw-space-2;
-    list-style-position: inside;
-
-    // Open and non-collapsible on desktop: the disclosure is a small-screen
-    // affordance, and a marker there would invite closing a panel that is
-    // already beside the content rather than above it.
-    @media (min-width: $fw-bp-lg) { display: none; }
   }
 }
 
@@ -635,8 +599,7 @@
 // results are a long scroll - by the duration chart the reader is several
 // screens past it and has to go back up to act on what they have just read.
 //
-// UNDER THE NAVBAR, not at top: 0, or it slides beneath a bar that is itself
-// sticky. z-index 1010 clears Leaflet's panes (400-800) AND its control corners
+// At the top of the window, now the navbar scrolls away. z-index 1010 clears Leaflet's panes (400-800) AND its control corners
 // (1000, where the legend lives), which matters because the map is the second
 // block down, and stays under the navbar's 1030 and the download modal's own
 // layer. See fw-sticky-under-navbar.
@@ -845,21 +808,6 @@
   .fw-caption { margin-block-start: $fw-space-1; }
 }
 
-// A quiet banner for state the reader did not set on this page - arriving from
-// a link with a filter already applied, for instance. Not an alert: nothing has
-// gone wrong, and it carries its own way out.
-.fw-notice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: $fw-space-2;
-  padding: $fw-space-2;
-  margin-block-end: $fw-space-3;
-  background: $fw-teal-wash;
-  border-left: 4px solid $fw-brand-teal;
-  border-radius: $fw-radius-input;
-}
-
 // ---- Map popups and species imagery ----------------------------------------
 
 .fw-popup {
@@ -958,7 +906,9 @@
     .fw-species-figure__img {
       height: 4rem;
       width: 100%;
-      object-fit: cover;
+      // CONTAIN, NOT COVER: the whole animal, letterboxed on the surface
+      // colour, rather than a crop that can cut it out. Same size as before.
+      object-fit: contain;
       border-radius: $fw-radius-input;
     }
 
@@ -1119,8 +1069,8 @@
 // underneath it, because a fixed element cannot follow either.
 .fw-map-card {
   position: fixed;
-  // Above the navbar, which is sticky and would otherwise cover a card opened
-  // from a marker near the top of the map. Below the skip link at 2000.
+  // Above the navbar, which would otherwise cover a card opened from a marker
+  // near the top of the map. Below the skip link at 2000.
   z-index: 1200;
   inset-block-start: 0;
   inset-inline-start: 0;
@@ -1511,7 +1461,10 @@
     display: block;
     width: 100%;
     height: 150px;
-    object-fit: cover;
+    // CONTAIN, NOT COVER, at the client's request: a photograph framed tall
+    // lost the animal to the crop. The box keeps its size and the spare
+    // space shows the surface colour behind the image.
+    object-fit: contain;
     background: $fw-surface;
   }
 
@@ -1812,7 +1765,6 @@
     font-family: $fw-font-mono;
   }
 
-  &__readout,
   .fw-field__range-readout {
     margin-block-start: $fw-space-1;
     font-family: $fw-font-mono;
@@ -1901,21 +1853,6 @@
   }
 }
 
-// ---- Dot motif -------------------------------------------------------------
-// The one decorative device in the app. Data present and data missing: most
-// dots sit at low opacity, a handful at full strength.
-//
-// THE DIVIDER FORM WAS REMOVED on client feedback. .fw-dots survives as a
-// background texture for the landing hero only; do not reintroduce a ruled
-// dotted band between sections.
-
-.fw-dots {
-  --fw-dot: #{rgba($fw-brand-teal, 0.22)};
-  background-image: radial-gradient(circle at center, var(--fw-dot) 1.6px, transparent 1.7px);
-  background-size: 22px 22px;
-  background-position: 0 0;
-}
-
 // ---- KPI -------------------------------------------------------------------
 
 .fw-kpi-strip {
@@ -1964,56 +1901,6 @@
   padding: $fw-space-3;
 
   @media (min-width: $fw-bp-md) { padding: $fw-space-4; }
-}
-
-// ---- Stub panel ------------------------------------------------------------
-
-.fw-stub {
-  background: $fw-surface;
-  box-shadow: $fw-shadow-card;
-  border-radius: $fw-radius-card;
-  padding: $fw-space-4;
-  max-width: 100%;
-
-  &__badge {
-    display: inline-flex;
-    align-items: center;
-    gap: $fw-space-1;
-    font-size: $fw-size-caption;
-    font-weight: $fw-weight-medium;
-    color: $fw-teal-text;
-    background: $fw-teal-wash;
-    border-radius: $fw-radius-round;
-    padding: 0.25rem $fw-space-2;
-    margin-block-end: $fw-space-2;
-
-    // A dot, so the badge is not carried by colour alone.
-    &::before {
-      content: "";
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: $fw-brand-teal;
-    }
-  }
-
-  &__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: $fw-space-2;
-    margin-block-start: $fw-space-3;
-  }
-}
-
-// The commented skeleton in each stub module is for developers. This renders it
-// on the page only when the app is started with FW_SHOW_SKELETON=true.
-.fw-skeleton-note {
-  margin-block-start: $fw-space-3;
-  padding: $fw-space-2;
-  border-left: 3px solid $fw-border;
-  font-family: $fw-font-mono;
-  font-size: $fw-size-caption;
-  color: $fw-ink-muted;
-  white-space: pre-wrap;
 }
 
 // ---- Buttons ---------------------------------------------------------------
@@ -2430,9 +2317,9 @@
   border-radius: $fw-radius-card;
   padding: $fw-space-3;
   margin-block-end: $fw-space-3;
-  // The rail is sticky, so an anchored jump has to clear it as well as the
-  // navbar or the heading lands underneath both.
-  scroll-margin-top: 11rem;
+  // The rail is sticky, so an anchored jump has to clear it or the heading
+  // lands underneath.
+  scroll-margin-top: 5rem;
 
   @media (min-width: $fw-bp-md) { padding: $fw-space-4; }
 
@@ -2825,19 +2712,21 @@ table.dataTable,
 // table itself is clipped correctly by .fw-table-scroll; it was the caption
 // that escaped. Pinning the containing-block origin makes that impossible.
 .fw-visually-hidden {
+  // !important THROUGHOUT, as Bootstrap's own is: page and section headings
+  // carry this beside their own class, and a later &__title rule setting a
+  // margin or a flex display would otherwise bring them back into view.
   position: absolute !important;
-  left: 0;
-  top: auto;
-  width: 1px; height: 1px;
-  margin: -1px; padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
+  left: 0 !important;
+  top: auto !important;
+  width: 1px !important; height: 1px !important;
+  margin: -1px !important; padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
-.fw-stack > * + * { margin-block-start: $fw-space-3; }
 .fw-lead { font-size: $fw-size-lead; color: $fw-ink-muted; max-width: 100%; }
 
 .fw-pager {
@@ -2911,9 +2800,10 @@ table.dataTable,
   }
 }
 
-// The contact and attempts actions sit in narrow columns and wrapped onto two
-// lines. The table is already inside an overflow-x container, so letting these
-// two hold their width is the better trade.
+// The last two columns are narrow - on the contacts directory, the attempt
+// count and the contact action - and wrapped onto two lines. The table is
+// already inside an overflow-x container, so letting these two hold their
+// width is the better trade.
 .fw-table td:nth-last-child(-n + 2) { white-space: nowrap; }
 
 // ---- The About page's click-to-open panels ----------------------------------
@@ -3092,18 +2982,156 @@ table.dataTable,
 }
 
 // ---- Welcome page ----------------------------------------------------------
-// R/mod_home.R. Two pieces of its own: the success-story rows and the
-// before/after map reveal. Everything else on the page is a standard block.
+// R/mod_home.R. BUILT TO FIT ONE LAPTOP SCREEN: a smaller header, one strip of
+// figure + pictures + hint, and the map sized by the window height. Its own
+// pieces: the strip, the story cards (native popovers) and the map reveal.
 
-// SUCCESS STORIES. Each row is a .fw-disclosure, so the card, chevron and
-// focus ring come from there; this only lays out what sits inside the summary.
-.fw-stories { margin-block-start: $fw-space-3; }
+// THE HEADER. Two long sentences at h1 size ran to four lines; a step down
+// keeps them to two on a laptop. The lead is three short lines, so the gap
+// between them is small.
+.fw-page-header--home {
+  padding-block: $fw-space-2;
 
+  .fw-page-header__title {
+    font-size: $fw-size-h2;
+    line-height: 1.25;
+    margin-block-end: $fw-space-2;
+    @media (max-width: $fw-bp-xs) { font-size: $fw-size-h3; }
+  }
+
+  .fw-page-header__description {
+    color: $fw-on-indigo;
+    line-height: 1.45;
+  }
+
+  a {
+    color: $fw-teal-light;
+    text-underline-offset: 0.2em;
+    &:hover, &:focus-visible { color: $fw-on-indigo; }
+  }
+}
+
+// THE STRIP. Figure | pictures | hint on a laptop; stacked on a phone.
+.fw-home-strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 13rem);
+  align-items: center;
+  gap: $fw-space-3;
+
+  @media (max-width: $fw-bp-md) {
+    grid-template-columns: auto minmax(0, 1fr);
+    .fw-home-strip__species { grid-column: 1 / -1; grid-row: 2; }
+  }
+
+  &__kpi {
+    padding: $fw-space-2;
+    background: $fw-teal-wash;
+    border: 1px solid $fw-brand-teal;
+    border-radius: $fw-radius-card;
+
+    .fw-kpi { padding-inline-start: 0; border: 0; text-align: center; }
+    .fw-kpi__value { font-size: $fw-size-h1; }
+    .fw-kpi__label { color: $fw-teal-text; }
+  }
+
+  &__species {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: $fw-space-2;
+
+    @media (max-width: $fw-bp-sm) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  &__hint {
+    margin: 0;
+    color: $fw-teal-text;
+    font-weight: $fw-weight-bold;
+    line-height: 1.3;
+    text-align: center;
+  }
+}
+
+// One picture. A real button, so it takes focus and Enter/Space; the drawing
+// grows a little on hover to say it is clickable.
+.fw-home-species {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 6.5rem;
+  padding: $fw-space-1;
+  background: transparent;
+  border: 0;
+  border-radius: $fw-radius-card;
+  cursor: pointer;
+
+  img, .fw-story__placeholder {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: transform 0.15s ease;
+  }
+
+  &:hover { background: $fw-teal-wash; }
+  &:hover img { transform: scale(1.06); }
+  &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
+
+  @media (max-width: $fw-bp-sm) { height: 5rem; }
+  @media (prefers-reduced-motion: reduce) { img { transition: none; } }
+}
+
+// THE STORY CARD. The map card's look (surface, raised shadow, round close
+// button) on a native popover, which the browser centres in the top layer.
+// Unlike the map card it carries paragraphs, so its text stays on the floor.
+.fw-home-card {
+  // Interpolated: libsass reads a bare min() as its own and rejects the units.
+  width: #{"min(38rem, calc(100vw - " + $fw-space-3 + "))"};
+  max-height: 85vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: auto;
+  padding: $fw-space-3;
+  color: $fw-ink;
+  background: $fw-surface;
+  border: 0;
+  border-radius: $fw-radius-card;
+  box-shadow: $fw-shadow-raised;
+  line-height: $fw-leading-body;
+
+  &::backdrop { background: rgba($fw-brand-indigo, 0.35); }
+
+  &__title {
+    font-size: $fw-size-h3;
+    margin-block-end: $fw-space-2;
+    padding-inline-end: $fw-space-4;
+  }
+
+  &__summary { font-weight: $fw-weight-medium; }
+  p:last-child { margin-block-end: 0; }
+
+  &__close {
+    position: absolute;
+    inset-block-start: $fw-space-1;
+    inset-inline-end: $fw-space-1;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: $fw-ink-muted;
+    background: transparent;
+    border: 0;
+    border-radius: $fw-radius-round;
+    cursor: pointer;
+
+    &:hover { color: $fw-teal-text; background: $fw-teal-wash; }
+    &:focus-visible { outline: 2px solid $fw-teal-text; }
+  }
+}
+
+// The two plates inside a card: invasive (greyscale) | beneficiary.
 .fw-story {
-  // The summary grid puts the chevron in column 1. The title and the picture
-  // row both sit in column 2, so the pictures line up under the title.
-  &__title { grid-column: 2; }
-
   &__continent {
     color: $fw-teal-text;
     font-weight: $fw-weight-bold;
@@ -3111,32 +3139,17 @@ table.dataTable,
   }
 
   &__row {
-    grid-column: 2;
     display: grid;
-    // Invasive | the line of story | beneficiary. The text column is the
-    // widest so the sentence is not squeezed between two pictures.
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: $fw-space-3;
-    align-items: center;
-    margin-block-start: $fw-space-2;
-
-    @media (max-width: $fw-bp-sm) {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: $fw-space-2;
-    }
-  }
-
-  &__text {
-    margin: 0;
-    color: $fw-ink;
-    @media (max-width: $fw-bp-sm) { grid-column: 1 / -1; order: 3; }
+    margin-block-end: $fw-space-2;
   }
 
   &__figure { margin: 0; }
 
-  // A fixed box so pictures of very different shapes (a galaxias, a carp) sit
-  // at the same height across every row. The plates are transparent, so the
-  // box shows the card behind them and no white is introduced.
+  // A fixed box so pictures of very different shapes sit at the same height.
+  // The plates are transparent, so the card shows through and no white is
+  // introduced.
   &__art {
     aspect-ratio: 16 / 9;
     display: flex;
@@ -3161,6 +3174,7 @@ table.dataTable,
     border-radius: $fw-radius-card;
     color: $fw-ink-muted;
     font-size: $fw-size-caption;
+    text-align: center;
   }
 
   figcaption {
@@ -3179,35 +3193,39 @@ table.dataTable,
 // THE MAP REVEAL. Two pictures in register: the base is current work, the top
 // layer is the priorities map clipped to the left --fw-pos of the width. The
 // range input covers the whole figure invisibly, so a drag, a click or an
-// arrow key moves it; the handle is only its drawing. Held to 80% of the
-// column and centred, so the map does not dominate the page.
+// arrow key moves it; the handle is only its drawing.
+//
+// SIZED BY THE WINDOW HEIGHT. The pictures are 2400x1140, so a width of
+// (height available) x 2.105 is the widest map that still fits the screen.
+// --fw-home-chrome is everything above and below the map on this page:
+// navbar, header, strip and section padding. It is deliberately a little LESS
+// than all of it: the client accepts a short scroll on a laptop in exchange for
+// a map that can be read, so the caption may sit just below the fold. Tune that
+// one number if the page above the map changes. The 20rem floor keeps a short
+// window from shrinking the map to a stamp; it scrolls instead. The caption is
+// not held to the map's width, so it stays on one line.
 .fw-compare-wrap {
-  max-width: 80%;
-  margin: $fw-space-3 auto 0;
+  --fw-home-chrome: 28.5rem;
+  margin: $fw-space-2 0 0;
+
+  .fw-compare {
+    width: #{"max(20rem, min(100%, calc((100svh - var(--fw-home-chrome)) * 2.105)))"};
+    max-width: 100%;
+    margin-inline: auto;
+  }
 }
 
-.fw-compare__legend {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: $fw-space-1 $fw-space-3;
-  margin-block-end: $fw-space-2;
-  font-weight: $fw-weight-medium;
+.fw-compare__caption {
+  margin-block-start: $fw-space-1;
+  text-align: center;
+  font-size: $fw-size-lead;
+  font-weight: $fw-weight-bold;
+  color: $fw-ink;
 }
 
-.fw-compare__key {
-  display: inline-flex;
-  align-items: center;
-  gap: $fw-space-1;
-}
-
-.fw-compare__swatch {
-  width: 1rem;
-  height: 1rem;
-  border-radius: $fw-radius-input;
-  &--now  { background: $fw-map-now; }
-  &--next { background: $fw-map-next; }
-}
+// THE CAPTION IS THE LEGEND. The map's own hues, darkened to pass as text.
+.fw-compare__now  { color: $fw-map-now-text; }
+.fw-compare__later { color: $fw-map-next-text; }
 
 .fw-compare {
   position: relative;
@@ -3283,12 +3301,4 @@ table.dataTable,
     &::-webkit-slider-thumb { -webkit-appearance: none; width: 1px; height: 100%; }
     &::-moz-range-thumb { width: 1px; height: 100%; border: 0; }
   }
-}
-
-.fw-home-closing p:last-child { font-weight: $fw-weight-medium; }
-
-// The Welcome lead is three paragraphs in the page header, which elsewhere
-// carries one; without a gap they read as a single block.
-.tab-pane[data-value="home"] .fw-page-header__description + .fw-page-header__description {
-  margin-block-start: $fw-space-2;
 }

@@ -53,8 +53,6 @@
 library(shiny)
 library(htmltools)
 
-# How many attempts the document lists is FW_HTML_TABLE_ROWS in R/config.R.
-
 # ---- Inlining ----------------------------------------------------------------
 
 #' The MIME type for an inlined asset, by extension

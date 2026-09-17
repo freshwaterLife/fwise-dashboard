@@ -61,7 +61,7 @@ ui <- page_navbar(
 
   header = tagList(
     tags$head(
-      tags$link(rel = "icon", type = "image/svg+xml", href = "img/favicon.svg"),
+      tags$link(rel = "icon", type = "image/png", href = FW_LOGO$badge_web),
       tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
       tags$meta(name = "description", content = fw_t("app", "tagline")),
       # Compiled from www/scss/ with the tokens from R/brand.R injected. See
@@ -96,16 +96,11 @@ ui <- page_navbar(
 
 server <- function(input, output, session) {
 
-  # The contact the Networking page asked Explore to narrow to. Created here,
-  # per session, and handed to both: a module-level reactiveVal is shared by
-  # every visitor to the process.
-  explore_request <- reactiveVal(NULL)
-
   mod_home_server("home", FW_DATA)
-  mod_explore_server("explore", FW_DATA, FW_IN_REVIEW, request = explore_request)
+  mod_explore_server("explore", FW_DATA, FW_IN_REVIEW)
   mod_plan_server("plan", FW_DATA, FW_META)
   mod_contribute_server("contribute", FW_DATA, FW_CHOICES)
-  mod_networking_server("networking", FW_DATA, request = explore_request)
+  mod_networking_server("networking", FW_DATA)
   mod_about_server("about", FW_DATA, FW_META)
 
   # Cross-page links (the stub actions, the hero buttons) set this rather than

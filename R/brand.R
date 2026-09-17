@@ -69,9 +69,16 @@ FW_COLOURS <- list(
 
   # The two keys of the Welcome page's map pictures. SAMPLED FROM THE CLIENT'S
   # IMAGES (www/img/home/map-*.png), not chosen: they are swatches beside the
-  # page-text legend and have to match the fill in the picture. Non-text only.
+  # map caption and have to match the fill in the picture. Non-text only.
   map_now         = "#54a1cb",
-  map_next        = "#eebf54"
+  map_next        = "#eebf54",
+  # The same two hues darkened to pass as text. The map caption is its own
+  # legend: "past successes" in the one, "future opportunities" in the other.
+  # The amber was lightened on the client's instruction (#8a5f00 read brown).
+  # It passes 3:1, not 4.5:1: the caption is 1.3rem bold, which is WCAG large
+  # text. Do not use it for body-sized text.
+  map_now_text    = "#2e6f9a",
+  map_next_text   = "#b07b00"
 )
 
 # ---- Type --------------------------------------------------------------------
@@ -144,7 +151,7 @@ FW_TYPE <- list(
   # 0.8rem, roughly 13px, NOT the half of 1rem the instruction says literally:
   # 8px attribution is not legible at arm's length on a laptop and would fail
   # the obligation it exists to meet. Raise or lower it here, in one place.
-  size_credit  = "0.8rem",     # credit lines in the dashboard's table only
+  size_credit  = "0.8rem",     # photo credits in the table, and the footer credits
 
   # Narrow screens (under FW_BREAKPOINTS$xs) step the headings down.
   size_h1_narrow = "2.1rem",

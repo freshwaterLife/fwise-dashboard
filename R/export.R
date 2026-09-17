@@ -51,7 +51,9 @@ FW_EXPORT_COLUMNS <- c(
   "secondary_contact_name", "secondary_contact_org", "secondary_contact_email"
 )
 
-# Columns deliberately NOT exported.
+# Columns deliberately NOT exported. FW_EXPORT_COLUMNS is an allowlist, so
+# these stay out by being absent from it; they are named here so nobody adds
+# one back without reading why.
 #
 # `status` - every exported row is approved by construction, so the column would
 #   be a constant that invites the reader to wonder what else there is.
@@ -62,8 +64,6 @@ FW_EXPORT_COLUMNS <- c(
 # `last_updated`, `submitted_at`, `consent_data_use`, `sent`,
 #   `eradication_or_control` - properties of the row's maintenance, not of the
 #   eradication (the last is the constant "Eradication" on every row).
-FW_EXPORT_EXCLUDE <- c("status", "notes_for_fwise", "last_updated", "submitted_at",
-                       "consent_data_use", "sent", "eradication_or_control")
 
 #' Collapse a bridge table into one semicolon-delimited value per attempt
 #'

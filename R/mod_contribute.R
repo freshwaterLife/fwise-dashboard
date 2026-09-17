@@ -27,7 +27,8 @@ library(leaflet)
 mod_contribute_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    fw_page_header(fw_t("contribute", "title"), fw_t("contribute", "description")),
+    fw_page_header(fw_t("contribute", "title"), fw_t("contribute", "description"),
+                   show_title = FALSE),
     tags$main(
       id = "fw-main",
       fw_section(
@@ -459,7 +460,7 @@ mod_contribute_server <- function(id, data, choices) {
       # fw_add_basemaps() gives it the shared stack and layer control, which
       # also means Satellite and Terrain are available for finding a waterbody
       # by sight, which is exactly what this map is for.
-      leaflet(options = leafletOptions(worldCopyJump = TRUE)) |>
+      fw_leaflet() |>
         fw_add_basemaps() |>
         setView(lng = FW_MAP$empty_view$lng, lat = FW_MAP$empty_view$lat,
                 zoom = FW_MAP$empty_view$zoom)

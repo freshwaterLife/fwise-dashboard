@@ -34,7 +34,8 @@ library(shiny)
 mod_about_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    fw_page_header(fw_t("about", "title"), fw_t("about", "description")),
+    fw_page_header(fw_t("about", "title"), fw_t("about", "description"),
+                   show_title = FALSE),
     tags$main(
       id = "fw-main",
       fw_section(
@@ -63,7 +64,7 @@ mod_about_server <- function(id, data, meta = NULL) {
                               nzchar(data$contact$contact_name))
 
       section <- function(key, ...) {
-        tagList(tags$h2(fw_t("about", paste0(key, "_heading"))), ...)
+        tagList(tags$h2(class = "fw-visually-hidden", fw_t("about", paste0(key, "_heading"))), ...)
       }
       para <- function(key) p(fw_t("about", key))
 
@@ -201,7 +202,7 @@ fw_about_scale <- function(s, n_contributors, ns) {
 fw_about_signup <- function() {
   div(
     class = "fw-panel fw-signup",
-    tags$h2(fw_t("about", "signup_heading")),
+    tags$h2(class = "fw-visually-hidden", fw_t("about", "signup_heading")),
     p(fw_t("about", "signup_body")),
     tags$a(
       class = "btn btn-primary",
@@ -254,7 +255,7 @@ fw_about_related <- function() {
 fw_feedback_panel <- function(ns) {
   div(
     class = "fw-feedback",
-    tags$h2(fw_t("about", "fb_heading")),
+    tags$h2(class = "fw-visually-hidden", fw_t("about", "fb_heading")),
     p(fw_t("about", "fb_body")),
     div(
       class = "fw-field",

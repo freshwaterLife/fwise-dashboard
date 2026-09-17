@@ -224,24 +224,8 @@ fb <- fw_filter_state(list(), exp_ids); fb$taxa_beneficiary <- pick_taxa
 ok(paste0("explore filter: beneficiary taxa '", pick_taxa, "' selects its attempts"),
    sort(fw_filter_apply(d, fb)$attempt_id), sort(want_taxa_ids))
 
-# The sort orders. Undated attempts go last under either year order.
-undated <- which(is.na(all_sel$start_year))
-o_new <- fw_explore_order(all_sel, "newest")
-o_old <- fw_explore_order(all_sel, "oldest")
-ok("explore sort: newest starts at the latest year",
-   all_sel$start_year[o_new[1]], max(a$start_year, na.rm = TRUE))
-ok("explore sort: oldest starts at the earliest year",
-   all_sel$start_year[o_old[1]], min(a$start_year, na.rm = TRUE))
-ok("explore sort: undated go last under newest",
-   all(tail(o_new, length(undated)) %in% undated))
-ok("explore sort: and last under oldest too",
-   all(tail(o_old, length(undated)) %in% undated))
-ok("explore sort: every order is a permutation of the selection",
-   all(vapply(FW_EXPLORE_SORTS, function(x)
-     identical(sort(fw_explore_order(all_sel, x)), seq_len(nrow(all_sel))), logical(1))))
-
 # AN ATTEMPT WITH NO COORDINATES STILL HAS A RECORD. It has no marker, so
-# fw_map_points() cannot reach it; the list shows it and opening it must work.
+# fw_map_points() cannot reach it, but building its record must still work.
 no_coord_id <- a$attempt_id[is.na(a$latitude) | is.na(a$longitude)][1]
 no_coord_rec <- fw_attempt_records(d, a[a$attempt_id == no_coord_id, ])
 ok("explore: an unlocated attempt is in the record frame", nrow(no_coord_rec), 1L)
@@ -328,8 +312,48 @@ ok("hover: a role with no photograph gets the blank tile",
    any(grepl("fw-species-figure--none", cards, fixed = TRUE)))
 ok("hover: and the blank tile says so in words",
    all(vapply(cards[grepl("fw-species-figure--none", cards, fixed = TRUE)],
-              function(x) grepl(fw_t("species", "fig_none"), x, fixed = TRUE),
+              function(x) grepl(fw_t("species", "fig_none"), x, fixed = TRUE) ||
+                          grepl(fw_t("species", "p_none"), x, fixed = TRUE),
               logical(1))))
+# A ROLE WITH NO SPECIES SAYS NOT RECORDED, in the text rows' words, on the
+# hover tile and in the detail panel alike. Picked from the data, not by id.
+no_ben <- map_pts[is.na(map_pts$ben_ids), ]
+if (nrow(no_ben)) {
+  nb <- no_ben[1, ]
+  ok("hover: a role with no species gets the not-recorded tile",
+     grepl(fw_popup_thumb_unrecorded(), fw_popup_thumb(nb, thumbs), fixed = TRUE))
+  ok("detail: a role with no species gets the not-recorded tile",
+     grepl(fw_popup_thumb_unrecorded(),
+           fw_record_detail_html(nb, d$species), fixed = TRUE))
+}
+# RECORDED BY IS THE PRIMARY CONTACT OR NOTHING. It used to fall back to the
+# reference; the row now stays, empty.
+no_contact <- map_pts[is.na(map_pts$primary_contact_name) &
+                        !is.na(map_pts$reference) & nzchar(map_pts$reference), ]
+if (nrow(no_contact)) {
+  nc <- no_contact[1, ]
+  nc_card <- fw_map_hover_html(nc)
+  ok("hover: no contact does not fall back to the reference",
+     grepl(htmltools::htmlEscape(nc$reference), nc_card, fixed = TRUE), FALSE)
+  ok("hover: and still draws an empty Recorded by row",
+     grepl(paste0(fw_t("species", "p_recorded_by"),
+                  '</span><span class="fw-popup__val fw-popup__val--none"></span>'),
+           nc_card, fixed = TRUE))
+}
+with_contact <- map_pts[!is.na(map_pts$primary_contact_name), ][1, ]
+ok("hover: Recorded by names the primary contact",
+   grepl(htmltools::htmlEscape(with_contact$primary_contact_name),
+         fw_map_hover_html(with_contact), fixed = TRUE))
+# THE BASEMAPS. No place-label layer, and no null overlay - leaflet.js turns a
+# null into a checkbox named null in the layer switcher.
+bm <- fw_add_basemaps(fw_leaflet())
+bm_calls <- bm$x$calls
+bm_ctrl <- Filter(function(cl) cl$method == "addLayersControl", bm_calls)[[1]]
+ok("map: the layer switcher has no null overlay",
+   !is.null(bm_ctrl$args[[2]]) && length(bm_ctrl$args[[2]]) == 0)
+ok("map: no place-label tiles",
+   any(grepl("only_labels", unlist(bm_calls), fixed = TRUE)), FALSE)
+ok("map: zoom out is capped", bm$x$options$minZoom, FW_MAP$min_zoom)
 # CACHE ONLY. If a live lookup ever crept in, a build would reach Wikimedia
 # once per uncached species while rendering - which is the thing the cache
 # exists to prevent. Asserted by building with an empty species image column:
@@ -432,19 +456,12 @@ au_n <- 0L
 try(testServer(mod_explore_server, args = list(data = d, in_review = 7L), {
   exp_kpis  <<- strip(output$kpis)
   exp_sum   <<- strip(output$summary)
-  # sorted() is what previous/next steps through. THE LIST IT WAS NAMED FOR IS
-  # GONE - the client removed the table - so this is now the only thing that
-  # pins the order a reader walks records in, and it still has to be
-  # most-recent-first rather than whatever order the filter left behind.
-  ok("explore: the record order is newest first",
-     sorted()$start_year[1], max(a$start_year, na.rm = TRUE))
   # An attempt with no coordinates has no marker, so nothing on the page can
   # reach it any more - but it is still IN the selection, which is what keeps
   # it in the counts and the charts. Asking for its record must not error.
   ok("explore: an unlocated attempt is still in the selection",
-     no_coord_id %in% sorted()$attempt_id)
+     no_coord_id %in% sel()$attempt_id)
   session$setInputs(map_detail = no_coord_id)
-  session$setInputs(map_detail_step = list(id = sorted()$attempt_id[1], step = -1L))
   session$setInputs(continent = "Europe")
   exp_eu <<- strip(output$summary)
   eu_n <<- nrow(sel())
@@ -1031,27 +1048,48 @@ ok("place: a territory filed under its state stops the load",
 cat("\n-- welcome page --\n")
 
 home_html <- as.character(mod_home_ui("home", fw_headline_stats(d)))
-n_success <- sum(as.character(d$attempt$outcome) %in% "Successful")
-ok("welcome: the lead states the successful count, in bold",
-   grepl(paste0("<strong>", fw_fmt_num(n_success), "</strong>"), home_html, fixed = TRUE))
-ok("welcome: no unfilled slot left in the page", !grepl("{successful}", home_html, fixed = TRUE))
-ok("welcome: the tab is called Welcome", fw_t("nav", "home"), "Welcome")
+# Recomputed from the tables, not from fw_headline_stats().
+ok_ids <- as.character(d$attempt$attempt_id)[as.character(d$attempt$outcome) %in% "Successful"]
+as_ben <- d$attempt_species[as.character(d$attempt_species$role) == "beneficiary", ]
+n_protected <- length(unique(as_ben$species_id[as.character(as_ben$attempt_id) %in% ok_ids]))
+ok("welcome: species protected = beneficiaries of successful attempts",
+   fw_headline_stats(d)$protected, n_protected)
+ok("welcome: the figure is on the page",
+   grepl(paste0('class="fw-kpi__value">', fw_fmt_num(n_protected), "<"), home_html, fixed = TRUE))
+ok("welcome: no more protected than beneficiaries overall",
+   n_protected <= fw_headline_stats(d)$beneficiaries)
+ok("welcome: no unfilled slot left in the page", !grepl("\\{[a-z_]+\\}", home_html))
+ok("welcome: the tab is called The solution", fw_t("nav", "home"), "The solution")
 ok("welcome: story copy and pictures are keyed alike, in order",
    names(fw_t("home", "stories")), names(FW_HOME_IMG$stories))
 ok("welcome: stories run A-Z by continent",
    { cn <- vapply(fw_t("home", "stories"), `[[`, "", "continent"); identical(cn, sort(cn)) })
-ok("welcome: one story row per entry",
-   lengths(regmatches(home_html, gregexpr('class="fw-disclosure fw-story"', home_html))),
+card_ids <- sub('.*id="', "", regmatches(home_html, gregexpr('id="fw-home-story-[a-z_]+" popover', home_html))[[1]])
+card_ids <- sub('".*', "", card_ids)
+opens <- unique(sub('.*="', "", sub('"$', "", regmatches(home_html, gregexpr('popovertarget="fw-home-story-[a-z_]+"', home_html))[[1]])))
+ok("welcome: one card per story", card_ids, paste0("fw-home-story-", names(fw_t("home", "stories"))))
+ok("welcome: one picture button per story",
+   lengths(regmatches(home_html, gregexpr('class="fw-home-species"', home_html))),
    length(fw_t("home", "stories")))
+ok("welcome: every button opens a card that exists", setequal(opens, card_ids))
 pics <- na.omit(unlist(c(FW_HOME_IMG$stories, FW_HOME_IMG[c("map_now", "map_next")])))
 ok("welcome: every picture named exists under www/", all(file.exists(file.path("www", pics))))
-ok("welcome: placeholders drawn for the three missing pictures",
-   lengths(regmatches(home_html, gregexpr("fw-story__placeholder", home_html))),
+ok("welcome: every story has its beneficiary picture",
+   !any(is.na(vapply(FW_HOME_IMG$stories, `[[`, "", "beneficiary"))))
+ok("welcome: placeholders drawn for each missing picture",
+   lengths(regmatches(home_html, gregexpr('class="fw-story__placeholder"', home_html))),
    sum(is.na(unlist(FW_HOME_IMG$stories))))
 nav_to <- regmatches(home_html, gregexpr("fw_nav_to&#39;,&#39;[a-z_]+", home_html))[[1]]
 nav_to <- sub(".*&#39;", "", nav_to)
-ok("welcome: closing links go to explore, plan and networking",
-   nav_to, c("explore", "plan", "networking"))
+ok("welcome: header links go to explore, plan, contribute, networking",
+   nav_to, c("explore", "plan", "contribute", "networking"))
+app_src <- paste(readLines("app.R", warn = FALSE), collapse = "\n")
+ok("welcome: every link target is a real tab",
+   all(vapply(nav_to, function(v) grepl(paste0('value = "', v, '"'), app_src, fixed = TRUE), TRUE)))
+ok("welcome: no swatch legend left", !grepl("fw-compare__swatch", home_html, fixed = TRUE))
+ok("welcome: the caption names both map states in colour",
+   grepl('class="fw-compare__now"', home_html, fixed = TRUE) &&
+     grepl('class="fw-compare__later"', home_html, fixed = TRUE))
 ok("welcome: the reveal starts fully on current work",
    grepl('value="0"', home_html) && grepl("--fw-pos: 0%", home_html, fixed = TRUE))
 

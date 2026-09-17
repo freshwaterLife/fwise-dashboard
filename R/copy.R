@@ -32,18 +32,18 @@ FW_COPY <- list(
     # Read out by a screen reader while the app is starting, and on nothing
     # else - the loader is the badge and a bar. See fw_loader().
     loading    = "Loading FWISE",
-    org        = "Freshwater Life",
     built_by   = "This tool was built by Weird Fishes Advisory.",
-    data_by    = "The FWISE database is built and maintained by Freshwater Life and friends."
+    data_by    = "FWISE database is built and maintained by Freshwater Life and friends.",
+    illustrated_by = "Logo and illustrations by Georgie Bull."
   ),
 
   # Navigation labels. Order here is the order in the navbar.
   nav = list(
-    home       = "Welcome",
+    home       = "The solution",
     explore    = "Explore the database",
     plan       = "Plan an eradication",
     contribute = "Add a record",
-    networking = "Contact the community",
+    networking = "Connect with community",
     about      = "About"
   ),
 
@@ -74,25 +74,12 @@ FW_COPY <- list(
 
   # ---- Shared UI -------------------------------------------------------------
 
-  stub = list(
-    badge   = "In development",
-    heading = "This page is not built yet",
-    body    = paste(
-      "We are building this section now. It will be ready for the public launch",
-      "in October 2026. In the meantime you can contribute a record or browse",
-      "the contacts list."
-    ),
-    action_contribute = "Contribute data",
-    action_networking = "Find people to talk to"
-  ),
-
   common = list(
     loading      = "Loading",
     no_results   = "No records match those filters.",
     clear_filters = "Clear filters",
     search       = "Search",
     of           = "of",
-    required_note = "Fields marked with an asterisk are required.",
     info_icon_label = "More information about this field",
     # What an empty cell or a missing figure shows.
     empty_value  = "-"
@@ -125,10 +112,6 @@ FW_COPY <- list(
     # Named ticks on the log axis, in step with FW_CHART$duration_ticks.
     duration_ticks = c("1 day", "1 week", "1 month", "1 year", "5 years", "10 years"),
     other         = "Other",
-    # What the number in the middle of the donut counts. USES, not attempts:
-    # one attempt can use several methods, so the ring's total is larger than
-    # the number of attempts behind it. See fw_chart_method_donut().
-    donut_uses     = "uses",
     hover_days    = " days",
     hover_of      = " of ",
     # Shown in a chart's own slot when the selection gives it nothing to draw.
@@ -153,36 +136,34 @@ FW_COPY <- list(
 
   # ---- Home (the Welcome page) -----------------------------------------------
   #
-  # **...** is bold (fw_emphasis). {successful} is filled from the loaded data
-  # - the count of attempts recorded as successful - so it is never typed here.
-  # The X% is an outside figure and is the client's to supply.
+  # **...** is bold (fw_emphasis) and [[page|words]] links to another tab
+  # (fw_home_links). The 45% and <1% are outside figures and are the client's.
+  # The one live number, {protected}, sits in the KPI tile and is filled from
+  # the loaded data, never typed.
 
   home = list(
-    title = "Freshwater eradication works. It has just not happened where it is needed most.",
+    title = paste(
+      "Freshwaters cover <1% of earth yet are home to 45% of all threatened animal species.",
+      "Eradicating freshwater invasives is the best way to save them from extinction."
+    ),
     lead = c(
-      paste("Freshwater covers about **0.66%** of Earth's surface but holds a hugely disproportionate share of its threatened life - **34%** of all extinct animal species and **45%** of threatened species on the IUCN Red List.", 
-      "Invasive species are a leading driver, tied to 31% of recorded freshwater extinctions."
-      ),
+      "But almost nobody knows this. Enter FWISE: the **Freshwater Invasive Species Eradication Database**. FWISE shows the world, for the first time, **what works**, **where**, and **how**.",
       paste(
-        "Freshwater species eradication works, and projects have already been",
-        "helping species recovery globally, with **{successful}** successful",
-        "eradication attempts logged. However, this conservation intervention is still",
-        "relatively unknown, funding sparse, and work is often carried out in silos."
-      ),
-      paste(
-        "Here, the FWISE database, visualised in the FWISE dashboard, aims to",
-        "improve the dissemination of information on species eradication attempts,",
-        "not just for practitioners, but for those who would seek to support or",
-        "expand freshwater invasive eradication to continue to protect species",
-        "from extinction."
+        "Use it now to [[explore|understand this solution]],",
+        "[[plan|plan a new eradication]], [[contribute|add your own data]],",
+        "and [[networking|connect with others]]."
       )
     ),
+
+    kpi_label = "species protected",
+    kpi_tooltip = "Species protected by an eradication recorded as successful in FWISE.",
 
     # ---- Success stories ----
     # ONE ENTRY PER ROW, in page order, keyed as FW_HOME_IMG$stories is. Every
     # string is a [PLACEHOLDER] until the client supplies the stories.
-    stories_heading = "Success stories",
-    stories_intro = "Click through the below examples to read more about the success of freshwater eradication projects around the world.",
+    stories_hint = "Click the images for success stories across continents",
+    stories_open = "Read the {continent} success story: {name}",
+    card_close = "Close story",
     image_placeholder = "Image to come",
     invasive_label = "Invasive",
     beneficiary_label = "Beneficiary",
@@ -201,7 +182,7 @@ FW_COPY <- list(
         summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
         body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
         invasive    = list(name = "Invasive species",    alt = "Invasive species image to come"),
-        beneficiary = list(name = "Beneficiary species", alt = "Beneficiary species image to come")
+        beneficiary = list(name = "Little grebe",        alt = "Illustration of a little grebe")
       ),
       europe = list(
         continent = "Europe",
@@ -238,26 +219,14 @@ FW_COPY <- list(
     ),
 
     # ---- Current work and gaps ----
-    map_heading = "Current work and gaps",
-    map_intro = "Move the slider across the map to see areas of opportunity for eradication interventions.",
-    map_next_label = "Priority gaps",
-    map_now_label  = "Current work",
-    map_slider_label = "Reveal the priority gaps map over the current work map",
-    map_caption = paste(
-      "Current work shades the countries with successful restorations of invaded freshwaters (blue). Priority gaps shades the",
-      "priority countries for future restorations (yellow)."
-    ),
-
-    # ---- Closing ----
-    closing = c(
-      paste(
-        "The rest of this tool allows you to [[explore|explore the database]]",
-        "as well as dive into individual attempts,",
-        "[[plan|gather resources to help you plan your own eradication]] in your",
-        "area, and [[networking|network with the community]]. All resources and",
-        "data are downloadable."
-      ),
-      "Thank you for visiting the FWISE dashboard."
+    # The caption IS the legend: the two named pieces are set in the map's
+    # blue and amber (map_now_text, map_next_text). No swatches.
+    map_slider_label = "Reveal the priority countries map over the successful eradications map",
+    map_caption = c(
+      "Use the slider to move from ",
+      now  = "past successes",
+      " to ",
+      later = "future opportunities"
     )
   ),
 
@@ -265,18 +234,11 @@ FW_COPY <- list(
 
   explore = list(
     title = "Explore the data",
-    description = c(
-      paste(
-        "The FWISE database aggregates attempts of freshwater invasive species eradications from all over the globe.",
-        "Narrow by place and by the animals involved, see the details of the database in",
-        "the summaries below, then find an attempt on the map",
-        "and open it for the full record: the species, the methods and how they",
-        "were applied, what happened, who recorded it and where it was published."
-      ),
-      paste(
-        "\nTo narrow to a situation like your own and download the evidence for",
-        "it, use **Plan an eradication.**"
-      )
+    # ONE LINE, at the client's request: the page title is hidden and the
+    # summaries below speak for themselves.
+    description = paste(
+      "See where freshwater eradications have been tried, then open any",
+      "attempt on the map for its full record."
     ),
 
     # ---- The database panel --------------------------------------------------
@@ -286,9 +248,9 @@ FW_COPY <- list(
     db_attempts    = "attempts recorded",
     db_countries   = "countries",
     db_invasive    = "invasive species targeted",
-    db_beneficiary = "species recorded as benefitted",
+    db_beneficiary = "species recorded as protected",
     db_beneficiary_tip = paste(
-      "Species that benefitted from the attempt, as recorded by the person",
+      "Species protected by the attempt, as recorded by the person",
       "reporting it. It is recorded less consistently than the species targeted and is likely not a complete record."
     ),
     in_review = "in review",
@@ -320,9 +282,7 @@ FW_COPY <- list(
     map_note = paste(
       "Each marker is one attempt, coloured and labelled by outcome. Hover for",
       "a summary, select for the full record."
-    ),
-    incoming = "Showing only attempts recorded by {name}.",
-    incoming_clear = "Show all attempts"
+    )
   ),
 
   # ---- Species and map popups ------------------------------------------------
@@ -336,10 +296,10 @@ FW_COPY <- list(
     unnamed_site = "Unnamed site",
     p_country  = "Country",
     p_species  = "Invasive species",
-    p_beneficiary = "Species that benefited",
+    p_beneficiary = "Species protected",
     p_none     = "Not recorded",
     fig_invasive = "Targeted",
-    fig_beneficiary = "Benefited",
+    fig_beneficiary = "Protected",
     p_outcome  = "Outcome",
     p_began    = "Ran",
     p_recorded_by = "Recorded by",
@@ -382,8 +342,8 @@ FW_COPY <- list(
     country     = "Country",
     taxa        = "Kind of animal",
     species     = "Invasive species",
-    beneficiary = "Species that benefited",
-    taxa_beneficiary = "Kind of animal that benefited",
+    beneficiary = "Species protected",
+    taxa_beneficiary = "Kind of animal protected",
     method      = "Method used",
     regime      = "Still or flowing water",
     waterbody   = "Kind of waterbody",
@@ -427,7 +387,7 @@ FW_COPY <- list(
       "consistently than the invasive species, plus is likely not representative."
     ),
     tip_taxa_beneficiary = paste(
-      "The broad group the species that was meant to benefit belongs to - fish,",
+      "The broad group the protected species belongs to - fish,",
       "amphibian, bird etc. Recorded less consistently than the invasive side."
     ),
     tip_method = paste(
@@ -468,23 +428,9 @@ FW_COPY <- list(
     title = "Plan an eradication",
 
     # ---- The introduction ----------------------------------------------------
-    description = c(
-      paste(
-        "Build a report of the eradication attempts that match your situation or interest by adjusting the filters below, then select",
-        "**Build report**."
-      ),
-      paste(
-        "You will get a map of where those attempts happened, the",
-        "outcome, the methods used, with the matching",
-        "records in full underneath. All of it is downloadable as a report or a",
-        "spreadsheet."
-      ),
-      paste(
-        paste(
-          "Filters are set to \"All\" by default."
-        )
-      )
-    ),
+    # ONE LINE, at the client's request. The filters and the Build report
+    # button explain the rest of the page by being there.
+    description = "Set the filters to match your situation, then select **Build report**.",
 
     # ---- Zero results --------------------------------------------------------
     zero_heading = "No attempts match those filters",
@@ -496,8 +442,6 @@ FW_COPY <- list(
     zero_hint_none = "Try clearing a filter and building again.",
 
     build   = "Build report",
-    rebuild = "Rebuild with these filters",
-    stale   = "Filters have changed since this report was built.",
     clear   = "Clear all filters",
     download_heading = "Take this away",
     download_open = "Download this report",
@@ -527,7 +471,6 @@ FW_COPY <- list(
     ),
     download_txt = "Methods and caveats (.txt)",
     download_txt_note = "is always included, whatever else you choose.",
-    download_none = "Nothing selected, so this downloads the methods and caveats on their own.",
 
     # ---- Inside the report ---------------------------------------------------
     html_print = "Save as PDF",
@@ -620,13 +563,13 @@ FW_COPY <- list(
 
     r_species_pair = "Most targeted species and beneficiaries",
     r_species_pair_note = paste(
-      "What these attempts targetting, and what benefited. Each tile is",
+      "What these attempts targetting, and what was protected. Each tile is",
       "one species, and includes number of attempts and a visual representation of the outcome mix"
     ),
     r_tile_attempt  = "attempt",
     r_tile_attempts = "attempts",
     r_invasive   = "What these attempts targeted",
-    r_beneficiary = "What benefited",
+    r_beneficiary = "What was protected",
     r_duration   = "How long these attempts took",
     r_duration_note = paste(
       "Start to finish, on a log scale, with a dotted line at a day, a week, a",
@@ -706,7 +649,6 @@ FW_COPY <- list(
     cite = paste(
       "FWISE data is open source and freely available for use. Please cite it in any publication that uses it with the below citation."
     ),
-    cite_database_heading  = "The database",
     citation_db = paste(
       "Freshwater Life ({year}). FWISE: Freshwater Invasive Species",
       "Eradication database, release {release} ({n} attempts).",
@@ -755,14 +697,6 @@ FW_COPY <- list(
         "it is written. Until then this panel carries the summary above."
       )
     ),
-
-    stories_heading = "Success stories",
-    stories_summary = "Eradications that worked, and what they took",
-    stories = paste(
-      "[PLACEHOLDER] Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-      "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-    ),
-    stories_action = "See the success stories",
 
     # [PLACEHOLDER] AWAITING THE CLIENT'S LIST. Each entry is a name, a URL and
     # one line saying what it holds that FWISE does not - the last of those is
@@ -870,18 +804,11 @@ FW_COPY <- list(
     col_country      = "Country",
     col_attempts     = "Attempts",
     col_contact      = "Contact",
-    col_attempts_link = "Attempts link",
 
     email_action     = "Email",
-    email_none       = "",
     email_none_label = "No public email address",
-    view_attempts    = "See their attempts",
     no_organisation  = "Not recorded",
 
-    attempts_one  = "attempt",
-    attempts_many = "attempts",
-
-    page_of       = "Page",
     page_size     = "Contacts per page",
     page_showing  = "Showing"
   )

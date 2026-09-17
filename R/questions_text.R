@@ -1,14 +1,6 @@
 # questions_text.R
 # The offline question list, generated from the form itself.
-#
-# WHY IT IS GENERATED RATHER THAN WRITTEN. The old download was a Word file kept
-# by hand, which meant it went stale the first time a label changed and nobody
-# would know. This walks the same step builders the wizard renders, so the file a
-# contributor downloads is by construction the form they are about to fill in.
-# Add a field to a step and it appears here with no second edit.
-#
-# It reads the rendered tags rather than a separate registry for the same reason:
-# a registry is a second copy of the truth.
+
 
 library(htmltools)
 

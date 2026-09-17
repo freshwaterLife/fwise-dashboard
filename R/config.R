@@ -257,8 +257,13 @@ FW_TOP_N <- 10L
 # `_file` paths are read from disk by R, for the documents that embed the mark.
 # The badge is still in use - it is the loader and the busy spinner, where a
 # square mark turns on its own centre and a wordmark would not.
+#
+# EXCEPT THE NAVBAR AND THE FOOTER, which serve the full-resolution originals
+# at the client's request (September 2026): the navbar mark is 7rem tall and
+# the client wants it drawn from the uncompressed file.
 FW_LOGO <- list(
-  mark_web   = "img/FWISE-SIMPLE-600.png",
+  mark_web   = "img/FWISE-SIMPLE.png",
+  badge_full = "img/FWISE-BADGE.png",
   mark_file  = "www/img/FWISE-SIMPLE-1200.png",
   badge_web  = "img/FWISE-BADGE-256.png"
 )
@@ -274,7 +279,8 @@ FW_HOME_IMG <- list(
   stories = list(
     africa        = list(invasive    = "img/home/success/africa_smallmouth_bass_greyscale.png",
                          beneficiary = "img/home/success/africa_fiery_redfin.png"),
-    asia          = list(invasive = NA, beneficiary = NA),
+    asia          = list(invasive    = NA,
+                         beneficiary = "img/home/success/as_little_grebe.png"),
     europe        = list(invasive    = "img/home/success/eu_salmon_fluke_greyscale.png",
                          beneficiary = "img/home/success/eu_pearl_mussel.png"),
     latin_america = list(invasive    = "img/home/success/la_rainbow_trout_greyscale.png",
@@ -304,16 +310,8 @@ FW_PLAN_SPECIES_N <- 3L
 # list is scanned rather than read off a bar.
 FW_REPORT_COUNTRY_ROWS <- 15L
 
-# How many attempts the HTML report lists. Everything: the reader scrolls, and
-# the print rules repeat the header row across pages. The old Word export
-# capped at 40 because Word could not repaginate a 900-row table.
-FW_HTML_TABLE_ROWS <- Inf
-
-# Page sizes offered under paged tables. The first element is the default. The
-# report builder is read a screen at a time, so it starts smaller than the
-# contacts directory.
-FW_PLAN_PAGE_SIZES     <- c(10L, 20L, 50L, 100L)
-
+# Page sizes offered under paged tables. The first element is the default.
+#
 # THE CONTACTS DIRECTORY on the Networking page. That page IS the directory, so
 # a reader arrives there to browse a list and 25 rows is a list; ten would be a
 # pager with a table attached.
@@ -332,10 +330,6 @@ FW_PLAN_CONTACTS_PAGE_SIZES <- c(10L, 25L, 50L, 100L)
 FW_YEAR_MIN    <- 1500L
 FW_YEAR_FUTURE <- 20L
 
-# How many items of a multi-value cell (species, methods) the results table
-# shows before "+n more". The export always carries the full list.
-FW_TABLE_CELL_ITEMS <- 2L
-
 # Above this many options a field's answer list is summarised in the question
 # list downloads rather than printed in full. The country dropdown alone runs
 # to about 200 entries and would bury the questions.
@@ -346,6 +340,14 @@ FW_MAP <- list(
   # Where a map with nothing on it points: the whole world, centred a little
   # north of the equator, where most of the land is.
   empty_view = list(lng = 0, lat = 20, zoom = 2),
+  # HOW FAR OUT A MAP MAY GO. Zoomed out further, the world is shorter than
+  # the map and grey bars show above and below it. At zoom 2 the world is
+  # 1024 px tall, taller than any map's CSS height. Panning is held inside
+  # max_lat so the poles cannot be dragged into view either; max_lng is wide
+  # on purpose, so the map still wraps round the world. See fw_leaflet().
+  min_zoom = 2L,
+  max_lat = 85,
+  max_lng = 100000,
   # The closest a fit to a selection may zoom. Below cluster$fine_zoom, so a
   # single-site selection still opens with its stack as one counted group and
   # with enough of the surrounding water to place it. See fw_fit_points().

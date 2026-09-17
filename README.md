@@ -261,7 +261,6 @@ Two structural points that are settled and should not be generalised:
 | Function | Returns |
 |---|---|
 | `fw_load_data()` | the six tables, loaded once at startup |
-| `fw_attempts_wide()` | one row per attempt, with species, methods and contacts as list columns |
 | `fw_contacts_summary()` | one row per contact, with countries and continents derived from their attempts, an attempt count, **and redacted emails already removed** |
 | `fw_choices(data, table, column)` | sorted unique values, for dropdowns |
 | `fw_startup_choices()` | every dropdown's options, built once |

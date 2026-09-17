@@ -93,14 +93,11 @@ FW_ATTEMPT_NUMERIC <- c(
 )
 
 # The wide-table cells that fw_unpack() turns into bridge tables. They are
-# dropped from the in-memory attempt table so they cannot collide with the list
-# columns fw_attempts_wide() adds under the same names. method_notes stays: nine
+# dropped from the in-memory attempt table so they cannot collide with the
+# columns fw_export_frame() builds under the same names. method_notes stays: nine
 # attempts have no method and a note saying why, which has no bridge row to
 # live in, and the raw cell is the only place it survives in memory.
 FW_ATTEMPT_PACKED <- c("invasive_species", "beneficiary_species", "methods")
-
-FW_TABLES <- c("attempt", "species", "attempt_species",
-               "method", "attempt_method", "contact")
 
 # ---- Where the data comes from -----------------------------------------------
 
@@ -138,8 +135,6 @@ fw_data_source <- function() {
   # pasted URL, and it produces a "//" that some hosts 404 on.
   sub("/+$", "", src)
 }
-
-fw_source_is_remote <- function() fw_data_mode() != "local"
 
 #' Resolve one file below the data root, fetching it if it is remote
 #'
@@ -555,56 +550,6 @@ fw_species_label <- function(species) {
     )
 }
 
-#' One row per attempt, with species, methods and contacts collapsed
-#'
-#' For tables and exports. List columns keep the many-to-one relationships intact
-#' rather than flattening them into numbered columns again.
-fw_attempts_wide <- function(data) {
-  species_labelled <- fw_species_label(data$species)
-
-  sp <- data$attempt_species |>
-    left_join(select(species_labelled, species_id, label, taxa, family),
-              by = "species_id") |>
-    group_by(attempt_id, role) |>
-    summarise(names = list(label), .groups = "drop") |>
-    pivot_wider(names_from = role, values_from = names,
-                names_prefix = "species_")
-
-  # Guard against an export with no beneficiary rows at all.
-  for (nm in c("species_invasive", "species_beneficiary")) {
-    if (!nm %in% names(sp)) sp[[nm]] <- vector("list", nrow(sp))
-  }
-
-  me <- data$attempt_method |>
-    left_join(select(data$method, method_id, method_name, method_class),
-              by = "method_id") |>
-    arrange(attempt_id, method_order) |>
-    group_by(attempt_id) |>
-    summarise(
-      methods       = list(method_name),
-      method_classes = list(unique(method_class)),
-      .groups = "drop"
-    )
-
-  contacts <- select(data$contact, contact_id, contact_name, organisation)
-
-  data$attempt |>
-    left_join(sp, by = "attempt_id") |>
-    left_join(me, by = "attempt_id") |>
-    left_join(
-      rename(contacts, primary_contact_id = contact_id,
-             primary_contact_name = contact_name,
-             primary_contact_org = organisation),
-      by = "primary_contact_id"
-    ) |>
-    left_join(
-      rename(contacts, secondary_contact_id = contact_id,
-             secondary_contact_name = contact_name,
-             secondary_contact_org = organisation),
-      by = "secondary_contact_id"
-    )
-}
-
 #' One row per contact, with countries and continents derived from their attempts
 #'
 #' A contact attached to attempts in more than one country belongs to all of
@@ -686,7 +631,7 @@ fw_last_updated <- function(data, meta = NULL) {
 #'
 #' Computed at runtime from the loaded data, never hardcoded. Read by the
 #' Explore page's database panel, the About page's scale sentence and citation,
-#' and reserved for the landing page's KPI strip. Counts only, never a rate.
+#' and the Welcome page's species-protected figure. Counts only, never a rate.
 fw_headline_stats <- function(data) {
   role_ids <- function(role_name) {
     unique(data$attempt_species$species_id[data$attempt_species$role == role_name])
@@ -699,7 +644,13 @@ fw_headline_stats <- function(data) {
     latest_year    = suppressWarnings(max(data$attempt$start_year, na.rm = TRUE)),
     species        = length(role_ids("invasive")),
     beneficiaries  = length(role_ids("beneficiary")),
-    successful     = sum(data$attempt$outcome == "Successful", na.rm = TRUE)
+    successful     = sum(data$attempt$outcome == "Successful", na.rm = TRUE),
+    # The Welcome page's one figure: beneficiaries of SUCCESSFUL attempts only.
+    protected      = length(unique(data$attempt_species$species_id[
+      data$attempt_species$role == "beneficiary" &
+        data$attempt_species$attempt_id %in%
+          data$attempt$attempt_id[data$attempt$outcome %in% "Successful"]
+    ]))
   )
 }
 
@@ -901,10 +852,6 @@ fw_startup_choices <- function(data) {
     # whose group is not yet answered or is one with nothing recorded under it.
     species_by_taxa = fw_species_by_taxa(species_labelled, species_choices),
 
-    # label -> family, so the family can be filled in from the species the
-    # contributor picks rather than asked for. See fw_family_for_species().
-    species_family = fw_species_family_lookup(species_labelled),
-
     # label -> species_id, so the form writes the id the database already
     # holds for a species the contributor picked. A species they typed in has
     # no entry here and travels as text for the reviewer - see submit.R.
@@ -1003,28 +950,4 @@ fw_species_by_taxa <- function(species_labelled, all_labels) {
   by_taxa <- lapply(by_taxa, function(x) all_labels[all_labels %in% x])
   by_taxa[[FW_ALL]] <- all_labels
   by_taxa
-}
-
-#' A species label to family lookup
-#'
-#' The form no longer asks for the fish family. It is filled in from the species
-#' the contributor picks and falls back to "Unknown" for anything we do not hold,
-#' including a species they type in themselves, which is a QA task rather than a
-#' question worth putting to a contributor.
-fw_species_family_lookup <- function(species_labelled) {
-  fam <- species_labelled$family
-  names(fam) <- species_labelled$label
-  fam[!is.na(fam) & nzchar(fam)]
-}
-
-#' The family for a species label, or "Unknown"
-#'
-#' Single-bracket lookup on purpose: [[ ]] throws on a name that is not there,
-#' and a species the contributor typed in themselves is exactly that case.
-fw_family_for_species <- function(label, lookup) {
-  if (is.null(label) || length(label) != 1 || is.na(label) || !nzchar(label)) {
-    return("")
-  }
-  fam <- unname(lookup[label])
-  if (is.na(fam) || !nzchar(fam)) "Unknown" else fam
 }

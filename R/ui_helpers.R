@@ -76,38 +76,26 @@ fw_emphasis <- function(text) {
 #' page's introduction is a single voice at a single size. The report builder's
 #' intro used to be split across the header and a second block below the filter
 #' panel, in three different treatments; that is what this replaces.
-fw_page_header <- function(title, description = NULL) {
+#'
+#' @param format   turns one paragraph of copy into tags; the Welcome page
+#'   passes one that also makes [[page|words]] links
+#' @param modifier adds .fw-page-header--{modifier} for a page-specific size
+#' @param show_title FALSE keeps the h1 for screen readers only. The client
+#'   asked for the visible title on The solution page alone; every page still
+#'   needs one heading at the top of its outline.
+fw_page_header <- function(title, description = NULL, format = fw_emphasis,
+                           modifier = NULL, show_title = TRUE) {
   tags$header(
-    class = "fw-page-header",
+    class = paste(c("fw-page-header", if (!is.null(modifier)) paste0("fw-page-header--", modifier)),
+                  collapse = " "),
     fw_container(
-      h1(class = "fw-page-header__title", title),
+      h1(class = paste(c("fw-page-header__title",
+                         if (!show_title) "fw-visually-hidden"), collapse = " "),
+         title),
       lapply(description, function(para) {
-        p(class = "fw-page-header__description", fw_emphasis(para))
+        p(class = "fw-page-header__description", format(para))
       })
     )
-  )
-}
-
-#' A filter sidebar beside a results column
-#'
-#' Used by the report builder and the dashboard. A CSS grid rather than
-#' bslib::layout_sidebar(), whose width is set in pixels and which brings its own
-#' collapse behaviour; see .fw-layout in _components.scss.
-#'
-#' The sidebar is a real <details>, open by default. Below 900px that lets a
-#' reader fold ten controls away and get to the results in one scroll; above it
-#' the marker is hidden and the panel simply sits beside the content.
-#'
-#' @param summary the disclosure label, shown only on narrow screens
-fw_sidebar_layout <- function(sidebar, main, summary) {
-  div(
-    class = "fw-layout",
-    tags$details(
-      class = "fw-layout__sidebar", open = NA,
-      tags$summary(class = "fw-layout__summary", summary),
-      sidebar
-    ),
-    div(class = "fw-layout__main", main)
   )
 }
 
@@ -245,40 +233,11 @@ fw_field <- function(input, label, required = FALSE, tooltip = NULL,
   )
 }
 
-# ---- Stub panel --------------------------------------------------------------
-
-#' The "in development" state shared by every unbuilt page
-#'
-#' One helper so the four stubs stay consistent and can be removed in one place
-#' as each page is built.
-fw_stub_panel <- function(extra = NULL) {
-  div(
-    class = "fw-stub",
-    div(class = "fw-stub__badge", fw_t("stub", "badge")),
-    h2(fw_t("stub", "heading")),
-    p(fw_t("stub", "body")),
-    div(
-      class = "fw-stub__actions",
-      tags$a(
-        class = "btn btn-primary",
-        href = "#", onclick = "Shiny.setInputValue('fw_nav_to', 'contribute', {priority:'event'}); return false;",
-        fw_t("stub", "action_contribute")
-      ),
-      tags$a(
-        class = "btn btn-outline-primary",
-        href = "#", onclick = "Shiny.setInputValue('fw_nav_to', 'networking', {priority:'event'}); return false;",
-        fw_t("stub", "action_networking")
-      )
-    ),
-    extra
-  )
-}
-
 # ---- Paging ------------------------------------------------------------------
 
 # The page sizes offered on paged tables are FW_CONTACTS_PAGE_SIZES (the
-# Networking directory), FW_PLAN_CONTACTS_PAGE_SIZES (the report builder's
-# contacts block, which opens at ten) and FW_PLAN_PAGE_SIZES, all in R/config.R.
+# Networking directory) and FW_PLAN_CONTACTS_PAGE_SIZES (the report builder's
+# contacts block, which opens at ten), both in R/config.R.
 
 #' A numbered pager
 #'
@@ -416,7 +375,7 @@ fw_footer <- function(last_updated, in_review = 0L) {
           class = "fw-footer__row",
           div(
             class = "fw-footer__org",
-            logo(fw_t("footer", "fwise_url"), FW_LOGO$mark_web,
+            logo(fw_t("footer", "fwise_url"), FW_LOGO$badge_full,
                  fw_t("footer", "logo_alt_fwise")),
             logo(fw_t("footer", "wfa_url"), "img/wfa-logo-rect-dark-320.png",
                  fw_t("footer", "logo_alt_wfa"))
@@ -424,7 +383,8 @@ fw_footer <- function(last_updated, in_review = 0L) {
           div(
             class = "fw-footer__credits",
             p(class = "fw-footer__built-by", fw_t("app", "built_by")),
-            p(class = "fw-footer__built-by", fw_t("app", "data_by"))
+            p(class = "fw-footer__built-by", fw_t("app", "data_by")),
+            p(class = "fw-footer__built-by", fw_t("app", "illustrated_by"))
           ),
           div(
             class = "fw-footer__logos",
@@ -443,7 +403,10 @@ fw_footer <- function(last_updated, in_review = 0L) {
     div(
       class = "fw-footer__meta",
       fw_container(
+        # The label takes the date's typeface, so the line does not change
+        # font halfway through. See .fw-footer__updated.
         tags$span(
+          class = "fw-footer__updated",
           fw_t("footer", "last_updated"), " ",
           tags$span(class = "fw-num",
                     if (is.na(last_updated)) fw_t("common", "empty_value")
@@ -646,8 +609,8 @@ fw_block <- function(title, note, content) {
 
 #' A click-to-open panel
 #'
-#' A real <details>, not a scripted accordion. That is the same choice
-#' fw_sidebar_layout() and the report builder's filter panel already make: the
+#' A real <details>, not a scripted accordion. That is the same choice the
+#' report builder's filter panel already makes: the
 #' open and closed states, the keyboard behaviour and what a screen reader
 #' announces all come from the browser, and there is nothing to initialise after
 #' an insertUI. The server can still close one through the `fw-collapse` message
@@ -709,7 +672,7 @@ fw_caveats_ui <- function(data, heading = TRUE) {
 
   div(
     class = "fw-caveats",
-    if (isTRUE(heading)) h2(fw_t("about", "caveats_heading")),
+    if (isTRUE(heading)) h2(class = "fw-visually-hidden", fw_t("about", "caveats_heading")),
     # The blocks sit in their own grid wrapper rather than directly in the
     # panel, so the heading above stays full width and only the blocks column
     # up. See .fw-caveats__grid.

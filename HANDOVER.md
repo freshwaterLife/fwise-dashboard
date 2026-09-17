@@ -671,12 +671,11 @@ Send is deliberately always enabled. Pressing it on an incomplete form enables
 every validator, scrolls to the first field that needs attention and announces
 the failure, which is more use than a disabled button that will not say why.
 
-### 5.13 The fish family is derived, never asked
+### 5.13 The fish family is never asked
 
-`fw_family_for_species()` looks the family up from the species the contributor
-picked and falls back to `"Unknown"`. The form used to ask for it. Anything the
-database does not hold - including a species someone typed in themselves -
-arrives as "Unknown" for QA to fill in.
+The form used to ask for it and no longer does. A species the database already
+holds keeps its family; a new one - including a species someone typed in
+themselves - arrives as `"Unknown"` (set by `dev/qa.R`) for QA to fill in.
 
 ---
 

@@ -66,6 +66,22 @@ FW_CARTO_ATTRIB <- paste(
 # The layer control's names come from fw_t("maps", "basemap_*"): named so it
 # reads as a question the user might ask rather than as a list of vendors.
 
+#' An empty map with the app's zoom and pan limits
+#'
+#' Every map starts here. The limits stop a reader zooming or panning out past
+#' the edge of the world, which left grey bars above and below it. See
+#' FW_MAP$min_zoom. Set as map options rather than in an onRender hook, so the
+#' card script stays the widget's only render hook.
+fw_leaflet <- function() {
+  leaflet::leaflet(options = leaflet::leafletOptions(
+    worldCopyJump = TRUE,
+    minZoom = FW_MAP$min_zoom,
+    maxBoundsViscosity = 1
+  )) |>
+    leaflet::setMaxBounds(-FW_MAP$max_lng, -FW_MAP$max_lat,
+                          FW_MAP$max_lng, FW_MAP$max_lat)
+}
+
 #' The basemap stack and its layer control
 #'
 #' Four grounds, one visible at a time. Terrain is not decoration: the client's
@@ -98,16 +114,14 @@ fw_add_basemaps <- function(map, overlays = NULL) {
       "Esri.WorldImagery", group = satellite,
       options = leaflet::providerTileOptions(noWrap = FALSE)
     ) |>
-    # Place labels ride ABOVE the data, so a marker never hides the name of the
-    # lake it sits on. Carto serves them as their own transparent layer.
-    leaflet::addTiles(
-      urlTemplate = fw_carto_url("voyager_only_labels"),
-      attribution = "",
-      options = leaflet::tileOptions(noWrap = FALSE, zIndex = 650)
-    ) |>
+    # NO PLACE LABELS. A Carto label layer used to ride above the data, in
+    # local languages. The client asked for no text on the ground; Water and
+    # Terrain keep the English labels drawn into their own tiles.
     leaflet::addLayersControl(
       baseGroups = c(plain, water, terrain, satellite),
-      overlayGroups = overlays,
+      # NEVER NULL. leaflet.js wraps a null in an array, and the switcher then
+      # shows a checkbox named null. An empty vector goes over as [].
+      overlayGroups = if (length(overlays)) overlays else character(0),
       options = leaflet::layersControlOptions(collapsed = TRUE)
     )
 }
@@ -143,9 +157,9 @@ FW_POPUP_SEP <- "|"
 #' one that hangs.
 #'
 #' THIS IS THE RECORD, WHEREVER IT IS SHOWN. The map's markers, the map's detail
-#' panel and the Explore page's cards all read from this frame, so a record
-#' cannot say one thing on the map and another in the list. The three attempts
-#' with no coordinates are here too; fw_map_points() is the located subset.
+#' panel and the HTML report all read from this frame, so a record cannot say
+#' one thing in one place and another elsewhere. The three attempts with no
+#' coordinates are here too; fw_map_points() is the located subset.
 fw_attempt_records <- function(data, sel) {
   pts <- sel
   # RETURNS A NARROWER FRAME WHEN EMPTY: none of the joins below have run, so
@@ -280,7 +294,8 @@ fw_popup_parts <- function(x) {
 # UNLESS A FALLBACK IS GIVEN, in which case the row is drawn with the fallback
 # in place of the value. That is for the two species roles on the hover card:
 # see fw_map_hover_html() for why a missing role has to say it is missing rather
-# than vanish. Everywhere else a field with nothing in it is still no row.
+# than vanish. An empty fallback draws the row with nothing in it, which is what
+# "Recorded by" does. Everywhere else a field with nothing in it is still no row.
 fw_popup_row <- function(label, value, html = FALSE, fallback = NULL) {
   esc <- htmltools::htmlEscape
   if (length(value) != 1 || is.na(value) || !nzchar(as.character(value))) {
@@ -353,8 +368,6 @@ fw_popup_years <- function(start, end) {
 fw_map_hover_html <- function(row, thumbs = NULL, thumb_ref = FALSE) {
   esc <- htmltools::htmlEscape
   outcome <- if (is.na(row$outcome)) "Unknown" else row$outcome
-  recorded <- row$primary_contact_name
-  if (is.na(recorded) || !nzchar(recorded)) recorded <- row$reference
 
   paste0(
     # The id is how a click asks the server for the rest of the record when
@@ -383,7 +396,11 @@ fw_map_hover_html <- function(row, thumbs = NULL, thumb_ref = FALSE) {
     fw_popup_row(fw_t("species", "p_method"), row$method_list),
     # The outcome is words as well as colour, so it never depends on the dot.
     fw_popup_row(fw_t("species", "p_outcome"), outcome),
-    fw_popup_row(fw_t("species", "p_recorded_by"), recorded),
+    # THE PRIMARY CONTACT ONLY, and an empty row where there is none. It used
+    # to fall back to the reference, which put a citation where a person was
+    # expected; the client asked for the blank instead.
+    fw_popup_row(fw_t("species", "p_recorded_by"), row$primary_contact_name,
+                 fallback = ""),
     # A BUTTON, NOT A LINE OF QUIET TEXT. It read as a caption and the client
     # reported readers not realising the card opened into anything.
     #
@@ -447,7 +464,9 @@ fw_popup_thumb <- function(row, thumbs, ref = FALSE) {
   }
   one <- function(ids_col, role_key) {
     ids <- fw_popup_parts(ids_col)
-    fig <- if (length(ids)) thumbs[[ids[1]]] else NULL
+    # NO SPECIES IN THE ROLE says so in the text rows' words; a species with no
+    # cached photograph keeps the blank tile's own.
+    fig <- if (length(ids)) thumbs[[ids[1]]] else fw_popup_thumb_unrecorded()
     if (is.null(fig) || !nzchar(fig)) fig <- fw_popup_thumb_none()
     paste0('<div class="fw-popup__figure-item">',
            '<p class="fw-popup-fig__role">',
@@ -467,12 +486,20 @@ fw_popup_thumb <- function(row, thumbs, ref = FALSE) {
 #' one rule in _components.scss styles both, with the hover card's own wording:
 #' "None noted" answers the card's question - was anything recorded here - where
 #' "No photograph available" answers a question about the picture library.
-fw_popup_thumb_none <- function() {
+fw_popup_thumb_none <- function(text = fw_t("species", "fig_none")) {
   as.character(htmltools::tags$div(
     class = "fw-species-figure fw-species-figure--none",
-    htmltools::tags$span(class = "fw-species-figure__placeholder",
-                         fw_t("species", "fig_none"))
+    htmltools::tags$span(class = "fw-species-figure__placeholder", text)
   ))
+}
+
+#' The blank tile for a role with no species recorded at all
+#'
+#' Worded like the card's text rows ("Not recorded"), at the client's request,
+#' so the tile and the row under it give the same answer. Used by the hover
+#' card and the detail panel alike.
+fw_popup_thumb_unrecorded <- function() {
+  fw_popup_thumb_none(fw_t("species", "p_none"))
 }
 
 #' The detail panel: the whole record, opened on click
@@ -515,7 +542,7 @@ fw_map_detail_html <- function(row, species_tbl, live = FALSE, figure_cache = NU
 #'
 #' The markup inside fw_map_detail_html()'s template, on its own. The map
 #' embeds it in a marker; fw_map_detail_server() sends it straight to the panel
-#' when a marker or an Explore card is clicked.
+#' when a marker is clicked.
 #'
 #' PREVIOUS AND NEXT USED TO SIT AT THE FOOT, drawn here when a server was
 #' there to answer them and omitted in a saved report. The client removed them:
@@ -537,7 +564,7 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
     names <- fw_popup_parts(names)
     slides <- if (!length(ids)) {
       paste0('<div class="fw-popup-fig__slide" data-fw-slide="0">',
-             fw_species_figure(NULL, NA), "</div>")
+             fw_popup_thumb_unrecorded(), "</div>")
     } else {
       paste0(vapply(seq_along(ids), function(i) {
         fig <- figure_cache[ids[i]]
@@ -626,7 +653,7 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
     fw_popup_row(fw_t("species", "p_recorded_by"),
                  person(row$primary_contact_name, row$primary_contact_email,
                         row$primary_contact_org),
-                 html = TRUE),
+                 html = TRUE, fallback = ""),
     fw_popup_row(fw_t("species", "p_also"),
                  person(row$secondary_contact_name,
                         row$secondary_contact_email,
@@ -645,14 +672,6 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
     "</div>"
   )
 }
-
-# fw_record_card() USED TO LIVE HERE. The dashboard drew its list as a grid of
-# cards, one photograph each; it is a table now, with both species per row -
-# the one targeted and the one meant to benefit - which a single-photograph
-# card could not show. See R/mod_explore_table.R.
-#
-# The detail panel below is unchanged and is still the one record view: the
-# table writes into the same input a marker click does.
 
 #' The popup for one attempt: the hover card, with the detail panel inside it
 #' when it is being embedded
@@ -766,6 +785,7 @@ function (el, x, data) {
   // saved report, whose cards carry their figures inline.
   var THUMBS = (data && data.thumbs) || {};
   var THUMB_NONE = (data && data.none) || '';
+  var THUMB_UNRECORDED = (data && data.unrecorded) || THUMB_NONE;
   var THUMB_ROLES = (data && data.roles) || ['', ''];
   var CLOSE_LABEL = '{{CLOSE}}';
   var CARD_LABEL = '{{LABEL}}';
@@ -902,7 +922,8 @@ function (el, x, data) {
       var ids = slot.getAttribute('data-fw-thumbs').split('|');
       var html = '';
       for (var i = 0; i < 2; i++) {
-        var fig = (ids[i] && THUMBS[ids[i]]) || THUMB_NONE;
+        // An empty id is a role with no species: say not recorded.
+        var fig = ids[i] ? (THUMBS[ids[i]] || THUMB_NONE) : THUMB_UNRECORDED;
         html += '<div class=\"fw-popup__figure-item\">' +
                 '<p class=\"fw-popup-fig__role\">' + THUMB_ROLES[i] + '</p>' +
                 fig + '</div>';
@@ -1191,7 +1212,7 @@ fw_map_card_js <- function(detail_input = NULL) {
 
 #' Serve the record behind a marker, or a card, when it is clicked
 #'
-#' The server half of detail = "lazy" in fw_add_attempt_markers(). The click
+#' The server half of detail = "lazy" in fw_add_marker_layer(). The click
 #' arrives in input[[input_name]] as an attempt id, the record is built for
 #' that one attempt - a few milliseconds - and sent back as the same HTML the
 #' embedded mode would have carried, which the card script then opens.
@@ -1210,8 +1231,6 @@ fw_map_detail_server <- function(input, session, input_name, data, sel) {
     s <- sel()
     row <- s[!is.na(s$attempt_id) & s$attempt_id == id, ]
     if (!nrow(row)) return()
-    # fw_attempt_records(), not fw_map_points(): an attempt with no
-    # coordinates has no marker, but it has a card, and the card must open.
     rec <- fw_attempt_records(data, row)
     if (!nrow(rec)) return()
     session$sendCustomMessage(
@@ -1222,10 +1241,6 @@ fw_map_detail_server <- function(input, session, input_name, data, sel) {
 
   observeEvent(input[[input_name]], send(input[[input_name]]))
 }
-
-# fw_record_neighbour() USED TO LIVE HERE - the record `step` places from an id
-# in the selection's row order, wrapping at either end. It had one caller, the
-# previous/next observer above, and went with it.
 
 #' How overlapping markers are grouped
 #'
@@ -1307,9 +1322,8 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE,
   # the set to the card script once; an embedded one writes it into each card.
   thumbs <- if (nrow(pts)) fw_map_thumb_cache(data, pts) else character(0)
   if (!nrow(pts)) {
-    # STILL WIRE THE CARD SCRIPT. It is what creates the record panel on
-    # <body>, and the Explore list can open a record for an attempt that has
-    # no coordinates - so the panel has to exist even when the map is empty.
+    # STILL WIRE THE CARD SCRIPT, so an empty map behaves like any other: it
+    # is what creates the record panel on <body>.
     v <- FW_MAP$empty_view
     return(
       map |>
@@ -1413,6 +1427,7 @@ fw_map_card_render <- function(map, detail_input = NULL, thumbs = NULL) {
     # or of length one.
     thumbs = as.list(thumbs),
     none = fw_popup_thumb_none(),
+    unrecorded = fw_popup_thumb_unrecorded(),
     roles = c(esc(fw_t("species", "fig_invasive")),
               esc(fw_t("species", "fig_beneficiary")))
   ))

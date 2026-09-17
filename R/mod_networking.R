@@ -23,7 +23,8 @@ library(dplyr)
 mod_networking_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    fw_page_header(fw_t("networking", "title"), fw_t("networking", "description")),
+    fw_page_header(fw_t("networking", "title"), fw_t("networking", "description"),
+                   show_title = FALSE),
     tags$main(
       id = "fw-main",
       fw_section(
@@ -70,7 +71,7 @@ mod_networking_ui <- function(id) {
 
           div(
             class = "fw-panel fw-prose",
-            h2(fw_t("networking", "outro_heading")),
+            h2(class = "fw-visually-hidden", fw_t("networking", "outro_heading")),
             p(fw_t("networking", "outro")),
             tags$a(
               class = "btn btn-primary",
@@ -94,9 +95,7 @@ mod_networking_ui <- function(id) {
 # the served markup as a mailto href.
 jsonlite_quote <- function(x) paste0("'", gsub("'", "\\\\'", x), "'")
 
-#' @param request the session's Explore request, a reactiveVal; see
-#'   mod_explore_server()
-mod_networking_server <- function(id, data, request = shiny::reactiveVal(NULL)) {
+mod_networking_server <- function(id, data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -284,17 +283,7 @@ mod_networking_server <- function(id, data, request = shiny::reactiveVal(NULL)) 
           tags$td(r$continent_label),
           tags$td(r$country_label),
           tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
-          tags$td(fw_contact_action(r$contact_email, r$contact_name)),
-          tags$td(
-            actionLink(
-              ns(paste0("view_", r$contact_id)),
-              fw_t("networking", "view_attempts"),
-              onclick = sprintf(
-                "Shiny.setInputValue('%s', '%s', {priority:'event'});",
-                ns("view_contact"), r$contact_id
-              )
-            )
-          )
+          tags$td(fw_contact_action(r$contact_email, r$contact_name))
         )
       })
 
@@ -311,18 +300,10 @@ mod_networking_server <- function(id, data, request = shiny::reactiveVal(NULL)) 
           tags$th(scope = "col", fw_t("networking", "col_continent")),
           tags$th(scope = "col", fw_t("networking", "col_country")),
           tags$th(scope = "col", class = "fw-col-num", fw_t("networking", "col_attempts")),
-          tags$th(scope = "col", fw_t("networking", "col_contact")),
-          tags$th(scope = "col", tags$span(class = "fw-visually-hidden", fw_t("networking", "col_attempts_link")))
+          tags$th(scope = "col", fw_t("networking", "col_contact"))
         )),
         tags$tbody(rows)
       )
-    })
-
-    # Route through to the dashboard, which reads the request and narrows to
-    # this person's attempts. See mod_explore.R.
-    observeEvent(input$view_contact, {
-      request(input$view_contact)
-      session$sendCustomMessage("fw-nav", "explore")
     })
   })
 }

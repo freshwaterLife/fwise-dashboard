@@ -22,7 +22,8 @@
 //   $fw-page $fw-surface $fw-sunken             grounds
 //   $fw-border $fw-border-input                 lines
 //   $fw-on-indigo $fw-on-indigo-muted           text on the indigo ground
-//   $fw-map-now $fw-map-next                    the Welcome map keys. NON-TEXT ONLY
+//   $fw-map-now $fw-map-next                    the Welcome map fills. NON-TEXT ONLY
+//   $fw-map-now-text $fw-map-next-text          the same hues as caption text
 //   $fw-data-*                                  the Wong palette. DATA ONLY
 //   $fw-font-body $fw-font-mono                 type
 //   $fw-size-* $fw-weight-* $fw-leading-*       the type scale
@@ -68,16 +69,11 @@ $fw-section-y: $fw-space-4;
 // .fw-container in _components.scss.
 $fw-container-gutter: $fw-space-3;
 
-// WHERE THE NAVBAR ENDS, which is where anything else that sticks has to begin.
-// .fw-navbar is itself sticky at top: 0, so a second sticky element at top: 0
-// slides underneath it and is never seen. These are its heights at each width -
-// it grows with the brand mark at $fw-bp-md, and the xl band is the row where
-// the brand and the six nav items are squeezed onto one line.
-//
-// A MIXIN RATHER THAN THREE NUMBERS COPIED TWICE. Both the contribution form's
-// progress rail and the report builder's results heading stick under this bar,
-// and when the navbar's min-height last moved only one of them would have
-// followed it. Anything else that sticks to the top of the page uses this too.
+// THE ONE PLACE ANYTHING STICKS TO THE TOP OF THE PAGE. It used to be offset
+// by the navbar's height, when the navbar was sticky too; the client asked for
+// the navbar to scroll away, so these now pin to the top of the window. Both
+// the contribution form's progress rail and the report builder's results
+// heading use it, so they move together.
 //
 // 1010, NOT 900. Leaflet's panes run 400-800, but its control corners
 // (.leaflet-top / .leaflet-bottom, which hold the outcome legend) sit at 1000,
@@ -85,9 +81,6 @@ $fw-container-gutter: $fw-space-3;
 // under the navbar's 1030 and the map card's 1200.
 @mixin fw-sticky-under-navbar($z: 1010) {
   position: sticky;
-  top: 64px;
+  top: 0;
   z-index: $z;
-
-  @media (min-width: $fw-bp-md) { top: 7rem; }
-  @media (min-width: $fw-bp-xl) and (max-width: $fw-bp-xl-max) { top: 5rem; }
 }

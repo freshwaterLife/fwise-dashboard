@@ -1,66 +1,4 @@
 # mod_explore.R
-# BUILT. The database at a glance, then every attempt in it as a row you can
-# open.
-#
-# WHAT IS IN HERE, AND EVERY ONE OF IT. This page answers two questions that
-# belong together: what does FWISE hold, and where is the individual attempt I
-# am looking for. The database panel and the two summary graphics answer the
-# first; the map answers the second.
-#
-# THE TABLE OF ATTEMPTS IS GONE, at the client's request, and so is the page's
-# only other route into a record. The reasoning was that nobody scrolls a
-# few hundred alphabetical rows of raw data, and the map does the same job
-# while being worth looking at. What it cost: there is now no way to reach an
-# unlocated attempt from this page at all - see the note on the map below.
-#
-# PLAN IS ABOUT A SITUATION, THIS PAGE IS ABOUT THE DATABASE. The report builder
-# narrows to attempts like the reader's own and produces a citable file about
-# THAT. Everything here describes the whole record, or the whole of a very
-# lightly filtered slice of it - which is why the graphics here are proportions
-# and growth, and the graphics there are comparisons within a selection.
-#
-# THERE ARE CHARTS HERE NOW, and this is a reversal. This page used to carry
-# none, on the reasoning that a chart of the selection was Plan's answer and a
-# weaker copy of it here made the two pages indistinguishable. That reasoning
-# held while the two pages had the same ten filters. They no longer do: four
-# simple filters cannot produce the narrow, unrepresentative slice that made a
-# chart here dangerous, and the three graphics below are about the shape of the
-# record rather than about a comparison the reader might act on.
-#
-# LIVE, NOT GATED - the opposite of the report builder, on purpose. A report is
-# something the reader will cite, so Plan makes them commit before it draws. A
-# list is something they scan, and the whole value is watching it narrow as
-# they move a control. Do not "make the two pages consistent".
-#
-# FOUR FILTERS, NOT TEN, and they are all SIMPLE ones: where, and which animals.
-# Everything else - waterbody, regime, size, the named-species pickers and the
-# year range - is a question about a group of attempts and belongs with the
-# report builder. The set is FW_EXPLORE_FILTERS; the controls, the state and the
-# matching all come from the one registry in filters.R, so a filter here is the
-# same filter there.
-#
-# OUTCOME IS NOT FILTERABLE, HERE OR ANYWHERE. It used to be filterable on this
-# page and deliberately not on the report builder; the client's decision is now
-# that it is an answer rather than a question, on both pages. It is shown in
-# every graphic, the map markers and the record panel - just never used to
-# narrow. The reasoning is in mod_plan.R and it applies with more force here,
-# where the whole point is to show what the database contains.
-#
-# THE RECORD OPENS IN THE MAP'S PANEL, and now that is the only place it opens
-# from. A marker click writes the attempt id and fw_map_detail_server() in
-# maps.R shows it; previous/next steps through sorted(), which is the whole
-# selection in most-recent-first order rather than only the located part of it.
-#
-# ATTEMPTS WITH NO COORDINATES ARE NOT REACHABLE HERE. They were rows in the
-# table and they are not markers on the map. They are still in every count,
-# every chart and every export, and the report builder still lists them. If
-# that becomes a complaint, the answer is a route to them from this page - not
-# putting the table back.
-#
-# THE DATABASE PANEL IS NEVER FILTERED. It is the size of the whole record,
-# and it sits above the filters so it cannot be read as the size of a
-# selection. Counts only, all the same size, no rate: see the note in
-# mod_plan_results.R on why there is no success percentage anywhere.
 
 library(shiny)
 library(dplyr)
@@ -68,9 +6,6 @@ library(dplyr)
 # The filters this page offers, by registry id. Everything else in FW_FILTERS
 # is dropped here and kept on the report builder.
 FW_EXPLORE_FILTERS <- c("continent", "country", "taxa", "taxa_beneficiary")
-
-# The list's sort orders. Copy keys are "sort_<value>" in FW_COPY$explore.
-FW_EXPLORE_SORTS <- c("newest", "oldest", "site", "country")
 
 #' @param choices fw_filter_choices() of the loaded data. The filter bar is
 #'   built here rather than in a renderUI, and that is the fix for the page
@@ -83,49 +18,22 @@ mod_explore_ui <- function(id, choices) {
   ns <- NS(id)
   ids <- fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
   tagList(
-    fw_page_header(fw_t("explore", "title"), fw_t("explore", "description")),
+    fw_page_header(fw_t("explore", "title"), fw_t("explore", "description"),
+                   show_title = FALSE),
     tags$main(
       id = "fw-main",
       fw_section(
         fw_container(
           uiOutput(ns("kpis")),
           fw_explore_filter_bar(ns, choices, ids),
-          uiOutput(ns("incoming")),
           uiOutput(ns("summary")),
 
-          # ---- Where it happened ------------------------------------------
-          #
-          # THE MAP COMES FIRST, at the client's request and against the order
-          # this page shipped with. The reasoning is that the map is the only
-          # thing here a reader can act on, and a reader who has moved it is
-          # far more likely to scroll on to the figures than one who met two
-          # static charts at the top. Do not put the charts back above it
-          # without that conversation.
           div(
             class = "fw-explore-block",
-            h2(fw_t("explore", "map")),
             p(class = "fw-explore-block__note", fw_t("explore", "map_note")),
             fw_map_output(ns("map"))
           ),
 
-          # ---- The shape of the selection --------------------------------
-          #
-          # Proportions and growth, which are questions about the record. The
-          # report builder's charts are comparisons within a slice; these are
-          # not, and that is what keeps the two pages from being copies.
-          #
-          # TWO CHARTS ON ONE ROW. There were three - an outcome donut sat above
-          # the method one in a right-hand column - and the client removed it,
-          # so the pair now sit side by side with no wrapper div between them
-          # and the grid. Below $fw-bp-lg they fold onto two rows. See
-          # .fw-explore-charts.
-          #
-          # THE METHOD DONUT IS GONE and these bars replace it. The client's
-          # reasoning: the outcome-by-method chart says everything the ring said
-          # and adds what happened, so the ring was the weaker of two tellings
-          # of the same split. THE DENOMINATOR CHANGED WITH IT - the ring
-          # counted uses of a method, the bars count attempts - and the note
-          # under the chart says so rather than leaving it to a footnote.
           div(
             class = "fw-explore-charts",
             fw_block(fw_t("explore", "cumulative"),
@@ -141,93 +49,23 @@ mod_explore_ui <- function(id, choices) {
   )
 }
 
-#' @param in_review how many submissions are waiting on review. Passed in
-#'   rather than read from a global: app.R evaluates in its own environment, so
-#'   FW_IN_REVIEW is not visible to a module sourced from R/.
-#' @param request a reactiveVal holding the contact id the Networking page
-#'   asked this page to narrow to, or NULL. ONE PER SESSION, created in app.R's
-#'   server and handed to both modules. It used to be a reactiveVal at the top
-#'   of this file, which is one for the whole PROCESS: a click on "view
-#'   attempts" by one visitor narrowed, and redrew, every other visitor's page.
-mod_explore_server <- function(id, data, in_review = 0L,
-                               request = shiny::reactiveVal(NULL)) {
+
+mod_explore_server <- function(id, data, in_review = 0L) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     choices <- fw_filter_choices(data)
     ids <- fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
 
-    observeEvent(input$clear, {
-      fw_filter_clear(session, ids, choices)
-      request(NULL)
-    })
+    observeEvent(input$clear, fw_filter_clear(session, ids, choices))
 
-    # ---- The two geography filters, linked ----------------------------------
-    #
-    # THEY USED TO BE INDEPENDENT, AND THAT WAS THE BUG. Both narrow with AND,
-    # so picking Europe and then Australia asked for attempts that are in both
-    # and got the honest answer: nothing. The page was not wrong, but "I chose
-    # two things and the map went blank" is indistinguishable from broken, and
-    # that is what the client reported.
-    #
-    # The fix is to make the contradiction unreachable rather than to explain
-    # it: each picker only offers values that are still possible given the
-    # other. Choosing Europe leaves twelve countries in the country list, and
-    # Australia is not one of them.
-    #
-    # THE OBSERVERS THEMSELVES LIVE IN filters.R, and did not always - the
-    # report builder offers the same two pickers and went without this for a
-    # release. Why it cannot loop, and why the pairs come from the attempt
-    # table rather than the ISO lookup, are both at fw_link_geo_filters().
     fw_link_geo_filters(input, session, data, choices)
 
-    # ---- The database panel -------------------------------------------------
-    #
-    # Whole-database figures, computed once per session from the loaded data.
-    # in_review is not part of the data; it is what tells a visitor that
-    # submissions go somewhere.
+
     output$kpis <- renderUI(fw_explore_db_panel(fw_headline_stats(data), in_review))
 
-    # ---- The selection ------------------------------------------------------
-    #
-    # Live. The strip, the map and the list all read this one reactive, so they
-    # cannot disagree about what is being shown.
-    sel <- reactive({
-      out <- fw_filter_apply(data, fw_filter_state(input, ids))
-      # A deep link from the Networking page narrows to one person's attempts.
-      # Applied AFTER the filters so the bar still does what it says.
-      cid <- request()
-      if (!is.null(cid)) {
-        keep <- fw_contact_attempt_ids(data, cid)
-        out <- out[out$attempt_id %in% keep, ]
-      }
-      out
-    })
 
-    # The order previous/next steps through in the record panel. THE LIST THIS
-    # ORDERED IS GONE - the client removed the table - but the panel still has
-    # to walk the selection in SOME stated order, and "most recent first" is
-    # the one the table defaulted to, so a reader who knew the old page finds
-    # the same sequence. fw_explore_order() keeps the rule that undated
-    # attempts sort last rather than first.
-    sorted <- reactive(sel()[fw_explore_order(sel(), FW_EXPLORE_SORTS[1]), ])
-
-    # ---- Arriving from the Networking page ----------------------------------
-
-    output$incoming <- renderUI({
-      cid <- request()
-      req(cid)
-      contact <- data$contact[data$contact$contact_id == cid, ]
-      if (nrow(contact) == 0) return(NULL)
-      div(
-        class = "fw-notice", role = "status",
-        span(fw_fill(fw_t("explore", "incoming"), name = contact$contact_name[1])),
-        actionButton(ns("clear_contact"), fw_t("explore", "incoming_clear"),
-                     class = "btn btn-outline-primary btn-sm")
-      )
-    })
-
-    observeEvent(input$clear_contact, request(NULL))
+    sel <- reactive(fw_filter_apply(data, fw_filter_state(input, ids)))
 
     # ---- The strip and the map ----------------------------------------------
 
@@ -245,7 +83,7 @@ mod_explore_server <- function(id, data, in_review = 0L,
     # later is already covered by it. See fw_map_card_render().
     all_pts <- fw_map_points(data, data$attempt)
     output$map <- leaflet::renderLeaflet({
-      m <- leaflet::leaflet(options = leaflet::leafletOptions(worldCopyJump = TRUE)) |>
+      m <- fw_leaflet() |>
         fw_add_basemaps() |>
         fw_add_outcome_legend()
       # Opened on the whole database's extent, which is what the first
@@ -272,10 +110,9 @@ mod_explore_server <- function(id, data, in_review = 0L,
     observe({
       req(map_ready())
       s <- sel()
-      # NOT WHILE THE TAB IS HIDDEN. A selection can change from another page
-      # (the Networking link), and Leaflet fits bounds against a hidden map's
-      # zero size. Reading this also reruns the observer when the tab is shown,
-      # which is when the deferred draw happens.
+      # NOT WHILE THE TAB IS HIDDEN. Leaflet fits bounds against a hidden
+      # map's zero size. Reading this also reruns the observer when the tab is
+      # shown, which is when the deferred draw happens.
       if (isTRUE(session$clientData[[paste0("output_", ns("map"), "_hidden")]])) return()
       key <- s$attempt_id
       if (identical(key, drawn)) return()
@@ -294,7 +131,7 @@ mod_explore_server <- function(id, data, in_review = 0L,
       fw_add_marker_layer(proxy, data, pts, detail = "lazy",
                           thumbs = fw_map_thumbs_all(data))
     })
-    fw_map_detail_server(input, session, "map_detail", data, sorted)
+    fw_map_detail_server(input, session, "map_detail", data, sel)
 
     # LIVE, like everything else on this page. These are cheap - two
     # aggregations over at most 914 rows - and watching them move under the
@@ -303,9 +140,6 @@ mod_explore_server <- function(id, data, in_review = 0L,
       fw_chart_or_empty(fw_chart_method(data, sel(), mode = "count")))
     output$cumulative <- plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_cumulative(sel())))
-
-    # THE "SHOW ON MAP" OBSERVER WENT WITH THE TABLE. It flew the map to a row's
-    # marker, and the table's link was the only thing that ever wrote input$locate.
   })
 }
 
@@ -319,7 +153,7 @@ mod_explore_server <- function(id, data, in_review = 0L,
 fw_explore_db_panel <- function(s, in_review = 0L) {
   tags$section(
     class = "fw-explore-db",
-    h2(fw_t("explore", "db_heading")),
+    h2(class = "fw-visually-hidden", fw_t("explore", "db_heading")),
     p(class = "fw-explore-db__span",
       fw_fill(fw_t("explore", "db_span"),
               from = as.character(s$earliest_year),
@@ -363,7 +197,7 @@ fw_explore_filter_bar <- function(ns, ch, ids) {
 
   tags$section(
     class = "fw-explore-filters",
-    h2(class = "fw-explore-filters__heading", fw_t("explore", "f_heading")),
+    h2(class = "fw-explore-filters__heading fw-visually-hidden", fw_t("explore", "f_heading")),
     p(class = "fw-caption", fw_t("explore", "f_note")),
     div(
       class = "fw-explore-filters__grid",
@@ -375,29 +209,4 @@ fw_explore_filter_bar <- function(ns, ch, ids) {
       )
     )
   )
-}
-
-#' The row order of the list for a sort setting
-#'
-#' Undated attempts go last under either year order, never first: "most recent"
-#' with a blank at the top reads as a fault. Ties break on site name so the
-#' order is stable between renders.
-#'
-#' @return an integer permutation of seq_len(nrow(s))
-fw_explore_order <- function(s, sort = FW_EXPLORE_SORTS[1]) {
-  site <- tolower(s$site_name)
-  switch(
-    match.arg(sort, FW_EXPLORE_SORTS),
-    newest  = order(-s$start_year, site, na.last = TRUE),
-    oldest  = order(s$start_year, site, na.last = TRUE),
-    site    = order(site, s$country, na.last = TRUE),
-    country = order(s$country, site, na.last = TRUE)
-  )
-}
-
-#' Every attempt a contact is attached to, in either slot
-fw_contact_attempt_ids <- function(data, contact_id) {
-  a <- data$attempt
-  a$attempt_id[which(a$primary_contact_id == contact_id |
-                       a$secondary_contact_id == contact_id)]
 }

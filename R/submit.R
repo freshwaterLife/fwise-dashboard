@@ -283,7 +283,7 @@ fw_write_local <- function(flat, name = paste0(flat$attempt_id[1], ".csv")) {
 #'
 #' @param input   the module's input object
 #' @param rows    the reactiveValues holding which repeatable rows are on screen
-#' @param choices the startup choices, for the species id and family lookups
+#' @param choices the startup choices, for the species id lookup
 fw_collect_submission <- function(input, rows, choices = NULL) {
 
   get_in <- function(nm) {
