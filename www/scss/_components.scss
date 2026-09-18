@@ -142,6 +142,9 @@
   // the setting could not be found by looking for one. Bootstrap resolves that
   // padding from --bs-navbar-nav-link-padding-x, so setting the variable is
   // both the shortest route and the one that survives the next bslib upgrade.
+  // (fw_client_script() now adds .navbar-expand once the page loads, which
+  // takes the bar out of that branch; before it runs, and without JS, the
+  // fallback still applies, so the variable stays the one place to set this.)
   //
   // These must stay ABOVE the nested rules below: libsass drops custom
   // properties declared after a nested selector.
@@ -151,14 +154,12 @@
   // there tips the bar onto two rows. clamp() gives the roomy spacing on a
   // real desktop and quietly gives it back on a narrow one.
   //
-  // THE FLOOR CAME DOWN FROM 0.5rem TO 0.35rem, and the ceiling with it. Three
-  // labels got longer at the same time as the brand got bigger and the tab text
-  // went up a step: "Explore the data" to "Explore the database", "Contribute
-  // data" to "Add a record", "Networking" to "Contact the community". That is a
-  // net gain of eighteen characters in a bar that only just fitted. Padding is
-  // the right thing to give up - it is space around the labels, not the labels.
-  --bs-navbar-nav-link-padding-x: clamp(0.35rem, 1.1vw, 1rem);
-  --bs-nav-link-padding-x: clamp(0.35rem, 1.1vw, 1rem);
+  // TIGHTER AGAIN (Sept 2026 user testing): the items were given more room to
+  // breathe by taking the padding down, and when even that does not fit, the
+  // bar becomes a hamburger rather than a second row - see fw-navbar--menu
+  // below and fw_client_script() in R/ui_helpers.R.
+  --bs-navbar-nav-link-padding-x: clamp(0.25rem, 0.6vw, 0.6rem);
+  --bs-nav-link-padding-x: clamp(0.25rem, 0.6vw, 0.6rem);
 
   // LIGHT, BECAUSE OF THE LOGO. The FWISE lockup's wordmark is indigo, so the
   // bar it sits in has to be light; the indigo goes into the page-title band
@@ -189,12 +190,9 @@
     margin-inline-end: $fw-space-3;
 
     // THE FWISE-SIMPLE WORDMARK, which is 2.5 times as wide as it is tall
-    // (see fw_brand()). It replaced the square badge, and the badge's 6rem
-    // would make this 15rem wide - more of the bar than the six tabs can give
-    // up. 4.5rem keeps it the size the client asked for when they said the
-    // mark made no impression, with the word FWISE now doing the work the
-    // badge's height was doing. The navbar's own min-height is unchanged, so
-    // nothing that sticks under it (fw-sticky-under-navbar) has to move.
+    // (see fw_brand()), at 7rem from md up at the client's request. It no
+    // longer shrinks to make room for the tabs: when the two do not fit, the
+    // tabs go behind the hamburger instead.
     img {
       height: 40px;
       width: auto;
@@ -203,22 +201,45 @@
     }
 
     @media (min-width: $fw-bp-md) { img { height: 7rem; } }
-
-    // The one band where the brand and the nav genuinely compete. Below 992px
-    // the items are behind the hamburger and the brand has the bar to itself;
-    // above 1100px there is room for both at full size. In between, six labels
-    // - three of them now longer - plus the mark do not fit on one row, and a
-    // two-row navbar reads as broken. The brand gives way, because it is the
-    // thing nobody is trying to click.
-    @media (min-width: $fw-bp-xl) and (max-width: $fw-bp-xl-max) {
-      img { height: 3rem; }
-    }
   }
 
-  // Air BETWEEN the items, on top of the padding within them, so the hover
-  // rectangles do not sit edge to edge.
-  .navbar-nav {
-    @media (min-width: $fw-bp-md) { column-gap: clamp(0rem, 0.5vw, #{$fw-space-1}); }
+  // A label never breaks inside itself: "Explore the database" on two lines
+  // is the two-row bar by another route. The overflow this causes is what the
+  // wrap check in fw_client_script() measures.
+  // Bootstrap's .nav wraps its items, which is the other route; with both
+  // off, a row that does not fit overflows instead of folding.
+  &.navbar-expand .navbar-nav { flex-wrap: nowrap; }
+  &.navbar-expand .navbar-nav .nav-link { white-space: nowrap; }
+
+  // HAMBURGER WHEN THE ROW DOES NOT FIT. fw_client_script() pins the bar
+  // expanded (.navbar-expand, which also switches off bslib's fixed 992px
+  // breakpoint) and adds this class whenever the brand and the six tabs would
+  // overflow one row. These rules undo .navbar-expand's layout: the toggler
+  // shows, the tabs collapse into a column under the brand, and the header
+  // spreads brand left, toggler right - what bslib does below lg.
+  &.fw-navbar--menu {
+    flex-wrap: wrap;
+
+    > .container-fluid { flex-wrap: wrap; }
+
+    .navbar-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      .navbar-toggle { order: 2; display: block; }
+    }
+
+    .navbar-collapse {
+      flex-basis: 100%;
+      &:not(.show):not(.collapsing) { display: none !important; }
+      &.show { display: block !important; }
+    }
+
+    .navbar-nav {
+      flex-direction: column;
+      .nav-link { white-space: normal; }
+    }
   }
 
   .navbar-nav .nav-link {
@@ -260,7 +281,7 @@
 
   &__top {
     background: $fw-page;
-    border-top: 1px solid $fw-border;
+    border-top: 5px solid $fw-border;
     padding-block: $fw-space-4;
   }
 
@@ -268,18 +289,26 @@
   // client's request. The FWISE and Weird Fishes marks lead, the credit sits
   // beside them, and the collaborating organisations are a separate group on
   // the right behind the rule.
+  //
+  // ONE ROW FROM md UP, AND IT FLEXES RATHER THAN FOLDS. With wrap on, the row
+  // needed ~1340px to stay whole - the partner logos alone are ~700px at full
+  // height - so a slightly narrower window threw the whole partner group onto
+  // a second row. Now nothing leaves the row: the logos shrink with the window
+  // (clamp below), the credits wrap inside their own column, and when the
+  // partner group still runs out of room its four logos wrap INSIDE the group,
+  // two by two, beside the rule. Below md the row stacks as before.
   &__row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: $fw-space-3 $fw-space-4;
+    gap: $fw-space-3 clamp(#{$fw-space-2}, 1.5vw, #{$fw-space-4});
+
+    @media (min-width: $fw-bp-md) { flex-wrap: nowrap; }
   }
 
-  // Stacks under the logos on a narrow screen, where side by side would leave
-  // both halves too narrow to read.
   &__credits {
-    flex: 1 1 18rem;
+    flex: 1 1 12rem;
     min-width: 0;
   }
 
@@ -288,13 +317,15 @@
   &__org,
   &__logos {
     display: flex;
+    flex: 0 1 auto;
+    min-width: 0;
     flex-wrap: wrap;
     align-items: center;
-    gap: $fw-space-4;
+    gap: $fw-space-2 clamp(#{$fw-space-2}, 1.5vw, #{$fw-space-4});
 
     a { display: inline-flex; text-decoration: none; }
 
-    img { display: block; width: auto; height: 52px; }
+    img { display: block; width: auto; height: clamp(32px, 3.2vw, 52px); }
 
     @media (max-width: $fw-bp-sm) {
       gap: $fw-space-2;
@@ -310,10 +341,10 @@
     // saying "these belong together and are not part of the sentence beside
     // them" - a divider between each pair would say the opposite.
     //
-    // It goes away when the row wraps: a vertical rule on a full-width block
-    // under the credits is a line hanging off the left of nothing.
+    // From md up the row never wraps, so the rule always has the credits on
+    // its left. Below md the group stacks under them and the rule goes.
     @media (min-width: $fw-bp-md) {
-      padding-inline-start: $fw-space-4;
+      padding-inline-start: clamp(#{$fw-space-2}, 1.5vw, #{$fw-space-4});
       border-inline-start: 1px solid $fw-border;
     }
   }
@@ -338,7 +369,7 @@
     padding-block: $fw-space-3;
     font-size: $fw-size-caption;
     // The same teal rule the page-title band carries on its base, mirrored.
-    border-top: 3px solid $fw-brand-teal;
+    border-top: 7px solid $fw-brand-teal;
 
     a {
       color: $fw-teal-light;
@@ -787,15 +818,12 @@
 // long is hard to read back - but this is a band of its own at the foot of the
 // page, and a form sitting in the left two-thirds of an otherwise empty band
 // read as something that had been left unfinished rather than as the end of the
-// page. The client asked for the full width. What keeps it readable is that the
-// cap moves onto the PROSE rather than off the block entirely, and that the
-// "where" select does not stretch to a metre of empty control.
+// page. The client asked for the full width, and in September 2026 asked again
+// for the TEXT as well: the paragraph kept a 42rem measure and so still stopped
+// part-way across the box. Everything in the band now runs the full width; only
+// the "where" select is held back from stretching to a metre of empty control.
 .fw-feedback {
   h2 { margin-block: 0 $fw-space-2; }
-
-  // The measure the paragraph above the form keeps, now that the block does
-  // not. The form below it is free to use the whole width.
-  > p { max-width: 42rem; }
 
   // A select holding "Explore the map" has no use for 60rem of width, and a
   // dropdown that wide over a page this tinted reads as a mistake. The textarea
@@ -2650,6 +2678,22 @@
   margin-block-end: $fw-space-3;
 
   .shiny-input-container { width: 100%; margin-block-end: 0; }
+
+  // A field with a dependent one underneath (Networking's species and its
+  // "Species was" scope). The grid is top-aligned there, so when the second
+  // field appears it grows its cell downward and the row's other fields stay
+  // level with the species box rather than dropping to the new bottom edge.
+  &__stack {
+    display: flex;
+    flex-direction: column;
+    gap: $fw-space-2;
+  }
+
+  &--networking { align-items: start; }
+
+  // Clear sits in the grid as its last cell. Top-aligned rows would leave it
+  // level with the labels, so it drops to the inputs' line instead.
+  &__clear { align-self: end; }
 }
 
 // A TABLE GETS ITS OWN SURFACE. Transparent on the page ground, a table reads
@@ -2909,77 +2953,11 @@ table.dataTable,
 
 // ---- plotly's modebar -------------------------------------------------------
 
-// THE ONE BUTTON WE KEEP is the camera: every chart is downloadable as a PNG,
-// which is a client instruction. The bar used to be off entirely
-// (displayModeBar = FALSE) and came back with everything except toImage
-// removed - see fw_plotly_style() in R/charts.R for why zoom and pan are not
-// wanted on these charts.
-//
-// It needs styling because a chart's paper is transparent (FW_TRANSPARENT), so
-// plotly's default bar floats over whatever ground the chart is sitting on with
-// no surface of its own. Given one, it reads as chrome belonging to the block
-// rather than as a mark on the chart.
-// THE GROUND GOES ON THE GROUP, NOT ON .modebar, and that is not cosmetic.
-// plotly's auto-hide bar fades its CHILDREN - its rule is
-// `.modebar--hover > :not(.watermark) { opacity: 0 }` - and leaves the bar
-// itself fully opaque. A background on .modebar is therefore painted on every
-// chart all the time, as an empty white pill floating over the plot with
-// nothing in it. On the group it fades in and out with the button it is behind.
-//
-// IT IS NO LONGER A HOVER-ONLY BAR. displayModeBar = TRUE in fw_plotly_style()
-// keeps it on screen at all times, because the client reported the download as
-// not visible enough - a button that only exists while the pointer is over the
-// chart is not a button most readers will ever meet, and on touch there is no
-// hover at all. Given that, it has to look like a control rather than like a
-// faint grey smudge in the corner of a plot: a surface, a border, and an icon
-// in body ink rather than muted.
-.modebar-group {
-  background: $fw-surface !important;
-  border: $fw-hairline;
-  border-radius: $fw-radius-input;
-  box-shadow: $fw-shadow-card;
-  // plotly packs the button tight against the edges of its group; a control
-  // that is now permanent needs the room to read as one.
-  padding: 0.1rem 0.2rem !important;
-}
-
-// AND IT MOVES TO THE FOOT OF THE CHART. plotly parks the bar in the top right
-// of the plot, which is exactly where our horizontal legend ends - see
-// legend_layout in fw_plotly_style(). While the bar only appeared on hover that
-// was a collision you had to go looking for; now that it is always on screen it
-// sat over the last entry of the key and clipped it. The bottom right corner is
-// under the x-axis labels and to the right of the centred axis title, and is
-// empty on every chart here. There is no layout option for this - the bar is an
-// HTML element plotly positions with top/right - so it is moved in CSS.
-// TWO ELEMENTS, because plotly's bar lives in a zero-height container pinned to
-// the TOP of the plot: moving the bar alone only moves it above that line and
-// out of the chart entirely, which is what it did first. The container goes to
-// the foot of the plot and the bar sits on the bottom edge of it.
-.js-plotly-plot .plotly .modebar-container {
-  inset-block-start: auto !important;
-  inset-block-end: 0 !important;
-}
-
-.js-plotly-plot .plotly .modebar {
-  inset-block-start: auto !important;
-  inset-block-end: 0 !important;
-  inset-inline-end: 0 !important;
-}
-
-// The icon's fill is an inline attribute set from layout.modebar in
-// fw_plotly_style(), because plotly derives it from the paper colour and gets
-// it wrong on a transparent paper. Nothing here tries to win that fight: this
-// is only the hit area.
-.modebar-btn {
-  padding: 0.15rem 0.3rem !important;
-  opacity: 1 !important;
-  // plotly draws the camera at 1em square, so the icon is exactly as big as the
-  // button's font size - 16px from plotly's own stylesheet, which is smaller
-  // than any text on the page around it. A step up, because a camera that size
-  // in the corner of a chart is the thing the client could not see. This sizes
-  // an icon and not text, so it is not a step on the type scale.
-  font-size: 1.3rem !important;
-}
+// NOTHING HERE, deliberately (Sept 2026). The PNG button is plotly's own, as
+// plotly draws it - on hover, top right - at the client's request; the
+// surface, the move to the foot of the chart and the larger icon that used to
+// live here are gone. The icon colour is still set in fw_plotly_style(),
+// because on a transparent paper plotly's own choice is near-invisible.
 
 // ---- Welcome page ----------------------------------------------------------
 // R/mod_home.R. BUILT TO FIT ONE LAPTOP SCREEN: a smaller header, one strip of
@@ -3011,44 +2989,46 @@ table.dataTable,
   }
 }
 
-// THE STRIP. Figure | pictures | hint on a laptop; stacked on a phone.
-.fw-home-strip {
+// THE SENTENCE. Full width, in the box the single figure used to sit in. The
+// two numbers are the <strong>s: teal, bold and in the numeric face, so they
+// still read as the page's figures inside the line.
+.fw-home-kpi {
+  margin: 0 0 $fw-space-3;
+  padding: $fw-space-2 $fw-space-3;
+  background: $fw-teal-wash;
+  border: 1px solid $fw-brand-teal;
+  border-radius: $fw-radius-card;
+  color: $fw-ink;
+  font-size: $fw-size-lead;
+  line-height: 1.4;
+  text-align: center;
+
+  strong {
+    color: $fw-teal-text;
+    font-family: $fw-font-mono;
+    font-weight: $fw-weight-bold;
+  }
+}
+
+// PICTURES | MAP: one third to two, at the client's request. Stacked, pictures
+// first, where two-thirds would leave the map too small to read.
+.fw-home-layout {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(0, 13rem);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   align-items: center;
   gap: $fw-space-3;
 
-  @media (max-width: $fw-bp-md) {
-    grid-template-columns: auto minmax(0, 1fr);
-    .fw-home-strip__species { grid-column: 1 / -1; grid-row: 2; }
-  }
+  @media (max-width: $fw-bp-md) { grid-template-columns: minmax(0, 1fr); }
+}
 
-  &__kpi {
-    padding: $fw-space-2;
-    background: $fw-teal-wash;
-    border: 1px solid $fw-brand-teal;
-    border-radius: $fw-radius-card;
-
-    .fw-kpi { padding-inline-start: 0; border: 0; text-align: center; }
-    .fw-kpi__value { font-size: $fw-size-h1; }
-    .fw-kpi__label { color: $fw-teal-text; }
-  }
-
-  &__species {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: $fw-space-2;
-
-    @media (max-width: $fw-bp-sm) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  }
-
-  &__hint {
-    margin: 0;
-    color: $fw-teal-text;
-    font-weight: $fw-weight-bold;
-    line-height: 1.3;
-    text-align: center;
-  }
+// Two columns of three, FILLED BY COLUMN, so FW_HOME_ORDER reads down the left
+// then down the right - which is also the tab order.
+.fw-home-species-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(3, auto);
+  grid-auto-flow: column;
+  gap: $fw-space-2;
 }
 
 // One picture. A real button, so it takes focus and Enter/Space; the drawing
@@ -3084,7 +3064,7 @@ table.dataTable,
 // Unlike the map card it carries paragraphs, so its text stays on the floor.
 .fw-home-card {
   // Interpolated: libsass reads a bare min() as its own and rejects the units.
-  width: #{"min(38rem, calc(100vw - " + $fw-space-3 + "))"};
+  width: #{"min(75rem, calc(100vw - " + $fw-space-3 + "))"};
   max-height: 85vh;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -3103,6 +3083,19 @@ table.dataTable,
     font-size: $fw-size-h3;
     margin-block-end: $fw-space-2;
     padding-inline-end: $fw-space-4;
+  }
+
+  // PICTURE LEFT, TEXT RIGHT, half each (Sept 2026 user testing). The picture
+  // is centred against the text beside it; the close button sits over the
+  // text column, so the title keeps its padding to clear it. On a phone the
+  // halves would each be too narrow to read, so they stack, picture first.
+  &__body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $fw-space-3;
+    align-items: center;
+
+    @media (max-width: $fw-bp-sm) { grid-template-columns: 1fr; }
   }
 
   &__summary { font-weight: $fw-weight-medium; }
@@ -3130,7 +3123,7 @@ table.dataTable,
   }
 }
 
-// The two plates inside a card: invasive (greyscale) | beneficiary.
+// The beneficiary's plate inside a card.
 .fw-story {
   &__continent {
     color: $fw-teal-text;
@@ -3138,14 +3131,11 @@ table.dataTable,
     &::after { content: " \2014"; color: $fw-ink-muted; font-weight: $fw-weight-regular; }
   }
 
-  &__row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: $fw-space-3;
-    margin-block-end: $fw-space-2;
+  // The beneficiary fills its half of the card.
+  &__figure {
+    width: 100%;
+    margin: 0;
   }
-
-  &__figure { margin: 0; }
 
   // A fixed box so pictures of very different shapes sit at the same height.
   // The plates are transparent, so the card shows through and no white is
@@ -3177,16 +3167,11 @@ table.dataTable,
     text-align: center;
   }
 
-  figcaption {
+  &__figure figcaption {
     margin-block-start: $fw-space-1;
     text-align: center;
     font-size: $fw-size-caption;
     color: $fw-ink;
-  }
-
-  &__role {
-    display: block;
-    color: $fw-ink-muted;
   }
 }
 
@@ -3198,15 +3183,17 @@ table.dataTable,
 // SIZED BY THE WINDOW HEIGHT. The pictures are 2400x1140, so a width of
 // (height available) x 2.105 is the widest map that still fits the screen.
 // --fw-home-chrome is everything above and below the map on this page:
-// navbar, header, strip and section padding. It is deliberately a little LESS
+// navbar, header, the sentence and section padding. It is deliberately a little LESS
 // than all of it: the client accepts a short scroll on a laptop in exchange for
 // a map that can be read, so the caption may sit just below the fold. Tune that
 // one number if the page above the map changes. The 20rem floor keeps a short
-// window from shrinking the map to a stamp; it scrolls instead. The caption is
-// not held to the map's width, so it stays on one line.
+// window from shrinking the map to a stamp; it scrolls instead. On a laptop
+// the height rule makes the map about as tall as the three rows of pictures
+// beside it; on a wide, tall screen the two-thirds column is the limit. The
+// caption is not held to the map's width, so it stays on one line.
 .fw-compare-wrap {
-  --fw-home-chrome: 28.5rem;
-  margin: $fw-space-2 0 0;
+  --fw-home-chrome: 26.5rem;
+  margin: 0;
 
   .fw-compare {
     width: #{"max(20rem, min(100%, calc((100svh - var(--fw-home-chrome)) * 2.105)))"};

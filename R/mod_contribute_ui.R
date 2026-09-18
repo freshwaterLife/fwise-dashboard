@@ -50,9 +50,6 @@ fw_intro_panel <- function(ns) {
                   fw_t("contribute", "consent", "agree_label"), value = FALSE),
     p(tags$a(href = fw_t("contribute", "consent", "terms_url"),
              fw_t("contribute", "consent", "terms_link_label"))),
-    checkboxInput(ns("email_private"),
-                  fw_t("contribute", "consent", "email_private_label"), value = FALSE),
-    div(class = "fw-field__help", fw_t("contribute", "consent", "email_private_help")),
 
     div(
       style = "margin-block-start:1.5rem;",

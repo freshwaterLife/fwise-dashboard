@@ -67,16 +67,18 @@ ok("absent year bounds do not empty the result",
 # able to pre-select, and method is the thing they came here to learn.
 ok("outcome is not a report-builder filter", "outcome" %in% plan_ids, FALSE)
 ok("method is not a report-builder filter",  "method" %in% plan_ids, FALSE)
-ok("and those are the only two dropped",
-   sort(setdiff(fw_filter_ids(), plan_ids)), c("method", "outcome"))
+ok("and those, plus the Explore-only fish family pair, are all that is dropped",
+   sort(setdiff(fw_filter_ids(), plan_ids)),
+   sort(c("method", "outcome", "family", "family_beneficiary")))
 # Outcome is now filterable NOWHERE. It used to be the dashboard's alone; the
 # client's decision is that it is an answer on both pages. It stays visible in
 # every chart, the map and the table - it is just never used to narrow.
 ok("the dashboard does not offer outcome either",
    "outcome" %in% FW_EXPLORE_FILTERS, FALSE)
-ok("the dashboard's four filters are place and animal",
+ok("the dashboard's filters are place, animal and fish family",
    sort(FW_EXPLORE_FILTERS),
-   sort(c("continent", "country", "taxa", "taxa_beneficiary")))
+   sort(c("continent", "country", "taxa", "taxa_beneficiary",
+          "family", "family_beneficiary")))
 
 cat("\n-- the size filter --\n")
 # TWO UNITS THAT MUST NOT MIX. Hectares for still water, kilometres for flowing,

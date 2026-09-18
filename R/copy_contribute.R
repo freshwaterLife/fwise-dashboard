@@ -111,15 +111,7 @@ FW_COPY_CONTRIBUTE <- list(
       agree_label = "I agree to the above and to FWISE using this information as described",
       # [PLACEHOLDER] the full terms of data use are still being drafted
       terms_link_label = "Read the full terms of data use",
-      terms_url = "#",
-      email_private_label = paste(
-        "Keep my email address private. FWISE staff can still contact me, but my",
-        "address will not be shown to public users."
-      ),
-      email_private_help = paste(
-        "Leave this unticked and your address appears on the contacts page, so",
-        "other practitioners can reach you directly."
-      )
+      terms_url = "#"
     ),
 
     # Step titles, shown in the progress indicator
@@ -148,7 +140,7 @@ FW_COPY_CONTRIBUTE <- list(
       methods   = "How the eradication was carried out.",
       chemical  = "Detail on the chemical treatment. All optional.",
       outcome   = "What happened, and where the evidence for it sits.",
-      contributor = "Who to credit and contact. We need a primary contact so the review team can follow up.",
+      contributor = "Who to credit and contact. We need a contact so the review team can follow up.",
       other     = "Anything else you would like the FWISE team to know.",
       review    = "A last read-through before sending. Everything here is editable above; scroll back up to change anything."
     ),
@@ -205,7 +197,6 @@ FW_COPY_CONTRIBUTE <- list(
       e_contact_name = "We need a contact name so the review team can follow up.",
       e_contact_mail = "We need a contact email so the review team can follow up.",
       e_contact_bad  = "That does not look like an email address.",
-      e_second_mail  = "The second contact's email does not look like an email address.",
       e_consent      = "Confirm you are happy for us to use this before sending.",
 
       # Soft warnings
@@ -318,9 +309,9 @@ FW_COPY_CONTRIBUTE <- list(
       reference        = "Link or citation for the underlying evidence",
       source           = "Where did this record come from?",
 
-      primary_heading  = "Primary contact",
-      secondary_heading = "Secondary contact",
-      secondary_note   = "Optional.",
+      contact_heading  = "Contact information",
+      email_public     = "I give permission for my email to be displayed in the app",
+      email_public_yes = "Yes, show my email",
       contact_name     = "Name",
       contact_email    = "Email",
       contact_org      = "Organisation",
@@ -340,6 +331,11 @@ FW_COPY_CONTRIBUTE <- list(
 
     # Help text printed under a control. Keyed like `fields`.
     help = list(
+      email_public   = paste(
+        "Tick this and your address appears on the community page, so other",
+        "practitioners can reach you directly. Leave it unticked and only FWISE",
+        "staff will see it."
+      ),
       region         = "Optional. Choose the state, province or region, or type one if it is not listed.",
       location       = "Click the map to place your site, or type coordinates below.",
       waterbody_type = "The list narrows once you have answered still or flowing.",
@@ -395,7 +391,7 @@ FW_COPY_CONTRIBUTE <- list(
       verification = "How the outcome was verified, and any notes on it.",
       reference    = "A link or citation for the underlying evidence. A DOI or URL is ideal.",
       source       = "Where this record came from. This is for our internal provenance and is not shown publicly.",
-      contact      = "We need a primary contact so the review team can follow up on your submission.",
+      contact      = "We need a contact so the review team can follow up on your submission.",
       notes        = "Anything else you would like the FWISE team to know."
     ),
 

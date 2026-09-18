@@ -258,39 +258,47 @@ FW_TOP_N <- 10L
 # The badge is still in use - it is the loader and the busy spinner, where a
 # square mark turns on its own centre and a wordmark would not.
 #
-# EXCEPT THE NAVBAR AND THE FOOTER, which serve the full-resolution originals
+# EXCEPT THE NAVBAR AND THE FOOTER, which serve the full-resolution original
 # at the client's request (September 2026): the navbar mark is 7rem tall and
-# the client wants it drawn from the uncompressed file.
+# the client wants it drawn from the uncompressed file. The footer carried the
+# badge until the client asked for the long SIMPLE wordmark there too; the
+# full-size FWISE-BADGE.png stays in www/img but nothing serves it.
 FW_LOGO <- list(
   mark_web   = "img/FWISE-SIMPLE.png",
-  badge_full = "img/FWISE-BADGE.png",
   mark_file  = "www/img/FWISE-SIMPLE-1200.png",
   badge_web  = "img/FWISE-BADGE-256.png"
 )
 
 # The Welcome page's pictures. WEB COPIES of the client's originals in
 # resources/, which are print-sized (3508px species plates, 12600px maps) and
-# not served. How the copies were made is at the top of R/mod_home.R. One entry
-# per success story, keyed as FW_COPY$home$stories is, in page order; NA is a
-# picture the client has not supplied yet and draws as a placeholder.
+# not served. How the copies were made is at the top of R/mod_home.R. One
+# beneficiary picture per success story, keyed as FW_COPY$home$stories is (A-Z
+# by continent); NA is a picture the client has not supplied yet and draws as a
+# placeholder.
+#
+# BENEFICIARIES ONLY (client, Sept 2026): the story cards no longer show the
+# invasive species. Its greyscale plates are still in www/img/home/success/ -
+# client artwork, kept - but nothing serves them.
 FW_HOME_IMG <- list(
   map_now  = "img/home/map-now.png",
   map_next = "img/home/map-next.png",
-  stories = list(
-    africa        = list(invasive    = "img/home/success/africa_smallmouth_bass_greyscale.png",
-                         beneficiary = "img/home/success/africa_fiery_redfin.png"),
-    asia          = list(invasive    = NA,
-                         beneficiary = "img/home/success/as_little_grebe.png"),
-    europe        = list(invasive    = "img/home/success/eu_salmon_fluke_greyscale.png",
-                         beneficiary = "img/home/success/eu_pearl_mussel.png"),
-    latin_america = list(invasive    = "img/home/success/la_rainbow_trout_greyscale.png",
-                         beneficiary = "img/home/success/la_valchetta_frog.png"),
-    north_america = list(invasive    = NA,
-                         beneficiary = "img/home/success/na_apache_trout.png"),
-    oceania       = list(invasive    = "img/home/success/oc_common_carp_greyscale.png",
-                         beneficiary = "img/home/success/oc_golden_galaxias.png")
+  stories = c(
+    africa        = "img/home/success/africa_fiery_redfin.png",
+    asia          = "img/home/success/as_little_grebe.png",
+    europe        = "img/home/success/eu_pearl_mussel.png",
+    latin_america = "img/home/success/la_valchetta_frog.png",
+    north_america = "img/home/success/na_apache_trout.png",
+    oceania       = "img/home/success/oc_golden_galaxias.png"
   )
 )
+
+# The order the pictures sit in on the Welcome page, set by the client: two
+# columns of three, filled DOWN the left column first. So Apache trout, Valcheta
+# frog, fiery redfin on the left; little grebe, golden galaxias, pearl mussel on
+# the right. The grid flows by column (.fw-home-species-grid), so this is also
+# the tab order.
+FW_HOME_ORDER <- c("north_america", "latin_america", "africa",
+                   "asia", "oceania", "europe")
 
 # The species photo grids on the report builder, which show FEWER than FW_TOP_N.
 # A tile is a photograph the size of a playing card, so ten of them ran to two
@@ -461,5 +469,20 @@ FW_CHART <- list(
   point    = list(size = 7, opacity = 0.75, stroke = 1),
   box_line = 1.5,
   # The step line on the cumulative chart.
-  line = 1
+  line = 1,
+  # AXIS LINES AND TICK MARKS, as an A/B test for user testers (Sept 2026):
+  # the charts named in `styled` get a solid ink line on both axes with
+  # outside ticks, the rest keep plotly's bare axes. After the vote, list all
+  # four (or none) here - nothing else needs to change. See fw_axis_lines().
+  axis = list(styled = c("methods", "waterbody"), line = 1.5, tick_len = 6),
+  # The duration chart's dots are spread across their row rather than drawn on
+  # one line, so a pile of identical durations shows as a column you can count.
+  # `bin` is how close two durations have to be (in log10 days) to count as
+  # the same place; `step` is the vertical gap between neighbours and `spread`
+  # the furthest a dot may sit from its row's centre, both in rows.
+  duration_swarm = list(bin = 0.035, step = 0.07, spread = 0.38),
+  # PNG exports print at this density: plotly's scale is export px per screen
+  # px, and a screen px is 1/96 inch, so dpi / 96 is the scale. Raise it here
+  # if an export comes out soft.
+  export_dpi = 300
 )

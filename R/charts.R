@@ -90,6 +90,17 @@ FW_OUTCOME_LEVELS <- c("Successful", "Failed", "Ongoing", "Unknown")
 #' @param filename what a downloaded PNG of this chart is called, without the
 #'   extension. Every chart should pass its own: a reader who exports four of
 #'   these wants four distinguishable files, not newplot (1..4).
+#' Axis line and outside tick marks, for the charts in the A/B test
+#'
+#' @param key the chart's name in FW_CHART$axis$styled.
+#' @return a list to modifyList() into an axis, empty for an unstyled chart.
+fw_axis_lines <- function(key) {
+  if (!key %in% FW_CHART$axis$styled) return(list())
+  list(showline = TRUE, linecolor = FW_COLOURS$ink, linewidth = FW_CHART$axis$line,
+       ticks = "outside", tickcolor = FW_COLOURS$ink,
+       ticklen = FW_CHART$axis$tick_len, tickwidth = 1)
+}
+
 fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
                             legend_side = c("top", "right"),
                             filename = "fwise-chart") {
@@ -110,7 +121,14 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
          y = 0.5, yanchor = "middle",
          traceorder = "normal", font = fw_plot_font())
   } else {
-    list(orientation = "h", y = 1, yanchor = "bottom", x = 0,
+    # PINNED TO THE TOP OF THE CONTAINER, not to the top of the plot. Anchored
+    # to the plot (y = 1, yanchor = "bottom" in paper units) the key's position
+    # hangs off the top margin, and plotly does not move it again when a resize
+    # shrinks that margin: narrow the window so the key wraps, widen it again,
+    # and the key stayed where the wrapped margin had put it - over the bars
+    # (Sept 2026 user testing). At the container's top edge it has one place to
+    # be whatever the margin does, and plotly still pushes the plot down below it.
+    list(orientation = "h", yref = "container", y = 1, yanchor = "top", x = 0,
          traceorder = "normal", font = fw_plot_font())
   }
 
@@ -146,7 +164,7 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
     # looking at when they reported the download button as not visible. The
     # colour is written onto the path as an inline attribute, so it beats
     # anything .modebar-btn can say from the stylesheet - hence the colours live
-    # here and _components.scss only gives the bar its surface.
+    # here. Everything else about the bar is plotly's default.
     modebar = list(
       bgcolor = FW_TRANSPARENT,
       color = FW_COLOURS$ink_muted,
@@ -162,18 +180,28 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
     # font IS NOT REDUNDANT EITHER. plotly.js does not reliably inherit
     # layout.font into legend entries, so the key was rendering below the
     # client's 1rem floor while every other label on the chart honoured it.
-    legend = legend_layout
-  ) |>
-    # DOWNLOADABLE, AND NOTHING ELSE. The modebar used to be off entirely
-    # (displayModeBar = FALSE), which also took away the one button on it worth
-    # having: the client asked for every plot to be saveable as a PNG the way
-    # plotly does it by default. So the bar comes back with the camera and the
-    # camera alone - zoom, pan, lasso and select are removed rather than left to
-    # be discovered, because none of these charts is a canvas the reader is
-    # meant to navigate, and a half-zoomed axis is a way to misread one.
     #
-    # scale = 2 because the paper is transparent and the type is at the 1rem
-    # floor: a 1x export of this is soft the moment it lands in a slide.
+    # THE KEY IS A KEY, NOT A SWITCH (Sept 2026 user testing): clicking an
+    # entry used to hide that series, and double-clicking isolated it, which
+    # let a reader turn values off and then read the remainder as the whole.
+    legend = modifyList(legend_layout, list(itemclick = FALSE, itemdoubleclick = FALSE)),
+    # NO ZOOM OR PAN, by drag or by axis. fixedrange is set here, before each
+    # chart's own layout(xaxis = ...), and plotly merges the two lists, so it
+    # survives. A half-zoomed axis is a way to misread one of these charts.
+    dragmode = FALSE,
+    xaxis = list(fixedrange = TRUE),
+    yaxis = list(fixedrange = TRUE)
+  ) |>
+    # DOWNLOADABLE, AND NOTHING ELSE. The client asked for every plot to be
+    # saveable as a PNG with plotly's own button, as plotly draws it: on hover,
+    # top right. The camera is the only button - zoom, pan, lasso and select
+    # are removed rather than left to be discovered, because none of these
+    # charts is a canvas the reader is meant to navigate.
+    #
+    # PRINT-READY: the export scale is FW_CHART$export_dpi / 96, so a chart
+    # exported at its on-screen size holds 300 dots per inch at that size.
+    # plotly writes no DPI tag into the PNG, so a layout program opens it at
+    # 96 DPI - several times too big - and it is scaled down to place.
     #
     # This travels into the downloaded HTML report too - the report embeds these
     # same widgets (see fw_html_figure() in R/report_html.R) - so its charts
@@ -182,6 +210,9 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
     plotly::config(
       responsive = TRUE,
       displaylogo = FALSE,
+      scrollZoom = FALSE,
+      doubleClick = FALSE,
+      showAxisDragHandles = FALSE,
       # AN ALLOW LIST, NOT A DENY LIST. modeBarButtonsToRemove was the obvious
       # way to write this and it does not hold: plotly adds buttons of its own
       # accord depending on the chart - setting hovermode on the cumulative
@@ -193,16 +224,8 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
       # The nesting is plotly's: the outer list is groups, the inner is the
       # buttons in a group. One of each.
       modeBarButtons = list(list("toImage")),
-      # ALWAYS ON, NOT ON HOVER. plotly's default is displayModeBar = "hover",
-      # which fades the one button we keep to nothing until the pointer is over
-      # the chart - so on a page of charts the way to save a PNG was invisible
-      # until you happened to find it, and on touch there is no hover to find it
-      # with. The client reported the button as not visible enough; this is the
-      # half of the fix that makes it present at all. The rest of it - a surface
-      # and a border, so it reads as a control over a transparent chart - is in
-      # .modebar-group in _components.scss.
-      displayModeBar = TRUE,
-      toImageButtonOptions = list(format = "png", scale = 2,
+      toImageButtonOptions = list(format = "png",
+                                  scale = FW_CHART$export_dpi / 96,
                                   filename = filename)
     )
 }
@@ -450,8 +473,8 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
       # shrinking it, so a segment too narrow for the floor shows no number
       # instead of an unreadable one - the hover still has it.
       uniformtext = list(minsize = FW_TYPE$floor_px, mode = "hide"),
-      xaxis = x_axis,
-      yaxis = list(title = "", automargin = TRUE)
+      xaxis = modifyList(x_axis, fw_axis_lines("methods")),
+      yaxis = modifyList(list(title = "", automargin = TRUE), fw_axis_lines("methods"))
     )
 }
 
@@ -532,6 +555,35 @@ fw_duration_range <- function(days) {
   c(lx[1] - pad, lx[2] + pad)
 }
 
+#' Vertical offsets that spread the duration chart's dots across their row
+#'
+#' A BEESWARM, CHEAPLY. Every dot used to sit on its method's centre line, so
+#' attempts with the same duration - and a great many were entered as exactly
+#' a year - were one dot drawn on top of another, and a row of forty looked like
+#' a row of six. Dots that land within FW_CHART$duration_swarm$bin of each
+#' other (log10 days) now fan out from the centre, 0, +1, -1, +2, -2 steps, so
+#' a pile of equal durations becomes a column whose height is its count. A pile
+#' too tall for the row is squeezed to fit rather than allowed into the next.
+#' Deterministic: the same selection always draws the same picture.
+#'
+#' @param days durations in days, all > 0.
+#' @param row the row each dot belongs to.
+#' @return an offset per dot, in rows, within +/- FW_CHART$duration_swarm$spread.
+fw_duration_swarm <- function(days, row) {
+  cfg <- FW_CHART$duration_swarm
+  bin <- floor(log10(days) / cfg$bin)
+  out <- numeric(length(days))
+  for (idx in split(seq_along(days), list(row, bin), drop = TRUE)) {
+    m <- length(idx)
+    if (m < 2) next
+    half <- ceiling((m - 1) / 2)
+    step <- min(cfg$step, cfg$spread / half)
+    k <- seq_len(m) - 1L
+    out[idx] <- step * ceiling(k / 2) * ifelse(k %% 2 == 1, 1, -1)
+  }
+  out
+}
+
 fw_chart_duration <- function(data, sel) {
   sel <- fw_duration_sel(data, sel)
   if (!nrow(sel)) return(NULL)
@@ -552,11 +604,17 @@ fw_chart_duration <- function(data, sel) {
     left_join(totals, by = "method_name") |>
     mutate(method_label = paste0(method_name, "  (", n, ")"))
   order_lv <- paste0(totals$method_name, "  (", totals$n, ")")
+  # A NUMERIC ROW PER METHOD, not a category axis: a category can only be hit
+  # dead centre, and the dots need to sit either side of it. The names come
+  # back as the y axis's tick text below.
+  d <- d |> arrange(method_label, duration_days, attempt_id)
+  d$row <- match(d$method_label, order_lv)
+  d$y_dot <- d$row + fw_duration_swarm(d$duration_days, d$row)
 
   p <- plotly::plot_ly(height = fw_chart_height("duration", nrow(totals)))
   p <- plotly::add_trace(
     p, data = d, type = "box", orientation = "h",
-    x = ~duration_days, y = ~factor(method_label, levels = order_lv),
+    x = ~duration_days, y = ~row, width = 2 * FW_CHART$duration_swarm$spread,
     name = "", showlegend = FALSE, hoverinfo = "x",
     # Interface colours, deliberately. The box is chrome rather than data - the
     # outcome markers on top of it carry the encoding - so it is the only chart
@@ -565,20 +623,21 @@ fw_chart_duration <- function(data, sel) {
     line = list(color = FW_COLOURS$teal_text, width = FW_CHART$box_line),
     boxpoints = FALSE
   )
+  # THE DOTS ARE PICTURE, NOT CONTROLS (Sept 2026 user testing): no hover,
+  # so nothing on them invites a click. The box under them still answers a
+  # hover with its median and quartiles.
   for (o in FW_OUTCOME_LEVELS) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
     p <- plotly::add_trace(
       p, data = dd, type = "scatter", mode = "markers",
-      x = ~duration_days, y = ~factor(method_label, levels = order_lv),
-      name = o,
+      x = ~duration_days, y = ~y_dot,
+      name = o, hoverinfo = "skip",
       marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
                     size = FW_CHART$point$size,
                     opacity = FW_CHART$point$opacity,
                     line = list(color = FW_COLOURS$surface,
-                                width = FW_CHART$point$stroke)),
-      hovertemplate = paste0("%{y}<br>", o, ": %{x:,.0f}",
-                             fw_t("charts", "hover_days"), "<extra></extra>")
+                                width = FW_CHART$point$stroke))
     )
   }
 
@@ -632,7 +691,10 @@ fw_chart_duration <- function(data, sel) {
       # and nothing else; a y gridline here would be a line through the middle
       # of every box rather than a reference of any kind, since this axis is
       # method names.
-      yaxis = list(title = "", automargin = TRUE, showgrid = FALSE)
+      yaxis = list(title = "", automargin = TRUE, showgrid = FALSE,
+                   zeroline = FALSE, tickmode = "array",
+                   tickvals = seq_along(order_lv), ticktext = order_lv,
+                   range = c(0.5, length(order_lv) + 0.5))
     )
 }
 
@@ -649,8 +711,9 @@ fw_chart_duration <- function(data, sel) {
 #' @param limit  keep the top n categories and gather the rest into "Other"
 #' @param filename what a PNG export is called. Each caller passes its own,
 #'   because this one builder draws waterbodies, drivers and species.
+#' @param axis_key the chart's name in FW_CHART$axis$styled.
 fw_chart_category <- function(d, title, limit = NA_integer_,
-                              filename = "fwise-categories") {
+                              filename = "fwise-categories", axis_key = "") {
   if (!nrow(d)) return(NULL)
   d$outcome <- as.character(fw_outcome_factor(d$outcome))
   other <- fw_t("charts", "other")
@@ -691,8 +754,9 @@ fw_chart_category <- function(d, title, limit = NA_integer_,
                   filename = filename) |>
     plotly::layout(
       barmode = "stack",
-      xaxis = list(title = title, zeroline = FALSE, gridcolor = FW_COLOURS$border),
-      yaxis = list(title = "", automargin = TRUE)
+      xaxis = modifyList(list(title = title, zeroline = FALSE, gridcolor = FW_COLOURS$border),
+                         fw_axis_lines(axis_key)),
+      yaxis = modifyList(list(title = "", automargin = TRUE), fw_axis_lines(axis_key))
     )
 }
 
@@ -706,7 +770,7 @@ fw_chart_waterbody <- function(sel) {
     filter(!is.na(waterbody_type)) |>
     transmute(category = waterbody_type, outcome)
   fw_chart_category(d, fw_t("charts", "x_attempts"), limit = FW_TOP_N,
-                    filename = "fwise-waterbody-types")
+                    filename = "fwise-waterbody-types", axis_key = "waterbody")
 }
 
 #' One row per (attempt, species) for a role, labelled and with its outcome

@@ -5,7 +5,8 @@ library(dplyr)
 
 # The filters this page offers, by registry id. Everything else in FW_FILTERS
 # is dropped here and kept on the report builder.
-FW_EXPLORE_FILTERS <- c("continent", "country", "taxa", "taxa_beneficiary")
+FW_EXPLORE_FILTERS <- c("continent", "country", "taxa", "family",
+                        "taxa_beneficiary", "family_beneficiary")
 
 #' @param choices fw_filter_choices() of the loaded data. The filter bar is
 #'   built here rather than in a renderUI, and that is the fix for the page
@@ -60,6 +61,21 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     observeEvent(input$clear, fw_filter_clear(session, ids, choices))
 
     fw_link_geo_filters(input, session, data, choices)
+
+    # A fish family filter hidden by deselecting Fish is emptied as well, so it
+    # does not come back already set when Fish is picked again.
+    # fw_filter_state() already ignores it while hidden.
+    for (fid in intersect(ids, names(Filter(function(x) !is.null(x$when), FW_FILTERS)))) {
+      local({
+        id <- fid
+        when <- FW_FILTERS[[id]]$when
+        observeEvent(input[[when$input]], ignoreNULL = FALSE, {
+          if (!when$value %in% (input[[when$input]] %||% character(0)) && length(input[[id]])) {
+            updateSelectizeInput(session, id, selected = character(0))
+          }
+        })
+      })
+    }
 
 
     output$kpis <- renderUI(fw_explore_db_panel(fw_headline_stats(data), in_review))
@@ -193,15 +209,25 @@ fw_explore_filter_bar <- function(ns, ch, ids) {
       input_id = ns(id)
     )
   }
+  # A filter with a `when` (the fish family pair) is drawn only while its
+  # kind-of-animal filter includes that value. conditionalPanel sets
+  # display:none, which takes the cell out of the grid rather than leaving a gap.
+  control <- function(id) {
+    when <- FW_FILTERS[[id]]$when
+    if (is.null(when)) return(multi(id))
+    conditionalPanel(
+      sprintf("(input['%s'] || []).indexOf('%s') > -1", ns(when$input), when$value),
+      multi(id)
+    )
+  }
   drop <- setdiff(names(FW_FILTERS), ids)
 
   tags$section(
     class = "fw-explore-filters",
     h2(class = "fw-explore-filters__heading fw-visually-hidden", fw_t("explore", "f_heading")),
-    p(class = "fw-caption", fw_t("explore", "f_note")),
     div(
       class = "fw-explore-filters__grid",
-      lapply(fw_filter_draw_order(drop), multi),
+      lapply(fw_filter_draw_order(drop), control),
       div(
         class = "fw-filters__actions",
         actionButton(ns("clear"), fw_t("plan", "clear"),

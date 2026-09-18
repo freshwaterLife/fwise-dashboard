@@ -329,7 +329,9 @@ fw_collect_submission <- function(input, rows, choices = NULL) {
   # The contributor is always a `new:` reference: the form has no contact
   # picker, and dev/qa.R stage matches the name and organisation against
   # contacts.csv so a known person needs no decision from the reviewer.
-  email_public <- if (isTRUE(input$email_private)) "private" else "public"
+  # OPT-IN (Sept 2026): the address is shown only when the contributor ticked
+  # "I give permission for my email to be displayed in the app".
+  email_public <- if (isTRUE(input$email_public)) "public" else "private"
   contact_ref <- function(prefix) {
     name <- get_in(paste0(prefix, "_contact_name"))
     if (!nzchar(name)) return("")
@@ -398,7 +400,8 @@ fw_collect_submission <- function(input, rows, choices = NULL) {
     verification_notes  = "",
 
     primary_contact_id   = contact_ref("primary"),
-    secondary_contact_id = contact_ref("secondary"),
+    # The form no longer asks for a second contact.
+    secondary_contact_id = NA_character_,
 
     source = get_in("source"),
     sent   = "",

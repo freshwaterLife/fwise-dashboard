@@ -65,7 +65,9 @@ fw_emphasis <- function(text) {
   parts <- strsplit(text, "**", fixed = TRUE)[[1]]
   if (length(parts) < 2) return(text)
   do.call(tagList, lapply(seq_along(parts), function(i) {
-    if (i %% 2 == 0) tags$strong(parts[[i]]) else parts[[i]]
+    # No whitespace around the tag, or the tagList's newlines collapse to a
+    # space and "**word**." renders as "word ." - the same trap as the links.
+    if (i %% 2 == 0) tags$strong(.noWS = "outside", parts[[i]]) else parts[[i]]
   }))
 }
 
@@ -375,8 +377,14 @@ fw_footer <- function(last_updated, in_review = 0L) {
           class = "fw-footer__row",
           div(
             class = "fw-footer__org",
-            logo(fw_t("footer", "fwise_url"), FW_LOGO$badge_full,
-                 fw_t("footer", "logo_alt_fwise")),
+            # The long FWISE-SIMPLE wordmark, at the client's request, and
+            # linked to this app's Welcome page as the navbar's mark is - not
+            # out to another site, so it opens in the same tab.
+            tags$a(
+              href = "#",
+              onclick = "Shiny.setInputValue('fw_nav_to', 'home', {priority:'event'}); window.scrollTo(0, 0); return false;",
+              tags$img(src = FW_LOGO$mark_web, alt = fw_t("footer", "logo_alt_fwise"))
+            ),
             logo(fw_t("footer", "wfa_url"), "img/wfa-logo-rect-dark-320.png",
                  fw_t("footer", "logo_alt_wfa"))
           ),
@@ -436,7 +444,11 @@ fw_footer <- function(last_updated, in_review = 0L) {
 #'
 #' Walks to the <input> rather than assuming a position in the tag tree, so a
 #' change to how Shiny wraps its sliders cannot quietly stop this working.
-fw_slider_prettify <- function(tag) {
+#'
+#' @param unit the stored unit code ("ha" or "km"); its short label is printed
+#'   after every figure on the handles and the ends, so a reader dragging the
+#'   slider sees "0.03 ha" rather than a bare number (Sept 2026 user testing).
+fw_slider_prettify <- function(tag, unit) {
   mark <- function(x) {
     if (!inherits(x, "shiny.tag")) {
       if (is.list(x)) return(lapply(x, mark))
@@ -444,6 +456,7 @@ fw_slider_prettify <- function(tag) {
     }
     if (identical(x$name, "input")) {
       x$attribs$`data-fw-prettify` <- "size"
+      x$attribs$`data-fw-unit` <- fw_t("filters", paste0("unit_short_", unit))
       return(x)
     }
     x$children <- lapply(x$children, mark)
@@ -516,6 +529,30 @@ fw_client_script <- function() {
       Shiny.addCustomMessageHandler('fw-nav', function (value) {
         Shiny.setInputValue('fw_nav_to', value, { priority: 'event' });
       });
+      // THE NAVBAR BECOMES A HAMBURGER WHEN IT WOULD WRAP, not at a fixed
+      // width. The bar is pinned expanded (.navbar-expand), then checked: with
+      // the menu class off and labels unbreakable, a row that does not fit
+      // overflows its container, and the menu class goes on. Both steps run
+      // before the browser paints, so nothing flickers. An open menu is left
+      // alone until it closes. See .fw-navbar--menu in _components.scss.
+      (function () {
+        var nav = document.querySelector('.navbar.fw-navbar');
+        if (!nav) return;
+        var box = nav.querySelector('.container-fluid');
+        nav.classList.add('navbar-expand');
+        var fit = function () {
+          if (nav.querySelector('.navbar-collapse.show, .navbar-collapse.collapsing')) return;
+          nav.classList.remove('fw-navbar--menu');
+          var over = box.scrollWidth > box.clientWidth + 1;
+          nav.classList.toggle('fw-navbar--menu', over);
+        };
+        fit();
+        if (window.ResizeObserver) new ResizeObserver(fit).observe(nav);
+        else window.addEventListener('resize', fit);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+        window.addEventListener('load', fit);
+        $(nav).on('hidden.bs.collapse', fit);
+      })();
       // A map record, fetched on click. The card script (R/maps.R) asks for
       // it with an attempt id; this is the answer arriving. The panel exists
       // by then, because only a click on a drawn marker can have asked.
@@ -562,6 +599,11 @@ fw_client_script <- function() {
       // shiny:bound fires after the binding's initialize(), which is where the
       // slider is created, so the instance is always there by now.
       //
+      // prettify_enabled HAS TO BE SENT TOO. sliderInput(sep = \"\") writes
+      // data-prettify-enabled=false, and ionRangeSlider then ignores the
+      // function altogether - which is how testers came to see -2.9 on the
+      // hectare slider in September 2026.
+      //
       // THE ROUNDING MIRRORS fw_size_label() IN R/filters.R. Two copies of one
       // rule, which is a cost; the alternative is a server round-trip on every
       // pixel of a drag. If the thresholds there change, change them here.
@@ -576,7 +618,13 @@ fw_client_script <- function() {
         var $el = $(e.target);
         if ($el.data('fwPrettify') !== 'size') return;
         var slider = $el.data('ionRangeSlider');
-        if (slider) slider.update({ prettify: window.fwSizePretty });
+        var unit = $el.data('fwUnit');
+        if (slider) slider.update({
+          prettify_enabled: true,
+          prettify: function (n) {
+            return window.fwSizePretty(n) + (unit ? ' ' + unit : '');
+          }
+        });
       });
       Shiny.addCustomMessageHandler('fw-mailto', function (msg) {
         var href = 'mail' + 'to:' + msg.to +

@@ -1,25 +1,6 @@
 # copy.R
 # EVERY user-facing string in the app lives in the copy deck. No module file
-# contains hardcoded English. Renaming a navigation item or rewording a prompt
-# is a one-line edit here.
-#
-# THE DECK IS THREE FILES, ONE LIST. This file holds the chrome and the pages;
-# copy_contribute.R holds the contribute form; copy_export.R holds the
-# spreadsheet, the report's tables and the question-list downloads. fw_t()
-# reads all three through fw_copy_all(), so a module never needs to know which
-# file a string is in. A section name may appear in only ONE of the three.
-#
-# PLACEHOLDERS. A string may carry {name} slots that the caller fills with
-# fw_fill(): fw_fill(fw_t("plan", "r_table_note"), n = 42). Never paste a
-# number into a sentence by hand; the slot is what lets the wording change
-# without the code changing.
-#
-# House style: UK spelling, sentence case, active voice. A button says what
-# happens ("Send submission", not "Submit") and keeps the same name through the
-# whole flow.
-#
-# Strings marked [PLACEHOLDER] are stand-ins awaiting client copy. They are
-# listed in HANDOVER.md. Search this file for "[PLACEHOLDER]" to find them all.
+# contains hardcoded English.
 
 FW_COPY <- list(
 
@@ -63,9 +44,10 @@ FW_COPY <- list(
     logo_alt_scripps = "Scripps Institution of Oceanography, UC San Diego",
     logo_alt_fwl     = "Freshwater Life",
     logo_alt_issg    = "IUCN SSC Invasive Species Specialist Group",
-    # Collaborator logo links out to the organisation it belongs to.
-    fwise_url     = "https://fwlife.org/",
-    wfa_url       = "https://www.weirdfishes.fish", 
+    # Collaborator logo links out to the organisation it belongs to. The FWISE
+    # logo does not: it goes to this app's own Welcome page, as the navbar's
+    # does.
+    wfa_url       = "https://www.weirdfishes.fish",
     ucsc_url      = "https://www.ucsc.edu/",
     scripps_url   = "https://scripps.ucsd.edu/",
     fwl_url       = "https://fwlife.org/",
@@ -99,8 +81,7 @@ FW_COPY <- list(
 
   # ---- Charts --------------------------------------------------------------------
   # Axis titles, tick labels and hover fragments. The %{x}-style placeholders
-  # in hover templates belong to plotly and are assembled in charts.R; only the
-  # words are here.
+  # in hover templates belong to plotly and are assembled in charts.R;
   charts = list(
     x_year        = "Year the attempt began",
     y_cumulative  = "Attempts to date",
@@ -135,19 +116,14 @@ FW_COPY <- list(
   ),
 
   # ---- Home (the Welcome page) -----------------------------------------------
-  #
-  # **...** is bold (fw_emphasis) and [[page|words]] links to another tab
-  # (fw_home_links). The 45% and <1% are outside figures and are the client's.
-  # The one live number, {protected}, sits in the KPI tile and is filled from
-  # the loaded data, never typed.
 
   home = list(
     title = paste(
       "Freshwaters cover <1% of earth yet are home to 45% of all threatened animal species.",
-      "Eradicating freshwater invasives is the best way to save them from extinction."
+      "Eradicating freshwater invasives is the one of the best way to save them from extinction."
     ),
     lead = c(
-      "But almost nobody knows this. Enter FWISE: the **Freshwater Invasive Species Eradication Database**. FWISE shows the world, for the first time, **what works**, **where**, and **how**.",
+      "The **Freshwater Invasive Species Eradication Database**. FWISE shows the world, for the first time, **what works**, **where**, and **how**.",
       paste(
         "Use it now to [[explore|understand this solution]],",
         "[[plan|plan a new eradication]], [[contribute|add your own data]],",
@@ -155,25 +131,28 @@ FW_COPY <- list(
       )
     ),
 
-    kpi_label = "species protected",
-    kpi_tooltip = "Species protected by an eradication recorded as successful in FWISE.",
+    # THE ONE SENTENCE across the top of the page, in the teal box. Both
+    # numbers are filled from the data and never typed: {attempts} is attempts
+    # recorded as successful, {protected} the distinct beneficiaries of those.
+    # The ** pairs set them in bold.
+    kpi_sentence = paste(
+      "Over **{attempts}** successful eradication attempts have led to **{protected}** species protected.",
+      "Click the species images to read case studies from around the globe."
+    ),
 
     # ---- Success stories ----
-    # ONE ENTRY PER ROW, in page order, keyed as FW_HOME_IMG$stories is. Every
-    # string is a [PLACEHOLDER] until the client supplies the stories.
-    stories_hint = "Click the images for success stories across continents",
+    # ONE ENTRY PER STORY, A-Z by continent, keyed as FW_HOME_IMG$stories is.
+    # The order on the page is FW_HOME_ORDER's, not this. Every string is a
+    # [PLACEHOLDER] until the client supplies the stories.
     stories_open = "Read the {continent} success story: {name}",
     card_close = "Close story",
     image_placeholder = "Image to come",
-    invasive_label = "Invasive",
-    beneficiary_label = "Beneficiary",
     stories = list(
       africa = list(
         continent = "Africa",
         title   = "[PLACEHOLDER] Story title",
         summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
         body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
-        invasive    = list(name = "Smallmouth bass", alt = "Illustration of a smallmouth bass"),
         beneficiary = list(name = "Fiery redfin",    alt = "Illustration of a fiery redfin")
       ),
       asia = list(
@@ -181,7 +160,6 @@ FW_COPY <- list(
         title   = "[PLACEHOLDER] Story title",
         summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
         body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
-        invasive    = list(name = "Invasive species",    alt = "Invasive species image to come"),
         beneficiary = list(name = "Little grebe",        alt = "Illustration of a little grebe")
       ),
       europe = list(
@@ -189,7 +167,6 @@ FW_COPY <- list(
         title   = "[PLACEHOLDER] Story title",
         summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
         body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
-        invasive    = list(name = "Salmon fluke",            alt = "Illustration of a salmon fluke"),
         beneficiary = list(name = "Freshwater pearl mussel", alt = "Illustration of a freshwater pearl mussel")
       ),
       latin_america = list(
@@ -197,7 +174,6 @@ FW_COPY <- list(
         title   = "[PLACEHOLDER] Story title",
         summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
         body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
-        invasive    = list(name = "Rainbow trout", alt = "Illustration of a rainbow trout"),
         beneficiary = list(name = "Valcheta frog", alt = "Illustration of a Valcheta frog")
       ),
       north_america = list(
@@ -205,7 +181,6 @@ FW_COPY <- list(
         title   = "[PLACEHOLDER] Story title",
         summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
         body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
-        invasive    = list(name = "[PLACEHOLDER] Invasive species", alt = "Invasive species image to come"),
         beneficiary = list(name = "Apache trout",     alt = "Illustration of an Apache trout")
       ),
       oceania = list(
@@ -213,7 +188,6 @@ FW_COPY <- list(
         title   = "[PLACEHOLDER] Story title",
         summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
         body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
-        invasive    = list(name = "Common carp",     alt = "Illustration of a common carp"),
         beneficiary = list(name = "Golden galaxias", alt = "Illustration of a golden galaxias")
       )
     ),
@@ -234,8 +208,6 @@ FW_COPY <- list(
 
   explore = list(
     title = "Explore the data",
-    # ONE LINE, at the client's request: the page title is hidden and the
-    # summaries below speak for themselves.
     description = paste(
       "See where freshwater eradications have been tried, then open any",
       "attempt on the map for its full record."
@@ -289,8 +261,6 @@ FW_COPY <- list(
 
   species = list(
     no_image   = "No photograph available",
-    # The hover card's blank tile. Shorter and about the RECORD rather than
-    # the picture library - see fw_popup_thumb_none() in R/maps.R.
     fig_none   = "None noted",
     alt_prefix = "Photograph of",
     unnamed_site = "Unnamed site",
@@ -344,6 +314,8 @@ FW_COPY <- list(
     species     = "Invasive species",
     beneficiary = "Species protected",
     taxa_beneficiary = "Kind of animal protected",
+    family      = "Fish family",
+    family_beneficiary = "Fish family protected",
     method      = "Method used",
     regime      = "Still or flowing water",
     waterbody   = "Kind of waterbody",
@@ -357,6 +329,9 @@ FW_COPY <- list(
     size_in_ha  = "in hectares",
     size_in_km  = "in kilometres",
     size_in_both = "in hectares and kilometres",
+    # The unit printed after each figure on a size slider's handles and ends.
+    unit_short_ha = "ha",
+    unit_short_km = "km",
 
     # ---- The tips -------------------------------------------------------------
     #
@@ -389,6 +364,14 @@ FW_COPY <- list(
     tip_taxa_beneficiary = paste(
       "The broad group the protected species belongs to - fish,",
       "amphibian, bird etc. Recorded less consistently than the invasive side."
+    ),
+    tip_family = paste(
+      "The family the invasive fish belongs to - trout and salmon are",
+      "Salmonidae, carp and minnows Cyprinidae. Shown while Fish is picked above."
+    ),
+    tip_family_beneficiary = paste(
+      "The family the protected fish belongs to. Shown while Fish is picked",
+      "under the kind of animal protected."
     ),
     tip_method = paste(
       "The eradication method used. Many attempts used more than one, so picking",
@@ -776,8 +759,18 @@ FW_COPY <- list(
 
     filter_continent = "Continent",
     filter_country   = "Country",
-    filter_search    = "Search by name or organization",
-    filter_all       = "All",
+    filter_species   = "Species",
+    filter_organisation = "Organization",
+    filter_category  = "Species was",
+    category_either  = "Either",
+    category_invasive = "Invasive",
+    category_beneficiary = "Protected",
+    tip_category = paste(
+      "Whether the species you pick was the invasive one being removed, the",
+      "protected one the attempt was meant to help, or either."
+    ),
+    filter_search    = "Search",
+    search_placeholder = "Name or organization",
 
     # THE COVERAGE LINE. The page must not imply reach it does not have. Most
     # records have a named contact; a good many of those have no published

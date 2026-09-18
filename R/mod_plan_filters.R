@@ -28,8 +28,9 @@ library(shiny)
 # Passed to fw_filter_ids() everywhere on this page. Both are the client's
 # decisions and the reasoning for each is at the top of mod_plan.R: outcome is
 # an answer this page must not let the reader pre-select, and method is the
-# thing the reader came here to learn rather than to assert.
-FW_PLAN_DROP <- c("outcome", "method")
+# thing the reader came here to learn rather than to assert. The two fish
+# family filters are the Explore page's alone (Sept 2026 user testing).
+FW_PLAN_DROP <- c("outcome", "method", "family", "family_beneficiary")
 
 fw_plan_filter_ids <- function() fw_filter_ids(drop = FW_PLAN_DROP)
 
@@ -196,7 +197,8 @@ fw_plan_size_ui <- function(ns, ch, units = FW_SIZE_UNITS) {
         sliderInput(ns(paste0("size_", unit)), label = NULL,
                     min = r[1], max = r[2], value = r,
                     step = FW_SIZE_LOG_STEP, sep = "", ticks = FALSE,
-                    dragRange = TRUE, width = "100%")
+                    dragRange = TRUE, width = "100%"),
+        unit
       ),
       div(class = "fw-field__range-readout",
           textOutput(ns(paste0("size_readout_", unit)), inline = TRUE))

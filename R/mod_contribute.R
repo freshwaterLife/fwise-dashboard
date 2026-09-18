@@ -137,8 +137,6 @@ mod_contribute_server <- function(id, data, choices) {
     iv_contributor$add_rule("primary_contact_name", sv_required(message = fw_t("contribute", "validate", "contact_name")))
     iv_contributor$add_rule("primary_contact_email", sv_required(message = fw_t("contribute", "validate", "contact_email")))
     iv_contributor$add_rule("primary_contact_email", sv_email(message = fw_t("contribute", "validate", "email_format")))
-    iv_contributor$add_rule("secondary_contact_email", sv_optional())
-    iv_contributor$add_rule("secondary_contact_email", sv_email(message = fw_t("contribute", "validate", "email_format")))
 
     step_validators <- list(
       site = iv_site, waterbody = iv_waterbody, invasive = iv_invasive,
@@ -213,9 +211,7 @@ mod_contribute_server <- function(id, data, choices) {
               as.numeric(input$end_year) >= as.numeric(input$start_year))) &&
         filled("driver") && filled("method_1") && filled("outcome") &&
         filled("primary_contact_name") &&
-        fw_is_email(input$primary_contact_email) &&
-        (!filled("secondary_contact_email") ||
-           fw_is_email(input$secondary_contact_email))
+        fw_is_email(input$primary_contact_email)
     })
 
     # ---- "Check my answers" ---------------------------------------------------
@@ -275,9 +271,6 @@ mod_contribute_server <- function(id, data, choices) {
       } else if (!fw_is_email(input$primary_contact_email)) {
         err("primary_contact_email", msg("e_contact_bad"))
       }
-      if (filled("secondary_contact_email") &&
-          !fw_is_email(input$secondary_contact_email))
-        err("secondary_contact_email", msg("e_second_mail"))
 
       if (!isTRUE(input$consent_data_use)) err("consent_data_use", msg("e_consent"))
 

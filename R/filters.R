@@ -83,6 +83,21 @@ FW_FILTERS <- list(
     copy = "taxa", kind = "multi", tip = "tip_taxa",
     bridge = "species", role = "invasive", match = "taxa"
   ),
+  # FISH FAMILY, one per side, and each only while Fish is picked in its own
+  # kind-of-animal filter (`when`). Only fish carry a family in species.csv, so
+  # the question does not exist until the reader has said "fish". Hidden, it is
+  # not applied either: fw_filter_state() reads `when` and drops the value,
+  # because Shiny keeps the last value of an input the reader can no longer see.
+  family = list(
+    copy = "family", kind = "multi", tip = "tip_family",
+    bridge = "species", role = "invasive", match = "family",
+    when = list(input = "taxa", value = "Fish")
+  ),
+  family_beneficiary = list(
+    copy = "family_beneficiary", kind = "multi", tip = "tip_family_beneficiary",
+    bridge = "species", role = "beneficiary", match = "family",
+    when = list(input = "taxa_beneficiary", value = "Fish")
+  ),
   waterbody = list(copy = "waterbody", kind = "multi", tip = "tip_waterbody",
                    column = "waterbody_type"),
   country   = list(copy = "country",   kind = "multi", tip = "tip_country",
@@ -129,10 +144,13 @@ fw_filter_ids <- function(drop = character(0)) {
 }
 
 # The controls read better grouped by what they are about than in the order the
-# zero-hints want, so the UI walks this instead of names(FW_FILTERS).
+# zero-hints want, so the UI walks this instead of names(FW_FILTERS). The
+# protected side runs kind, family, species - the same way round as the invasive
+# side, so the two read as a pair (client, Sept 2026 user testing).
 FW_FILTER_ORDER <- c("continent", "country", "regime", "waterbody",
-                     "taxa", "species", "method", "beneficiary",
-                     "taxa_beneficiary", "outcome", "size", "years")
+                     "taxa", "family", "species", "method",
+                     "taxa_beneficiary", "family_beneficiary", "beneficiary",
+                     "outcome", "size", "years")
 
 #' The order the filter PANEL draws its controls in
 #'
@@ -315,6 +333,10 @@ fw_filter_choices <- function(data) {
     sort(unique(species$taxa[species$species_id %in% bridge$species_id &
                                !is.na(species$taxa)]))
   }
+  family_for <- function(bridge) {
+    sort(unique(species$family[species$species_id %in% bridge$species_id &
+                                 !is.na(species$family)]))
+  }
 
   list(
     continent   = sort(unique(data$attempt$continent)),
@@ -328,6 +350,8 @@ fw_filter_choices <- function(data) {
     species     = by_freq(inv$species_id, sp_labels),
     beneficiary = by_freq(ben$species_id, sp_labels),
     taxa_beneficiary = taxa_for(ben),
+    family      = family_for(inv),
+    family_beneficiary = family_for(ben),
     method      = data$method$method_name[order(match(
       data$method$method_id,
       names(sort(table(data$attempt_method$method_id), decreasing = TRUE))
@@ -364,6 +388,8 @@ fw_filter_state <- function(input, ids = fw_filter_ids(), ch = NULL) {
   for (id in ids) {
     if (FW_FILTERS[[id]]$kind %in% c("range", "size")) next
     out[[id]] <- g(id)
+    when <- FW_FILTERS[[id]]$when
+    if (!is.null(when) && !when$value %in% g(when$input)) out[[id]] <- character(0)
   }
   if ("size" %in% ids) {
     # ONLY THE UNITS THE READER CAN CURRENTLY SEE, and this is the control that
@@ -531,7 +557,7 @@ fw_filter_apply <- function(data, f) {
       # happened to benefit it".
       hit <- data$attempt_species |>
         filter(role == spec$role) |>
-        left_join(select(species, species_id, label, taxa), by = "species_id") |>
+        left_join(select(species, species_id, label, taxa, family), by = "species_id") |>
         filter(.data[[spec$match]] %in% vals)
     } else {
       hit <- data$attempt_method |>

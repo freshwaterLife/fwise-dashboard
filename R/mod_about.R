@@ -135,7 +135,7 @@ mod_about_server <- function(id, data, meta = NULL) {
             tags$ul(
               tags$li(tags$a(href = fw_t("footer", "github_url"),
                              fw_t("footer", "github_label"))),
-              tags$li(tags$a(href = fw_t("footer", "fwise_url"),
+              tags$li(tags$a(href = fw_t("footer", "fwl_url"),
                              fw_t("about", "link_fwise"))),
               tags$li(tags$a(href = fw_t("footer", "doi_url"),
                              fw_t("about", "link_zenodo")))

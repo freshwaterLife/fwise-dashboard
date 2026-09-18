@@ -12,22 +12,28 @@
 #    header, set a step smaller than other pages (.fw-page-header--home). The
 #    last line's phrases link to Explore, Plan, Contribute and Networking.
 #
-# 2. THE STRIP. One figure - species protected, the distinct beneficiaries of
-#    SUCCESSFUL attempts, filled from the data and never typed - then one
-#    picture per success story, then the hint. Each picture is a button that
-#    opens that story's card. The row shows beneficiaries only, in colour.
+# 2. THE SENTENCE. One line across the full width in the teal box: successful
+#    attempts and species protected (the distinct beneficiaries of those
+#    attempts), both filled from the data and never typed, in bold, then the
+#    hint to click the pictures.
 #
-# 3. STORY CARDS. Native popovers (the HTML popover attribute), so opening,
+# 3. PICTURES | MAP, side by side (client, Sept 2026). The left third is the
+#    six beneficiaries, two columns of three in FW_HOME_ORDER; each is a
+#    button that opens its story's card. The right two-thirds is the map.
+#    Stacked, pictures first, on a narrow screen.
+#
+# 4. STORY CARDS. Native popovers (the HTML popover attribute), so opening,
 #    Esc, clicking away and the top layer need no script. A card holds the
-#    invasive plate (greyscale - the client's artwork, not an accident to
-#    "fix") beside the beneficiary, then the title and the account. A picture
-#    the client has not supplied (NA in FW_HOME_IMG) draws as a placeholder.
+#    beneficiary only - the client took the invasive plate out - then the title
+#    and the account. A picture the client has not supplied (NA in
+#    FW_HOME_IMG) draws as a placeholder.
 #
-# 4. CURRENT WORK AND GAPS. Two STATIC map pictures in register with a slider
-#    that reveals the priorities map from the left, starting fully on current
-#    work. The slider is a native range input laid over the figure. There is no
-#    separate legend: the caption names the two states in the map's own hues.
-#    The map's width follows the window HEIGHT (see .fw-compare-wrap).
+# 5. CURRENT WORK AND GAPS, the map. Two STATIC pictures in register with a
+#    slider that reveals the priorities map from the left, starting fully on
+#    current work. The slider is a native range input laid over the figure.
+#    There is no separate legend: the caption names the two states in the
+#    map's own hues. The map's width follows the window HEIGHT as well as its
+#    column (see .fw-compare-wrap).
 #
 # THE PICTURES ARE WEB COPIES. The client's originals are in resources/ (not
 # served) and are never altered. The copies in www/img/home/ were made with
@@ -43,6 +49,11 @@
 mod_home_ui <- function(id, stats) {
   ns <- NS(id)
   keys <- names(fw_t("home", "stories"))
+  # The two numbers are formatted before the ** pairs are turned into <strong>,
+  # so each one lands inside its own bold span.
+  sentence <- fw_fill(fw_t("home", "kpi_sentence"),
+                      attempts  = fw_fmt_num(stats$successful),
+                      protected = fw_fmt_num(stats$protected))
 
   tagList(
     fw_page_header(fw_t("home", "title"), fw_t("home", "lead"),
@@ -52,18 +63,15 @@ mod_home_ui <- function(id, stats) {
       fw_section(
         tight = TRUE,
         fw_container(
+          p(class = "fw-home-kpi", fw_emphasis(sentence)),
           div(
-            class = "fw-home-strip",
-            div(class = "fw-home-strip__kpi",
-                fw_kpi_stat(fw_fmt_num(stats$protected), fw_t("home", "kpi_label"),
-                            tooltip = fw_t("home", "kpi_tooltip"))),
-            div(class = "fw-home-strip__species",
-                lapply(keys, function(key) {
+            class = "fw-home-layout",
+            div(class = "fw-home-species-grid",
+                lapply(FW_HOME_ORDER, function(key) {
                   fw_home_tile(key, fw_t("home", "stories", key), FW_HOME_IMG$stories[[key]])
                 })),
-            p(class = "fw-home-strip__hint", fw_t("home", "stories_hint"))
-          ),
-          fw_home_compare(ns("map_reveal"))
+            fw_home_compare(ns("map_reveal"))
+          )
         )
       ),
       lapply(keys, function(key) {
@@ -75,7 +83,7 @@ mod_home_ui <- function(id, stats) {
 
 mod_home_server <- function(id, data) {
   moduleServer(id, function(input, output, session) {
-    # Nothing reactive: the page is drawn once, with its one live figure filled
+    # Nothing reactive: the page is drawn once, with its two live figures filled
     # in mod_home_ui() from the data loaded at startup.
   })
 }
@@ -105,23 +113,17 @@ fw_home_tile <- function(key, s, img) {
     `aria-label` = fw_fill(fw_t("home", "stories_open"),
                            continent = s$continent, name = sp$name),
     # The button's label says it all, so the picture is not announced twice.
-    tagAppendAttributes(fw_home_art(img$beneficiary, ""), `aria-hidden` = "true")
+    tagAppendAttributes(fw_home_art(img, ""), `aria-hidden` = "true")
   )
 }
 
-#' One success story, as a popover card
+#' One success story, as a popover card: the beneficiary beside the account
+#'
+#' Picture on the left, title and text on the right, half the card each
+#' (client, Sept 2026 user testing). The two halves stack on a narrow screen -
+#' see .fw-home-card__body in _components.scss.
 fw_home_card <- function(key, s, img) {
-  figure <- function(role) {
-    sp <- s[[role]]
-    tags$figure(
-      class = paste0("fw-story__figure fw-story__figure--", role),
-      div(class = "fw-story__art", fw_home_art(img[[role]], sp$alt)),
-      tags$figcaption(
-        tags$span(class = "fw-story__role", fw_t("home", paste0(role, "_label"))),
-        sp$name
-      )
-    )
-  }
+  sp <- s$beneficiary
   title_id <- paste0(fw_home_card_id(key), "-title")
 
   div(
@@ -133,13 +135,23 @@ fw_home_card <- function(key, s, img) {
       `aria-label` = fw_t("home", "card_close"),
       HTML("&times;")
     ),
-    tags$h2(
-      id = title_id, class = "fw-home-card__title",
-      tags$span(class = "fw-story__continent", s$continent), " ", s$title
-    ),
-    div(class = "fw-story__row", figure("invasive"), figure("beneficiary")),
-    p(class = "fw-home-card__summary", s$summary),
-    p(s$body)
+    div(
+      class = "fw-home-card__body",
+      tags$figure(
+        class = "fw-story__figure",
+        div(class = "fw-story__art", fw_home_art(img, sp$alt)),
+        tags$figcaption(sp$name)
+      ),
+      div(
+        class = "fw-home-card__text",
+        tags$h2(
+          id = title_id, class = "fw-home-card__title",
+          tags$span(class = "fw-story__continent", s$continent), " ", s$title
+        ),
+        p(class = "fw-home-card__summary", s$summary),
+        p(s$body)
+      )
+    )
   )
 }
 
@@ -178,15 +190,19 @@ fw_home_compare <- function(input_id) {
   )
 }
 
-#' Prose with [[page|words]] links to other tabs
+#' Prose with [[page|words]] links to other tabs, and **bold**
 #'
 #' The same cross-page wiring as the About page's contribute link: the click
-#' sets fw_nav_to and app.R switches the tab.
+#' sets fw_nav_to and app.R switches the tab. Passing this to fw_page_header()
+#' replaces the default formatter, so it has to do the **bold** that
+#' fw_emphasis() would otherwise have done - a paragraph with no link at all
+#' still goes through here. The emphasis is applied to each stretch of plain
+#' text between the links, so a ** pair must sit inside one such stretch.
 fw_home_links <- function(text) {
   pattern <- "\\[\\[([a-z_]+)\\|([^]]+)\\]\\]"
   hits <- gregexpr(pattern, text)
   links <- regmatches(text, hits)[[1]]
-  if (!length(links)) return(text)
+  if (!length(links)) return(fw_emphasis(text))
   # One more stretch of plain text than there are links, interleaved.
   plain <- regmatches(text, hits, invert = TRUE)[[1]]
   parts <- lapply(regmatches(links, regexec(pattern, links)), function(m) {
@@ -199,7 +215,7 @@ fw_home_links <- function(text) {
     )
   })
   out <- vector("list", 2L * length(parts) + 1L)
-  out[seq(1L, length(out), by = 2L)] <- as.list(plain)
+  out[seq(1L, length(out), by = 2L)] <- lapply(plain, fw_emphasis)
   out[seq(2L, length(out), by = 2L)] <- parts
   do.call(tagList, out)
 }

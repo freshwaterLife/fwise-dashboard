@@ -93,6 +93,12 @@ pending <- attr(d, "status_counts")[["pending"]]
 inbox <- tryCatch(fw_pending_submissions(), error = function(e) data.frame())
 in_inbox <- if (nrow(inbox) == 0) 0L else if ("status" %in% names(inbox)) sum(inbox$status == "pending") else nrow(inbox)
 ok("footer: in-review count", fw_review_count(d), as.integer(pending + in_inbox))
+foot_html <- as.character(fw_footer(as.Date(m$release)))
+fwise_a <- regmatches(foot_html, regexpr('<a[^>]*>\\s*<img src="[^"]*" alt="FWISE[^"]*"', foot_html))
+ok("footer: the FWISE logo is the long SIMPLE wordmark",
+   grepl(paste0('src="', FW_LOGO$mark_web, '"'), fwise_a, fixed = TRUE))
+ok("footer: the FWISE logo goes to The solution, in the same tab",
+   grepl("fw_nav_to&#39;, &#39;home&#39;", fwise_a, fixed = TRUE) && !grepl("_blank", fwise_a, fixed = TRUE))
 
 # About's scale sentence.
 n_contrib <- sum(!is.na(d$contact$contact_name) & nzchar(d$contact$contact_name))
@@ -161,6 +167,47 @@ ok("coverage: no-email of contacts",
    grepl(paste0(fw_fmt_num(sum(is.na(contacts$contact_email))), " of the ", fw_fmt_num(nrow(contacts))), cov, fixed = TRUE))
 ok("coverage: no-contact count", grepl(paste0(fw_fmt_num(no_contact), " attempts have no contact"), cov, fixed = TRUE))
 
+# THE NETWORKING FILTERS. Recomputed from attempts.csv and species.csv on disk:
+# the attempts matching place AND species-in-role, then every contact named on
+# them in either contact column.
+net_a  <- read.csv(FW_ATTEMPTS_CSV, colClasses = "character", na.strings = "")
+net_a  <- net_a[net_a$status == "approved", ]
+net_sp <- read.csv(FW_SPECIES_CSV, colClasses = "character", na.strings = "")
+net_label <- stats::setNames(fw_species_label(net_sp)$label, net_sp$species_id)
+net_has <- function(col, labels) vapply(
+  strsplit(ifelse(is.na(net_a[[col]]), "", net_a[[col]]), ";"),
+  function(ids) any(net_label[trimws(ids)] %in% labels), logical(1))
+net_expect <- function(rows) {
+  ids <- c(net_a$primary_contact_id[rows], net_a$secondary_contact_id[rows])
+  sort(intersect(unique(ids[!is.na(ids)]), contacts$contact_id))
+}
+net_got <- function(...) sort(fw_networking_filter(d, contacts, list(...))$contact_id)
+# The most-recorded protected species, and the country with most of its attempts.
+ben_ids <- trimws(unlist(strsplit(stats::na.omit(net_a$beneficiary_species), ";")))
+net_sp1 <- unname(net_label[names(sort(table(ben_ids), decreasing = TRUE))[1]])
+net_c1 <- names(sort(table(net_a$country[net_has("beneficiary_species", net_sp1)]),
+                     decreasing = TRUE))[1]
+ok("networking: no filter lists everyone", net_got(), sort(contacts$contact_id))
+ok(paste0("networking: ", net_c1, " alone"),
+   net_got(country = net_c1), net_expect(which(net_a$country == net_c1)))
+ok("networking: species as protected",
+   net_got(species = net_sp1, category = "beneficiary"),
+   net_expect(which(net_has("beneficiary_species", net_sp1))))
+ok("networking: species as either role",
+   net_got(species = net_sp1, category = "either"),
+   net_expect(which(net_has("beneficiary_species", net_sp1) |
+                      net_has("invasive_species", net_sp1))))
+ok("networking: species AND country on the same attempt",
+   net_got(species = net_sp1, category = "beneficiary", country = net_c1),
+   net_expect(which(net_has("beneficiary_species", net_sp1) & net_a$country == net_c1)))
+ok("networking: a protected species searched as invasive finds only invasive records",
+   net_got(species = net_sp1, category = "invasive"),
+   net_expect(which(net_has("invasive_species", net_sp1))))
+net_org <- names(sort(table(contacts$organisation), decreasing = TRUE))[1]
+ok("networking: organization",
+   net_got(organisation = net_org),
+   sort(contacts$contact_id[!is.na(contacts$organisation) & contacts$organisation == net_org]))
+
 # The species tiles.
 inv_rows <- unique(data.frame(attempt_id = as.character(asp$attempt_id[asp$role == "invasive"]),
                               species_id = asp$species_id[asp$role == "invasive"], stringsAsFactors = FALSE))
@@ -184,6 +231,45 @@ cat("\n-- the explore page --\n")
 exp_ids <- fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
 ok("explore: offers exactly its six filters", sort(exp_ids), sort(FW_EXPLORE_FILTERS))
 ok("explore: and no year range", "years" %in% exp_ids, FALSE)
+
+# THE FISH FAMILY FILTERS. Recomputed from the CSVs on disk - the packed
+# species ids in attempts.csv and the family column of species.csv - not from
+# the loaded bridge table the engine reads.
+raw_a  <- read.csv(FW_ATTEMPTS_CSV, colClasses = "character", na.strings = "")
+raw_a  <- raw_a[raw_a$status == "approved", ]
+raw_sp <- read.csv(FW_SPECIES_CSV, colClasses = "character", na.strings = "")
+fam_of <- stats::setNames(raw_sp$family, raw_sp$species_id)
+raw_family_hits <- function(col, fam) {
+  has <- vapply(strsplit(ifelse(is.na(raw_a[[col]]), "", raw_a[[col]]), ";"),
+                function(ids) any(fam_of[trimws(ids)] %in% fam), logical(1))
+  sort(raw_a$attempt_id[has])
+}
+fam_apply <- function(...) {
+  st <- list(...); st$.ids <- exp_ids
+  sort(as.character(fw_filter_apply(d, st)$attempt_id))
+}
+ok("family: only fish carry a family",
+   unique(raw_sp$taxa[!is.na(raw_sp$family)]), "Fish")
+fam_inv <- names(sort(table(fam_of[unlist(lapply(strsplit(raw_a$invasive_species, ";"), trimws))]),
+                      decreasing = TRUE))[1]
+ok("family: choices are the invasive side's fish families",
+   ch$family, sort(unique(stats::na.omit(fam_of[trimws(unlist(strsplit(raw_a$invasive_species, ";")))]))))
+ok(paste0("family: ", fam_inv, " (invasive) selects its attempts"),
+   fam_apply(taxa = "Fish", family = fam_inv), raw_family_hits("invasive_species", fam_inv))
+fam_ben <- names(sort(table(fam_of[trimws(unlist(strsplit(stats::na.omit(raw_a$beneficiary_species), ";")))]),
+                      decreasing = TRUE))[1]
+ok(paste0("family: ", fam_ben, " (protected) selects its attempts"),
+   fam_apply(taxa_beneficiary = "Fish", family_beneficiary = fam_ben),
+   raw_family_hits("beneficiary_species", fam_ben))
+ok("family: two families are any-of",
+   fam_apply(taxa = "Fish", family = ch$family[1:2]),
+   raw_family_hits("invasive_species", ch$family[1:2]))
+# Hidden means not applied: a family left set after Fish is deselected must not
+# narrow anything. Read through fw_filter_state(), which is where that is done.
+st_hidden <- fw_filter_state(list(taxa = "Crayfish", family = fam_inv), exp_ids)
+ok("family: ignored while Fish is not picked", st_hidden$family, character(0))
+st_shown <- fw_filter_state(list(taxa = c("Crayfish", "Fish"), family = fam_inv), exp_ids)
+ok("family: applied while Fish is picked", st_shown$family, fam_inv)
 
 ben_rows <- unique(data.frame(
   attempt_id = as.character(asp$attempt_id[asp$role == "beneficiary"]),
@@ -685,8 +771,31 @@ ok("duration: one point per (attempt, method) with a duration",
    sum(vapply(pts, function(t) length(t$x), integer(1))), nrow(dm))
 ok("duration: per-outcome point counts",
    all(vapply(pts, function(t) length(t$x) == sum(dm$outcome == t$name), logical(1))))
+dur_y <- plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$yaxis
+dur_rows <- as.character(dur_y$ticktext)
 ok("duration: the (n) in each label counts durations, not attempts",
-   all(vapply(unique(as.character(box$y)), function(l) label_n(l) == sum(dm$method == label_name(l)), logical(1))))
+   all(vapply(dur_rows, function(l) label_n(l) == sum(dm$method == label_name(l)), logical(1))))
+# THE DOTS ARE SPREAD ACROSS THEIR ROW, and never far enough to be read as the
+# next one. Each dot's row is recovered from its y by rounding, and the method
+# on that row must be the dot's own - checked against the per-method counts,
+# recomputed from dm rather than read from the chart.
+sw <- FW_CHART$duration_swarm
+pt_y <- unlist(lapply(pts, function(t) t$y))
+ok("duration: every dot is within its row's spread",
+   all(abs(pt_y - round(pt_y)) <= sw$spread + 1e-9))
+ok("duration: dots per row equal that method's durations",
+   as.integer(table(factor(round(pt_y), levels = seq_along(dur_rows)))),
+   vapply(dur_rows, function(l) sum(dm$method == label_name(l)), integer(1)))
+ok("duration: identical durations are drawn apart, not on top of each other",
+   {
+     key <- paste(round(pt_y), unlist(lapply(pts, function(t) t$x)))
+     dup <- duplicated(key) | duplicated(key, fromLast = TRUE)
+     !any(duplicated(paste(key, pt_y))) && any(dup)
+   })
+ok("duration: the dots carry no hover",
+   all(vapply(pts, function(t) all(t$hoverinfo == "skip"), logical(1))))
+ok("duration: the rows are labelled on the axis in order of size",
+   label_n(dur_rows), sort(label_n(dur_rows)))
 # A single-method attempt contributes exactly one (attempt, method) row, so the
 # points and the attempts drawn are the same number. That is the whole point of
 # the filter: every point on this chart is a duration of the method it sits on.
@@ -735,6 +844,42 @@ ok("duration: the ticks are the only thing the axis draws a line at",
 # gridline there is a reference to nothing.
 ok("duration: the method axis draws no gridlines",
    isFALSE(plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$yaxis$showgrid))
+
+# EVERY CHART IS A PICTURE, NOT A CANVAS (Sept 2026 user testing): the key
+# cannot switch a series off, nothing zooms or pans, the only button is
+# plotly's own PNG camera, and the PNG is print-ready at FW_CHART$export_dpi.
+# Checked on every chart builder the app draws, through fw_plotly_style().
+all_charts <- list(
+  methods = fw_chart_method(d, all_sel, "count"),
+  duration = fw_chart_duration(d, all_sel),
+  waterbody = fw_chart_waterbody(all_sel),
+  method_waterbody = fw_chart_method_waterbody(d, all_sel, "count"),
+  cumulative = fw_chart_cumulative(all_sel)
+)
+for (nm in names(all_charts)) {
+  bx <- plotly::plotly_build(all_charts[[nm]])$x
+  ok(paste0("plotly ", nm, ": legend entries cannot be toggled"),
+     isFALSE(bx$layout$legend$itemclick) && isFALSE(bx$layout$legend$itemdoubleclick))
+  ok(paste0("plotly ", nm, ": axes cannot be zoomed or panned"),
+     isTRUE(bx$layout$xaxis$fixedrange) && isTRUE(bx$layout$yaxis$fixedrange) &&
+       isFALSE(bx$layout$dragmode) && isFALSE(bx$config$scrollZoom) &&
+       isFALSE(bx$config$doubleClick))
+  ok(paste0("plotly ", nm, ": the camera is the only button"),
+     unlist(bx$config$modeBarButtons), "toImage")
+  ok(paste0("plotly ", nm, ": PNG export at ", FW_CHART$export_dpi, " dpi"),
+     bx$config$toImageButtonOptions$scale * 96, FW_CHART$export_dpi)
+  ok(paste0("plotly ", nm, ": the button is plotly's default (hover)"),
+     is.null(bx$config$displayModeBar))
+}
+# THE A/B TEST: axis lines and ticks on exactly the charts FW_CHART names.
+for (nm in c("methods", "waterbody", "method_waterbody", "duration")) {
+  bx <- plotly::plotly_build(all_charts[[nm]])$x$layout
+  styled <- nm %in% FW_CHART$axis$styled
+  ok(paste0("axis style ", nm, ": ", if (styled) "lines and ticks" else "plain"),
+     c(isTRUE(bx$xaxis$showline), identical(bx$xaxis$ticks, "outside"),
+       isTRUE(bx$yaxis$showline), identical(bx$yaxis$ticks, "outside")),
+     rep(styled, 4))
+}
 
 # A category chart with Other.
 wb <- all_sel$waterbody_type[!is.na(all_sel$waterbody_type)]
@@ -1052,10 +1197,21 @@ home_html <- as.character(mod_home_ui("home", fw_headline_stats(d)))
 ok_ids <- as.character(d$attempt$attempt_id)[as.character(d$attempt$outcome) %in% "Successful"]
 as_ben <- d$attempt_species[as.character(d$attempt_species$role) == "beneficiary", ]
 n_protected <- length(unique(as_ben$species_id[as.character(as_ben$attempt_id) %in% ok_ids]))
+n_successful <- length(ok_ids)
 ok("welcome: species protected = beneficiaries of successful attempts",
    fw_headline_stats(d)$protected, n_protected)
-ok("welcome: the figure is on the page",
-   grepl(paste0('class="fw-kpi__value">', fw_fmt_num(n_protected), "<"), home_html, fixed = TRUE))
+ok("welcome: successful attempts counted from the outcomes",
+   fw_headline_stats(d)$successful, n_successful)
+# Both figures in the sentence, each in its own bold span, attempts first.
+kpi_html <- regmatches(home_html, regexpr('(?s)<p class="fw-home-kpi">.*?</p>', home_html, perl = TRUE))
+kpi_bold <- regmatches(kpi_html, gregexpr("<strong>[^<]*</strong>", kpi_html))[[1]]
+ok("welcome: the sentence is on the page", length(kpi_html), 1L)
+ok("welcome: the sentence carries both figures in bold, attempts then species",
+   kpi_bold, paste0("<strong>", c(fw_fmt_num(n_successful), fw_fmt_num(n_protected)), "</strong>"))
+ok("welcome: the sentence reads as the client wrote it",
+   grepl(paste0("Over <strong>", fw_fmt_num(n_successful),
+                "</strong> successful eradication attempts have led to <strong>",
+                fw_fmt_num(n_protected), "</strong> species protected."), kpi_html, fixed = TRUE))
 ok("welcome: no more protected than beneficiaries overall",
    n_protected <= fw_headline_stats(d)$beneficiaries)
 ok("welcome: no unfilled slot left in the page", !grepl("\\{[a-z_]+\\}", home_html))
@@ -1071,14 +1227,29 @@ ok("welcome: one card per story", card_ids, paste0("fw-home-story-", names(fw_t(
 ok("welcome: one picture button per story",
    lengths(regmatches(home_html, gregexpr('class="fw-home-species"', home_html))),
    length(fw_t("home", "stories")))
+ok("welcome: the page order names every story once",
+   setequal(FW_HOME_ORDER, names(fw_t("home", "stories"))) && !anyDuplicated(FW_HOME_ORDER))
+# The buttons, in the order they are in the page - the grid fills by column,
+# so this is down the left then down the right.
+tile_order <- sub(".*fw-home-story-", "", regmatches(home_html,
+  gregexpr('class="fw-home-species" popovertarget="fw-home-story-[a-z_]+', home_html))[[1]])
+ok("welcome: pictures run Apache, Valcheta, redfin | grebe, galaxias, mussel",
+   vapply(tile_order, function(k) fw_t("home", "stories", k)$beneficiary$name, ""),
+   c("Apache trout", "Valcheta frog", "Fiery redfin",
+     "Little grebe", "Golden galaxias", "Freshwater pearl mussel"))
 ok("welcome: every button opens a card that exists", setequal(opens, card_ids))
 pics <- na.omit(unlist(c(FW_HOME_IMG$stories, FW_HOME_IMG[c("map_now", "map_next")])))
 ok("welcome: every picture named exists under www/", all(file.exists(file.path("www", pics))))
-ok("welcome: every story has its beneficiary picture",
-   !any(is.na(vapply(FW_HOME_IMG$stories, `[[`, "", "beneficiary"))))
+ok("welcome: every story has its beneficiary picture", !any(is.na(FW_HOME_IMG$stories)))
 ok("welcome: placeholders drawn for each missing picture",
    lengths(regmatches(home_html, gregexpr('class="fw-story__placeholder"', home_html))),
-   sum(is.na(unlist(FW_HOME_IMG$stories))))
+   sum(is.na(FW_HOME_IMG$stories)))
+ok("welcome: the cards show the beneficiary only",
+   !grepl("fw-story__figure--invasive", home_html, fixed = TRUE) &&
+     !grepl("_greyscale.png", home_html, fixed = TRUE))
+ok("welcome: one picture per card",
+   lengths(regmatches(home_html, gregexpr('class="fw-story__figure"', home_html))),
+   length(fw_t("home", "stories")))
 nav_to <- regmatches(home_html, gregexpr("fw_nav_to&#39;,&#39;[a-z_]+", home_html))[[1]]
 nav_to <- sub(".*&#39;", "", nav_to)
 ok("welcome: header links go to explore, plan, contribute, networking",
