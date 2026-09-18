@@ -3,8 +3,9 @@
 # neither file grows unreadable.
 #
 # Field labels, prompts and tooltips come from the FWISE Upload Form field
-# specification. Where that document was ambiguous there is a TODO(alex) next to
-# the field naming the ambiguity, and the simplest reading is implemented.
+# specification and live in R/copy_contribute.R. Where that document was
+# ambiguous there is a TODO(alex) next to the field naming the ambiguity, and
+# the simplest reading is implemented.
 
 library(shiny)
 library(bslib)
@@ -27,44 +28,14 @@ FW_STEPS <- list(
   list(id = "review",      title_key = "review")
 )
 
-# ---- Tooltips ----------------------------------------------------------------
-# Kept together so the client can review the whole set in one place.
+# ---- Copy ------------------------------------------------------------------
+# Every label, help line, placeholder and tooltip on the form lives in
+# R/copy_contribute.R. These four are the short spellings the builders use.
 
-FW_TIPS <- list(
-  site_name    = "A descriptive name for the site or waterbody, as you would refer to it in a report.",
-  country      = "The country the site sits in. Pick the region as well where the site is in a territory recorded separately, such as Hawaii or the Galapagos Islands.",
-  location     = "Click the map to drop a pin, or type coordinates directly. Either way the two boxes stay in step with the map.",
-  waterbody    = "The kind of waterbody treated. Choose the closest match, or Other (specify) if none fits.",
-  water_regime = "Still water is lentic, such as a lake or pond. Flowing water is lotic, such as a river or stream.",
-  area         = "The size of the area treated. Hectares are usual for still water, kilometers for flowing water.",
-  area_notes   = "Anything that qualifies the figure, for example five golf-course ponds.",
-  depth        = "Average or estimated depth in meters.",
-  volume       = "Estimated volume in cubic meters. An exact figure is preferred, but an estimate is far better than nothing.",
-  max_flow     = "Maximum flow in cubic meters per second.",
-  water_temp   = "Water temperature in degrees Celsius. Use the notes box if it varied, for example if the surface and the bottom of a lake differed.",
-  invasive_taxa = "What kind of animal this target is. One group per target: if the eradication went after more than one, add another target below.",
-  species      = "Common and scientific name, for example Common carp (Cyprinus carpio). Search by either. If your species is not listed, type it in and our review team will add it.",
-  invasion_year = "The year the invasion happened, if it is known.",
-  start_year   = "The year the eradication attempt began.",
-  end_year     = "The year the eradication attempt ended. Leave it blank if the work is ongoing, which many attempts are.",
-  duration     = "Estimated total duration of the intervention, in days.",
-  driver       = "The main reason the eradication was carried out.",
-  benefit_taxa = "What kind of species the eradication was meant to help.",
-  benefit_sp   = "Entries such as Zooplankton or Cottidae spp. are fine. Our review team tidies these up.",
-  method       = "The main eradication method used. Add further methods below if more than one was used.",
-  method_notes = "Any detail on how the method was applied.",
-  method_desc  = "A fuller description of the approach at this site.",
-  labour       = "Effort required, in person-days. If you only have a range, put it in and we will work with it.",
-  cost         = "We are not looking for a full breakdown, but an estimate helps build a picture of costs so funders and practitioners can benchmark interventions.",
-  toxin_conc   = "Target concentration of the chemical in mg/L. A text box rather than a number, because the value can vary over a treatment.",
-  neutralising = "The neutralizing agent used, if any.",
-  outcome      = "Eradication means the complete and permanent removal of the population (Genovesi 2005). You can record an attempt as successful without formal proof of absence; our review team records that distinction separately, so answer as you see it.",
-  verification = "How the outcome was verified, and any notes on it.",
-  reference    = "A link or citation for the underlying evidence. A DOI or URL is ideal.",
-  source       = "Where this record came from. This is for our internal provenance and is not shown publicly.",
-  contact      = "We need a primary contact so the review team can follow up on your submission.",
-  notes        = "Anything else you would like the FWISE team to know."
-)
+fw_lab  <- function(key) fw_t("contribute", "fields", key)
+fw_help <- function(key) fw_t("contribute", "help", key)
+fw_tip  <- function(key) fw_t("contribute", "tips", key)
+fw_ph   <- function(key) fw_t("contribute", "placeholder", key)
 
 # ---- Small builders ----------------------------------------------------------
 
@@ -101,12 +72,12 @@ fw_area_input <- function(id, rows = 3, placeholder = NULL) {
 #' distinguishable from "answered with the first item".
 fw_select <- function(id, choices, multiple = FALSE, selected = NULL) {
   if (!multiple) {
-    choices <- c(stats::setNames("", "Select..."), choices)
+    choices <- c(stats::setNames("", fw_ph("select")), choices)
     if (is.null(selected)) selected <- ""
   }
   selectizeInput(id, label = NULL, choices = choices, selected = selected,
                  multiple = multiple, width = "100%",
-                 options = list(placeholder = "Select..."))
+                 options = list(placeholder = fw_ph("select")))
 }
 
 # An "Other (specify)" free-text box, revealed by conditionalPanel because the
@@ -135,42 +106,40 @@ fw_other_panel <- function(ns, watch_id, target_id, label, multiple = FALSE) {
 fw_step_site_ui <- function(ns, choices) {
   tagList(
     fw_step_intro("site"),
-    fw_field(fw_text_input(ns("site_name")), "Site name", required = TRUE,
-             tooltip = FW_TIPS$site_name, input_id = ns("site_name")),
+    fw_field(fw_text_input(ns("site_name")), fw_lab("site_name"), required = TRUE,
+             tooltip = fw_tip("site_name"), input_id = ns("site_name")),
     # THE TWO-LEVEL ISO PICKER the specification asked for. Country is the full
     # ISO 3166-1 list with the countries FWISE already holds records for at the
     # top; region is that country's ISO 3166-2 subdivisions, filled in by the
     # server once a country is chosen. Both lists are built offline by
     # dev/build_iso_lookups.R and read from disk - see fw_load_iso().
-    fw_field(fw_select(ns("country"), choices$country), "Country", required = TRUE,
-             tooltip = FW_TIPS$country, input_id = ns("country")),
+    fw_field(fw_select(ns("country"), choices$country), fw_lab("country"), required = TRUE,
+             tooltip = fw_tip("country"), input_id = ns("country")),
     fw_other_panel(ns, "country", "country_other",
-                   "Please name the country or territory"),
+                   fw_lab("country_other")),
     # Starts empty and is populated from the chosen country. A country with no
     # subdivisions in the standard, or one typed in by hand, leaves this as free
     # text - see the observer in mod_contribute.R.
-    fw_field(fw_select(ns("region"), character(0)), "Region or state",
-             help = paste("Optional. Choose the state, province or region, or",
-                          "type one if it is not listed."),
+    fw_field(fw_select(ns("region"), character(0)), fw_lab("region"),
+             help = fw_help("region"),
              input_id = ns("region")),
 
     div(
       class = "fw-field",
       div(class = "fw-field__label-row",
-          tags$label(class = "form-label", "Location on map",
+          tags$label(class = "form-label", fw_lab("location"),
                      tags$span(class = "fw-required-mark", `aria-hidden` = "true", "*"),
-                     tags$span(class = "fw-visually-hidden", " (required)")),
-          fw_info(FW_TIPS$location, "location on map")),
-      div(class = "fw-field__help",
-          "Click the map to place your site, or type coordinates below."),
+                     tags$span(class = "fw-visually-hidden", fw_t("a11y", "required"))),
+          fw_info(fw_tip("location"), tolower(fw_lab("location")))),
+      div(class = "fw-field__help", fw_help("location")),
       div(class = "fw-map-picker",
           leaflet::leafletOutput(ns("picker"), height = 320)),
       div(
         class = "fw-coord-row",
         fw_field(fw_num_input(ns("latitude"), min = -90, max = 90, step = 0.000001),
-                 "Latitude", input_id = ns("latitude")),
+                 fw_lab("latitude"), input_id = ns("latitude")),
         fw_field(fw_num_input(ns("longitude"), min = -180, max = 180, step = 0.000001),
-                 "Longitude", input_id = ns("longitude"))
+                 fw_lab("longitude"), input_id = ns("longitude"))
       )
     )
   )
@@ -187,39 +156,39 @@ fw_step_waterbody_ui <- function(ns, choices) {
     fw_field(radioButtons(ns("water_regime"), label = NULL,
                           choices = choices$water_regime, selected = character(0),
                           inline = TRUE),
-             "Is it still water or flowing water?", required = TRUE,
-             tooltip = FW_TIPS$water_regime, input_id = ns("water_regime")),
+             fw_lab("water_regime"), required = TRUE,
+             tooltip = fw_tip("water_regime"), input_id = ns("water_regime")),
 
     fw_field(fw_select(ns("waterbody_type"), choices$waterbody_by_regime[[FW_ALL]]),
-             "What kind of waterbody is it?", required = TRUE,
-             tooltip = FW_TIPS$waterbody, input_id = ns("waterbody_type"),
-             help = "The list narrows once you have answered still or flowing."),
+             fw_lab("waterbody_type"), required = TRUE,
+             tooltip = fw_tip("waterbody"), input_id = ns("waterbody_type"),
+             help = fw_help("waterbody_type")),
     fw_other_panel(ns, "waterbody_type", "waterbody_type_other",
-                   "Please describe the waterbody type"),
+                   fw_lab("waterbody_other")),
 
     div(
       class = "fw-coord-row",
       fw_field(fw_num_input(ns("area_treated"), min = 0),
-               "Size of the area treated", tooltip = FW_TIPS$area,
+               fw_lab("area_treated"), tooltip = fw_tip("area"),
                input_id = ns("area_treated")),
       # The unit becomes required once a value is entered. Enforced in the
       # validator rather than here, so the message appears next to the field.
-      fw_field(fw_select(ns("area_unit"), choices$area_unit), "Unit",
-               help = "Hectares for still water, kilometers for flowing water.",
+      fw_field(fw_select(ns("area_unit"), choices$area_unit), fw_lab("area_unit"),
+               help = fw_help("area_unit"),
                input_id = ns("area_unit"))
     ),
-    fw_field(fw_area_input(ns("area_notes"), placeholder = "e.g. five golf-course ponds"),
-             "Anything else about the area treated?", tooltip = FW_TIPS$area_notes,
+    fw_field(fw_area_input(ns("area_notes"), placeholder = fw_ph("area_notes")),
+             fw_lab("area_notes"), tooltip = fw_tip("area_notes"),
              input_id = ns("area_notes")),
 
-    fw_field(fw_num_input(ns("depth_m"), min = 0), "Average or estimated depth (m)",
-             tooltip = FW_TIPS$depth, input_id = ns("depth_m")),
-    fw_field(fw_area_input(ns("depth_notes"), rows = 2), "Notes on depth",
+    fw_field(fw_num_input(ns("depth_m"), min = 0), fw_lab("depth_m"),
+             tooltip = fw_tip("depth"), input_id = ns("depth_m")),
+    fw_field(fw_area_input(ns("depth_notes"), rows = 2), fw_lab("depth_notes"),
              input_id = ns("depth_notes")),
 
-    fw_field(fw_num_input(ns("volume_m3"), min = 0), "Estimated volume (m3)",
-             tooltip = FW_TIPS$volume, input_id = ns("volume_m3")),
-    fw_field(fw_area_input(ns("volume_notes"), rows = 2), "Notes on volume",
+    fw_field(fw_num_input(ns("volume_m3"), min = 0), fw_lab("volume_m3"),
+             tooltip = fw_tip("volume"), input_id = ns("volume_m3")),
+    fw_field(fw_area_input(ns("volume_notes"), rows = 2), fw_lab("volume_notes"),
              input_id = ns("volume_notes")),
 
     # Flow is a property of flowing water. Asking a contributor for the maximum
@@ -229,14 +198,14 @@ fw_step_waterbody_ui <- function(ns, choices) {
     conditionalPanel(
       condition = sprintf("input['%s'] === 'Lotic'", ns("water_regime")),
       ns = shiny::NS(NULL),
-      fw_field(fw_num_input(ns("max_flow_m3s"), min = 0), "Maximum flow (m3/s)",
-               tooltip = FW_TIPS$max_flow, input_id = ns("max_flow_m3s"))
+      fw_field(fw_num_input(ns("max_flow_m3s"), min = 0), fw_lab("max_flow"),
+               tooltip = fw_tip("max_flow"), input_id = ns("max_flow_m3s"))
     ),
 
-    fw_field(fw_num_input(ns("water_temp_c")), "Water temperature (degrees Celsius)",
-             tooltip = FW_TIPS$water_temp, input_id = ns("water_temp_c")),
+    fw_field(fw_num_input(ns("water_temp_c")), fw_lab("water_temp"),
+             tooltip = fw_tip("water_temp"), input_id = ns("water_temp_c")),
     fw_field(fw_area_input(ns("water_temp_notes"), rows = 2),
-             "Notes on water temperature", input_id = ns("water_temp_notes"))
+             fw_lab("water_temp_notes"), input_id = ns("water_temp_notes"))
   )
 }
 
@@ -262,23 +231,23 @@ fw_step_timeline_ui <- function(ns, choices) {
   this_year <- as.integer(format(Sys.Date(), "%Y"))
   tagList(
     fw_step_intro("timeline"),
-    fw_field(fw_num_input(ns("invasion_year"), min = 1500, max = this_year),
-             "When did the invasion happen? (year)", tooltip = FW_TIPS$invasion_year,
+    fw_field(fw_num_input(ns("invasion_year"), min = FW_YEAR_MIN, max = this_year),
+             fw_lab("invasion_year"), tooltip = fw_tip("invasion_year"),
              input_id = ns("invasion_year")),
-    fw_field(fw_num_input(ns("start_year"), min = 1500, max = this_year),
-             "Year the eradication attempt began", required = TRUE,
-             tooltip = FW_TIPS$start_year, input_id = ns("start_year")),
-    fw_field(fw_num_input(ns("end_year"), min = 1500, max = this_year + 20),
-             "Year the eradication attempt ended",
-             help = "Leave blank if the work is ongoing.",
-             tooltip = FW_TIPS$end_year, input_id = ns("end_year")),
+    fw_field(fw_num_input(ns("start_year"), min = FW_YEAR_MIN, max = this_year),
+             fw_lab("start_year"), required = TRUE,
+             tooltip = fw_tip("start_year"), input_id = ns("start_year")),
+    fw_field(fw_num_input(ns("end_year"), min = FW_YEAR_MIN, max = this_year + FW_YEAR_FUTURE),
+             fw_lab("end_year"),
+             help = fw_help("end_year"),
+             tooltip = fw_tip("end_year"), input_id = ns("end_year")),
     fw_field(fw_num_input(ns("duration_days"), min = 0),
-             "Estimated total duration (days)", tooltip = FW_TIPS$duration,
+             fw_lab("duration"), tooltip = fw_tip("duration"),
              input_id = ns("duration_days")),
     fw_field(fw_select(ns("driver"), choices$driver),
-             "What was the primary driver for the eradication attempt?",
-             required = TRUE, tooltip = FW_TIPS$driver, input_id = ns("driver")),
-    fw_other_panel(ns, "driver", "driver_other", "Please describe the driver")
+             fw_lab("driver"),
+             required = TRUE, tooltip = fw_tip("driver"), input_id = ns("driver")),
+    fw_other_panel(ns, "driver", "driver_other", fw_lab("driver_other"))
   )
 }
 
@@ -302,7 +271,7 @@ fw_step_benefit_ui <- function(ns, choices) {
 fw_step_methods_ui <- function(ns, choices) {
   tagList(
     fw_step_intro("methods"),
-    tags$h3("Methods used"),
+    tags$h3(fw_lab("methods_heading")),
     # Row 1 inline, for the same reason as the targets above.
     div(id = ns("method_rows"), fw_method_row(ns, 1L, choices)),
     actionButton(ns("add_method"), fw_t("contribute", "add_method"),
@@ -310,21 +279,20 @@ fw_step_methods_ui <- function(ns, choices) {
 
     tags$hr(),
     fw_field(fw_area_input(ns("method_description"), rows = 4),
-             "A fuller description of the approach at this site",
-             tooltip = FW_TIPS$method_desc, input_id = ns("method_description")),
+             fw_lab("method_description"),
+             tooltip = fw_tip("method_desc"), input_id = ns("method_description")),
     # TODO(alex): the specification asks for a numeric box "with a free-text
     # fallback for ranges". The simplest reading is implemented: one text box,
     # validated as a number only when it parses as one, so "20 to 30" is accepted
     # and passed through to QA.
     fw_field(fw_text_input(ns("labour_person_days")),
-             "Effort required (person-days)", tooltip = FW_TIPS$labour,
+             fw_lab("labour"), tooltip = fw_tip("labour"),
              input_id = ns("labour_person_days")),
     fw_field(fw_num_input(ns("cost_estimate"), min = 0),
-             "Estimated cost of the eradication attempt",
-             help = paste("Include staff time and materials. Any currency is fine,",
-                          "just say which in the notes."),
-             tooltip = FW_TIPS$cost, input_id = ns("cost_estimate")),
-    fw_field(fw_area_input(ns("cost_notes"), rows = 2), "Notes on cost",
+             fw_lab("cost"),
+             help = fw_help("cost"),
+             tooltip = fw_tip("cost"), input_id = ns("cost_estimate")),
+    fw_field(fw_area_input(ns("cost_notes"), rows = 2), fw_lab("cost_notes"),
              input_id = ns("cost_notes"))
   )
 }
@@ -332,64 +300,77 @@ fw_step_methods_ui <- function(ns, choices) {
 fw_step_chemical_ui <- function(ns, choices) {
   tagList(
     fw_step_intro("chemical"),
-    # TODO(alex): the specification lists a "Measured concentration notes" field
-    # but no measured concentration value. Implemented as specified, notes only.
+    # THE BASIS COMES FIRST because the concentration means nothing without it:
+    # a figure for the commercial product is the active-ingredient figure
+    # divided by the product's strength, so the two are not comparable. Every
+    # one of the 325 chemical records in the database carries this answer.
+    fw_field(radioButtons(ns("target_ingredient_basis"), label = NULL,
+                          choices = c("Active", "Product"), selected = character(0),
+                          inline = TRUE),
+             fw_lab("ingredient_basis"), tooltip = fw_tip("ingredient_basis"),
+             input_id = ns("target_ingredient_basis")),
     fw_field(fw_text_input(ns("toxin_conc_target")),
-             "Target concentration of the chemical (mg/L)",
-             tooltip = FW_TIPS$toxin_conc, input_id = ns("toxin_conc_target")),
+             fw_lab("toxin_conc"),
+             tooltip = fw_tip("toxin_conc"), input_id = ns("toxin_conc_target")),
     fw_field(fw_area_input(ns("conc_target_notes"), rows = 3),
-             "Notes on the target concentration", input_id = ns("conc_target_notes")),
+             fw_lab("conc_target_notes"), input_id = ns("conc_target_notes")),
+    # The measured value is a field in the database (86 records hold one), so
+    # the form asks for it beside the notes the specification listed.
+    fw_field(fw_text_input(ns("toxin_conc_measured")),
+             fw_lab("toxin_conc_measured"),
+             tooltip = fw_tip("toxin_conc_measured"),
+             input_id = ns("toxin_conc_measured")),
     fw_field(fw_area_input(ns("conc_measured_notes"), rows = 3),
-             "Notes on the measured concentration, if different",
+             fw_lab("conc_measured_notes"),
              input_id = ns("conc_measured_notes")),
     fw_field(fw_select(ns("neutralising_agent"), choices$neutralising_agent),
-             "Neutralizing agent used, if any", tooltip = FW_TIPS$neutralising,
+             fw_lab("neutralising"), tooltip = fw_tip("neutralising"),
              input_id = ns("neutralising_agent")),
     fw_other_panel(ns, "neutralising_agent", "neutralising_agent_other",
-                   "Please name the neutralizing agent"),
+                   fw_lab("neutralising_other")),
     fw_field(fw_area_input(ns("neutralising_notes"), rows = 2),
-             "Notes on the neutralizing agent", input_id = ns("neutralising_notes"))
+             fw_lab("neutralising_notes"), input_id = ns("neutralising_notes"))
   )
 }
 
 fw_step_outcome_ui <- function(ns, choices) {
   tagList(
     fw_step_intro("outcome"),
-    fw_field(fw_select(ns("outcome"), choices$outcome), "What was the outcome?",
-             required = TRUE, tooltip = FW_TIPS$outcome, input_id = ns("outcome")),
+    fw_field(fw_select(ns("outcome"), choices$outcome), fw_lab("outcome"),
+             required = TRUE, tooltip = fw_tip("outcome"), input_id = ns("outcome")),
     # The specification is explicit that verification stays as one box on the
     # form and is split downstream if needed.
     fw_field(fw_area_input(ns("verification"), rows = 4),
-             "How was the outcome verified? Method and any notes",
-             tooltip = FW_TIPS$verification, input_id = ns("verification")),
+             fw_lab("verification"),
+             tooltip = fw_tip("verification"), input_id = ns("verification")),
     fw_field(fw_area_input(ns("reference"), rows = 3),
-             "Link or citation for the underlying evidence",
-             help = "A DOI or URL is ideal.", tooltip = FW_TIPS$reference,
+             fw_lab("reference"),
+             help = fw_help("reference"), tooltip = fw_tip("reference"),
              input_id = ns("reference")),
-    fw_field(fw_text_input(ns("source")), "Where did this record come from?",
-             help = "For our internal provenance. Not shown publicly.",
-             tooltip = FW_TIPS$source, input_id = ns("source"))
+    fw_field(fw_text_input(ns("source")), fw_lab("source"),
+             help = fw_help("source"),
+             tooltip = fw_tip("source"), input_id = ns("source"))
   )
 }
 
 fw_step_contributor_ui <- function(ns, choices) {
   tagList(
     fw_step_intro("contributor"),
-    tags$h3("Primary contact"),
-    fw_field(fw_text_input(ns("primary_contact_name")), "Name", required = TRUE,
-             tooltip = FW_TIPS$contact, input_id = ns("primary_contact_name")),
-    fw_field(fw_text_input(ns("primary_contact_email")), "Email", required = TRUE,
+    tags$h3(fw_lab("primary_heading")),
+    fw_field(fw_text_input(ns("primary_contact_name")), fw_lab("contact_name"), required = TRUE,
+             tooltip = fw_tip("contact"), input_id = ns("primary_contact_name")),
+    fw_field(fw_text_input(ns("primary_contact_email")), fw_lab("contact_email"), required = TRUE,
              input_id = ns("primary_contact_email")),
-    fw_field(fw_text_input(ns("primary_contact_org")), "Organisation",
+    fw_field(fw_text_input(ns("primary_contact_org")), fw_lab("contact_org"),
              input_id = ns("primary_contact_org")),
 
-    tags$h3("Secondary contact"),
-    p(class = "fw-caption", "Optional."),
-    fw_field(fw_text_input(ns("secondary_contact_name")), "Name",
+    tags$h3(fw_lab("secondary_heading")),
+    p(class = "fw-caption", fw_lab("secondary_note")),
+    fw_field(fw_text_input(ns("secondary_contact_name")), fw_lab("contact_name"),
              input_id = ns("secondary_contact_name")),
-    fw_field(fw_text_input(ns("secondary_contact_email")), "Email",
+    fw_field(fw_text_input(ns("secondary_contact_email")), fw_lab("contact_email"),
              input_id = ns("secondary_contact_email")),
-    fw_field(fw_text_input(ns("secondary_contact_org")), "Organisation",
+    fw_field(fw_text_input(ns("secondary_contact_org")), fw_lab("contact_org"),
              input_id = ns("secondary_contact_org"))
   )
 }
@@ -397,8 +378,8 @@ fw_step_contributor_ui <- function(ns, choices) {
 fw_step_other_ui <- function(ns, choices) {
   tagList(
     fw_step_intro("other"),
-    fw_field(fw_area_input(ns("notes_for_fwise"), rows = 6), "Notes for FWISE",
-             tooltip = FW_TIPS$notes, input_id = ns("notes_for_fwise"))
+    fw_field(fw_area_input(ns("notes_for_fwise"), rows = 6), fw_lab("notes"),
+             tooltip = fw_tip("notes"), input_id = ns("notes_for_fwise"))
   )
 }
 
@@ -455,7 +436,7 @@ fw_species_picker <- function(input_id, species) {
     choices = c("", species), selected = "",
     width = "100%",
     options = list(
-      placeholder = "Search by common or scientific name",
+      placeholder = fw_ph("species_search"),
       create = TRUE,
       createOnBlur = TRUE,
       persist = FALSE,
@@ -485,20 +466,20 @@ fw_species_picker <- function(input_id, species) {
 #' never recorded what it was meant to help.
 FW_ROW_KINDS <- list(
   target = list(
-    heading      = "Target",
-    taxa_label   = "What kind of animal was targeted?",
-    taxa_other   = "Please describe the group targeted",
-    species_label = "Which species?",
+    heading      = "target_heading",
+    taxa_label   = "target_taxa",
+    taxa_other   = "target_taxa_other",
+    species_label = "species",
     taxa_choices = "invasive_taxa",
     taxa_tip     = "invasive_taxa",
     species_tip  = "species",
     required     = TRUE
   ),
   benefit = list(
-    heading      = "Beneficiary",
-    taxa_label   = "What kind of species benefited?",
-    taxa_other   = "Please describe the group that benefited",
-    species_label = "Which species?",
+    heading      = "benefit_heading",
+    taxa_label   = "benefit_taxa",
+    taxa_other   = "benefit_taxa_other",
+    species_label = "species",
     taxa_choices = "beneficiary_taxa",
     taxa_tip     = "benefit_taxa",
     species_tip  = "benefit_sp",
@@ -516,18 +497,16 @@ fw_pair_row <- function(ns, index, choices, kind = "target") {
     id = ns(paste0(kind, "_row_", index)),
     class = "fw-repeat-row fw-repeat-row--stacked",
     div(
-      div(class = "fw-repeat-row__heading", paste(cfg$heading, index)),
+      div(class = "fw-repeat-row__heading", paste(fw_lab(cfg$heading), index)),
       fw_field(fw_select(ns(taxa_id), choices[[cfg$taxa_choices]]),
-               cfg$taxa_label, required = first && cfg$required,
-               tooltip = FW_TIPS[[cfg$taxa_tip]], input_id = ns(taxa_id)),
+               fw_lab(cfg$taxa_label), required = first && cfg$required,
+               tooltip = fw_tip(cfg$taxa_tip), input_id = ns(taxa_id)),
       fw_other_panel(ns, taxa_id, paste0(kind, "_taxa_other_", index),
-                     cfg$taxa_other),
+                     fw_lab(cfg$taxa_other)),
       fw_field(fw_species_picker(ns(species_id), choices$species_by_taxa[[FW_ALL]]),
-               cfg$species_label, required = first && cfg$required,
-               tooltip = FW_TIPS[[cfg$species_tip]], input_id = ns(species_id),
-               help = paste("The list narrows to the group above. If your species",
-                            "is not there, type it in and our review team will",
-                            "add it."))
+               fw_lab(cfg$species_label), required = first && cfg$required,
+               tooltip = fw_tip(cfg$species_tip), input_id = ns(species_id),
+               help = fw_help("species"))
     ),
     div(
       class = "fw-repeat-row__remove",
@@ -536,7 +515,7 @@ fw_pair_row <- function(ns, index, choices, kind = "target") {
         # positionally it landed in actionButton's `width`, which threw
         # '"Remove" is not a valid CSS unit' the moment a second row rendered.
         actionButton(ns(paste0("remove_", kind, "_", index)),
-                     label = "Remove",
+                     label = fw_lab("remove"),
                      class = "btn btn-outline-primary btn-sm",
                      `aria-label` = paste(fw_t("contribute", "remove_row"), index))
       }
@@ -558,13 +537,13 @@ fw_method_row <- function(ns, index, choices) {
     class = "fw-repeat-row",
     div(
       fw_field(fw_select(ns(paste0("method_", index)), choices$method),
-               if (first) "Main eradication method" else paste("Method", index),
-               required = first, tooltip = FW_TIPS$method,
+               if (first) fw_lab("method_main") else fw_fill(fw_lab("method_n"), n = index),
+               required = first, tooltip = fw_tip("method"),
                input_id = ns(paste0("method_", index))),
       fw_other_panel(ns, paste0("method_", index), paste0("method_other_", index),
-                     "Please name the method"),
+                     fw_lab("method_other")),
       fw_field(fw_area_input(ns(paste0("method_notes_", index)), rows = 2),
-               "Notes on how this method was applied", tooltip = FW_TIPS$method_notes,
+               fw_lab("method_notes"), tooltip = fw_tip("method_notes"),
                input_id = ns(paste0("method_notes_", index)))
     ),
     div(
@@ -572,7 +551,7 @@ fw_method_row <- function(ns, index, choices) {
       if (!first) {
         # See the note in fw_pair_row(): the word is the label, not a
         # positional argument that falls through to `icon`.
-        actionButton(ns(paste0("remove_method_", index)), label = "Remove",
+        actionButton(ns(paste0("remove_method_", index)), label = fw_lab("remove"),
                      class = "btn btn-outline-primary btn-sm",
                      `aria-label` = paste(fw_t("contribute", "remove_row"), index))
       }

@@ -4,6 +4,49 @@
 
 @import "tokens";
 
+// ---- Custom properties ------------------------------------------------------
+// The palette mirrored as CSS custom properties, so inline styles and any
+// future JS can reach it without recompiling Sass. Values come from R/brand.R.
+
+:root {
+  --fw-ink:       #{$fw-ink};
+  --fw-ink-muted: #{$fw-ink-muted};
+  --fw-brand-indigo: #{$fw-brand-indigo};
+  --fw-brand-teal:   #{$fw-brand-teal};
+  --fw-teal-text:    #{$fw-teal-text};
+  --fw-teal-hover:   #{$fw-teal-hover};
+  --fw-teal-tint:    #{$fw-teal-tint};
+  --fw-teal-wash:    #{$fw-teal-wash};
+  --fw-teal-light:   #{$fw-teal-light};
+  --fw-page:         #{$fw-page};
+  --fw-surface:      #{$fw-surface};
+  --fw-sunken:       #{$fw-sunken};
+  --fw-border:       #{$fw-border};
+  --fw-border-input: #{$fw-border-input};
+
+  --fw-data-successful: #{$fw-data-successful};
+  --fw-data-failed:     #{$fw-data-failed};
+  --fw-data-ongoing:    #{$fw-data-ongoing};
+  --fw-data-unknown:    #{$fw-data-unknown};
+  --fw-data-neutral:    #{$fw-data-neutral};
+
+  --fw-size-caption: #{$fw-size-caption};
+  --fw-size-min:     #{$fw-size-min};
+  --fw-size-popup:   #{$fw-size-popup};
+
+  --fw-font-body: #{$fw-font-body};
+  --fw-font-mono: #{$fw-font-mono};
+
+  --fw-radius-input: #{$fw-radius-input};
+  --fw-radius-card:  #{$fw-radius-card};
+
+  --fw-container-width: #{$fw-container-width};
+
+  --fw-motion-fast: #{$fw-motion-fast};
+  --fw-motion-base: #{$fw-motion-base};
+  --fw-easing: #{$fw-easing};
+}
+
 // ---- Fonts -----------------------------------------------------------------
 // Self-hosted so the app renders correctly with the network blocked. No CDN
 // request is made for type at any point. Latin subset only, because all of the
@@ -45,8 +88,8 @@ body {
   font-size: $fw-size-body;
   font-weight: $fw-weight-regular;
   line-height: $fw-leading-body;
-  color: $fw-abyss;
-  background-color: $fw-silt;
+  color: $fw-ink;
+  background-color: $fw-page;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -56,7 +99,9 @@ h1, h2, h3, h4, h5, h6 {
   // own weight. Bold headings everywhere would push the tone towards lobbying.
   font-weight: $fw-weight-medium;
   line-height: $fw-leading-heading;
-  color: $fw-deep;
+  // INDIGO. Every headline on the poster is indigo; teal is a block fill there,
+  // never type. Headings used to be $fw-teal-text.
+  color: $fw-ink;
   margin-block: 0 $fw-space-2;
   text-wrap: balance;
 }
@@ -68,10 +113,10 @@ h4 { font-size: $fw-size-lead; }
 
 // Step the scale down on narrow screens. At 375px the desktop sizes wrap a
 // three-word heading onto three lines, which reads as broken rather than bold.
-@media (max-width: 480px) {
-  h1 { font-size: 1.8rem; }
-  h2 { font-size: 1.5rem; }
-  h3 { font-size: 1.25rem; }
+@media (max-width: $fw-bp-xs) {
+  h1 { font-size: $fw-size-h1-narrow; }
+  h2 { font-size: $fw-size-h2-narrow; }
+  h3 { font-size: $fw-size-h3-narrow; }
 }
 
 p { margin-block: 0 $fw-space-2; }
@@ -87,13 +132,21 @@ p { margin-block: 0 $fw-space-2; }
 .fw-measure { max-width: $fw-measure; }
 
 a {
-  // $fw-primary is the true brand teal but does not meet 4.5:1 as text, so links
-  // use $fw-deep. See the contrast note in _tokens.scss.
-  color: $fw-deep;
+  // $fw-brand-teal is the true brand teal but does not meet 4.5:1 as text, so links
+  // use $fw-teal-text. See the contrast note in _tokens.scss.
+  //
+  // Teal, while the body text around it is indigo. That hue difference is what
+  // marks a link, so the underline is doing the same job twice and can stay
+  // thin.
+  color: $fw-teal-text;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
 
-  &:hover { color: $fw-primary; }
+  // Hover DARKENS to the indigo ink rather than lightening to $fw-brand-teal,
+  // which is the way it used to go. Lightening a link on hover took it to
+  // 3.47:1 on the cream ground - under the floor for text, and at exactly the
+  // moment the user is about to read it.
+  &:hover { color: $fw-ink; }
 }
 
 // Numerals only. Ubuntu Mono column-aligns figures so they can be scanned; it is
@@ -104,9 +157,21 @@ a {
   letter-spacing: -0.01em;
 }
 
-small, .fw-caption {
+// Caption text is 1rem like everything else, so it is separated from body text
+// by colour alone. .small is in here because Bootstrap sizes that class off its
+// own variable and it would otherwise slip under the floor.
+small, .small, .fw-caption {
   font-size: $fw-size-caption;
   color: $fw-ink-muted;
+}
+
+// A chart's "nothing to draw" line. Shiny puts a validation message in the
+// output's own slot (see fw_chart_or_empty() in charts.R); styled as a caption
+// rather than left to Shiny's grey default, which is under the floor.
+.shiny-output-error-validation {
+  font-size: $fw-size-caption;
+  color: $fw-ink-muted;
+  padding-block: $fw-space-2;
 }
 
 // ---- Focus -----------------------------------------------------------------
@@ -114,7 +179,8 @@ small, .fw-caption {
 // colour verified at 3:1 against both the page and card backgrounds.
 
 :focus-visible {
-  outline: 3px solid $fw-shallow;
+  // $fw-brand-teal, not $fw-teal-hover: see the note on focus-ring-color in theme.R.
+  outline: 3px solid $fw-brand-teal;
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -131,8 +197,8 @@ small, .fw-caption {
   top: -8rem;
   z-index: 2000;
   padding: $fw-space-1 $fw-space-2;
-  background: $fw-paper;
-  color: $fw-deep;
+  background: $fw-surface;
+  color: $fw-teal-text;
   border-radius: $fw-radius-input;
   box-shadow: $fw-shadow-raised;
   transition: top $fw-motion-fast $fw-easing;
@@ -153,6 +219,13 @@ small, .fw-caption {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+// NO BOOTSTRAP GUTTER on any container, at the client's request: the page
+// runs edge to edge and .fw-container sets its own side space.
+.container-fluid, .container-xxl, .container-xl, .container-lg, .container-md, .container-sm {
+  --bs-gutter-x: 0rem;
+  --bs-gutter-y: 0;
 }
 
 @import "components";

@@ -23,7 +23,8 @@ library(dplyr)
 mod_networking_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    fw_page_header(fw_t("networking", "title"), fw_t("networking", "description")),
+    fw_page_header(fw_t("networking", "title"), fw_t("networking", "description"),
+                   show_title = FALSE),
     tags$main(
       id = "fw-main",
       fw_section(
@@ -70,7 +71,7 @@ mod_networking_ui <- function(id) {
 
           div(
             class = "fw-panel fw-prose",
-            h2(fw_t("networking", "outro_heading")),
+            h2(class = "fw-visually-hidden", fw_t("networking", "outro_heading")),
             p(fw_t("networking", "outro")),
             tags$a(
               class = "btn btn-primary",
@@ -180,14 +181,14 @@ mod_networking_server <- function(id, data) {
       no_contact <- sum(is.na(data$attempt$primary_contact_id) &
                         is.na(data$attempt$secondary_contact_id))
 
-      text <- fw_t("networking", "coverage")
-      for (r in list(
-        c("{reachable}",  fw_fmt_num(reachable)),
-        c("{total}",      fw_fmt_num(nrow(data$attempt))),
-        c("{no_email}",   fw_fmt_num(sum(is.na(contacts$contact_email)))),
-        c("{contacts}",   fw_fmt_num(nrow(contacts))),
-        c("{no_contact}", fw_fmt_num(no_contact))
-      )) text <- sub(r[1], r[2], text, fixed = TRUE)
+      text <- fw_fill(
+        fw_t("networking", "coverage"),
+        reachable  = fw_fmt_num(reachable),
+        total      = fw_fmt_num(nrow(data$attempt)),
+        no_email   = fw_fmt_num(sum(is.na(contacts$contact_email))),
+        contacts   = fw_fmt_num(nrow(contacts)),
+        no_contact = fw_fmt_num(no_contact)
+      )
 
       p(class = "fw-caption fw-coverage-note", text)
     })
@@ -282,17 +283,7 @@ mod_networking_server <- function(id, data) {
           tags$td(r$continent_label),
           tags$td(r$country_label),
           tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
-          tags$td(fw_contact_action(r$contact_email, r$contact_name)),
-          tags$td(
-            actionLink(
-              ns(paste0("view_", r$contact_id)),
-              fw_t("networking", "view_attempts"),
-              onclick = sprintf(
-                "Shiny.setInputValue('%s', '%s', {priority:'event'});",
-                ns("view_contact"), r$contact_id
-              )
-            )
-          )
+          tags$td(fw_contact_action(r$contact_email, r$contact_name))
         )
       })
 
@@ -309,18 +300,10 @@ mod_networking_server <- function(id, data) {
           tags$th(scope = "col", fw_t("networking", "col_continent")),
           tags$th(scope = "col", fw_t("networking", "col_country")),
           tags$th(scope = "col", class = "fw-col-num", fw_t("networking", "col_attempts")),
-          tags$th(scope = "col", fw_t("networking", "col_contact")),
-          tags$th(scope = "col", tags$span(class = "fw-visually-hidden", "Attempts link"))
+          tags$th(scope = "col", fw_t("networking", "col_contact"))
         )),
         tags$tbody(rows)
       )
-    })
-
-    # Route through to the dashboard, which reads the request and narrows to
-    # this person's attempts. See mod_explore.R.
-    observeEvent(input$view_contact, {
-      fw_set_explore_request(input$view_contact)
-      session$sendCustomMessage("fw-nav", "explore")
     })
   })
 }
@@ -351,7 +334,7 @@ fw_contact_action <- function(email, name) {
     class = "fw-contact-link",
     `data-u` = parts[1],
     `data-d` = parts[2],
-    `aria-label` = paste("Email", name),
+    `aria-label` = fw_fill(fw_t("a11y", "email_name"), name = name),
     onclick = paste0(
       "window.location.href='mail'+'to:'+this.dataset.u+String.fromCharCode(64)",
       "+this.dataset.d; return false;"

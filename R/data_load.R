@@ -1,9 +1,21 @@
 # data_load.R
 # The data contract. Every module reads through the functions in this file and
-# no module reads a CSV directly. When the real schema changes, this is the only
+# no module reads a CSV directly. When the data layout changes, this is the only
 # file that should need to change.
 #
-# The six tables are loaded once at app startup, not once per session, because
+# THE DATA IS ONE WIDE TABLE AND TWO LOOKUPS. attempts.csv holds one row per
+# eradication attempt with every column the client's export has, plus the few
+# the app owns (id, status, dates). Species and contacts are referenced by id
+# into species.csv and contacts.csv, so a name is corrected in one place and a
+# typo cannot mint a phantom species. Multi-value cells are FW_MULTI_SEP lists.
+#
+# THE STAR SCHEMA STILL EXISTS - IN MEMORY. fw_unpack() below splits the wide
+# table into the six tables every module was written against (attempt, species,
+# attempt_species, method, attempt_method, contact), so nothing downstream
+# changed when the files did. At 2,000 rows the split takes well under a tenth
+# of a second, measured, and it runs once at startup rather than per session.
+#
+# The tables are loaded once at app startup, not once per session, because
 # they are read-only and identical for every visitor.
 
 suppressPackageStartupMessages({
@@ -14,30 +26,78 @@ suppressPackageStartupMessages({
   library(purrr)
 })
 
-FW_TABLES <- c("attempt", "species", "attempt_species",
-               "method", "attempt_method", "contact")
+# ---- The columns -------------------------------------------------------------
 
-# Column types are declared rather than guessed. readr guessing from the first
-# 1000 rows has bitten this kind of file before: a mostly-empty numeric column
-# reads as logical and every downstream join breaks in a confusing way.
-fw_col_types <- list(
-  attempt = cols(
-    .default = col_character(),
-    latitude = col_double(), longitude = col_double(),
-    area_treated = col_double(), depth_m = col_double(),
-    volume_m3 = col_double(), max_flow_m3s = col_double(),
-    water_temp_c = col_double(), invasion_year = col_double(),
-    start_year = col_double(), end_year = col_double(),
-    duration_days = col_double(), toxin_conc_mg_l = col_double(),
-    labour_person_days = col_double(), cost_estimate = col_double(),
-    last_updated = col_date(format = "")
-  ),
-  species         = cols(.default = col_character()),
-  attempt_species = cols(.default = col_character()),
-  method          = cols(.default = col_character()),
-  attempt_method  = cols(.default = col_character(), method_order = col_integer()),
-  contact         = cols(.default = col_character(), email_public = col_logical())
+# THE COLUMN CONTRACT for attempts.csv, in file order. A file with a column
+# missing or an extra one stops the load (fw_validate_files), which is the guard
+# that an earlier hand-written column list did not have: a source column that
+# never got named simply vanished, silently, and took its 325 values with it.
+#
+# The submissions inbox uses the SAME vector, so a submission is one row in the
+# shape of the database and a reviewer compares like with like.
+#
+# Values are stored as the source's text, verbatim. "0.010-0.020" stays a
+# range, "≥0.5" keeps its sign, a year is the four characters the client typed.
+# Casting is done here, in memory, for the columns in FW_ATTEMPT_NUMERIC only.
+FW_ATTEMPT_COLUMNS <- c(
+  # App-owned
+  "attempt_id", "status", "submitted_at", "last_updated", "consent_data_use",
+  # Site
+  "site_name", "country", "region", "iso3", "continent", "latitude", "longitude",
+  # Waterbody
+  "waterbody_type", "water_regime", "area_treated", "area_unit", "area_notes",
+  "depth_m", "depth_notes", "volume_m3", "volume_notes", "max_flow_m3s",
+  "water_temp_c", "water_temp_notes",
+  # Invasives: FW_MULTI_SEP list of species_id
+  "invasive_species",
+  # Timeline
+  "invasion_year", "start_year", "end_year", "duration_days",
+  "eradication_or_control", "driver",
+  # Beneficiaries: FW_MULTI_SEP list of species_id
+  "beneficiary_species",
+  # Outcome
+  "outcome",
+  # Methods: FW_MULTI_SEP list of names; notes as "Name: text" joined by
+  # FW_NOTES_SEP, one entry per method in the same order
+  "methods", "method_notes", "method_description", "labour_person_days",
+  "cost_estimate", "cost_notes",
+  # Chemical detail
+  "target_ingredient_basis", "toxin_conc_target_mg_l", "conc_target_notes",
+  "toxin_conc_measured_mg_l", "conc_measured_notes",
+  "neutralising_agent", "neutralising_notes",
+  # Evidence
+  "verification_method", "verification_notes",
+  # People: ids into contacts.csv
+  "primary_contact_id", "secondary_contact_id",
+  # Provenance
+  "source", "sent", "reference", "reference_link", "notes_for_fwise"
 )
+
+FW_SPECIES_COLUMNS <- c(
+  "species_id", "common_name", "scientific_name", "taxa", "family", "iucn_status",
+  "image_url", "image_credit", "image_licence", "image_licence_url", "image_page_url"
+)
+
+FW_CONTACT_COLUMNS <- c(
+  "contact_id", "contact_name", "contact_email", "organisation", "email_public"
+)
+
+# The attempt columns that are numbers in memory. Every one of them is numeric
+# on every row of the source. The two that LOOK numeric but are not -
+# toxin_conc_target_mg_l (120 ranges and inequalities) and labour_person_days
+# (189 sentences) - stay as text, because casting them threw those values away.
+FW_ATTEMPT_NUMERIC <- c(
+  "latitude", "longitude", "area_treated", "depth_m", "volume_m3", "max_flow_m3s",
+  "water_temp_c", "invasion_year", "start_year", "end_year", "duration_days",
+  "cost_estimate"
+)
+
+# The wide-table cells that fw_unpack() turns into bridge tables. They are
+# dropped from the in-memory attempt table so they cannot collide with the
+# columns fw_export_frame() builds under the same names. method_notes stays: nine
+# attempts have no method and a note saying why, which has no bridge row to
+# live in, and the raw cell is the only place it survives in memory.
+FW_ATTEMPT_PACKED <- c("invasive_species", "beneficiary_species", "methods")
 
 # ---- Where the data comes from -----------------------------------------------
 
@@ -76,8 +136,6 @@ fw_data_source <- function() {
   sub("/+$", "", src)
 }
 
-fw_source_is_remote <- function() fw_data_mode() != "local"
-
 #' Resolve one file below the data root, fetching it if it is remote
 #'
 #' Returns something read_csv() and fromJSON() can open: a path on disk, a URL,
@@ -88,7 +146,7 @@ fw_source_is_remote <- function() fw_data_mode() != "local"
 #' NULL means the file is not there. Some callers treat that as fatal and others
 #' as simply absent, which is why it is a return value rather than an error.
 #'
-#' @param ... path segments, e.g. "schema", "attempt.csv"
+#' @param ... path segments, e.g. "inbox", "FW-20261003-7K3QX9.csv"
 fw_data_path <- function(...) {
   parts <- c(...)
   switch(
@@ -125,24 +183,241 @@ fw_data_missing <- function(rel) {
   )
 }
 
-#' Load the six star-schema tables
+# ---- Reading -----------------------------------------------------------------
+
+#' Read one of the three data files, every column as text
+#'
+#' Text on purpose. readr guessing from the first 1000 rows has bitten this kind
+#' of file before - a mostly-empty numeric column reads as logical and every
+#' join downstream breaks in a confusing way - and the file's contract is that
+#' it holds the source's text verbatim. The casts happen in fw_unpack().
+fw_read_table <- function(name) {
+  path <- fw_data_path(name)
+  if (is.null(path)) stop(fw_data_missing(name), call. = FALSE)
+  read_csv(path, col_types = cols(.default = col_character()), progress = FALSE)
+}
+
+#' Load the data and unpack it into the six in-memory tables
 #'
 #' READ ONCE, AT STARTUP. Not per session and not on a poll. The data changes
-#' quarterly and visibility comes from a deliberate republish, so re-reading it
-#' would spend a request per visitor to discover that nothing had changed.
+#' when the review team folds submissions in, and visibility comes from a
+#' deliberate restart, so re-reading it would spend a request per visitor to
+#' discover that nothing had changed.
 #'
-#' @return A named list of six tibbles.
+#' @return A named list of six tibbles, filtered to approved rows.
 fw_load_data <- function() {
-  tables <- set_names(FW_TABLES) |>
-    map(function(nm) {
-      rel  <- paste0("schema/", nm, ".csv")
-      path <- fw_data_path("schema", paste0(nm, ".csv"))
-      if (is.null(path)) stop(fw_data_missing(rel), call. = FALSE)
-      read_csv(path, col_types = fw_col_types[[nm]], progress = FALSE)
-    })
+  attempts <- fw_read_table(FW_ATTEMPTS_FILE)
+  species  <- fw_read_table(FW_SPECIES_FILE)
+  contacts <- fw_read_table(FW_CONTACTS_FILE)
 
-  fw_validate_data(tables)
+  fw_validate_files(attempts, species, contacts)
+  fw_validate_geography(attempts)
+  tables <- fw_unpack(attempts, species, contacts)
   fw_filter_approved(tables)
+}
+
+#' Stop the load when a row's iso3 or continent disagrees with the ISO lookup
+#'
+#' THE RULE FOR PLACE, in one sentence: `country` is the ISO 3166-1 name of the
+#' country or territory the site is in, and `iso3` and `continent` are
+#' properties of that country and of nothing else.
+#'
+#' Two consequences, both of which the data used to get wrong:
+#'   - a territory with its own ISO entry (Guam, Bermuda, Puerto Rico) is its
+#'     own country, not a region of the state that administers it;
+#'   - a region never moves its country between continents. Hawaii is a state
+#'     of the United States, so it is USA and North America wherever it sits.
+#' `region` is free text within the country - a state, a province, an island
+#' group - and says nothing about the two derived columns.
+#'
+#' dev/qa.R writes iso3 and continent from the lookup at fold time; this is
+#' the check that a hand edit has not undone that. A country the lookup does
+#' not know - one typed in under "Other (specify)" and accepted by the
+#' reviewer - is not checked here; qa.R reports it when the row is folded.
+#'
+#' The lookup is optional (see fw_load_iso), so a checkout without it loads
+#' unchecked rather than failing.
+fw_validate_geography <- function(attempts) {
+  iso <- tryCatch(fw_read_lookup("lookup_iso3166.csv"), error = function(e) NULL)
+  if (is.null(iso)) return(invisible(TRUE))
+
+  m <- match(attempts$country, iso$country)
+  known <- !is.na(m)
+  want_iso3 <- iso$iso3[m]
+  want_cont <- iso$continent[m]
+  differs <- function(have, want) known & !is.na(want) & (is.na(have) | have != want)
+  bad <- differs(attempts$iso3, want_iso3) | differs(attempts$continent, want_cont)
+  # A region that is itself a country in the standard is a territory filed
+  # under its administering state, which is the Guam mistake.
+  bad <- bad | (!is.na(attempts$region) & attempts$region %in% iso$country)
+  if (!any(bad)) return(invisible(TRUE))
+
+  lines <- paste0(
+    attempts$attempt_id[bad], ": ", attempts$country[bad],
+    ifelse(is.na(attempts$region[bad]), "", paste0(" (", attempts$region[bad], ")")),
+    " stored as ", attempts$iso3[bad], " / ", attempts$continent[bad],
+    ", lookup says ", want_iso3[bad], " / ", want_cont[bad]
+  )
+  stop(sum(bad), " row(s) in ", FW_ATTEMPTS_FILE,
+       " disagree with lookup_iso3166.csv on iso3, continent or territory:\n  ",
+       paste(head(lines, 10), collapse = "\n  "),
+       if (sum(bad) > 10) "\n  ...",
+       "\niso3 and continent are properties of the country; a territory with its ",
+       "own ISO entry is its own country. Correct the row, or the lookup.",
+       call. = FALSE)
+}
+
+#' Fail loudly on a file whose columns are not the contract
+#'
+#' EXACT, in both directions. A missing column would make a page fail three
+#' clicks later with a message about a variable nobody remembers; an extra one
+#' is a value with nowhere to go, which is precisely how the ingredient-basis
+#' column was lost from the old build. Order is not checked - dev/qa.R writes
+#' the canonical order and a hand edit that reorders columns does no harm.
+fw_validate_files <- function(attempts, species, contacts) {
+  check <- function(name, have, want) {
+    missing <- setdiff(want, have)
+    extra   <- setdiff(have, want)
+    if (length(missing) || length(extra)) {
+      stop(name, " does not match the column contract in data_load.R.",
+           if (length(missing)) paste0("\n  missing: ", paste(missing, collapse = ", ")),
+           if (length(extra))   paste0("\n  unexpected: ", paste(extra, collapse = ", ")),
+           "\nA column with nowhere to go is how data goes missing, so the load ",
+           "stops here.", call. = FALSE)
+    }
+  }
+  check(FW_ATTEMPTS_FILE, names(attempts), FW_ATTEMPT_COLUMNS)
+  check(FW_SPECIES_FILE,  names(species),  FW_SPECIES_COLUMNS)
+  check(FW_CONTACTS_FILE, names(contacts), FW_CONTACT_COLUMNS)
+  if (any(duplicated(attempts$attempt_id))) {
+    stop(FW_ATTEMPTS_FILE, " holds a duplicated attempt_id: ",
+         paste(unique(attempts$attempt_id[duplicated(attempts$attempt_id)]),
+               collapse = ", "), call. = FALSE)
+  }
+  if (any(duplicated(species$species_id))) {
+    stop(FW_SPECIES_FILE, " holds a duplicated species_id.", call. = FALSE)
+  }
+  if (any(duplicated(contacts$contact_id))) {
+    stop(FW_CONTACTS_FILE, " holds a duplicated contact_id.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+# ---- Unpacking ---------------------------------------------------------------
+
+#' Split one FW_MULTI_SEP cell into its items
+#'
+#' @return a character vector, empty for a blank cell. Items are trimmed so a
+#'   hand edit with an extra space does not become a new id.
+fw_split_multi <- function(x, sep = FW_MULTI_SEP) {
+  if (is.na(x) || !nzchar(x)) return(character(0))
+  out <- trimws(strsplit(x, sep, fixed = TRUE)[[1]])
+  out[nzchar(out)]
+}
+
+#' One row per (attempt, item) from a multi-value column
+fw_unpack_multi <- function(attempts, column, value_name, sep = FW_MULTI_SEP) {
+  items <- lapply(attempts[[column]], fw_split_multi, sep = sep)
+  n <- lengths(items)
+  out <- tibble(
+    attempt_id = rep(attempts$attempt_id, n),
+    value      = unlist(items, use.names = FALSE),
+    position   = unlist(lapply(n, seq_len), use.names = FALSE)
+  )
+  names(out)[names(out) == "value"] <- value_name
+  out
+}
+
+#' The method dimension for whatever names the data holds
+#'
+#' FW_METHODS supplies the seven known methods with their fixed ids and classes.
+#' Anything else - a method a contributor typed in and the reviewer accepted -
+#' gets an id derived from its name and the class "other", so it loads and
+#' charts rather than stopping the app. dev/qa.R points the reviewer at these.
+fw_method_table <- function(names_in_data) {
+  known <- FW_METHODS
+  extra <- setdiff(unique(names_in_data[!is.na(names_in_data)]), known$method_name)
+  if (length(extra)) {
+    known <- bind_rows(known, tibble(
+      method_id    = paste0("ME-", toupper(substr(vapply(extra, rlang::hash, ""), 1, 6))),
+      method_name  = extra,
+      method_class = "other"
+    ))
+  }
+  as_tibble(known)
+}
+
+#' Turn the wide table and the two lookups into the six tables the app reads
+#'
+#' Every id in attempts.csv must resolve to a row in its lookup, and the load
+#' stops if one does not, naming the attempts. This is the integrity check the
+#' old bridge tables could not give a spreadsheet: a reviewer who mistypes a
+#' species id finds out at the next restart rather than never.
+fw_unpack <- function(attempts, species, contacts) {
+  a <- attempts
+  for (col in FW_ATTEMPT_NUMERIC) a[[col]] <- suppressWarnings(as.numeric(a[[col]]))
+  a$last_updated <- suppressWarnings(as.Date(a$last_updated))
+
+  species  <- species[, FW_SPECIES_COLUMNS]
+  contacts <- contacts[, FW_CONTACT_COLUMNS]
+  contacts$email_public <- toupper(trimws(contacts$email_public)) %in% c("TRUE", "YES", "1")
+
+  # ---- Species -----------------------------------------------------------------
+  attempt_species <- bind_rows(
+    mutate(fw_unpack_multi(a, "invasive_species",    "species_id"), role = "invasive"),
+    mutate(fw_unpack_multi(a, "beneficiary_species", "species_id"), role = "beneficiary")
+  ) |>
+    select(attempt_id, species_id, role, position)
+
+  fw_stop_unresolved(attempt_species, "species_id", species$species_id,
+                     FW_ATTEMPTS_FILE, FW_SPECIES_FILE)
+
+  # ---- Methods -----------------------------------------------------------------
+  am <- fw_unpack_multi(a, "methods", "method_name")
+  notes <- fw_unpack_multi(a, "method_notes", "note", sep = FW_NOTES_SEP)
+  am <- left_join(am, notes, by = c("attempt_id", "position"))
+  # Each note entry is "Method name: text". The prefix is stripped by the name
+  # in the same position rather than by a regex on any name, so a note that
+  # happens to start with a method's name is left intact.
+  prefix <- paste0(am$method_name, ":")
+  has_prefix <- !is.na(am$note) & startsWith(am$note, prefix)
+  am$note[has_prefix] <- trimws(substring(am$note[has_prefix], nchar(prefix[has_prefix]) + 1))
+  am$note[!is.na(am$note) & !nzchar(am$note)] <- NA_character_
+
+  method <- fw_method_table(am$method_name)
+  attempt_method <- am |>
+    left_join(select(method, method_id, method_name), by = "method_name") |>
+    transmute(attempt_id, method_id, method_order = as.integer(position),
+              method_notes = note)
+
+  # ---- Contacts ----------------------------------------------------------------
+  refs <- bind_rows(
+    tibble(attempt_id = a$attempt_id, contact_id = a$primary_contact_id),
+    tibble(attempt_id = a$attempt_id, contact_id = a$secondary_contact_id)
+  ) |> filter(!is.na(contact_id))
+  fw_stop_unresolved(refs, "contact_id", contacts$contact_id,
+                     FW_ATTEMPTS_FILE, FW_CONTACTS_FILE)
+
+  list(
+    attempt         = a[, setdiff(names(a), FW_ATTEMPT_PACKED)],
+    species         = species,
+    attempt_species = select(attempt_species, attempt_id, species_id, role),
+    method          = method,
+    attempt_method  = attempt_method,
+    contact         = contacts
+  )
+}
+
+#' Stop the load when a referenced id has no row
+fw_stop_unresolved <- function(refs, id_col, known, from_file, to_file) {
+  bad <- refs[!refs[[id_col]] %in% known, ]
+  if (nrow(bad) == 0) return(invisible(TRUE))
+  stop(nrow(bad), " ", id_col, " value(s) in ", from_file,
+       " have no row in ", to_file, ":\n  ",
+       paste(head(unique(paste0(bad$attempt_id, " -> ", bad[[id_col]])), 10),
+             collapse = "\n  "),
+       if (nrow(bad) > 10) "\n  ...",
+       "\nAdd the missing row to ", to_file, " or correct the id.", call. = FALSE)
 }
 
 # ---- The approval gate -------------------------------------------------------
@@ -176,7 +451,7 @@ FW_STATUS <- c("pending", "approved", "rejected")
 fw_filter_approved <- function(tables) {
   bad <- setdiff(unique(tables$attempt$status), c(FW_STATUS, NA))
   if (length(bad) > 0) {
-    stop("attempt.status holds values that are not ",
+    stop("attempts.status holds values that are not ",
          paste(sQuote(FW_STATUS), collapse = ", "), ": ",
          paste(sQuote(bad), collapse = ", "),
          "\nA row with an unrecognised status would be silently included or ",
@@ -209,16 +484,16 @@ fw_filter_approved <- function(tables) {
 #' How many records are waiting on review
 #'
 #' Two sources, because a submission is in review from the moment it is sent, not
-#' from the moment someone merges it into the schema: rows already carried into
-#' the database as `pending`, plus whatever is sitting in the submissions inbox
+#' from the moment someone folds it into the data: rows already carried into
+#' attempts.csv as `pending`, plus whatever is sitting in the submissions inbox
 #' and has not been processed at all yet.
 fw_review_count <- function(data) {
   counts <- attr(data, "status_counts")
   in_schema <- if (is.null(counts)) 0L else as.integer(counts[["pending"]])
 
-  # Only submissions NOT yet carried into the schema. A merged submission is
-  # already counted by in_schema above, and counting it here as well would
-  # double it and leave the indicator permanently inflated.
+  # Only submissions NOT yet folded in. A folded submission is already counted
+  # by in_schema above, and counting it here as well would double it and leave
+  # the indicator permanently inflated.
   inbox <- tryCatch(fw_pending_submissions(), error = function(e) data.frame())
   in_inbox <- if (nrow(inbox) == 0) 0L
     else if ("status" %in% names(inbox)) sum(inbox$status == "pending", na.rm = TRUE)
@@ -231,7 +506,7 @@ fw_review_count <- function(data) {
 #'
 #' Carries the release date and the row counts as published, so the footer's
 #' "last updated" line states when the data was released rather than inferring it
-#' from a column inside the data. Written by R/data_prep.R on every build, so the
+#' from a column inside the data. Written by dev/qa.R on every fold, so the
 #' counts cannot drift away from the tables they describe.
 #'
 #' A missing or unreadable file is not fatal - the app is still perfectly usable
@@ -250,31 +525,6 @@ fw_load_metadata <- function() {
   )
   if (is.null(out)) return(list(release = NA, row_counts = NULL))
   out
-}
-
-# Fail loudly at startup rather than producing a page with silently missing
-# columns. A scientist re-running data_prep.R with a changed export should get a
-# clear message here, not an empty table three pages later.
-fw_validate_data <- function(tables) {
-  required <- list(
-    attempt = c("attempt_id", "country", "continent", "latitude", "longitude",
-                "outcome", "start_year", "primary_contact_id", "status",
-                "last_updated"),
-    species = c("species_id", "scientific_name", "common_name", "taxa", "family"),
-    attempt_species = c("attempt_id", "species_id", "role"),
-    method = c("method_id", "method_name", "method_class"),
-    attempt_method = c("attempt_id", "method_id", "method_order"),
-    contact = c("contact_id", "contact_name", "contact_email",
-                "organisation", "email_public")
-  )
-  for (nm in names(required)) {
-    missing <- setdiff(required[[nm]], names(tables[[nm]]))
-    if (length(missing) > 0) {
-      stop("Table '", nm, "' is missing required columns: ",
-           paste(missing, collapse = ", "), call. = FALSE)
-    }
-  }
-  invisible(TRUE)
 }
 
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0) y else x
@@ -297,56 +547,6 @@ fw_species_label <- function(species) {
         !is.na(scientific_name) ~ scientific_name,
         TRUE ~ common_name
       )
-    )
-}
-
-#' One row per attempt, with species, methods and contacts collapsed
-#'
-#' For tables and exports. List columns keep the many-to-one relationships intact
-#' rather than flattening them into numbered columns again.
-fw_attempts_wide <- function(data) {
-  species_labelled <- fw_species_label(data$species)
-
-  sp <- data$attempt_species |>
-    left_join(select(species_labelled, species_id, label, taxa, family),
-              by = "species_id") |>
-    group_by(attempt_id, role) |>
-    summarise(names = list(label), .groups = "drop") |>
-    pivot_wider(names_from = role, values_from = names,
-                names_prefix = "species_")
-
-  # Guard against an export with no beneficiary rows at all.
-  for (nm in c("species_invasive", "species_beneficiary")) {
-    if (!nm %in% names(sp)) sp[[nm]] <- vector("list", nrow(sp))
-  }
-
-  me <- data$attempt_method |>
-    left_join(select(data$method, method_id, method_name, method_class),
-              by = "method_id") |>
-    arrange(attempt_id, method_order) |>
-    group_by(attempt_id) |>
-    summarise(
-      methods       = list(method_name),
-      method_classes = list(unique(method_class)),
-      .groups = "drop"
-    )
-
-  contacts <- select(data$contact, contact_id, contact_name, organisation)
-
-  data$attempt |>
-    left_join(sp, by = "attempt_id") |>
-    left_join(me, by = "attempt_id") |>
-    left_join(
-      rename(contacts, primary_contact_id = contact_id,
-             primary_contact_name = contact_name,
-             primary_contact_org = organisation),
-      by = "primary_contact_id"
-    ) |>
-    left_join(
-      rename(contacts, secondary_contact_id = contact_id,
-             secondary_contact_name = contact_name,
-             secondary_contact_org = organisation),
-      by = "secondary_contact_id"
     )
 }
 
@@ -391,9 +591,9 @@ fw_contacts_summary <- function(data) {
       country_label   = map_chr(countries,  ~ paste(.x, collapse = ", ")),
       continent_label = map_chr(continents, ~ paste(.x, collapse = ", "))
     ) |>
-    # Drop the source country column, which is intentionally empty, so nothing
-    # downstream mistakes it for the derived value.
-    select(-country) |>
+    # An older contact table carried an always-empty country column; drop it if
+    # present so nothing downstream mistakes it for the derived value.
+    select(-any_of("country")) |>
     arrange(desc(attempt_count), contact_name)
 }
 
@@ -427,21 +627,30 @@ fw_last_updated <- function(data, meta = NULL) {
   if (is.infinite(d) || is.na(d)) NA else d
 }
 
-#' Headline counts for the landing page KPI strip
+#' Headline counts for the whole database
 #'
-#' Computed at runtime from the loaded data, never hardcoded.
+#' Computed at runtime from the loaded data, never hardcoded. Read by the
+#' Explore page's database panel, the About page's scale sentence and citation,
+#' and the Welcome page's species-protected figure. Counts only, never a rate.
 fw_headline_stats <- function(data) {
-  invasive_ids <- data$attempt_species |>
-    filter(role == "invasive") |>
-    pull(species_id) |>
-    unique()
+  role_ids <- function(role_name) {
+    unique(data$attempt_species$species_id[data$attempt_species$role == role_name])
+  }
 
   list(
     attempts       = nrow(data$attempt),
     countries      = n_distinct(data$attempt$country),
     earliest_year  = suppressWarnings(min(data$attempt$start_year, na.rm = TRUE)),
-    species        = length(invasive_ids),
-    successful     = sum(data$attempt$outcome == "Successful", na.rm = TRUE)
+    latest_year    = suppressWarnings(max(data$attempt$start_year, na.rm = TRUE)),
+    species        = length(role_ids("invasive")),
+    beneficiaries  = length(role_ids("beneficiary")),
+    successful     = sum(data$attempt$outcome == "Successful", na.rm = TRUE),
+    # The Welcome page's one figure: beneficiaries of SUCCESSFUL attempts only.
+    protected      = length(unique(data$attempt_species$species_id[
+      data$attempt_species$role == "beneficiary" &
+        data$attempt_species$attempt_id %in%
+          data$attempt$attempt_id[data$attempt$outcome %in% "Successful"]
+    ]))
   )
 }
 
@@ -509,8 +718,8 @@ fw_load_iso <- function() {
 
 #' Read one lookup file from the data source, or NULL if it is not there
 #'
-#' These sit at the ROOT of the data source, beside metadata.json, rather than
-#' in schema/ - they describe the standard, not this dataset.
+#' These sit at the ROOT of the data source, beside metadata.json and the three
+#' data files - they describe the standard, not this dataset.
 fw_read_lookup <- function(name) {
   path <- fw_data_path(name)
   if (is.null(path)) return(NULL)
@@ -643,16 +852,17 @@ fw_startup_choices <- function(data) {
     # whose group is not yet answered or is one with nothing recorded under it.
     species_by_taxa = fw_species_by_taxa(species_labelled, species_choices),
 
-    # label -> family, so the family can be filled in from the species the
-    # contributor picks rather than asked for. See fw_family_for_species().
-    species_family = fw_species_family_lookup(species_labelled)
+    # label -> species_id, so the form writes the id the database already
+    # holds for a species the contributor picked. A species they typed in has
+    # no entry here and travels as text for the reviewer - see submit.R.
+    species_ids = stats::setNames(species_labelled$species_id, species_labelled$label)
   )
 }
 
 # THE ONE PLACE THAT SAYS WHICH WATERBODIES FLOW.
 #
 # Read by TWO consumers that used to disagree:
-#   - data_prep.R, which corrects water_regime as the schema is built
+#   - the migration that built attempts.csv, which corrected water_regime once
 #   - fw_waterbody_by_regime() below, which narrows the contribute form's
 #     waterbody list once "still or flowing" has been answered
 #
@@ -740,28 +950,4 @@ fw_species_by_taxa <- function(species_labelled, all_labels) {
   by_taxa <- lapply(by_taxa, function(x) all_labels[all_labels %in% x])
   by_taxa[[FW_ALL]] <- all_labels
   by_taxa
-}
-
-#' A species label to family lookup
-#'
-#' The form no longer asks for the fish family. It is filled in from the species
-#' the contributor picks and falls back to "Unknown" for anything we do not hold,
-#' including a species they type in themselves, which is a QA task rather than a
-#' question worth putting to a contributor.
-fw_species_family_lookup <- function(species_labelled) {
-  fam <- species_labelled$family
-  names(fam) <- species_labelled$label
-  fam[!is.na(fam) & nzchar(fam)]
-}
-
-#' The family for a species label, or "Unknown"
-#'
-#' Single-bracket lookup on purpose: [[ ]] throws on a name that is not there,
-#' and a species the contributor typed in themselves is exactly that case.
-fw_family_for_species <- function(label, lookup) {
-  if (is.null(label) || length(label) != 1 || is.na(label) || !nzchar(label)) {
-    return("")
-  }
-  fam <- unname(lookup[label])
-  if (is.na(fam) || !nzchar(fam)) "Unknown" else fam
 }

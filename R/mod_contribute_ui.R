@@ -18,22 +18,28 @@ fw_intro_panel <- function(ns) {
 
   div(
     class = "fw-panel fw-prose",
-    tags$h2(fw_t("contribute", "intro", "heading")),
+    tags$h2(class = "fw-visually-hidden", fw_t("contribute", "intro", "heading")),
     block(fw_t("contribute", "intro", "what_heading"), fw_t("contribute", "intro", "what")),
     block(fw_t("contribute", "intro", "review_heading"), fw_t("contribute", "intro", "review")),
     block(fw_t("contribute", "intro", "no_save_heading"), fw_t("contribute", "intro", "no_save")),
     block(fw_t("contribute", "intro", "time_heading"), fw_t("contribute", "intro", "time")),
 
+    # THE SAME SIZE, BOTH OF THEM. The text version was btn-sm, on the
+    # reasoning that it was the fallback to the Word file; the client read two
+    # sizes as two kinds of thing and asked for a pair. Equal width as well as
+    # equal height - see .fw-contribute__downloads.
     div(
-      style = "margin-block: 1.5rem;",
-      downloadButton(ns("download_questions"),
-                     fw_t("contribute", "intro", "download_label"),
-                     class = "btn btn-outline-primary"),
-      downloadButton(ns("download_questions_txt"),
-                     fw_t("contribute", "intro", "download_label_txt"),
-                     class = "btn btn-outline-primary btn-sm"),
-      div(class = "fw-caption", style = "margin-block-start:.4rem;",
-          fw_t("contribute", "intro", "download_hint"))
+      class = "fw-contribute__downloads",
+      div(
+        class = "fw-contribute__download-buttons",
+        downloadButton(ns("download_questions"),
+                       fw_t("contribute", "intro", "download_label"),
+                       class = "btn btn-outline-primary"),
+        downloadButton(ns("download_questions_txt"),
+                       fw_t("contribute", "intro", "download_label_txt"),
+                       class = "btn btn-outline-primary")
+      ),
+      div(class = "fw-caption", fw_t("contribute", "intro", "download_hint"))
     ),
 
     tags$hr(),
@@ -59,36 +65,27 @@ fw_intro_panel <- function(ns) {
 
 #' What counts as an eradication, and what belongs in FWISE
 #'
-#' One definition, one place. Shown at the top of the contribute page and again
-#' on the About page, because a contributor and a reader have to be working from
-#' the same definition for the database to mean anything.
+#' One definition, one place, at the top of the contribute page.
+#'
+#' IT WAS ON THE ABOUT PAGE TOO, on the reasoning that a contributor and a
+#' reader have to be working from the same definition for the database to mean
+#' anything. The client removed it from there: on About it opened the page with
+#' two headings of scope rules before a reader had been told what they were
+#' reading about, and the audience that has to APPLY the definition is the one
+#' filling in this form. The helper is still shared rather than inlined, so if
+#' the definition is ever wanted in a second place there is one copy of it.
 fw_preamble <- function() {
   div(
     class = "fw-preamble",
-    tags$h2(fw_t("contribute", "preamble", "heading")),
+    tags$h2(class = "fw-visually-hidden", fw_t("contribute", "preamble", "heading")),
     p(class = "fw-lead",
       tags$strong(fw_t("contribute", "preamble", "definition")),
       " - ",
       tags$em(fw_t("contribute", "preamble", "citation"))),
-    tags$h2(fw_t("contribute", "preamble", "scope_heading")),
+    tags$h2(class = "fw-visually-hidden", fw_t("contribute", "preamble", "scope_heading")),
     tags$ul(lapply(fw_t("contribute", "preamble", "scope"),
                    function(point) tags$li(fw_emphasis(point))))
   )
-}
-
-#' Render the one piece of markup the copy file is allowed to carry
-#'
-#' FW_COPY is plain text so it stays diffable and easy to hand back to the
-#' client. A couple of sentences need a single word emphasised mid-clause, and
-#' chopping those strings into fragments to wrap in tags$strong() makes them
-#' unreadable at the point they are written. So **this** is understood, nothing
-#' else is, and every part still goes through htmltools' escaping.
-fw_emphasis <- function(text) {
-  parts <- strsplit(text, "**", fixed = TRUE)[[1]]
-  if (length(parts) < 2) return(text)
-  do.call(tagList, lapply(seq_along(parts), function(i) {
-    if (i %% 2 == 0) tags$strong(parts[[i]]) else parts[[i]]
-  }))
 }
 
 #' The whole form, on one page
@@ -115,7 +112,7 @@ fw_form_shell <- function(ns, choices) {
       id = ns(paste0("section_", sec$id)),
       `data-fw-section` = title,
       tags$h2(
-        class = "fw-form-section__title",
+        class = "fw-form-section__title fw-visually-hidden",
         tags$span(class = "fw-form-section__num fw-num", i),
         title
       ),
@@ -148,7 +145,7 @@ fw_form_shell <- function(ns, choices) {
           class = "fw-progress-rail__bar",
           role = "progressbar",
           `aria-valuemin` = 0, `aria-valuemax` = 100, `aria-valuenow` = 0,
-          `aria-label` = "Form progress",
+          `aria-label` = fw_t("contribute", "announce", "form_progress"),
           id = ns("rail_bar"),
           div(class = "fw-progress-rail__fill", id = ns("rail_fill"))
         ),
@@ -356,12 +353,10 @@ fw_form_script <- function(ns) {
 fw_confirmation <- function(ns, res) {
   if (is.null(res)) return(NULL)
 
-  body <- gsub("{nth}", fw_ordinal(res$total_attempts),
-    gsub("{nth_country}", fw_ordinal(res$country_attempts),
-      gsub("{country}", res$country,
-           fw_t("contribute", "confirm", "body_template"), fixed = TRUE),
-      fixed = TRUE),
-    fixed = TRUE)
+  body <- fw_fill(fw_t("contribute", "confirm", "body_template"),
+                  nth = fw_ordinal(res$total_attempts),
+                  nth_country = fw_ordinal(res$country_attempts),
+                  country = res$country)
 
   div(
     class = "fw-confirm",
@@ -371,7 +366,7 @@ fw_confirmation <- function(ns, res) {
     p(class = "fw-confirm__body", fw_t("contribute", "confirm", "followup")),
     p(class = "fw-confirm__body", fw_t("contribute", "confirm", "thanks")),
     p(class = "fw-caption",
-      "Your reference is ",
+      fw_t("contribute", "announce", "reference_prefix"),
       tags$span(class = "fw-num", res$submission_id)),
     div(
       class = "fw-confirm__actions",
@@ -394,7 +389,7 @@ fw_confirmation <- function(ns, res) {
 fw_confirm_mark <- function() {
   tags$span(
     class = "fw-confirm__mark",
-    role = "img", `aria-label` = "Submission received",
+    role = "img", `aria-label` = fw_t("contribute", "announce", "submission_received"),
     "\U0001F438"
   )
 }

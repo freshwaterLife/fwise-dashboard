@@ -1,14 +1,6 @@
 # questions_text.R
 # The offline question list, generated from the form itself.
-#
-# WHY IT IS GENERATED RATHER THAN WRITTEN. The old download was a Word file kept
-# by hand, which meant it went stale the first time a label changed and nobody
-# would know. This walks the same step builders the wizard renders, so the file a
-# contributor downloads is by construction the form they are about to fill in.
-# Add a field to a step and it appears here with no second edit.
-#
-# It reads the rendered tags rather than a separate registry for the same reason:
-# a registry is a second copy of the truth.
+
 
 library(htmltools)
 
@@ -84,9 +76,8 @@ fw_tag_find <- function(x, pred) {
   out
 }
 
-# Above this many options the list is summarised rather than printed. The
-# country dropdown alone runs to about 200 entries and would bury the questions.
-FW_QUESTION_OPTION_CAP <- 18L
+# Above FW_QUESTION_OPTION_CAP options (R/config.R) the list is summarised
+# rather than printed.
 
 #' The answer options offered by a field, where it offers a fixed set
 #'
@@ -106,7 +97,7 @@ fw_field_options <- function(node) {
     html <- as.character(selects[[1]])
     m <- regmatches(html, gregexpr("<option[^>]*>[^<]*</option>", html))[[1]]
     labels <- fw_squish_each(sub("^<option[^>]*>", "", sub("</option>$", "", m)))
-    return(labels[nzchar(labels) & labels != "Select..."])
+    return(labels[nzchar(labels) & labels != fw_t("contribute", "placeholder", "select")])
   }
   groups <- fw_tag_find(node, function(n) {
     fw_tag_has_class(n, "shiny-options-group")
@@ -124,8 +115,8 @@ fw_options_line <- function(opts) {
   if (length(opts) > FW_QUESTION_OPTION_CAP) {
     shown <- opts[seq_len(FW_QUESTION_OPTION_CAP)]
     return(paste0(paste(shown, collapse = "; "),
-                  sprintf("; ... and %d more, listed on the form",
-                          length(opts) - FW_QUESTION_OPTION_CAP)))
+                  fw_fill(fw_t("questions", "more_options"),
+                          n = length(opts) - FW_QUESTION_OPTION_CAP)))
   }
   paste(opts, collapse = "; ")
 }
@@ -160,9 +151,7 @@ fw_step_items <- function(ui, ns, choices, conditional = FALSE) {
       key <- sub("^.*-", "", as.character(id))
       builder <- FW_QUESTION_ROWS[[key]]
       if (!is.null(builder)) {
-        add(kind = "note",
-            text = paste("You can add as many of these as you need;",
-                         "the form starts with one."))
+        add(kind = "note", text = fw_t("questions", "repeat_note"))
         # A repeatable row carries its own "Target 1" heading in the app; in
         # print the numbered question below already says which one it is.
         walk(builder(ns, choices), cond)
@@ -253,25 +242,18 @@ fw_questions_text <- function(choices, width = 78) {
   rule <- strrep("=", width)
   thin <- strrep("-", width)
 
+  q <- fw_t("questions")
   out <- c(
     rule,
-    "FWISE - SUBMISSION QUESTION LIST",
+    q$title_text,
     fw_t("app", "full_title"),
     rule,
     "",
-    strwrap(paste(
-      "Every question on the online submission form, in the order you will",
-      "meet it. Use this to gather your answers offline, then copy them across",
-      "when you are ready. Only the questions marked *REQUIRED* have to be",
-      "answered; a partial record is far better than none."
-    ), width = width),
+    strwrap(fw_fill(q$intro, required = q$required_text), width = width),
     "",
-    strwrap(paste(
-      "There are no accounts and no logins, so the form cannot save your",
-      "progress. Please complete it in one sitting."
-    ), width = width),
+    strwrap(q$no_save, width = width),
     "",
-    paste("Generated", format(Sys.Date(), "%d %B %Y")),
+    paste(q$generated, format(Sys.Date(), "%d %B %Y")),
     ""
   )
 
@@ -291,12 +273,10 @@ fw_questions_text <- function(choices, width = 78) {
     if (!length(questions)) next
 
     out <- c(out, "", rule,
-             paste0("SECTION ", step_no, ". ", toupper(title)),
+             fw_fill(q$section, n = step_no, title = toupper(title)),
              rule)
     if (isTRUE(step$conditional)) {
-      out <- c(out, strwrap(
-        "This section is only shown if your earlier answers call for it.",
-        width = width))
+      out <- c(out, strwrap(q$conditional_note, width = width))
     }
 
     q_no <- 0L
@@ -312,7 +292,7 @@ fw_questions_text <- function(choices, width = 78) {
         # next question butts straight up against the line you just wrote your
         # answer on, and a printed copy reads as a wall. This is the whole file
         # someone fills in away from the screen, so the spacing is the design.
-        out <<- c(out, "", paste0(hang, "Answer: ", strrep("_", 50)), "")
+        out <<- c(out, "", paste0(hang, q$answer, strrep("_", 50)), "")
         pending <<- FALSE
       }
     }
@@ -333,19 +313,21 @@ fw_questions_text <- function(choices, width = 78) {
         q_no <- q_no + 1L
         tag <- sprintf("%-5s", sprintf("%d.%d", step_no, q_no))
         head_line <- item$text
-        if (isTRUE(item$required)) head_line <- paste(head_line, "*REQUIRED*")
+        if (isTRUE(item$required)) head_line <- paste(head_line, q$required_text)
         if (isTRUE(item$conditional)) {
-          head_line <- paste(head_line, "[only if it applies]")
+          head_line <- paste(head_line, q$conditional_tag)
         }
         out <- c(out, "", fw_wrap_block(head_line, tag, hang, width))
         if (!is.null(item$guidance)) {
-          out <- c(out, fw_wrap_block(item$guidance, paste0(hang, "Guidance: "),
-                                      paste0(hang, "          "), width))
+          out <- c(out, fw_wrap_block(item$guidance, paste0(hang, q$guidance),
+                                      paste0(hang, strrep(" ", nchar(q$guidance))),
+                                      width))
         }
         if (length(item$options)) {
           out <- c(out, fw_wrap_block(fw_options_line(item$options),
-                                      paste0(hang, "Options:  "),
-                                      paste0(hang, "          "), width))
+                                      paste0(hang, q$options, "  "),
+                                      paste0(hang, strrep(" ", nchar(q$options) + 2)),
+                                      width))
         }
         pending <- TRUE
       } else if (identical(item$kind, "help")) {

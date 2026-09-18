@@ -48,8 +48,40 @@
   &--tight   { padding-block: $fw-space-3; }
   &--flush-top    { padding-block-start: 0; }
   &--flush-bottom { padding-block-end: 0; }
-  &--paper   { background: $fw-paper; }
-  &--shoal   { background: rgba($fw-shoal, 0.4); }
+  &--paper   { background: $fw-surface; }
+  &--shoal   { background: $fw-teal-wash; }
+
+  // THE TWO POSTER BANDS. The workshop flyer is built by stacking bands of flat
+  // colour across the full width - cream, then mid teal, then indigo reversed
+  // out, then cream again - and these are those two coloured bands. Use them
+  // with bleed = TRUE, because a band that stops at the content column is not
+  // the device the poster uses.
+  //
+  // Neither one nests. A band inside a band produces a stripe the poster never
+  // has, and the ink colour below would be wrong for it.
+  &--lagoon {
+    background: $fw-teal-tint;
+    // Stated rather than inherited. The band is light enough that the indigo
+    // ink carries (8.82:1), but a heading inside it would otherwise take its
+    // colour from the global heading rule and the two could drift apart.
+    color: $fw-ink;
+    h1, h2, h3, h4, h5, h6 { color: $fw-ink; }
+    // WHITE IS NOT AVAILABLE ON THIS BAND. It comes to 1.98:1. If a design
+    // calls for reversed-out type, it wants --indigo below, not this.
+    a { color: $fw-teal-text; &:hover { color: $fw-ink; } }
+  }
+
+  &--indigo {
+    background: $fw-brand-indigo;
+    color: $fw-on-indigo;
+    h1, h2, h3, h4, h5, h6 { color: $fw-on-indigo; }
+    .fw-caption, .fw-lead { color: $fw-on-indigo-muted; }
+    a {
+      color: $fw-on-indigo-muted;
+      text-decoration-color: rgba($fw-on-indigo-muted, 0.5);
+      &:hover { color: $fw-on-indigo; }
+    }
+  }
 }
 
 // Full-bleed sections break the container to the viewport edge. Used for the
@@ -61,24 +93,38 @@
 
 // ---- Page header -----------------------------------------------------------
 
+// THE INDIGO BAND. Every page opens with its title reversed out of the brand
+// indigo, with a teal rule along the base: that pairing is what tells the
+// reader which page they are on before they read the title, and it is where
+// the indigo lives now that the navbar has to stay light behind the logo.
 .fw-page-header {
-  padding-block: $fw-space-4;
-  border-bottom: $fw-hairline;
-  background: $fw-paper;
+  padding-block: $fw-space-3;
+  background: $fw-brand-indigo;
+  color: $fw-on-indigo;
+  border-bottom: 7px solid $fw-brand-teal;
 
   &__title {
     font-size: $fw-size-h1;
+    color: $fw-on-indigo;
     margin-block-end: $fw-space-1;
 
-    @media (max-width: 480px) { font-size: $fw-size-h2; }
+    @media (max-width: $fw-bp-xs) { font-size: $fw-size-h2; }
   }
 
   &__description {
     font-size: $fw-size-lead;
-    color: $fw-ink-muted;
+    color: $fw-on-indigo-muted;
     max-width: 100%;
     margin-block-end: 0;
   }
+}
+
+// NO GAP BETWEEN THE NAVBAR AND THE BAND, at the client's request. bslib puts
+// a 20px margin on every tab pane under the navbar, declared on the pane itself
+// (so it cannot be reset from a parent) with a selector worth six classes; this
+// one is worth seven. Only the active pane is ever seen.
+.navbar.fw-navbar:not(.fixed-bottom):not(.navbar-fixed-bottom) + div > .tab-content > .tab-pane.active {
+  margin-top: 0;
 }
 
 // ---- Navbar ----------------------------------------------------------------
@@ -100,27 +146,38 @@
   // These must stay ABOVE the nested rules below: libsass drops custom
   // properties declared after a nested selector.
   //
-  // It has to be fluid rather than a flat figure. The brand is 5rem from 768px
-  // up, which leaves six items about 700px to share at 1024; a flat 1.25rem
+  // It has to be fluid rather than a flat figure. The brand is 6rem from 768px
+  // up, which leaves six items about 680px to share at 1024; a flat 1.25rem
   // there tips the bar onto two rows. clamp() gives the roomy spacing on a
   // real desktop and quietly gives it back on a narrow one.
-  --bs-navbar-nav-link-padding-x: clamp(0.5rem, 1.35vw, 1.25rem);
-  --bs-nav-link-padding-x: clamp(0.5rem, 1.35vw, 1.25rem);
+  //
+  // THE FLOOR CAME DOWN FROM 0.5rem TO 0.35rem, and the ceiling with it. Three
+  // labels got longer at the same time as the brand got bigger and the tab text
+  // went up a step: "Explore the data" to "Explore the database", "Contribute
+  // data" to "Add a record", "Networking" to "Contact the community". That is a
+  // net gain of eighteen characters in a bar that only just fitted. Padding is
+  // the right thing to give up - it is space around the labels, not the labels.
+  --bs-navbar-nav-link-padding-x: clamp(0.35rem, 1.1vw, 1rem);
+  --bs-nav-link-padding-x: clamp(0.35rem, 1.1vw, 1rem);
 
-  background: $fw-paper;
-  border-bottom: $fw-hairline;
+  // LIGHT, BECAUSE OF THE LOGO. The FWISE lockup's wordmark is indigo, so the
+  // bar it sits in has to be light; the indigo goes into the page-title band
+  // directly below instead. Lifted off the page by the card shadow rather than
+  // a hairline.
+  background: $fw-surface;
+  box-shadow: $fw-shadow-card;
   // A stable min-height rather than padding alone. Bootstrap's navbar collapses
   // its own height around the brand, which was cropping the top of the logo.
-  min-height: 64px;
+  min-height: 72px;
   padding-block: $fw-space-1;
-  // The brand steps up to 5rem at md, so the bar has to grow with it or
-  // Bootstrap crops the lockup the way it did at 38px.
-  @media (min-width: 768px) { min-height: 6.5rem; }
+  // The brand steps up to 6rem at md, so the bar has to grow with it or
+  // Bootstrap crops the mark the way it did at 38px.
+  @media (min-width: $fw-bp-md) { min-height: 7.5rem; }
   overflow: visible;
-  // Sticky on scroll. The z-index clears Leaflet, which sets 400 to 800 on its
-  // own panes and would otherwise sit over the menu.
-  position: sticky;
-  top: 0;
+  // NOT STICKY, at the client's request: it scrolls away with the page. The
+  // z-index still clears Leaflet, which sets 400 to 800 on its own panes and
+  // would otherwise sit over the open mobile menu.
+  position: relative;
   z-index: 1030;
 
   .navbar-brand {
@@ -131,54 +188,61 @@
     padding-block: 0;
     margin-inline-end: $fw-space-3;
 
+    // THE FWISE-SIMPLE WORDMARK, which is 2.5 times as wide as it is tall
+    // (see fw_brand()). It replaced the square badge, and the badge's 6rem
+    // would make this 15rem wide - more of the bar than the six tabs can give
+    // up. 4.5rem keeps it the size the client asked for when they said the
+    // mark made no impression, with the word FWISE now doing the work the
+    // badge's height was doing. The navbar's own min-height is unchanged, so
+    // nothing that sticks under it (fw-sticky-under-navbar) has to move.
     img {
-      height: 32px;
+      height: 40px;
       width: auto;
       display: block;
       object-fit: contain;
     }
 
-    @media (min-width: 768px) { img { height: 5rem; } }
+    @media (min-width: $fw-bp-md) { img { height: 7rem; } }
 
     // The one band where the brand and the nav genuinely compete. Below 992px
     // the items are behind the hamburger and the brand has the bar to itself;
-    // above 1100px there is room for both at full size. In between, the six
-    // labels plus a 5rem lockup do not fit on one row, and a two-row navbar
-    // reads as broken. The brand gives way, because it is the thing nobody is
-    // trying to click.
-    @media (min-width: 992px) and (max-width: 1099px) {
-      img { height: 3.5rem; }
+    // above 1100px there is room for both at full size. In between, six labels
+    // - three of them now longer - plus the mark do not fit on one row, and a
+    // two-row navbar reads as broken. The brand gives way, because it is the
+    // thing nobody is trying to click.
+    @media (min-width: $fw-bp-xl) and (max-width: $fw-bp-xl-max) {
+      img { height: 3rem; }
     }
   }
 
   // Air BETWEEN the items, on top of the padding within them, so the hover
   // rectangles do not sit edge to edge.
   .navbar-nav {
-    @media (min-width: 768px) { column-gap: clamp(0rem, 0.5vw, #{$fw-space-1}); }
+    @media (min-width: $fw-bp-md) { column-gap: clamp(0rem, 0.5vw, #{$fw-space-1}); }
   }
 
   .navbar-nav .nav-link {
-    color: $fw-abyss;
+    color: $fw-ink;
     font-weight: $fw-weight-medium;
     // A rounded rectangle, not a pill. The hover state marks which item the
     // pointer is over; it should not read as a button sitting in the bar.
-    border-radius: 8px;
+    border-radius: $fw-radius-input;
     transition: color $fw-motion-fast $fw-easing,
                 background-color $fw-motion-fast $fw-easing;
 
-    &:hover { color: $fw-deep; background: rgba($fw-shoal, 0.5); }
+    &:hover { color: $fw-teal-text; background: $fw-teal-wash; }
 
     // Active state is marked by a rule as well as by colour, so it is not
     // carried by colour alone.
     &.active {
-      color: $fw-deep;
+      color: $fw-teal-text;
       background: transparent;
-      box-shadow: inset 0 -3px 0 0 $fw-primary;
+      box-shadow: inset 0 -3px 0 0 $fw-brand-teal;
       border-radius: 0;
     }
   }
 
-  // NOTE: "Contribute data" used to be filled in $fw-deep as the one primary
+  // NOTE: "Contribute data" used to be filled in $fw-teal-text as the one primary
   // action in the bar. Removed at the client's request: every destination in the
   // navbar is now presented the same way. The page's own calls to action carry
   // that job instead.
@@ -186,66 +250,108 @@
 
 // ---- Footer ----------------------------------------------------------------
 
+// TWO TIERS. The upper tier holds the two logos on the page ground, because
+// the FWISE lockup's wordmark is indigo and would vanish on the indigo below;
+// the lower tier is the indigo band that carries the release date, the links
+// and the licence. Each tier is full width with its own container inside, so
+// the two grounds run edge to edge. See fw_footer() in R/ui_helpers.R.
 .fw-footer {
-  background: $fw-abyss;
-  color: $fw-silt;
-  padding-block: $fw-space-2;
-
-  a { color: $fw-shoal; text-decoration-color: rgba($fw-shoal, 0.5);
-      &:hover { color: $fw-paper; } }
+  .fw-num { letter-spacing: 0; }
 
   &__top {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: $fw-space-1;
+    background: $fw-page;
+    border-top: 1px solid $fw-border;
+    padding-block: $fw-space-4;
   }
 
-  // The FWISE lockup is not knocked out of its background, so neither logo can
-  // sit directly on the abyss ground. Both share ONE white plaque, which also
-  // makes them read as a pair rather than as two separate marks that happen to
-  // be adjacent. Replace with reversed artwork and this can be deleted.
-  &__plaque {
-    background: $fw-paper;
-    border-radius: $fw-radius-card;
-    padding: $fw-space-2 $fw-space-3;
-    display: inline-flex;
+  // ORG LOGOS, CREDITS, RULE, COLLABORATOR LOGOS, left to right, at the
+  // client's request. The FWISE and Weird Fishes marks lead, the credit sits
+  // beside them, and the collaborating organisations are a separate group on
+  // the right behind the rule.
+  &__row {
+    display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: $fw-space-3;
+    justify-content: space-between;
+    gap: $fw-space-3 $fw-space-4;
+  }
+
+  // Stacks under the logos on a narrow screen, where side by side would leave
+  // both halves too narrow to read.
+  &__credits {
+    flex: 1 1 18rem;
+    min-width: 0;
+  }
+
+  // Both logo groups share the sizing. Equal height, deliberately: the lockups
+  // are close enough in aspect that matching the height matches the presence.
+  &__org,
+  &__logos {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $fw-space-4;
 
     a { display: inline-flex; text-decoration: none; }
 
-    // Equal height, deliberately. The two lockups are close enough in aspect
-    // (about 2.5:1 and 2.3:1) that matching the height matches the presence,
-    // and the attribution line below carries the wording the WFA mark used to
-    // have stacked above it.
-    img { display: block; width: auto; height: 44px; }
+    img { display: block; width: auto; height: 52px; }
 
-    @media (max-width: 600px) {
+    @media (max-width: $fw-bp-sm) {
       gap: $fw-space-2;
-      img { height: 34px; }
+      img { height: 40px; }
     }
   }
 
-  &__built-by {
-    font-size: $fw-size-caption;
-    color: $fw-shoal;
-    margin-block: 0;
+  &__logos {
+    justify-content: flex-end;
+
+    // THE SEPARATOR, and it is on the GROUP rather than between the items. The
+    // client asked for the organisations grouped clearly, which is a line
+    // saying "these belong together and are not part of the sentence beside
+    // them" - a divider between each pair would say the opposite.
+    //
+    // It goes away when the row wraps: a vertical rule on a full-width block
+    // under the credits is a line hanging off the left of nothing.
+    @media (min-width: $fw-bp-md) {
+      padding-inline-start: $fw-space-4;
+      border-inline-start: 1px solid $fw-border;
+    }
   }
 
-  .fw-num { letter-spacing: 0; }
+  // Two sentences, so they are two paragraphs with the tighter spacing of a
+  // block rather than the gap between unrelated lines.
+  &__updated { font-family: $fw-font-mono; }
+
+  // At the credit size rather than caption, on the client's instruction: the
+  // three sentences are small print beside the logos, not a subtitle.
+  &__built-by {
+    font-size: $fw-size-credit;
+    color: $fw-ink-muted;
+    margin-block: 0;
+
+    + .fw-footer__built-by { margin-block-start: $fw-space-1; }
+  }
 
   &__meta {
-    margin-block-start: $fw-space-2;
-    padding-block-start: $fw-space-2;
-    border-top: 1px solid rgba($fw-shoal, 0.22);
-    display: flex;
-    flex-wrap: wrap;
-    gap: $fw-space-1 $fw-space-4;
-    align-items: baseline;
+    background: $fw-brand-indigo;
+    color: $fw-on-indigo-muted;
+    padding-block: $fw-space-3;
     font-size: $fw-size-caption;
-    color: $fw-shoal;
+    // The same teal rule the page-title band carries on its base, mirrored.
+    border-top: 3px solid $fw-brand-teal;
+
+    a {
+      color: $fw-teal-light;
+      text-decoration-color: rgba($fw-teal-light, 0.5);
+      &:hover { color: $fw-on-indigo; }
+    }
+
+    .fw-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: $fw-space-1 $fw-space-4;
+      align-items: baseline;
+    }
   }
 }
 
@@ -274,9 +380,9 @@
 
   // Wong vermilion and amber, the same values the charts use for failure and
   // for caution, so a colour means the same thing everywhere in the app.
-  &--errors { border-color: #D55E00; background: rgba(#D55E00, 0.06); }
-  &--notes  { border-color: #E69F00; background: rgba(#E69F00, 0.06); }
-  &--clear  { border-color: #009E73; background: rgba(#009E73, 0.06); }
+  &--errors { border-color: $fw-data-vermilion;  background: rgba($fw-data-vermilion, 0.06); }
+  &--notes  { border-color: $fw-data-failed;     background: rgba($fw-data-failed, 0.06); }
+  &--clear  { border-color: $fw-data-successful; background: rgba($fw-data-successful, 0.06); }
 
   &__list {
     margin: 0;
@@ -293,68 +399,18 @@
 
 // ---- Report builder --------------------------------------------------------
 
-// ---- Sidebar layout --------------------------------------------------------
-// A filter panel beside a results column, shared by the report builder and the
-// dashboard. See fw_sidebar_layout() in R/ui_helpers.R.
-
-.fw-layout {
-  display: grid;
-  gap: $fw-space-4;
-  // minmax(0, 1fr) IS LOAD-BEARING. Without the 0 minimum, plotly and leaflet
-  // size themselves to their content and push the column wider than the
-  // viewport, which is horizontal scroll on every screen.
-  grid-template-columns: minmax(0, 1fr);
-
-  @media (min-width: 900px) {
-    grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
-    align-items: start;
-  }
-
-  // The results column needs the same 0 minimum for the same reason.
-  &__main { min-width: 0; }
-
-  &__sidebar {
-    .fw-field { margin-block-end: $fw-space-2; }
-
-    @media (min-width: 900px) {
-      position: sticky;
-      top: $fw-space-3;
-      max-height: calc(100vh - #{$fw-space-5});
-      overflow-y: auto;
-      padding-inline-end: $fw-space-1;
-    }
-  }
-
-  &__summary {
-    cursor: pointer;
-    font-size: $fw-size-h3;
-    font-weight: $fw-weight-medium;
-    color: $fw-deep;
-    padding-block: $fw-space-1;
-    margin-block-end: $fw-space-2;
-    list-style-position: inside;
-
-    // Open and non-collapsible on desktop: the disclosure is a small-screen
-    // affordance, and a marker there would invite closing a panel that is
-    // already beside the content rather than above it.
-    @media (min-width: 900px) { display: none; }
-  }
-}
-
-// ---- Report builder --------------------------------------------------------
-
 // THE QUESTIONS, ABOVE THE ANSWER. This is the panel that replaced the report
 // builder's sidebar. It is drawn as a card so that the questions read as one
 // object the reader works through and then leaves behind, rather than as a
 // control strip they are expected to keep fiddling with.
 .fw-plan-filters {
-  background: $fw-paper;
-  border: $fw-hairline;
+  background: $fw-surface;
+  box-shadow: $fw-shadow-card;
   border-radius: $fw-radius-card;
   padding: $fw-space-3;
   margin-block-end: $fw-space-4;
 
-  @media (min-width: 768px) { padding: $fw-space-4; }
+  @media (min-width: $fw-bp-md) { padding: $fw-space-4; }
 
   &__heading {
     font-size: $fw-size-h2;
@@ -374,6 +430,65 @@
   // pickers holding values like "Common carp (Cyprinus carpio)", and below
   // about 17rem selectize wraps every chosen value onto its own line and the
   // control grows downwards as it is used.
+  // COLLAPSIBLE, AND ONLY AFTER A BUILD. A native <details>: the server closes
+  // it on Build and the reader opens it again themselves. It is never
+  // re-rendered, because that would reset every control inside it.
+  &__disclosure {
+    // The default marker is a black triangle that ignores the type scale. The
+    // chevron below replaces it, and BOTH rules are needed - Safari uses the
+    // pseudo-element, everything else uses list-style.
+    > summary {
+      list-style: none;
+      &::-webkit-details-marker { display: none; }
+    }
+  }
+
+  &__summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: $fw-space-1 $fw-space-2;
+    cursor: pointer;
+    padding: $fw-space-1 0;
+    border-radius: $fw-radius-input;
+
+    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
+
+    // The chevron. Rotates when the panel is open, so the control says which
+    // way it is going rather than only that it is a control.
+    &::before {
+      content: "";
+      flex: none;
+      width: 0.5rem;
+      height: 0.5rem;
+      border-right: 2px solid $fw-teal-text;
+      border-bottom: 2px solid $fw-teal-text;
+      transform: rotate(-45deg);
+      transition: transform $fw-motion-fast;
+    }
+  }
+
+  &__disclosure[open] > &__summary::before { transform: rotate(45deg); }
+
+  &__summary-label {
+    font-weight: $fw-weight-bold;
+    color: $fw-ink;
+  }
+
+  // The selection, shown while the panel is shut so a collapsed panel still
+  // says what the reader is looking at rather than reading as a lid.
+  &__summary-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $fw-space-1 $fw-space-2;
+    color: $fw-ink-muted;
+  }
+
+  // NO SEPARATOR BETWEEN ITEMS. There was an interpunct here; each item already
+  // carries its own bold label and a colon, so the dot was a third piece of
+  // punctuation in a line that reads as a list of labelled pairs. The gap above
+  // is the separation.
+
   &__grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
@@ -386,15 +501,27 @@
     .shiny-input-container { width: 100%; margin-block-end: 0; }
   }
 
-  // The year range is two controls answering one question, and the slider needs
-  // room for its handles and its readout. It takes two columns wherever there
-  // are two to take.
+  // THE TWO SLIDER CELLS TAKE A WHOLE ROW EACH, and they take it at the BOTTOM
+  // of the panel. Two things are going on:
+  //
+  //   BELOW, which is the client's instruction and the reason for 1 / -1 rather
+  //   than span 2. The draw order already puts the ranges last
+  //   (fw_filter_draw_order() in filters.R), but in an auto-fit grid "last" is
+  //   not "underneath": with three columns and eight pickers, the size cell
+  //   landed in the third cell of the pickers' last row, leaving a slider
+  //   wedged between two dropdowns and a ragged hole beside it. A full-row item
+  //   cannot share a row, so it always starts a new one.
+  //
+  //   ROOM, which is why they were spanning in the first place. A range is two
+  //   controls answering one question - the slider and its "include unrecorded"
+  //   companion - and the slider needs width for its handles, its readout and,
+  //   in the size cell's case, a second slider when both units are on offer.
   &__span {
     display: grid;
     gap: $fw-space-2;
     align-content: start;
 
-    @media (min-width: 900px) { grid-column: span 2; }
+    @media (min-width: $fw-bp-md) { grid-column: 1 / -1; }
   }
 
   &__actions {
@@ -404,16 +531,9 @@
     gap: $fw-space-2;
     margin-block-start: $fw-space-3;
     padding-block-start: $fw-space-3;
-    border-top: 1px solid rgba($fw-line-input, 0.35);
+    border-top: 1px solid rgba($fw-border-input, 0.35);
   }
 
-  // Sits on the same line as the buttons on a wide screen and drops under them
-  // on a narrow one, without a media query: it wants the rest of the row, and
-  // flex-wrap gives it its own row when there is not enough left.
-  &__hint {
-    flex: 1 1 20rem;
-    margin: 0;
-  }
 }
 
 .fw-plan {
@@ -435,38 +555,161 @@
     font-size: $fw-size-caption;
   }
 
-  &__empty,
+  // The empty state is gone - the page's introduction moved into the page
+  // header, so there is nothing to show above the results before a build. Only
+  // the zero-result state is left, and it keeps the dashed outline: it is a
+  // real answer to a real question, not a placeholder.
   &__zero {
-    border: 1px dashed rgba($fw-line-input, 0.6);
+    border: 1px dashed rgba($fw-border-input, 0.6);
     border-radius: $fw-radius-card;
     padding: $fw-space-4;
-    background: $fw-paper;
+    background: $fw-surface;
   }
 
   &__download {
     margin-block-start: $fw-space-4;
     padding-block-start: $fw-space-3;
-    border-top: 1px solid rgba($fw-line-input, 0.35);
+    border-top: 1px solid rgba($fw-border-input, 0.35);
 
     h3 { margin-block: 0 $fw-space-2; }
 
     .fw-caption { margin-block-start: $fw-space-1; }
   }
 
-  // Two downloads, side by side and equally weighted. The spreadsheet is the
-  // data and the HTML file is the document; they answer different questions,
-  // so neither is presented as the real one with the other as an afterthought.
-  &__download-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-    gap: $fw-space-3;
-    align-items: start;
+}
+
+// THE RESULTS HEADING, WITH THE DOWNLOAD BESIDE IT.
+//
+// The download used to be the last block on the page, under two tables. The
+// client's objection was that a reader had no way of knowing any of this was
+// exportable until they had scrolled past all of it, so it now sits level with
+// the heading that opens the results.
+//
+// WRAPS RATHER THAN SHRINKS. On a narrow screen the button drops under the
+// heading at full width; squeezing a call to action into the corner of a phone
+// screen is how it stops being one.
+// SPACE UNDER IT, because the teal summary strip starts immediately below and
+// the button was sitting flush on the top of it - a primary button touching a
+// filled panel reads as part of the panel's chrome. The gap belongs here
+// rather than on .fw-summary-strip: the dashboard draws the same strip directly
+// under its filter bar and does not want it there.
+// STICKY, at the client's request, and the reason is the one that moved it up
+// here in the first place. Putting it level with the heading told a reader the
+// results were exportable; it did not keep the button reachable, and the
+// results are a long scroll - by the duration chart the reader is several
+// screens past it and has to go back up to act on what they have just read.
+//
+// At the top of the window, now the navbar scrolls away. z-index 1010 clears Leaflet's panes (400-800) AND its control corners
+// (1000, where the legend lives), which matters because the map is the second
+// block down, and stays under the navbar's 1030 and the download modal's own
+// layer. See fw-sticky-under-navbar.
+//
+// THE GROUND AND THE HAIRLINE ARE WHAT MAKE IT READABLE. The row is transparent
+// while it sits in the flow; pinned over scrolling charts it needs a ground of
+// its own, and $fw-page is the ground it sits on rather than $fw-surface, which
+// would read as a card that had come loose.
+//
+// NO NEGATIVE MARGINS, and that is not an omission. The obvious move is to
+// bleed the background out through the container's padding the way the record
+// panel's previous/next bar did - but .fw-container has no padding to bleed
+// into. It is width: min(95%, 100% - 3rem) centred, so a -1.5rem inline margin
+// reaches past the viewport on any screen narrow enough for the 95% to bind
+// (below about 960px) and puts a horizontal scrollbar on the page. Everything
+// this row has to cover is inside the same container and therefore no wider
+// than it is, so a background at the container's own width covers all of it.
+.fw-plan__results-head {
+  @include fw-sticky-under-navbar;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $fw-space-2;
+  margin-block-end: $fw-space-3;
+  padding-block: $fw-space-2;
+  background: $fw-page;
+  border-bottom: $fw-hairline;
+
+  h2 { margin-block-end: 0; }
+}
+
+// The picker inside its overlay. No heading of its own - the modal title says
+// it - and the grid below still does the two-column arrangement on a wide box.
+.fw-download-modal {
+  .fw-plan__download { margin-block: 0; }
+}
+
+// ONE BUTTON AND A PICKER. This was two buttons side by side - a spreadsheet
+// and a report - which made the reader choose between the data and the document
+// when most of them wanted both, and neither carried the methods and the
+// caveats out of the building with it.
+//
+// IT LIVES IN A MODAL NOW, opened from the top of the results, so the grid
+// below is working in a dialog's width rather than the page's.
+.fw-download-picker {
+  display: grid;
+  gap: $fw-space-3;
+  align-items: start;
+
+  @media (min-width: $fw-bp-md) {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  &__download-option {
-    .btn { width: auto; }
-    p { margin-block-end: 0; }
+  // A fieldset carries its own border and padding in every browser and neither
+  // is wanted here; the legend is doing the work.
+  &__parts {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+
+    legend { padding: 0; margin-block-end: $fw-space-2; }
+
+    // Shiny's checkbox group stacks its own items; the gap is ours.
+    .shiny-options-group > .checkbox { margin-block-end: $fw-space-1; }
+
+    // THE BOX BESIDE THE TEXT, NOT ABOVE IT. Bootstrap floats the input out of
+    // the label and indents the label to clear it, which puts the box on its
+    // own line the moment the text wraps - and every one of these notes wraps.
+    // A flex row instead: box first, text after, and the text block keeps its
+    // own left edge however many lines it runs to.
+    .shiny-options-group > .checkbox > label {
+      display: flex;
+      align-items: baseline;
+      gap: $fw-space-1;
+      padding-inline-start: 0;
+    }
+
+    .shiny-options-group > .checkbox input[type="checkbox"] {
+      position: static;
+      flex: none;
+      margin: 0;
+      // The box is a square on the first line of the text beside it, not
+      // floating in the middle of a three-line option.
+      align-self: baseline;
+    }
   }
+
+  // NAME AND NOTE ON ONE LINE. They used to stack, which made four file formats
+  // eight lines plus a fixed line plus a rule - a screen of chrome for a
+  // question with four answers. Inline, the note reads as the rest of the
+  // sentence its name starts, which is what it is.
+  &__label {
+    font-weight: $fw-weight-medium;
+  }
+
+  // No separator between them. htmltools renders the two spans on their own
+  // lines, which is a space in the flow - and a dash or a bracket would make
+  // two halves of one sentence read as two things.
+  &__note {
+    color: $fw-ink-muted;
+  }
+
+  // .fw-download-picker__fixed USED TO LIVE HERE - the always-included .txt,
+  // set apart under a rule as a statement rather than an option. It reads as a
+  // checkbox that failed to render however it is styled, so the sentence moved
+  // up into the lead above the list. See fw_plan_download_ui().
+
+  .btn { width: auto; }
 }
 
 // The eradication definition, pinned above the contribute form and repeated on
@@ -476,9 +719,9 @@
   padding: $fw-space-3;
   margin-block-end: $fw-space-3;
   border-radius: $fw-radius-card;
-  background: $fw-shoal;
-  color: $fw-abyss;
-  border-left: 6px solid $fw-deep;
+  background: $fw-teal-tint;
+  color: $fw-ink;
+  border-left: 6px solid $fw-teal-text;
 
   h2 { margin-block: 0 $fw-space-1; font-size: $fw-size-h3; }
   // The scope heading sits under the definition, so it needs air above it that
@@ -489,15 +732,35 @@
   ul { margin-block: 0; padding-inline-start: 1.25rem; }
   li + li { margin-block-start: $fw-space-1; }
 
-  .fw-lead { color: $fw-abyss; font-weight: $fw-weight-medium; }
+  .fw-lead { color: $fw-ink; font-weight: $fw-weight-medium; }
 
-  @media (min-width: 768px) { padding: $fw-space-4; }
+  @media (min-width: $fw-bp-md) { padding: $fw-space-4; }
 }
 
 // About. The most text-heavy page in the app.
 .fw-about {
   h2 { margin-block-start: $fw-space-4; }
   h2:first-of-type { margin-block-start: 0; }
+
+  // The disclosures are a group. Set apart from the prose above and below
+  // so the page reads as summary / panels / feedback, which is the structure
+  // the client asked for, rather than as one continuous column.
+  &__panels {
+    margin-block: $fw-space-5;
+  }
+
+  // A panel's own heading is a <span> inside its summary, not an h2, so the
+  // rule above cannot reach it - and should not: it is a control, not a section
+  // break. Headings INSIDE an open panel are h3s and keep their normal rhythm.
+  &__panels h2 { margin-block-start: 0; }
+}
+
+// Hear about new releases. A link out, not a form - see fw_about_signup().
+.fw-signup {
+  margin-block-start: $fw-space-4;
+
+  h2 { margin-block: 0 $fw-space-1; font-size: $fw-size-h3; }
+  p  { margin-block-end: $fw-space-2; }
 }
 
 // A copyable citation. Mono, because it is a string to be taken away verbatim
@@ -507,31 +770,42 @@
   font-size: $fw-size-caption;
   white-space: pre-wrap;
   padding: $fw-space-2;
-  background: $fw-paper;
+  background: $fw-sunken;
   border: $fw-hairline;
   border-radius: $fw-radius-input;
 }
 
+// TELL US IT IS WRONG. In a band of its own at the foot of the About page, and
+// deliberately not one of the click-to-open panels above it: a reader who has
+// found something wrong should not have to open anything to say so. It used to
+// carry .fw-panel as well and sat on the page ground, where it read as a fifth
+// panel among the four; the band is what separates it now, so it no longer
+// needs a card of its own.
+//
+// IT STRADDLES THE FULL WIDTH of the container, and it used to be capped at
+// 42rem. The cap is the right instinct for prose - a line of text 90 characters
+// long is hard to read back - but this is a band of its own at the foot of the
+// page, and a form sitting in the left two-thirds of an otherwise empty band
+// read as something that had been left unfinished rather than as the end of the
+// page. The client asked for the full width. What keeps it readable is that the
+// cap moves onto the PROSE rather than off the block entirely, and that the
+// "where" select does not stretch to a metre of empty control.
 .fw-feedback {
-  margin-block-start: $fw-space-5;
+  h2 { margin-block: 0 $fw-space-2; }
+
+  // The measure the paragraph above the form keeps, now that the block does
+  // not. The form below it is free to use the whole width.
+  > p { max-width: 42rem; }
+
+  // A select holding "Explore the map" has no use for 60rem of width, and a
+  // dropdown that wide over a page this tinted reads as a mistake. The textarea
+  // is the field that benefits from the room, so it is the one that takes it.
+  .fw-field select.form-control,
+  .fw-field .form-select,
+  .fw-field select { max-width: 24rem; }
 
   textarea.form-control { width: 100%; }
   .fw-caption { margin-block-start: $fw-space-1; }
-}
-
-// A quiet banner for state the reader did not set on this page - arriving from
-// a link with a filter already applied, for instance. Not an alert: nothing has
-// gone wrong, and it carries its own way out.
-.fw-notice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: $fw-space-2;
-  padding: $fw-space-2;
-  margin-block-end: $fw-space-3;
-  background: rgba($fw-shoal, 0.55);
-  border-left: 4px solid $fw-primary;
-  border-radius: $fw-radius-input;
 }
 
 // ---- Map popups and species imagery ----------------------------------------
@@ -542,7 +816,7 @@
   &__title {
     font-size: $fw-size-h3;
     margin-block: $fw-space-1 $fw-space-1;
-    color: $fw-deep;
+    color: $fw-teal-text;
   }
 
   &__row {
@@ -551,7 +825,7 @@
     gap: $fw-space-1;
     padding-block: 0.15rem;
     align-items: start;
-    border-top: 1px solid rgba($fw-shoal, 0.8);
+    border-top: 1px solid rgba($fw-teal-tint, 0.8);
 
     &:first-of-type { border-top: 0; }
   }
@@ -563,6 +837,207 @@
   }
 
   &__val { font-size: $fw-size-caption; }
+
+  // "Not recorded" in one of the two species rows, which are always drawn even
+  // when the record names nobody - fw_popup_row()'s fallback. Muted and italic
+  // so a scan down the card can tell an absence from a name without reading it.
+  &__val--none {
+    color: $fw-ink-muted;
+    font-style: italic;
+  }
+
+  // Several methods, each with its own note. A list rather than a comma string,
+  // because "Rotenone - Betamax vet." already contains punctuation and the two
+  // run together unreadably on one line.
+  &__list {
+    margin: 0;
+    padding-inline-start: 1rem;
+    font-size: $fw-size-caption;
+  }
+
+  // ONE THUMBNAIL, at the top of the card under the site name.
+  //
+  // The card carried no photograph at all until the client asked for one back -
+  // see fw_map_hover_html() for what keeps that affordable. This is the sizing
+  // half of it.
+  //
+  // HIDDEN BELOW $fw-bp-sm. On a phone the card is already most of the
+  // viewport, and a picture at the top of it pushed the outcome - the one row
+  // a reader is scanning for - off the bottom. The record behind the card still
+  // has every photograph at full size.
+  //
+  // A FIXED HEIGHT AND object-fit, not max-width. These are Wikimedia
+  // thumbnails at whatever aspect ratio the photographer framed, and a column
+  // of cards that each jump to a different height as the pointer moves is worse
+  // than no picture.
+  // ALWAYS TWO, SIDE BY SIDE - the target and the beneficiary, with a blank
+  // "None noted" tile standing in wherever there is no photograph. It used to
+  // be one or two depending on what the attempt recorded, which is what
+  // data-fw-figures was for; R still writes the attribute and the two-column
+  // rule below still keys on it, so a card that goes back to one tile has a
+  // rule waiting rather than a silent full-width stretch.
+  &__figure {
+    display: none;
+
+    @media (min-width: $fw-bp-sm) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: $fw-space-1;
+      margin-block: 0 $fw-space-1;
+    }
+
+    &[data-fw-figures="2"] {
+      @media (min-width: $fw-bp-sm) {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+      }
+    }
+
+    // The role label over each picture. Without it a reader meeting two
+    // photographs has no way of telling the target from the beneficiary.
+    .fw-popup-fig__role {
+      margin-block: 0 0.15rem;
+      color: $fw-ink-muted;
+      font-weight: $fw-weight-bold;
+    }
+
+    .fw-species-figure { margin: 0; }
+
+    .fw-species-figure__img {
+      height: 4rem;
+      width: 100%;
+      // CONTAIN, NOT COVER: the whole animal, letterboxed on the surface
+      // colour, rather than a crop that can cut it out. Same size as before.
+      object-fit: contain;
+      border-radius: $fw-radius-input;
+    }
+
+    // THE BLANK TILE, THE SAME HEIGHT AS A PHOTOGRAPH. Both slots are always
+    // drawn now (fw_popup_thumb()), so a placeholder at the component's own
+    // 60px next to a 4rem photograph puts the two role labels at the same
+    // height and the two tiles at different ones - which is the misalignment
+    // forcing both slots exists to remove.
+    .fw-species-figure--none {
+      min-height: 4rem;
+      border-radius: $fw-radius-input;
+    }
+
+    .fw-species-figure__placeholder { font-size: $fw-size-popup; }
+
+    // THE CREDIT STAYS. It is a condition of using these images rather than
+    // decoration (see R/species_images.R), so it is shrunk under the popup
+    // exemption rather than dropped.
+    .fw-species-figure__credit {
+      font-size: $fw-size-popup;
+      line-height: 1.3;
+    }
+  }
+
+  // Says the card is not the whole record.
+  //
+  // IT USED TO BE QUIET - muted caption text, on the reasoning that it was an
+  // affordance rather than an instruction. The client reported readers not
+  // realising the card opened into anything at all, so it is now a button.
+  //
+  // IT IS A <span> STYLED AS ONE, not a real button, and that is deliberate:
+  // the card itself listens for the click (FW_MAP_CARD_JS in R/maps.R) and
+  // opens the record from anywhere inside it, so a button here would be a
+  // second control doing the one job. Nothing here is focusable, so nothing
+  // promises a keyboard interaction that is not wired up - the record is
+  // reachable from the marker, which is.
+  &__more {
+    margin-block: $fw-space-1 0;
+    padding-block-start: $fw-space-1;
+    border-top: 1px solid rgba($fw-teal-tint, 0.8);
+  }
+
+  // THE POINTER IS PART OF THE BUTTON. It read as a caption once and the fix
+  // was to make it look like a button; it still carried the text caret on
+  // hover, which is the one cue that says "this is prose" no matter what the
+  // fill looks like, and the client reported it reading as text again.
+  //
+  // A REAL <button> NOW, and the only thing in the card that opens the record.
+  // The whole card used to, and the client asked for the click to belong to
+  // the marker and this button alone. So the pointer and the hover are on the
+  // button only, and the native button chrome is reset here.
+  &__more-btn {
+    display: inline-block;
+    padding: 0.3rem $fw-space-2;
+    border: 0;
+    border-radius: $fw-radius-input;
+    background: $fw-teal-text;
+    color: $fw-on-indigo;
+    font-family: inherit;
+    font-size: $fw-size-caption;
+    font-weight: $fw-weight-bold;
+    line-height: inherit;
+    cursor: pointer;
+    user-select: none;
+
+    &:hover { background: $fw-teal-hover; }
+
+    &:focus-visible {
+      outline: 2px solid $fw-teal-text;
+      outline-offset: 2px;
+    }
+  }
+
+  // The detail half of the string is a <template>, so it never renders inside
+  // the hover card and its photographs are never fetched there - see
+  // fw_map_detail_html() in R/maps.R. This only backs that up in case the
+  // element ever stops being a template.
+  &__detail { display: none; }
+}
+
+// The "read the source" link at the foot of the detail panel. It had NO RULE AT
+// ALL, so it inherited the document's link styling inside a panel where nothing
+// else does, and read as something that had escaped the design rather than as
+// the reference it is.
+.fw-popup-detail__link {
+  margin-block: $fw-space-2 0;
+  padding-block-start: $fw-space-1;
+  border-top: 1px solid rgba($fw-teal-tint, 0.8);
+  font-size: $fw-size-caption;
+
+  a {
+    color: $fw-teal-text;
+    text-decoration: underline;
+  }
+}
+
+// THE POP-UP EXEMPTION, APPLIED TO THE MAP CARD AND PANEL.
+//
+// Everything in this list is $fw-size-caption by default, which is the 1rem
+// floor. All of it lives inside a transient overlay - the hover card, the
+// detail panel, the map popup - so the client's exemption applies and it steps
+// down to $fw-size-popup. See the note on that token in _tokens.scss.
+//
+// IT IS A LIST RATHER THAN A WILDCARD on purpose. `.fw-popup * { font-size }`
+// would drag the titles down with it, and the titles are the one thing in a
+// popup that has to stay big.
+.fw-popup,
+.fw-map-card,
+.fw-map-detail,
+.fw-popup-detail,
+.leaflet-popup-content {
+  .fw-popup__key,
+  .fw-popup__val,
+  .fw-popup__list,
+  .fw-popup__more,
+  .fw-popup-detail__place,
+  .fw-popup-fig__role,
+  .fw-popup-fig__name,
+  .fw-species-figure__credit,
+  .fw-caption {
+    font-size: $fw-size-popup;
+  }
+}
+
+// Inside the panel the key column has to hold "Also recorded by" and
+// "Verification", which the card's 6.5rem cannot. Widened here only, so the
+// hover card keeps its narrow measure.
+.fw-map-detail .fw-popup__row {
+  grid-template-columns: 9.5rem 1fr;
 }
 
 // Leaflet sets its own type and padding inside a popup; these win it back
@@ -594,8 +1069,8 @@
 // underneath it, because a fixed element cannot follow either.
 .fw-map-card {
   position: fixed;
-  // Above the navbar, which is sticky and would otherwise cover a card opened
-  // from a marker near the top of the map. Below the skip link at 2000.
+  // Above the navbar, which would otherwise cover a card opened from a marker
+  // near the top of the map. Below the skip link at 2000.
   z-index: 1200;
   inset-block-start: 0;
   inset-inline-start: 0;
@@ -609,12 +1084,14 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: $fw-space-2;
-  background: $fw-paper;
-  border: $fw-hairline;
+  background: $fw-surface;
   border-radius: $fw-radius-card;
   box-shadow: $fw-shadow-raised;
   font-family: $fw-font-body;
   line-height: $fw-leading-body;
+  // NO POINTER ON THE CARD ITSELF. Only the marker and the card's green
+  // button open the record (see FW_MAP_CARD_JS), so the card body is not a
+  // click target and must not look like one.
 
   &[hidden] { display: none; }
 
@@ -632,13 +1109,337 @@
     font-size: 1.1rem;
     line-height: 1;
     color: $fw-ink-muted;
-    background: rgba($fw-paper, 0.9);
+    background: rgba($fw-surface, 0.9);
     border: 0;
     border-radius: $fw-radius-round;
     cursor: pointer;
 
-    &:hover { color: $fw-deep; background: rgba($fw-shoal, 0.6); }
+    &:hover { color: $fw-teal-text; background: $fw-teal-wash; }
   }
+}
+
+// ON A PHONE THE CARD IS A SHEET, not a tooltip. At 300px wide beside a marker
+// on a 360px screen there is nowhere for it to go: the placement arithmetic in
+// fw_map_card_js() clamps it to the same spot every time and it reads as a
+// panel that cannot decide where it lives. So below $fw-bp-sm it takes the full
+// width and sits against the bottom edge, and the script stops positioning it -
+// the two halves share one breakpoint, injected into the script from
+// FW_BREAKPOINTS$sm, so they cannot drift apart.
+@media (max-width: $fw-bp-sm) {
+  .fw-map-card {
+    width: calc(100vw - #{$fw-space-3});
+    // Shorter than the desktop 80vh: a sheet that covers four fifths of a phone
+    // screen has hidden the map the reader is using it to read.
+    max-height: 70vh;
+  }
+
+  .fw-map-card--sheet {
+    inset-block-start: auto;
+    inset-block-end: $fw-space-2;
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+// THE DETAIL PANEL. What the hover card is not.
+//
+// The card above is a tooltip: small, anchored to a marker, and gone as soon as
+// the pointer leaves. This is the whole record, and it opens only when somebody
+// asks for it by clicking. So it is a modal - centred, over a backdrop, staying
+// put while the map moves underneath - rather than a bigger card.
+//
+// Dismissal is by the close button, the backdrop or Escape. Deliberately NOT by
+// panning the map: unlike the card, this has no marker position to drift away
+// from, and a reader scrolling a long record is not asking to lose it.
+.fw-map-detail {
+  position: fixed;
+  inset: 0;
+  // Above the marker card at 1200, below the skip link at 2000.
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: $fw-space-3;
+
+  &[hidden] { display: none; }
+
+  &__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba($fw-ink, 0.45);
+  }
+
+  &__dialog {
+    position: relative;
+    // Not min(): libsass reads it as its own function and refuses to mix the
+    // units. width plus max-width does the same job here.
+    width: 44rem;
+    max-width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: $fw-space-3;
+    background: $fw-surface;
+    border-radius: $fw-radius-card;
+    box-shadow: $fw-shadow-raised;
+    font-family: $fw-font-body;
+    line-height: $fw-leading-body;
+
+    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
+  }
+
+  &__close {
+    position: absolute;
+    inset-block-start: $fw-space-2;
+    inset-inline-end: $fw-space-2;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: $fw-ink-muted;
+    background: rgba($fw-surface, 0.9);
+    border: 0;
+    border-radius: $fw-radius-round;
+    cursor: pointer;
+
+    &:hover { color: $fw-teal-text; background: $fw-teal-wash; }
+  }
+}
+
+.fw-popup-detail {
+  &__title { font-size: $fw-size-h2; margin-block: 0 0.15rem; color: $fw-teal-text; }
+
+  &__place {
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+    margin-block: 0 $fw-space-2;
+  }
+
+  // Invasive left, beneficiary right. Collapses to one column on a narrow
+  // screen rather than squeezing two photographs into half a phone each.
+  &__figures {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: $fw-space-2;
+    margin-block-end: $fw-space-3;
+
+    @media (min-width: $fw-bp-sm) { grid-template-columns: 1fr 1fr; }
+  }
+
+  &__rows { margin-block-start: $fw-space-2; }
+
+  &__link { margin-block: $fw-space-2 0; }
+}
+
+// THE RECORD ON A PHONE. Two photographs stacked at their desktop height, on a
+// dialog inset by the desktop padding, pushed the record's own rows - outcome,
+// years, methods, who recorded it - below the fold of a 667px screen, so the
+// panel opened on a picture and looked like it had nothing else in it. The
+// photographs are the context; the rows are the answer. So on a narrow screen
+// the dialog takes more of the viewport and the images give up some height.
+@media (max-width: $fw-bp-sm) {
+  .fw-map-detail {
+    padding: $fw-space-2;
+
+    &__dialog {
+      max-height: 90vh;
+      padding: $fw-space-2;
+    }
+  }
+
+  .fw-popup-detail__figures { margin-block-end: $fw-space-2; }
+}
+
+// Thinner still. 150px of photograph twice over is most of what is left after
+// the title on a 375px screen.
+@media (max-width: $fw-bp-xs) {
+  // The height lives on the image, and the skeleton behind it is the figure's
+  // own background - so the figure takes its height from the image and the two
+  // cannot disagree. See .fw-species-figure.
+  .fw-species-figure__img { height: 110px; }
+}
+
+// One role's photographs. Several species become several slides behind a pair
+// of arrows; the name under each is what identifies it, so the picture never
+// carries the identification on its own.
+.fw-popup-fig {
+  &__role {
+    font-size: $fw-size-caption;
+    font-weight: $fw-weight-bold;
+    color: $fw-ink-muted;
+    margin-block: 0 0.3rem;
+  }
+
+  &__name {
+    font-size: $fw-size-caption;
+    margin-block: 0.3rem 0;
+    color: $fw-ink;
+  }
+
+  &__nav {
+    display: flex;
+    align-items: center;
+    gap: $fw-space-1;
+    margin-block-start: 0.3rem;
+  }
+
+  &__btn {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    padding: 0;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: $fw-teal-text;
+    background: $fw-teal-tint;
+    border: 0;
+    border-radius: $fw-radius-round;
+    cursor: pointer;
+
+    &:hover { background: darken($fw-teal-tint, 6%); }
+  }
+
+  &__count { font-size: $fw-size-caption; color: $fw-ink-muted; }
+}
+
+// The two species rows: what was targeted, then what benefited.
+//
+// STACKED AT EVERY WIDTH, and they used to sit side by side above $fw-bp-lg.
+// At three tiles a role that made two half-width grids of small photographs
+// with space left over at the end of each, and the client asked for each role
+// to be a row across the whole page instead. The tiles inside take care of
+// using that width - see .fw-species-tiles.
+.fw-plan__species-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $fw-space-3;
+
+  // The role headings INSIDE the block, under the block's own h3. They are a
+  // step down from it rather than another h3, so the two rows read as parts
+  // of one block rather than as two blocks.
+  h4 {
+    margin-block: 0 $fw-space-1;
+    font-size: $fw-size-lead;
+  }
+}
+
+// The species grid. The one place on the report a reader meets the animal
+// rather than a count of it.
+.fw-species-tiles {
+  display: grid;
+  // Wide enough that the photograph is worth looking at. At 9.5rem seven of
+  // them fitted across a laptop and each was a thumbnail; the point of this
+  // block is recognising the animal.
+  //
+  // ONE ROW, ONE COLUMN PER TILE, EACH TILE THE FULL WIDTH OF ITS COLUMN.
+  // --fw-tiles is the number of tiles, set by fw_species_tiles_ui(), so the
+  // columns always add up to the row: no empty tracks at the end, which is
+  // what auto-fill left once each role had the whole page to itself. One tile
+  // per row on a phone, where a third of the width is too small to recognise
+  // anything in.
+  grid-template-columns: minmax(0, 1fr);
+
+  @media (min-width: $fw-bp-sm) {
+    grid-template-columns: repeat(var(--fw-tiles, 3), minmax(0, 1fr));
+  }
+  // ONE HEIGHT FOR EVERY TILE, at the client's request. On a wide screen the
+  // tiles share one row, which stretches them to the tallest already; 1fr rows
+  // carry the same rule to a phone, where they stack one per row.
+  //
+  // The tile fills the height it is given rather than floating in it: it is a
+  // flex column and its outcome bar is on margin-block-start: auto, so the bars
+  // sit on the bottom edge whatever the name and credit above them run to.
+  grid-auto-rows: 1fr;
+  gap: $fw-space-2;
+}
+
+.fw-species-tile {
+  display: flex;
+  flex-direction: column;
+  border: $fw-hairline;
+  border-radius: $fw-radius-card;
+  overflow: hidden;
+  background: $fw-surface;
+
+  // THE PHOTOGRAPH SCALES WITH THE TILE, by aspect ratio rather than a fixed
+  // height. It was 104px when ten small tiles stood in a grid; a tile is now a
+  // third of the page, and 104px across that width is a letterbox strip that
+  // crops the animal out. 2:1 keeps the row from running tall while showing
+  // enough of the photograph to recognise what is in it.
+  .fw-species-figure { margin: 0; border-radius: 0; }
+  .fw-species-figure__img { height: auto; aspect-ratio: 2 / 1; }
+  .fw-species-figure--none { aspect-ratio: 2 / 1; min-height: 0; }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: $fw-space-1;
+    // Pushes the outcome bar to the bottom, so the bars line up across a row
+    // whatever the length of the species names above them.
+    flex: 1 1 auto;
+  }
+
+  // THE NAME HAS TO OUTRANK THE CREDIT, and since the floor moved it can no
+  // longer do that by the credit being small. It was 0.82rem next to a 0.6rem
+  // credit; both now sit at or above $fw-size-min, so the name takes the lead
+  // step instead and keeps the bold weight and the full-strength ink. Size,
+  // weight and colour all point the same way, which is what makes a grid of
+  // photographs read as species rather than as attributions.
+  &__name {
+    font-size: $fw-size-lead;
+    font-weight: $fw-weight-bold;
+    color: $fw-ink;
+    line-height: 1.25;
+    // NO HEIGHT RESERVED. This held two lines open (3.3rem) so tiles on
+    // different rows of a wrapping grid lined up. Each role is one row now, and
+    // a grid row already stretches every tile to its tallest, so the
+    // reservation only added blank space under one-line names.
+  }
+
+  &__count {
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+    margin-block-end: 0.3rem;
+  }
+
+  // THE CREDIT IS AN OBLIGATION, NOT A CAPTION. It has to be present and
+  // legible - CC BY says so - but it must not outrank the species name.
+  //
+  // It used to be held down by size (0.6rem). The 1rem floor takes that lever
+  // away, so it is held down by WEIGHT and COLOUR instead, and the name is
+  // stepped up to meet it. NOT clamped: a truncated attribution is not an
+  // attribution, and grid rows stretch to their tallest item anyway, so a
+  // verbose credit costs alignment nothing.
+  .fw-species-figure__credit {
+    // THE FLOOR, and that is a deliberate client instruction rather than an
+    // oversight: it costs the tile a line or two of height.
+    font-size: $fw-size-min;
+    font-weight: $fw-weight-regular;
+    color: $fw-ink-muted;
+    line-height: 1.3;
+    padding: 0.2rem 0.4rem;
+
+    a { text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  }
+
+  // DECORATION, and nothing is lost without it. The counts are in the title
+  // attribute and the same four numbers are in the Outcomes block at the top of
+  // the report.
+  &__bar {
+    display: flex;
+    height: 4px;
+    margin-block-start: auto;
+    border-radius: 2px;
+    overflow: hidden;
+    background: $fw-teal-wash;
+  }
+
+  &__seg { height: 100%; }
 }
 
 // A photograph, its credit, and the state before it has arrived.
@@ -650,9 +1451,9 @@
   // covers it when it paints. No script, nothing to initialise, and it works
   // for every popup at once however many there are.
   background: linear-gradient(100deg,
-    rgba($fw-shoal, 0.45) 30%,
-    rgba($fw-shoal, 0.85) 50%,
-    rgba($fw-shoal, 0.45) 70%);
+    rgba($fw-teal-tint, 0.45) 30%,
+    rgba($fw-teal-tint, 0.85) 50%,
+    rgba($fw-teal-tint, 0.45) 70%);
   background-size: 300% 100%;
   animation: fw-skeleton 1.4s $fw-easing infinite;
 
@@ -660,16 +1461,19 @@
     display: block;
     width: 100%;
     height: 150px;
-    object-fit: cover;
-    background: $fw-paper;
+    // CONTAIN, NOT COVER, at the client's request: a photograph framed tall
+    // lost the animal to the crop. The box keeps its size and the spare
+    // space shows the surface colour behind the image.
+    object-fit: contain;
+    background: $fw-surface;
   }
 
   &__credit {
     display: block;
     padding: 0.3rem $fw-space-1;
-    font-size: 0.72rem;
+    font-size: $fw-size-min;
     color: $fw-ink-muted;
-    background: $fw-paper;
+    background: $fw-surface;
 
     a { color: inherit; }
   }
@@ -677,7 +1481,7 @@
   // Nothing is coming, so nothing should pulse as though it were.
   &--none {
     animation: none;
-    background: rgba($fw-shoal, 0.35);
+    background: rgba($fw-teal-tint, 0.35);
     display: grid;
     place-items: center;
     min-height: 60px;
@@ -696,78 +1500,226 @@
   to   { background-position: 0 0; }
 }
 
-// A radio group drawn as one segmented control. Used where a chart answers two
+// A radio group drawn as a row of buttons. Used where a chart answers two
 // questions and the reader picks which; it is a view switch, not a filter, so
 // it sits with the chart rather than in the sidebar.
+//
+// SEPARATE BUTTONS, not a joined pill. It used to be a single rounded capsule
+// with the two options butted together inside one hairline.
+//
+// WHAT WAS ACTUALLY WRONG, and it was two things.
+//
+// FIRST, SHINY'S OWN INDENT. Shiny ships this rule:
+//
+//   .shiny-input-container-inline .shiny-options-group .radio-inline {
+//     position: relative; padding-left: calc(1.9em);
+//   }
+//
+// It reserves a 1.9em channel on the left of every inline radio for the native
+// control it expects to draw there. This control hides that control, so the
+// channel stayed empty - and pushed the text of each option about 32px to the
+// right inside its own box, which is the "text is right aligned / too much
+// padding" the client reported. That selector scores three classes, so the
+// previous `.fw-segmented .radio-inline` reset (two classes and an element)
+// lost to it and the padding was never actually cleared. The reset below is
+// written to outscore it; do not simplify the selector back down.
+//
+// SECOND, TWO BOXES. Shiny renders each option as
+// `label.radio-inline > input[type=radio] + span`, and the old rules put the
+// PADDING on the label while painting the checked background on the SPAN, so
+// the fill hugged the text and sat inside a larger label. Everything below
+// therefore hangs the padding, the border, the radius and the background on ONE
+// element - the span - and leaves the label a bare wrapper.
+//
+// NO :has() ANYWHERE. The old rule paired `input:checked + span` with
+// `label:has(input:checked)` as a belt-and-braces pair, which on any engine
+// supporting :has() applied BOTH and filled the label and the span. The sibling
+// selector alone is sufficient here and works everywhere, because the span is
+// always the input's next sibling.
 .fw-segmented {
   margin-block-end: $fw-space-2;
 
   .form-label,
   .control-label,
   .shiny-input-container > label {
+    display: block;
     font-size: $fw-size-caption;
     font-weight: $fw-weight-bold;
     color: $fw-ink-muted;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    margin-block-end: $fw-space-1;
   }
 
+  // The group is now just a row with a gap in it. No border, no overflow
+  // clipping: each button draws its own edges.
   .shiny-options-group {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
-    border: 1px solid $fw-line-input;
-    border-radius: $fw-radius-round;
-    overflow: hidden;
-    background: $fw-paper;
+    gap: $fw-space-1;
+    background: none;
+    border: 0;
   }
 
-  .radio-inline,
-  .form-check-inline {
+  // The label is a wrapper and nothing else. Any padding here reopens exactly
+  // the misalignment described above.
+  //
+  // THE SELECTOR LENGTH IS THE POINT. Three classes plus an element, so it
+  // outscores Shiny's own three-class rule rather than tying with it and
+  // relying on load order.
+  .shiny-options-group label.radio-inline,
+  .shiny-options-group label.form-check-inline,
+  .shiny-options-group .radio-inline,
+  .shiny-options-group .form-check-inline {
+    display: inline-flex;
     margin: 0;
     padding: 0;
+    border: 0;
+    cursor: pointer;
   }
 
   // The native control still exists and is still what a keyboard and a screen
-  // reader operate; it is moved out of sight rather than removed, and the label
-  // it belongs to carries the focus ring.
+  // reader operate; it is moved out of sight rather than removed, and the span
+  // it labels carries the focus ring.
   input[type="radio"] {
     position: absolute;
     opacity: 0;
     width: 1px;
     height: 1px;
+    pointer-events: none;
   }
 
-  label {
-    display: inline-block;
-    padding: 0.35rem $fw-space-2;
-    cursor: pointer;
+  // THE BUTTON. One element, so padding and background cannot disagree.
+  input[type="radio"] + span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;   // the centring the client asked for
+    text-align: center;
+    // Symmetric, and stated once. A min-width so that "Count" and "Share" come
+    // out the same size and the pair does not jiggle as the label changes.
+    padding: 0.45rem $fw-space-3;
+    min-width: 7rem;
+    border: 1px solid $fw-border-input;
+    // Less rounded: the input radius, not the pill radius it used to use.
+    border-radius: $fw-radius-input;
+    background: $fw-surface;
+    color: $fw-teal-text;
     font-weight: $fw-weight-medium;
-    color: $fw-deep;
-    transition: background-color $fw-motion-fast $fw-easing;
-
-    &:hover { background: rgba($fw-shoal, 0.5); }
+    line-height: 1.3;
+    cursor: pointer;
+    transition: background-color $fw-motion-fast $fw-easing,
+                border-color $fw-motion-fast $fw-easing,
+                color $fw-motion-fast $fw-easing;
   }
 
-  input[type="radio"]:checked + span,
-  label:has(input[type="radio"]:checked) {
-    background: $fw-deep;
-    color: $fw-paper;
+  label:hover input[type="radio"]:not(:checked) + span {
+    background: $fw-teal-wash;
+    border-color: $fw-teal-text;
   }
 
-  label:has(input[type="radio"]:focus-visible) {
-    outline: 3px solid $fw-shallow;
-    outline-offset: -3px;
+  input[type="radio"]:checked + span {
+    background: $fw-teal-text;
+    border-color: $fw-teal-text;
+    color: $fw-surface;
+  }
+
+  input[type="radio"]:focus-visible + span {
+    outline: 3px solid $fw-brand-teal;
+    outline-offset: 2px;
+  }
+
+  @media (max-width: $fw-bp-xs) {
+    .shiny-options-group { width: 100%; }
+    .radio-inline { flex: 1 1 auto; }
+    input[type="radio"] + span { width: 100%; min-width: 0; }
   }
 }
 
 // Maps size to the viewport, not to a fixed box. The height lives here rather
 // than on leafletOutput() because leaflet validates its height argument through
 // htmltools::validateCssUnit(), which rejects clamp(). See fw_map_output().
+// A group of markers that sit on top of one another - see FW_MAP$cluster in
+// R/config.R for when markers group. A counted ring at every zoom: the number
+// is persistent text, so it sits at the 1rem floor ($fw-size-min, NOT the
+// caption size, which moved up) and the ring is sized to hold it. Indigo is the
+// only colour on the map that is not an outcome, which is what marks this as
+// chrome; the outcome colours come back when the group is opened.
+.fw-cluster {
+  display: grid;
+  place-items: center;
+  border-radius: $fw-radius-round;
+  background: $fw-surface;
+  border: 2px solid $fw-ink;
+  box-shadow: $fw-shadow-card;
+  color: $fw-ink;
+  font-family: $fw-font-mono;
+  font-size: $fw-size-min;
+  font-weight: $fw-weight-bold;
+  line-height: 1;
+  cursor: pointer;
+}
+
+// .fw-cluster--stack WAS HERE: the second look a group used to take below
+// FW_MAP$cluster$fine_zoom, a solid indigo dot the size of a marker with the
+// count only in its title. The client asked for the numbered circle at every
+// zoom, so there is one look now and the modifier has gone with it. See
+// fw_cluster_options() in R/maps.R.
+
 .fw-map {
   height: clamp(320px, 55vh, 560px);
   width: 100%;
 
   .leaflet-container { height: 100%; width: 100%; }
+}
+
+// THE 1rem FLOOR INSIDE LEAFLET. Leaflet ships its own type scale - it sets
+// 12px on .leaflet-container and the controls, attribution and popups inherit
+// from there - and none of it comes through the Bootstrap variables that hold
+// the floor everywhere else. The map is full of real text (scale bar, layer
+// names, attribution, every popup), so it needs the floor stated directly.
+//
+// The attribution line is included on purpose. It is a licence obligation, and
+// an obligation set in 10px is one that has been technically met and
+// practically hidden.
+.leaflet-container,
+.leaflet-container .leaflet-control,
+.leaflet-control-layers {
+  font-family: $fw-font-body;
+  font-size: $fw-size-min;
+  line-height: 1.4;
+}
+
+// The map popup and the hover tooltip take the pop-up exemption instead: both
+// are transient overlays opened on top of the point they describe. See
+// $fw-size-popup in _tokens.scss for where that line is drawn - the legend and
+// the attribution above stay at the floor, because they sit on the map all the
+// time.
+.leaflet-container .leaflet-popup-content,
+.leaflet-container .leaflet-tooltip {
+  font-family: $fw-font-body;
+  font-size: $fw-size-popup;
+  line-height: 1.45;
+}
+
+// TWO CONTROLS NEED A LONGER SELECTOR, for the same reason the range slider
+// does: leaflet's own rules are two classes each and its stylesheet loads after
+// this file, so a two-class rule here ties and loses. The extra class on each
+// line below is what wins, not decoration.
+//
+//   .leaflet-container .leaflet-control-attribution   11px
+//   .leaflet .info                                    14px   (the map legend)
+.leaflet-container .leaflet-control.leaflet-control-attribution,
+.leaflet-container .leaflet-control.leaflet-control-scale {
+  font-size: $fw-size-min;
+  line-height: 1.4;
+}
+
+// The outcome key drawn onto the map by addLegend(). It names what every colour
+// on the map means, so it is not a caption that can be shrunk away.
+.leaflet .leaflet-control.info,
+.leaflet .info.legend {
+  font-size: $fw-size-min;
+  line-height: 1.45;
 }
 
 // The year range. ionRangeSlider's own grid of tick labels is switched off in
@@ -776,12 +1728,32 @@
 .fw-field--range {
   .irs-grid { display: none; }
 
-  .irs-bar { background: $fw-shallow; }
+  // ionRangeSlider sets 11px on its own labels and they are the only place the
+  // chosen years are stated on the control itself, so they are exactly the text
+  // the 1rem floor exists for. The bubbles have to grow with the type or the
+  // numerals crop.
+  //
+  // .irs--shiny IS IN THE SELECTOR ON PURPOSE. The rule being overridden is
+  // `.irs--shiny .irs-from`, which is two classes - the same score as a plain
+  // `.fw-field--range .irs-from`, and ionRangeSlider's stylesheet is injected
+  // as a Shiny HTML dependency AFTER this file's <style> block, so on a tie it
+  // wins. Three classes settles it regardless of load order.
+  .irs--shiny .irs-from,
+  .irs--shiny .irs-to,
+  .irs--shiny .irs-single,
+  .irs--shiny .irs-min,
+  .irs--shiny .irs-max {
+    font-size: $fw-size-min;
+    line-height: 1.3;
+    padding: 0.1rem 0.4rem;
+  }
+
+  .irs-bar { background: $fw-teal-hover; }
 
   .irs-from,
   .irs-to,
   .irs-single {
-    background: $fw-deep;
+    background: $fw-teal-text;
     font-family: $fw-font-mono;
     font-variant-numeric: tabular-nums;
   }
@@ -793,12 +1765,11 @@
     font-family: $fw-font-mono;
   }
 
-  &__readout,
   .fw-field__range-readout {
     margin-block-start: $fw-space-1;
     font-family: $fw-font-mono;
     font-variant-numeric: tabular-nums;
-    color: $fw-abyss;
+    color: $fw-ink;
   }
 }
 
@@ -821,7 +1792,7 @@
   &__label { font-weight: $fw-weight-bold; }
 
   &__track {
-    background: rgba($fw-line-input, 0.18);
+    background: rgba($fw-border-input, 0.18);
     border-radius: 3px;
     height: 14px;
     overflow: hidden;
@@ -841,17 +1812,25 @@
   }
 }
 
-// Caveats. ALWAYS VISIBLE, deliberately not an accordion - the reader who would
-// collapse it is the reader who needs it.
+// Caveats. THIS USED TO SAY "always visible, deliberately not an accordion -
+// the reader who would collapse it is the reader who needs it", and on the About
+// page it now sits inside one (.fw-disclosure). The client asked for it, and the
+// page it lives on changed shape underneath the old rule: About is a short
+// summary with four click-to-open panels behind it, so a caveats block that
+// cannot fold is the one thing on the page that behaves differently from
+// everything around it. What carries the old intent instead is the summary line,
+// which names what is inside rather than saying "caveats" - see
+// FW_COPY$about$caveats_summary. Still NOT collapsible in the HTML report or the
+// workbook, where there is nowhere to hide it anyway.
 .fw-caveats {
   margin-block-start: $fw-space-4;
   padding: $fw-space-4;
   border-radius: $fw-radius-card;
-  background: $fw-shoal;
-  color: $fw-abyss;
+  background: $fw-teal-tint;
+  color: $fw-ink;
 
   h2 { margin-block: 0 $fw-space-2; font-size: $fw-size-h3; }
-  h3 { margin-block: 0 0.25rem; font-size: 1rem; }
+  h3 { margin-block: 0 0.25rem; font-size: $fw-size-caption; }
 
   // Short titled blocks, however many fw_caveats() yields - auto-fit means the
   // count is never encoded here. Stacked in one column they used to cap at 78ch
@@ -874,21 +1853,6 @@
   }
 }
 
-// ---- Dot motif -------------------------------------------------------------
-// The one decorative device in the app. Data present and data missing: most
-// dots sit at low opacity, a handful at full strength.
-//
-// THE DIVIDER FORM WAS REMOVED on client feedback. .fw-dots survives as a
-// background texture for the landing hero only; do not reintroduce a ruled
-// dotted band between sections.
-
-.fw-dots {
-  --fw-dot: #{rgba($fw-primary, 0.22)};
-  background-image: radial-gradient(circle at center, var(--fw-dot) 1.6px, transparent 1.7px);
-  background-size: 22px 22px;
-  background-position: 0 0;
-}
-
 // ---- KPI -------------------------------------------------------------------
 
 .fw-kpi-strip {
@@ -907,7 +1871,7 @@
   // No card, no shadow, no box. The figures are separated by space and a
   // hairline rule, which keeps the strip from reading as five identical tiles.
   padding-inline-start: $fw-space-3;
-  border-inline-start: 3px solid $fw-shoal;
+  border-inline-start: 3px solid $fw-brand-teal;
 
   &__value {
     display: block;
@@ -916,14 +1880,14 @@
     font-size: 2.6rem;
     font-weight: $fw-weight-bold;
     line-height: 1.05;
-    color: $fw-deep;
+    color: $fw-teal-text;
   }
 
   &__label {
     display: block;
     margin-block-start: $fw-space-1;
     color: $fw-ink-muted;
-    font-size: 1rem;
+    font-size: $fw-size-caption;
     font-weight: $fw-weight-bold;
   }
 }
@@ -931,62 +1895,12 @@
 // ---- Cards and panels ------------------------------------------------------
 
 .fw-panel {
-  background: $fw-paper;
-  border: $fw-hairline;
+  background: $fw-surface;
+  box-shadow: $fw-shadow-card;
   border-radius: $fw-radius-card;
   padding: $fw-space-3;
 
-  @media (min-width: 768px) { padding: $fw-space-4; }
-}
-
-// ---- Stub panel ------------------------------------------------------------
-
-.fw-stub {
-  background: $fw-paper;
-  border: 1px solid $fw-shoal;
-  border-radius: $fw-radius-card;
-  padding: $fw-space-4;
-  max-width: 100%;
-
-  &__badge {
-    display: inline-flex;
-    align-items: center;
-    gap: $fw-space-1;
-    font-size: $fw-size-caption;
-    font-weight: $fw-weight-medium;
-    color: $fw-deep;
-    background: rgba($fw-shoal, 0.55);
-    border-radius: $fw-radius-round;
-    padding: 0.25rem $fw-space-2;
-    margin-block-end: $fw-space-2;
-
-    // A dot, so the badge is not carried by colour alone.
-    &::before {
-      content: "";
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: $fw-primary;
-    }
-  }
-
-  &__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: $fw-space-2;
-    margin-block-start: $fw-space-3;
-  }
-}
-
-// The commented skeleton in each stub module is for developers. This renders it
-// on the page only when the app is started with FW_SHOW_SKELETON=true.
-.fw-skeleton-note {
-  margin-block-start: $fw-space-3;
-  padding: $fw-space-2;
-  border-left: 3px solid $fw-shoal;
-  font-family: $fw-font-mono;
-  font-size: $fw-size-caption;
-  color: $fw-ink-muted;
-  white-space: pre-wrap;
+  @media (min-width: $fw-bp-md) { padding: $fw-space-4; }
 }
 
 // ---- Buttons ---------------------------------------------------------------
@@ -1001,16 +1915,16 @@
 }
 
 .btn-primary {
-  // $fw-deep rather than $fw-primary: white on the brand teal is 4.31:1, under
-  // the AA floor for a button label.
-  background-color: $fw-deep;
-  border-color: $fw-deep;
-  color: $fw-paper;
+  // $fw-teal-text rather than $fw-brand-teal: a light label on the brand teal
+  // is under the AA floor for a button label; on teal_text it clears it.
+  background-color: $fw-teal-text;
+  border-color: $fw-teal-text;
+  color: $fw-surface;
 
   &:hover, &:focus {
-    background-color: $fw-primary;
-    border-color: $fw-primary;
-    color: $fw-paper;
+    background-color: $fw-teal-hover;
+    border-color: $fw-teal-hover;
+    color: $fw-surface;
   }
   &:disabled, &.disabled {
     background-color: $fw-ink-muted;
@@ -1020,18 +1934,18 @@
 }
 
 .btn-outline-primary {
-  color: $fw-deep;
-  border-color: $fw-line-input;
+  color: $fw-teal-text;
+  border-color: $fw-border-input;
   background: transparent;
 
   &:hover, &:focus {
-    background-color: rgba($fw-shoal, 0.5);
-    border-color: $fw-deep;
-    color: $fw-deep;
+    background-color: $fw-teal-wash;
+    border-color: $fw-teal-text;
+    color: $fw-teal-text;
   }
 }
 
-.btn-link { color: $fw-deep; }
+.btn-link { color: $fw-teal-text; }
 
 // ---- Forms -----------------------------------------------------------------
 
@@ -1053,7 +1967,7 @@
 .control-label,
 .shiny-input-container > label {
   font-weight: $fw-weight-bold;
-  color: $fw-abyss;
+  color: $fw-ink;
   margin-block-end: 0.35rem;
 }
 
@@ -1063,23 +1977,23 @@
   border-radius: $fw-radius-input;
   // Interactive component boundaries need 3:1, which the decorative hairline
   // does not meet. See _tokens.scss.
-  border: 1px solid $fw-line-input;
-  background-color: $fw-paper;
-  color: $fw-abyss;
+  border: 1px solid $fw-border-input;
+  background-color: $fw-surface;
+  color: $fw-ink;
   padding: 0.5rem 0.7rem;
   transition: border-color $fw-motion-fast $fw-easing,
               box-shadow $fw-motion-fast $fw-easing;
 
   &:focus, &.focus {
-    border-color: $fw-deep;
-    box-shadow: 0 0 0 3px rgba($fw-shallow, 0.35);
+    border-color: $fw-teal-text;
+    box-shadow: 0 0 0 3px rgba($fw-teal-hover, 0.35);
     outline: none;
   }
 }
 
 // Required marker. Paired with an accessible label, never colour alone.
 .fw-required-mark {
-  color: $fw-deep;
+  color: $fw-teal-text;
   font-weight: $fw-weight-bold;
   margin-inline-start: 2px;
 }
@@ -1104,34 +2018,69 @@
 
 // Keyboard-accessible information icon. A real button, not a title attribute,
 // so it can be reached and opened from the keyboard.
+// A checkbox with an information icon beside it. .fw-field--check has been in
+// the markup since the year filter was built and never had a rule, so
+// checkboxInput()'s block-level .form-group pushed the icon onto a line of its
+// own, where it sat under the checkbox pointing at nothing. Making the row a
+// flex line is the whole fix. It became obvious when the icon grew to meet the
+// 1rem text floor; it was wrong at 18px too.
+.fw-field--check {
+  display: flex;
+  align-items: center;
+  gap: $fw-space-1;
+  flex-wrap: wrap;
+
+  // The container has to give up BOTH its bottom margin and its full width.
+  // The margin would push the icon out of line with the label it belongs to;
+  // the width is the reason the icon wrapped in the first place - Shiny's
+  // .shiny-input-container is width: 100%, so as a flex item it claimed the
+  // whole row and left the button nowhere to sit.
+  .shiny-input-container,
+  .form-group {
+    margin-block-end: 0;
+    width: auto;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  // The checkbox's own label carries a bottom margin from Bootstrap too.
+  .checkbox { margin: 0; }
+}
+
 .fw-info-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px; height: 18px;
+  // 1.5rem, sized off the 1rem glyph inside it rather than the other way
+  // round. It was an 18px circle holding 11px text; the text floor moved, so
+  // the circle had to move with it or the glyph would not fit.
+  width: 1.5rem; height: 1.5rem;
   padding: 0;
-  border: 1px solid $fw-line-input;
+  border: 1px solid $fw-border-input;
   border-radius: 50%;
   background: transparent;
-  color: $fw-deep;
+  color: $fw-teal-text;
   font-family: $fw-font-body;
-  font-size: 11px;
+  font-size: $fw-size-min;
   font-weight: $fw-weight-bold;
   line-height: 1;
   cursor: pointer;
   flex: none;
 
-  &:hover { background: rgba($fw-shoal, 0.6); border-color: $fw-deep; }
+  &:hover { background: $fw-teal-wash; border-color: $fw-teal-text; }
 }
 
 .popover {
-  border: $fw-hairline;
+  border: 0;
+  background: $fw-surface;
   border-radius: $fw-radius-card;
   box-shadow: $fw-shadow-raised;
-  font-size: 0.9rem;
-  max-width: 320px;
+  // The pop-up exemption. This is the panel behind the (i) glyphs: read once,
+  // on top of the field it explains, and dismissed. See $fw-size-popup.
+  font-size: $fw-size-popup;
+  max-width: 340px;
 
-  .popover-body { color: $fw-abyss; }
+  .popover-body { color: $fw-ink; }
 }
 
 // Validation.
@@ -1174,25 +2123,137 @@
 .fw-field:has(.is-invalid) {
   border-inline-start: 3px solid $fw-data-vermilion;
   padding-inline-start: $fw-space-2;
-  margin-inline-start: -#{$fw-space-2} - 3px;
+  margin-inline-start: calc(-1 * #{$fw-space-2} - 3px);
+}
+
+// The two question-list downloads on the contribute page: the Word file and the
+// plain-text one.
+//
+// A GRID OF TWO EQUAL COLUMNS, not two inline buttons. The client asked for the
+// pair to be the same size; matching the padding alone gives the same height
+// but two widths, because the labels differ in length. The grid is sized to its
+// max-content, and two 1fr columns of a max-content grid are each as wide as
+// the WIDER label - so both buttons match without either being stretched to
+// the width of the panel. They stack on a phone, where two side by side would
+// wrap the labels.
+.fw-contribute__downloads {
+  margin-block: $fw-space-3;
+
+  .fw-caption { margin-block-start: $fw-space-1; }
+}
+
+.fw-contribute__download-buttons {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $fw-space-2;
+
+  @media (min-width: $fw-bp-sm) {
+    width: max-content;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+// ---- Loading ----------------------------------------------------------------
+
+// The start-up loader. See fw_loader(). Above everything, the map card and the
+// navbar included, on the page ground rather than a surface so it reads as the
+// page not being ready rather than as a dialog.
+.fw-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: $fw-space-3;
+  background: $fw-page;
+  transition: opacity $fw-motion-base $fw-easing;
+
+  &--done { opacity: 0; pointer-events: none; }
+
+  &__badge {
+    width: 7rem;
+    height: 7rem;
+    object-fit: contain;
+  }
+
+  // AN INDETERMINATE BAR. Shiny reports no progress for start-up, so a bar that
+  // filled would be inventing a number; this one travels instead.
+  &__bar {
+    position: relative;
+    // width + max-width rather than min(): libsass evaluates min() itself and
+    // cannot compare vw with rem.
+    width: 60vw;
+    max-width: 16rem;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 3px;
+    background: $fw-teal-wash;
+  }
+
+  &__fill {
+    position: absolute;
+    inset-block: 0;
+    width: 40%;
+    border-radius: inherit;
+    background: $fw-brand-teal;
+    animation: fw-loader-travel 1.2s $fw-easing infinite;
+  }
+
+  // Under reduced motion the global rule in main.scss stops the travel after
+  // one pass, which would leave a bar that looks stuck. A full, still bar
+  // says "working" without moving.
+  @media (prefers-reduced-motion: reduce) {
+    &__fill { width: 100%; left: 0; opacity: 0.6; }
+  }
+}
+
+@keyframes fw-loader-travel {
+  from { left: -40%; }
+  to   { left: 100%; }
+}
+
+// THE BUSY SPINNER, as the badge. Shiny's rule (busy-indicators.css) draws
+// --shiny-spinner-url as a MASK filled with a flat colour, which is right for
+// its ring and wrong for a two-colour mark: the badge would come out as a teal
+// disc. So the mask is switched off and the badge is the background, and the
+// spin is added alongside Shiny's own fade-in so its delay still applies -
+// nothing appears on a redraw quicker than spinner_delay (app.R).
+//
+// THE DOUBLED CLASS IS DELIBERATE: it outranks Shiny's selector by one class,
+// so this wins whichever order the dependency's stylesheet and this one land in
+// the head - which htmltools does not promise. Reduced motion stops the turn
+// (main.scss); the badge still appears, which is the part that says something
+// is loading.
+[data-shiny-busy-spinners] .recalculating.recalculating::after {
+  background: var(--fw-badge-url) center / contain no-repeat;
+  mask-image: none;
+  -webkit-mask-image: none;
+  animation-name: fade-in, fw-spin;
+  animation-duration: 0.25s, 1.4s;
+  animation-timing-function: ease, linear;
+  animation-iteration-count: 1, infinite;
+  animation-fill-mode: forwards, none;
+  animation-delay: var(--shiny-spinner-delay, 1s), var(--shiny-spinner-delay, 1s);
+}
+
+@keyframes fw-spin {
+  to { transform: rotate(360deg); }
 }
 
 // ---- Scrolling form --------------------------------------------------------
 
-// The progress bar on contribution form. Sticky.
+// The progress bar on contribution form. Sticky, under the navbar - the offsets
+// are $fw-sticky-under-navbar's, shared with the report builder's results
+// heading so the two cannot drift apart when the navbar's height moves.
 .fw-progress-rail {
-  position: sticky;
-  top: 64px;
-  z-index: 900;
-  background: $fw-paper;
-  border: $fw-hairline;
+  @include fw-sticky-under-navbar;
+  background: $fw-surface;
   border-radius: $fw-radius-card;
   padding: $fw-space-2 $fw-space-3;
   margin-block-end: $fw-space-3;
-  box-shadow: 0 4px 16px rgba($fw-abyss, 0.06);
-
-  @media (min-width: 768px) { top: 7rem; }
-  @media (min-width: 992px) and (max-width: 1099px) { top: 5rem; }
+  box-shadow: $fw-shadow-card;
 
   &__inner {
     display: flex;
@@ -1201,11 +2262,13 @@
   }
 
   // The section name is the heading for everything under it, so it carries the
-  // weight rather than the percentage beside it.
+  // weight rather than the percentage beside it. Tokenised when the scale moved
+  // up: it was a hardcoded 1.2rem, which happened to be a step above body then
+  // and is exactly body now.
   &__section {
-    font-size: 1.2rem;
+    font-size: $fw-size-lead;
     font-weight: $fw-weight-medium;
-    color: $fw-deep;
+    color: $fw-teal-text;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1216,7 +2279,7 @@
     flex: 1 1 auto;
     height: 6px;
     min-width: 60px;
-    background: rgba($fw-shoal, 0.6);
+    background: $fw-teal-wash;
     border-radius: $fw-radius-round;
     overflow: hidden;
   }
@@ -1224,7 +2287,7 @@
   &__fill {
     height: 100%;
     width: 0;
-    background: $fw-shallow;
+    background: $fw-teal-hover;
     border-radius: $fw-radius-round;
     transition: width $fw-motion-base $fw-easing;
   }
@@ -1237,25 +2300,28 @@
     text-align: right;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: $fw-bp-sm) {
     &__inner { flex-wrap: wrap; }
-    &__section { flex: 1 1 100%; font-size: 1.05rem; }
+    // Steps down on a narrow screen, where it wraps onto its own full-width
+    // line. Was a hardcoded 1.05rem, which the raised scale left stranded
+    // between two tokens.
+    &__section { flex: 1 1 100%; font-size: $fw-size-caption; }
   }
 }
 
 // One section of the form. Each is a card, so the eye has somewhere to stop on
 // a page this long.
 .fw-form-section {
-  background: $fw-paper;
-  border: $fw-hairline;
+  background: $fw-surface;
+  box-shadow: $fw-shadow-card;
   border-radius: $fw-radius-card;
   padding: $fw-space-3;
   margin-block-end: $fw-space-3;
-  // The rail is sticky, so an anchored jump has to clear it as well as the
-  // navbar or the heading lands underneath both.
-  scroll-margin-top: 11rem;
+  // The rail is sticky, so an anchored jump has to clear it or the heading
+  // lands underneath.
+  scroll-margin-top: 5rem;
 
-  @media (min-width: 768px) { padding: $fw-space-4; }
+  @media (min-width: $fw-bp-md) { padding: $fw-space-4; }
 
   &__title {
     display: flex;
@@ -1272,8 +2338,8 @@
     flex: none;
     font-size: $fw-size-body;
     font-weight: $fw-weight-bold;
-    color: $fw-paper;
-    background: $fw-deep;
+    color: $fw-surface;
+    background: $fw-teal-text;
     border-radius: $fw-radius-round;
     min-width: 1.9rem;
     height: 1.9rem;
@@ -1294,9 +2360,9 @@
   position: sticky;
   bottom: 0;
   z-index: 500;
-  background: $fw-paper;
+  background: $fw-surface;
   border-top: $fw-hairline;
-  box-shadow: 0 -6px 24px rgba($fw-abyss, 0.10);
+  box-shadow: 0 -6px 24px rgba($fw-ink, 0.10);
   // Both values, not just the block one. With padding-inline at 0 the Back and
   // Send buttons sat flush against the edge of the panel.
   padding: $fw-space-2;
@@ -1314,7 +2380,7 @@
     color: $fw-ink-muted;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: $fw-bp-xs) {
     &__inner { flex-direction: column-reverse; align-items: stretch; }
     .btn { width: 100%; }
   }
@@ -1329,7 +2395,7 @@
   padding: $fw-space-2;
   border: $fw-hairline;
   border-radius: $fw-radius-card;
-  background: rgba($fw-shoal, 0.18);
+  background: rgba($fw-teal-tint, 0.18);
   margin-block-end: $fw-space-2;
 
   &__remove {
@@ -1342,11 +2408,11 @@
 
   &__heading {
     font-weight: $fw-weight-medium;
-    color: $fw-deep;
+    color: $fw-teal-text;
     margin-block-end: $fw-space-2;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: $fw-bp-xs) {
     grid-template-columns: 1fr;
     &__remove { margin-block-start: 0; }
   }
@@ -1371,7 +2437,7 @@
   // Coordinates are figures, so they are set in the mono face.
   input { font-family: $fw-font-mono; font-variant-numeric: tabular-nums; }
 
-  @media (max-width: 480px) { grid-template-columns: 1fr; }
+  @media (max-width: $fw-bp-xs) { grid-template-columns: 1fr; }
 }
 
 // One of the two places a shadow is allowed.
@@ -1421,7 +2487,10 @@
   flex-wrap: wrap;
   gap: $fw-space-4;
   padding: $fw-space-3;
-  background: rgba($fw-shoal, 0.35);
+  // Solid $fw-border, not a 35% wash of it. Tinted at that strength over the
+  // cream ground the strip came out a muddy green a shade off the page and read
+  // as a printing fault rather than a panel.
+  background: $fw-teal-tint;
   border-radius: $fw-radius-card;
   margin-block-end: $fw-space-3;
 
@@ -1432,12 +2501,12 @@
     font-variant-numeric: tabular-nums;
     font-size: $fw-size-h3;
     font-weight: $fw-weight-bold;
-    color: $fw-deep;
+    color: $fw-teal-text;
   }
 
   &__label {
     color: $fw-ink-muted;
-    font-size: 1rem;
+    font-size: $fw-size-caption;
     font-weight: $fw-weight-bold;
   }
 }
@@ -1451,6 +2520,128 @@
   margin-block-start: $fw-space-3;
 }
 
+// ---- Explore ---------------------------------------------------------------
+
+// The database panel: the whole record, never filtered, above everything.
+.fw-explore-db {
+  margin-block-end: $fw-space-4;
+
+  h2 { margin-block-end: $fw-space-1; }
+
+  &__span {
+    color: $fw-ink-muted;
+    margin-block-end: $fw-space-3;
+  }
+}
+
+// The filter bar. One row of controls that wraps rather than a sidebar: the
+// list below is the page, and a sidebar would take a third of its width away.
+.fw-explore-filters {
+  margin-block-end: $fw-space-3;
+
+  &__heading { margin-block-end: $fw-space-1; }
+
+  &__grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $fw-space-2;
+    align-items: end;
+
+    .fw-field { flex: 1 1 12rem; margin-block-end: 0; }
+    .shiny-input-container { width: 100%; margin-block-end: 0; }
+  }
+}
+
+// THE IN-PAGE SKIP LINK WENT WITH THE TABLE (.fw-skip-inline).
+//
+// It existed because the Explore map's cluster markers are Leaflet markers,
+// and a Leaflet marker is keyboard-focusable by default, so at world zoom about
+// seventy unlabelled tab stops sat between the filters and the record list. The
+// link jumped past them. With the list gone there is nothing on the far side to
+// jump TO - the markers are the last interactive thing on the page - so the
+// link would land a keyboard user on the footer.
+//
+// IF ANYTHING INTERACTIVE IS EVER ADDED BELOW THE MAP, this comes back. The
+// report builder never had it: there a marker is the only keyboard route to a
+// record, so the tab stops are the feature rather than the obstacle.
+
+// A section of the Explore page: the map, and the list. Its own class rather
+// than .fw-plan__block, which styles an h3 because the report builder's blocks
+// sit under the results heading. These are top-level sections of the page.
+.fw-explore-block {
+  margin-block-start: $fw-space-4;
+
+  h2 { margin-block: 0 $fw-space-1; }
+
+  &__note {
+    margin-block: 0 $fw-space-2;
+    color: $fw-ink-muted;
+    font-size: $fw-size-caption;
+  }
+}
+
+
+// ---- The dashboard's summary graphics ---------------------------------------
+
+// GROWTH BESIDE PROPORTIONS. The cumulative chart on the left and the two
+// donuts stacked on the right, which is the only arrangement that suits all
+// three: the cumulative chart is a time series and wants width, the donuts are
+// circles and want none of it.
+//
+// Stacked below $fw-bp-lg, which includes every phone and every portrait
+// tablet. Two columns is not a smaller version of one column here - it is a
+// different reading order - so the breakpoint is where there is genuinely room
+// for a readable time series AND a legible key beside a ring, not the earliest
+// point the columns technically fit.
+//
+// minmax(0, ...) on both tracks, not plain fractions. A grid track's default
+// min-width is auto, and plotly reports a min-content width for its container;
+// without this the chart column refuses to shrink and the row overflows the
+// page on the narrow side of the breakpoint.
+// TWO CELLS, ONE ROW. There used to be a third chart here - an outcome donut,
+// which shared a right-hand column with the method one behind a __shares
+// wrapper - and the client removed it. With two charts left the wrapper had
+// nothing to group, so both blocks are now direct children of this grid.
+.fw-explore-charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $fw-space-3;
+
+  @media (min-width: $fw-bp-lg) {
+    // 1fr 1fr, and it used to be 3fr 2fr. The narrow cell was sized for a donut,
+    // which only gets more crowded when it is squeezed; it now holds horizontal
+    // bars whose category labels are method names with a count after them, and
+    // those either get the width or wrap into two lines each. Below this width
+    // they stack, which is the "two rows on a smaller screen" the brief asks for.
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  // fw_block() draws .fw-plan__block on both pages. Its own bottom margin would
+  // double the grid gap and, worse, pull one chart out of line with the bottom
+  // of the chart beside it.
+  .fw-plan__block { margin-block-end: 0; }
+}
+
+// ---- The dashboard's table of attempts --------------------------------------
+//
+// GONE, at the client's request, and .fw-outcome-pill went with it - that
+// table was the only thing that drew one. It carried two credited photographs
+// per row, and the credit is a condition of using the images rather than
+// decoration (see R/species_images.R), which is what made its rows tall and its
+// column rules delicate. None of that is worth keeping warm: if a list of
+// attempts comes back it will not be this one.
+
+// .fw-record USED TO LIVE HERE - the card the dashboard's list was built from.
+// The card became a table, and then the client removed the table too, so both
+// the card component and its grid are gone.
+
+// .fw-popup-detail__nav AND __navbtn USED TO LIVE HERE - previous and next at
+// the foot of the record panel, stickied to the bottom of the scrollport so
+// stepping on did not mean scrolling to the end of the record first. The client
+// removed the buttons (see fw_record_detail_html() in R/maps.R); the sticky
+// bleed-through technique they used is now on .fw-plan__results-head.
+
 .fw-filters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1461,18 +2652,24 @@
   .shiny-input-container { width: 100%; margin-block-end: 0; }
 }
 
+// A TABLE GETS ITS OWN SURFACE. Transparent on the page ground, a table reads
+// as loose text on a coloured field and the hairline between rows disappears.
+// The header row sits one tonal step down on $fw-sunken, which marks it as the
+// header without a coloured rule.
 table.dataTable,
 .fw-table {
   width: 100%;
   border-collapse: collapse;
+  background: $fw-surface;
 
   th {
     text-align: left;
     font-weight: $fw-weight-bold;
-    color: $fw-deep;
-    border-bottom: 2px solid $fw-shoal;
+    color: $fw-ink;
+    border-bottom: 1px solid $fw-border;
     padding: $fw-space-1 $fw-space-2;
     white-space: nowrap;
+    background: $fw-sunken;
   }
 
   td {
@@ -1492,9 +2689,16 @@ table.dataTable,
 
 // Wide tables scroll inside their own container. The page body never scrolls
 // horizontally.
+//
+// This is also what gives the table's white surface its edges, because
+// border-collapse on the table itself cannot be rounded. overflow-x already
+// clips, so the radius here is enough.
 .fw-table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  background: $fw-surface;
+  border: $fw-hairline;
+  border-radius: $fw-radius-card;
 }
 
 // ---- Utility ---------------------------------------------------------------
@@ -1508,19 +2712,21 @@ table.dataTable,
 // table itself is clipped correctly by .fw-table-scroll; it was the caption
 // that escaped. Pinning the containing-block origin makes that impossible.
 .fw-visually-hidden {
+  // !important THROUGHOUT, as Bootstrap's own is: page and section headings
+  // carry this beside their own class, and a later &__title rule setting a
+  // margin or a flex display would otherwise bring them back into view.
   position: absolute !important;
-  left: 0;
-  top: auto;
-  width: 1px; height: 1px;
-  margin: -1px; padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
+  left: 0 !important;
+  top: auto !important;
+  width: 1px !important; height: 1px !important;
+  margin: -1px !important; padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
-.fw-stack > * + * { margin-block-start: $fw-space-3; }
 .fw-lead { font-size: $fw-size-lead; color: $fw-ink-muted; max-width: 100%; }
 
 .fw-pager {
@@ -1533,7 +2739,7 @@ table.dataTable,
   padding-block-start: $fw-space-2;
   border-top: $fw-hairline;
 
-  &__status { color: $fw-ink-muted; font-size: 1rem; }
+  &__status { color: $fw-ink-muted; font-size: $fw-size-caption; }
 
   &__pages {
     display: flex;
@@ -1549,23 +2755,23 @@ table.dataTable,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid $fw-line-input;
+    border: 1px solid $fw-border-input;
     border-radius: $fw-radius-input;
-    background: $fw-paper;
-    color: $fw-deep;
+    background: $fw-surface;
+    color: $fw-teal-text;
     font-weight: $fw-weight-medium;
     cursor: pointer;
     transition: background-color $fw-motion-fast $fw-easing,
                 border-color $fw-motion-fast $fw-easing;
 
-    &:hover { background: rgba($fw-shoal, 0.5); border-color: $fw-deep; }
+    &:hover { background: $fw-teal-wash; border-color: $fw-teal-text; }
 
     // The current page is marked by fill AND by aria-current, not by colour
     // alone.
     &.is-current {
-      background: $fw-deep;
-      border-color: $fw-deep;
-      color: $fw-paper;
+      background: $fw-teal-text;
+      border-color: $fw-teal-text;
+      color: $fw-surface;
       cursor: default;
     }
   }
@@ -1594,7 +2800,505 @@ table.dataTable,
   }
 }
 
-// The contact and attempts actions sit in narrow columns and wrapped onto two
-// lines. The table is already inside an overflow-x container, so letting these
-// two hold their width is the better trade.
+// The last two columns are narrow - on the contacts directory, the attempt
+// count and the contact action - and wrapped onto two lines. The table is
+// already inside an overflow-x container, so letting these two hold their
+// width is the better trade.
 .fw-table td:nth-last-child(-n + 2) { white-space: nowrap; }
+
+// ---- The About page's click-to-open panels ----------------------------------
+
+// A REAL <details>, so the browser owns the open state, the keyboard and what a
+// screen reader announces. Same choice as .fw-plan-filters__disclosure, and the
+// chevron is lifted from it - including the pair of rules that suppress the
+// default marker, because Safari uses the pseudo-element and everything else
+// uses list-style.
+//
+// Each panel is a card rather than a rule between sections: four disclosures
+// separated only by hairlines read as a list of links, and the client asked for
+// panels a reader chooses between.
+.fw-disclosure {
+  margin-block-end: $fw-space-2;
+  padding: $fw-space-2 $fw-space-3;
+  background: $fw-surface;
+  border: $fw-hairline;
+  border-radius: $fw-radius-card;
+
+  > summary {
+    list-style: none;
+    &::-webkit-details-marker { display: none; }
+  }
+
+  &__summary {
+    display: grid;
+    // The chevron column, then everything else. A grid rather than a flex row
+    // so the note lines up under the title instead of under the chevron.
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0 $fw-space-2;
+    align-items: baseline;
+    cursor: pointer;
+    border-radius: $fw-radius-input;
+
+    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 4px; }
+
+    // The chevron. Rotates when the panel is open, so the control says which
+    // way it is going rather than only that it is a control.
+    &::before {
+      content: "";
+      width: 0.5rem;
+      height: 0.5rem;
+      // Optically centred on the title's first line rather than its baseline,
+      // which a bare square sits below.
+      margin-block-start: 0.35em;
+      border-right: 2px solid $fw-teal-text;
+      border-bottom: 2px solid $fw-teal-text;
+      transform: rotate(-45deg);
+      transition: transform $fw-motion-fast;
+    }
+  }
+
+  &[open] > &__summary::before { transform: rotate(45deg); }
+
+  &__title {
+    grid-column: 2;
+    font-size: $fw-size-h3;
+    font-weight: $fw-weight-medium;
+    color: $fw-ink;
+  }
+
+  // WHAT IS INSIDE, not a restatement of the title. This is the line a reader
+  // decides on, so it stays visible while the panel is shut.
+  &__note {
+    grid-column: 2;
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+  }
+
+  &__body {
+    margin-block-start: $fw-space-2;
+    padding-block-start: $fw-space-2;
+    border-top: $fw-hairline;
+
+    > :last-child { margin-block-end: 0; }
+  }
+
+  // The caveats grid is a panel in its own right elsewhere (the HTML report);
+  // inside a disclosure it has already been given a card, so it drops its own.
+  .fw-caveats {
+    padding: 0;
+    background: none;
+  }
+}
+
+// A list of links where each carries a line saying what is behind it. The note
+// is the point: a bare list of database names does not tell anyone which one to
+// follow.
+.fw-linklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  > li + li { margin-block-start: $fw-space-2; }
+
+  &__note {
+    display: block;
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+  }
+}
+
+// ---- plotly's modebar -------------------------------------------------------
+
+// THE ONE BUTTON WE KEEP is the camera: every chart is downloadable as a PNG,
+// which is a client instruction. The bar used to be off entirely
+// (displayModeBar = FALSE) and came back with everything except toImage
+// removed - see fw_plotly_style() in R/charts.R for why zoom and pan are not
+// wanted on these charts.
+//
+// It needs styling because a chart's paper is transparent (FW_TRANSPARENT), so
+// plotly's default bar floats over whatever ground the chart is sitting on with
+// no surface of its own. Given one, it reads as chrome belonging to the block
+// rather than as a mark on the chart.
+// THE GROUND GOES ON THE GROUP, NOT ON .modebar, and that is not cosmetic.
+// plotly's auto-hide bar fades its CHILDREN - its rule is
+// `.modebar--hover > :not(.watermark) { opacity: 0 }` - and leaves the bar
+// itself fully opaque. A background on .modebar is therefore painted on every
+// chart all the time, as an empty white pill floating over the plot with
+// nothing in it. On the group it fades in and out with the button it is behind.
+//
+// IT IS NO LONGER A HOVER-ONLY BAR. displayModeBar = TRUE in fw_plotly_style()
+// keeps it on screen at all times, because the client reported the download as
+// not visible enough - a button that only exists while the pointer is over the
+// chart is not a button most readers will ever meet, and on touch there is no
+// hover at all. Given that, it has to look like a control rather than like a
+// faint grey smudge in the corner of a plot: a surface, a border, and an icon
+// in body ink rather than muted.
+.modebar-group {
+  background: $fw-surface !important;
+  border: $fw-hairline;
+  border-radius: $fw-radius-input;
+  box-shadow: $fw-shadow-card;
+  // plotly packs the button tight against the edges of its group; a control
+  // that is now permanent needs the room to read as one.
+  padding: 0.1rem 0.2rem !important;
+}
+
+// AND IT MOVES TO THE FOOT OF THE CHART. plotly parks the bar in the top right
+// of the plot, which is exactly where our horizontal legend ends - see
+// legend_layout in fw_plotly_style(). While the bar only appeared on hover that
+// was a collision you had to go looking for; now that it is always on screen it
+// sat over the last entry of the key and clipped it. The bottom right corner is
+// under the x-axis labels and to the right of the centred axis title, and is
+// empty on every chart here. There is no layout option for this - the bar is an
+// HTML element plotly positions with top/right - so it is moved in CSS.
+// TWO ELEMENTS, because plotly's bar lives in a zero-height container pinned to
+// the TOP of the plot: moving the bar alone only moves it above that line and
+// out of the chart entirely, which is what it did first. The container goes to
+// the foot of the plot and the bar sits on the bottom edge of it.
+.js-plotly-plot .plotly .modebar-container {
+  inset-block-start: auto !important;
+  inset-block-end: 0 !important;
+}
+
+.js-plotly-plot .plotly .modebar {
+  inset-block-start: auto !important;
+  inset-block-end: 0 !important;
+  inset-inline-end: 0 !important;
+}
+
+// The icon's fill is an inline attribute set from layout.modebar in
+// fw_plotly_style(), because plotly derives it from the paper colour and gets
+// it wrong on a transparent paper. Nothing here tries to win that fight: this
+// is only the hit area.
+.modebar-btn {
+  padding: 0.15rem 0.3rem !important;
+  opacity: 1 !important;
+  // plotly draws the camera at 1em square, so the icon is exactly as big as the
+  // button's font size - 16px from plotly's own stylesheet, which is smaller
+  // than any text on the page around it. A step up, because a camera that size
+  // in the corner of a chart is the thing the client could not see. This sizes
+  // an icon and not text, so it is not a step on the type scale.
+  font-size: 1.3rem !important;
+}
+
+// ---- Welcome page ----------------------------------------------------------
+// R/mod_home.R. BUILT TO FIT ONE LAPTOP SCREEN: a smaller header, one strip of
+// figure + pictures + hint, and the map sized by the window height. Its own
+// pieces: the strip, the story cards (native popovers) and the map reveal.
+
+// THE HEADER. Two long sentences at h1 size ran to four lines; a step down
+// keeps them to two on a laptop. The lead is three short lines, so the gap
+// between them is small.
+.fw-page-header--home {
+  padding-block: $fw-space-2;
+
+  .fw-page-header__title {
+    font-size: $fw-size-h2;
+    line-height: 1.25;
+    margin-block-end: $fw-space-2;
+    @media (max-width: $fw-bp-xs) { font-size: $fw-size-h3; }
+  }
+
+  .fw-page-header__description {
+    color: $fw-on-indigo;
+    line-height: 1.45;
+  }
+
+  a {
+    color: $fw-teal-light;
+    text-underline-offset: 0.2em;
+    &:hover, &:focus-visible { color: $fw-on-indigo; }
+  }
+}
+
+// THE STRIP. Figure | pictures | hint on a laptop; stacked on a phone.
+.fw-home-strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 13rem);
+  align-items: center;
+  gap: $fw-space-3;
+
+  @media (max-width: $fw-bp-md) {
+    grid-template-columns: auto minmax(0, 1fr);
+    .fw-home-strip__species { grid-column: 1 / -1; grid-row: 2; }
+  }
+
+  &__kpi {
+    padding: $fw-space-2;
+    background: $fw-teal-wash;
+    border: 1px solid $fw-brand-teal;
+    border-radius: $fw-radius-card;
+
+    .fw-kpi { padding-inline-start: 0; border: 0; text-align: center; }
+    .fw-kpi__value { font-size: $fw-size-h1; }
+    .fw-kpi__label { color: $fw-teal-text; }
+  }
+
+  &__species {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: $fw-space-2;
+
+    @media (max-width: $fw-bp-sm) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  &__hint {
+    margin: 0;
+    color: $fw-teal-text;
+    font-weight: $fw-weight-bold;
+    line-height: 1.3;
+    text-align: center;
+  }
+}
+
+// One picture. A real button, so it takes focus and Enter/Space; the drawing
+// grows a little on hover to say it is clickable.
+.fw-home-species {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 6.5rem;
+  padding: $fw-space-1;
+  background: transparent;
+  border: 0;
+  border-radius: $fw-radius-card;
+  cursor: pointer;
+
+  img, .fw-story__placeholder {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: transform 0.15s ease;
+  }
+
+  &:hover { background: $fw-teal-wash; }
+  &:hover img { transform: scale(1.06); }
+  &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
+
+  @media (max-width: $fw-bp-sm) { height: 5rem; }
+  @media (prefers-reduced-motion: reduce) { img { transition: none; } }
+}
+
+// THE STORY CARD. The map card's look (surface, raised shadow, round close
+// button) on a native popover, which the browser centres in the top layer.
+// Unlike the map card it carries paragraphs, so its text stays on the floor.
+.fw-home-card {
+  // Interpolated: libsass reads a bare min() as its own and rejects the units.
+  width: #{"min(38rem, calc(100vw - " + $fw-space-3 + "))"};
+  max-height: 85vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: auto;
+  padding: $fw-space-3;
+  color: $fw-ink;
+  background: $fw-surface;
+  border: 0;
+  border-radius: $fw-radius-card;
+  box-shadow: $fw-shadow-raised;
+  line-height: $fw-leading-body;
+
+  &::backdrop { background: rgba($fw-brand-indigo, 0.35); }
+
+  &__title {
+    font-size: $fw-size-h3;
+    margin-block-end: $fw-space-2;
+    padding-inline-end: $fw-space-4;
+  }
+
+  &__summary { font-weight: $fw-weight-medium; }
+  p:last-child { margin-block-end: 0; }
+
+  &__close {
+    position: absolute;
+    inset-block-start: $fw-space-1;
+    inset-inline-end: $fw-space-1;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: $fw-ink-muted;
+    background: transparent;
+    border: 0;
+    border-radius: $fw-radius-round;
+    cursor: pointer;
+
+    &:hover { color: $fw-teal-text; background: $fw-teal-wash; }
+    &:focus-visible { outline: 2px solid $fw-teal-text; }
+  }
+}
+
+// The two plates inside a card: invasive (greyscale) | beneficiary.
+.fw-story {
+  &__continent {
+    color: $fw-teal-text;
+    font-weight: $fw-weight-bold;
+    &::after { content: " \2014"; color: $fw-ink-muted; font-weight: $fw-weight-regular; }
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: $fw-space-3;
+    margin-block-end: $fw-space-2;
+  }
+
+  &__figure { margin: 0; }
+
+  // A fixed box so pictures of very different shapes sit at the same height.
+  // The plates are transparent, so the card shows through and no white is
+  // introduced.
+  &__art {
+    aspect-ratio: 16 / 9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  }
+
+  &__placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: $fw-sunken;
+    border: 1px dashed $fw-border-input;
+    border-radius: $fw-radius-card;
+    color: $fw-ink-muted;
+    font-size: $fw-size-caption;
+    text-align: center;
+  }
+
+  figcaption {
+    margin-block-start: $fw-space-1;
+    text-align: center;
+    font-size: $fw-size-caption;
+    color: $fw-ink;
+  }
+
+  &__role {
+    display: block;
+    color: $fw-ink-muted;
+  }
+}
+
+// THE MAP REVEAL. Two pictures in register: the base is current work, the top
+// layer is the priorities map clipped to the left --fw-pos of the width. The
+// range input covers the whole figure invisibly, so a drag, a click or an
+// arrow key moves it; the handle is only its drawing.
+//
+// SIZED BY THE WINDOW HEIGHT. The pictures are 2400x1140, so a width of
+// (height available) x 2.105 is the widest map that still fits the screen.
+// --fw-home-chrome is everything above and below the map on this page:
+// navbar, header, strip and section padding. It is deliberately a little LESS
+// than all of it: the client accepts a short scroll on a laptop in exchange for
+// a map that can be read, so the caption may sit just below the fold. Tune that
+// one number if the page above the map changes. The 20rem floor keeps a short
+// window from shrinking the map to a stamp; it scrolls instead. The caption is
+// not held to the map's width, so it stays on one line.
+.fw-compare-wrap {
+  --fw-home-chrome: 28.5rem;
+  margin: $fw-space-2 0 0;
+
+  .fw-compare {
+    width: #{"max(20rem, min(100%, calc((100svh - var(--fw-home-chrome)) * 2.105)))"};
+    max-width: 100%;
+    margin-inline: auto;
+  }
+}
+
+.fw-compare__caption {
+  margin-block-start: $fw-space-1;
+  text-align: center;
+  font-size: $fw-size-lead;
+  font-weight: $fw-weight-bold;
+  color: $fw-ink;
+}
+
+// THE CAPTION IS THE LEGEND. The map's own hues, darkened to pass as text.
+.fw-compare__now  { color: $fw-map-now-text; }
+.fw-compare__later { color: $fw-map-next-text; }
+
+.fw-compare {
+  position: relative;
+  // Set inline by the input; declared here so the first paint agrees with it.
+  --fw-pos: 0%;
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  &__top {
+    position: absolute;
+    inset: 0;
+    clip-path: inset(0 calc(100% - var(--fw-pos)) 0 0);
+  }
+
+  &__handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--fw-pos);
+    width: 3px;
+    transform: translateX(-50%);
+    background: $fw-brand-teal;
+    pointer-events: none;
+
+    // The knob. Small enough that at 0% its overhang stays inside the
+    // container gutter, so it never adds a sideways scroll on a phone.
+    &::after {
+      content: "\2039\00a0\203a";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2.25rem;
+      height: 2.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: $fw-radius-round;
+      background: $fw-surface;
+      border: 2px solid $fw-brand-teal;
+      color: $fw-teal-text;
+      font-weight: $fw-weight-bold;
+      line-height: 1;
+      box-shadow: $fw-shadow-card;
+    }
+  }
+
+  // A focus ring on the drawn knob, since the real control is invisible.
+  &:has(.fw-compare__range:focus-visible) .fw-compare__handle::after {
+    outline: 2px solid $fw-teal-text;
+    outline-offset: 3px;
+  }
+
+  &__range {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: ew-resize;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    // A hairline thumb, so the value under the pointer is the position the
+    // pointer is at rather than off by half a native thumb.
+    &::-webkit-slider-thumb { -webkit-appearance: none; width: 1px; height: 100%; }
+    &::-moz-range-thumb { width: 1px; height: 100%; border: 0; }
+  }
+}

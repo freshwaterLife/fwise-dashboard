@@ -1,13 +1,12 @@
 # check_contrast.R
 # Verifies every text/background pair in the palette against WCAG AA.
 #
-# Run it after changing any colour in www/scss/_tokens.scss:
+# Run it after changing any colour in R/brand.R:
 #     Rscript dev/check_contrast.R
 #
-# This lives in dev/ because it is a build-time check, not part of the app.
-# dev/ is gitignored, so if you want this in version control move it to R/ and
-# it will still run. It is kept here deliberately so the client's deployment
-# never has to load it.
+# This lives in dev/ because it is a build-time check, not part of the app. The
+# rest of dev/ is gitignored but this file is re-included, so it travels with
+# the code; it is kept out of R/ so the deployment never loads it.
 
 relative_luminance <- function(hex) {
   rgb <- col2rgb(hex)[, 1] / 255
@@ -20,40 +19,45 @@ contrast_ratio <- function(a, b) {
   (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
 }
 
-pal <- c(
-  abyss      = "#0a2e29",
-  deep       = "#0d574c",
-  primary    = "#108978",
-  shallow    = "#1c9484",
-  shoal      = "#c7ede8",
-  line_input = "#65948d",
-  silt       = "#f7f4ef",
-  paper      = "#ffffff",
-  ink_muted  = "#4a6a64"
-)
+# THE APP'S OWN PALETTE, not a copy of it. R/brand.R has no dependencies, so
+# it can be sourced here on its own.
+source("R/brand.R")
+pal <- unlist(FW_COLOURS)
 
 # Pairs the interface actually uses. Add a row when you introduce a new one.
+# 4.5 is the AA floor for text; 3.0 is the floor for a non-text element that
+# carries meaning (a focus ring, an input edge, an active marker).
 pairs <- list(
-  list("Body text on page",        "abyss",     "silt",    4.5),
-  list("Body text on card",        "abyss",     "paper",   4.5),
-  list("Muted text on page",       "ink_muted", "silt",    4.5),
-  list("Muted text on card",       "ink_muted", "paper",   4.5),
-  list("Heading on page",          "deep",      "silt",    4.5),
-  list("Link on page",             "deep",      "silt",    4.5),
-  # $fw-primary is the true sampled brand teal and does NOT meet 4.5:1 as text.
-  # That is why text and button roles use $fw-deep instead. It is checked here at
-  # the 3:1 non-text threshold, which is the standard it actually has to meet.
-  list("Brand teal as non-text",   "primary",   "silt",    3.0),
-  list("Primary button label",     "paper",     "deep",    4.5),
-  list("Footer text on abyss",     "silt",      "abyss",   4.5),
-  list("Footer muted on abyss",    "shoal",     "abyss",   4.5),
-  list("Focus ring on page",       "shallow",   "silt",    3.0),
-  list("Focus ring on card",       "shallow",   "paper",   3.0),
+  list("Body text on page",         "ink",        "page",         4.5),
+  list("Body text on surface",      "ink",        "surface",      4.5),
+  list("Body text on sunken",       "ink",        "sunken",       4.5),
+  list("Muted text on page",        "ink_muted",  "page",         4.5),
+  list("Muted text on surface",     "ink_muted",  "surface",      4.5),
+  list("Muted text on sunken",      "ink_muted",  "sunken",       4.5),  # Welcome picture placeholders
+  list("Map caption blue on page",  "map_now_text",  "page",      4.5),
+  list("Map caption amber on page", "map_next_text", "page",      3.0),  # 1.3rem bold: large text
+  list("Link on page",              "teal_text",  "page",         4.5),
+  list("Link on surface",           "teal_text",  "surface",      4.5),
+  list("Link on sunken",            "teal_text",  "sunken",       4.5),
+  list("Link on teal wash",         "teal_text",  "teal_wash",    4.5),
+  list("Ink on teal tint",          "ink",        "teal_tint",    4.5),
+  list("Primary button label",      "surface",    "teal_text",    4.5),
+  list("Primary button hover",      "surface",    "teal_hover",   4.5),
+  list("Text on indigo",            "on_indigo",  "brand_indigo", 4.5),
+  list("Muted text on indigo",      "on_indigo_muted", "brand_indigo", 4.5),
+  list("Link on indigo",            "teal_light", "brand_indigo", 4.5),
+  # $fw-brand-teal is the client's brand teal and does NOT meet 4.5:1 as text.
+  # That is why text and button roles use teal_text. It is checked here at the
+  # 3:1 non-text threshold, which is the standard it actually has to meet: the
+  # active nav marker, the KPI rule, the focus ring.
+  list("Brand teal as non-text on page",    "brand_teal", "page",    3.0),
+  list("Brand teal as non-text on surface", "brand_teal", "surface", 3.0),
+  list("Brand teal as non-text on indigo",  "brand_teal", "brand_indigo", 3.0),
   # Input borders are interactive component boundaries under WCAG 1.4.11 and
-  # need 3:1. The --fw-shoal hairline is a decorative divider and does not, so
-  # it is deliberately absent from this list.
-  list("Input border on page",     "line_input", "silt",   3.0),
-  list("Input border on card",     "line_input", "paper",  3.0)
+  # need 3:1. $fw-border is a decorative divider and does not, so it is
+  # deliberately absent from this list.
+  list("Input border on page",      "border_input", "page",    3.0),
+  list("Input border on surface",   "border_input", "surface", 3.0)
 )
 
 cat(sprintf("%-26s %-10s %-10s %7s %6s  %s\n",

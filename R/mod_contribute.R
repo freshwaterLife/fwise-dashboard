@@ -27,7 +27,8 @@ library(leaflet)
 mod_contribute_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    fw_page_header(fw_t("contribute", "title"), fw_t("contribute", "description")),
+    fw_page_header(fw_t("contribute", "title"), fw_t("contribute", "description"),
+                   show_title = FALSE),
     tags$main(
       id = "fw-main",
       fw_section(
@@ -80,61 +81,64 @@ mod_contribute_server <- function(id, data, choices) {
     iv <- InputValidator$new()
 
     iv_site <- InputValidator$new()
-    iv_site$add_rule("site_name", sv_required(message = "Please give the site a name."))
-    iv_site$add_rule("country", sv_required(message = "Please choose a country."))
-    iv_site$add_rule("latitude", sv_required(message = "Place a pin on the map, or type a latitude."))
-    iv_site$add_rule("latitude", sv_between(-90, 90, message = "Latitude must be between -90 and 90."))
-    iv_site$add_rule("longitude", sv_required(message = "Place a pin on the map, or type a longitude."))
-    iv_site$add_rule("longitude", sv_between(-180, 180, message = "Longitude must be between -180 and 180."))
+    iv_site$add_rule("site_name", sv_required(message = fw_t("contribute", "validate", "site_name")))
+    iv_site$add_rule("country", sv_required(message = fw_t("contribute", "validate", "country")))
+    iv_site$add_rule("latitude", sv_required(message = fw_t("contribute", "validate", "latitude")))
+    iv_site$add_rule("latitude", sv_between(-90, 90, message = fw_t("contribute", "validate", "latitude_range")))
+    iv_site$add_rule("longitude", sv_required(message = fw_t("contribute", "validate", "longitude")))
+    iv_site$add_rule("longitude", sv_between(-180, 180, message = fw_t("contribute", "validate", "longitude_range")))
 
     iv_waterbody <- InputValidator$new()
-    iv_waterbody$add_rule("waterbody_type", sv_required(message = "Please choose a waterbody type."))
-    iv_waterbody$add_rule("water_regime", sv_required(message = "Please choose still or flowing water."))
+    iv_waterbody$add_rule("waterbody_type", sv_required(message = fw_t("contribute", "validate", "waterbody_type")))
+    iv_waterbody$add_rule("water_regime", sv_required(message = fw_t("contribute", "validate", "water_regime")))
     # The unit becomes required only once a size has been entered.
     iv_waterbody$add_rule("area_unit", function(value) {
       size <- input$area_treated
       if (!is.null(size) && !is.na(size) && (is.null(value) || !nzchar(value))) {
-        "Please give the unit for the area you entered."
+        fw_t("contribute", "validate", "area_unit")
       }
     })
 
     iv_invasive <- InputValidator$new()
-    iv_invasive$add_rule("target_taxa_1", sv_required(message = "Please choose the kind of animal targeted."))
-    iv_invasive$add_rule("target_species_1", sv_required(message = "Please name the species targeted."))
+    iv_invasive$add_rule("target_taxa_1", sv_required(message = fw_t("contribute", "validate", "target_taxa")))
+    iv_invasive$add_rule("target_species_1", sv_required(message = fw_t("contribute", "validate", "target_species")))
 
     this_year <- as.integer(format(Sys.Date(), "%Y"))
     iv_timeline <- InputValidator$new()
-    iv_timeline$add_rule("start_year", sv_required(message = "Please give the year the eradication began."))
-    iv_timeline$add_rule("start_year", sv_between(1500, this_year,
-      message = paste0("Enter a year between 1500 and ", this_year, ".")))
+    iv_timeline$add_rule("start_year", sv_required(message = fw_t("contribute", "validate", "start_year")))
+    year_range_msg <- fw_fill(fw_t("contribute", "validate", "year_range"),
+                              min = FW_YEAR_MIN, year = this_year)
+    iv_timeline$add_rule("start_year", sv_between(FW_YEAR_MIN, this_year,
+      message = year_range_msg))
     iv_timeline$add_rule("invasion_year", sv_optional())
-    iv_timeline$add_rule("invasion_year", sv_between(1500, this_year,
-      message = paste0("Enter a year between 1500 and ", this_year, ".")))
+    iv_timeline$add_rule("invasion_year", sv_between(FW_YEAR_MIN, this_year,
+      message = year_range_msg))
     iv_timeline$add_rule("end_year", sv_optional())
     iv_timeline$add_rule("end_year", function(value) {
       if (is.null(value) || is.na(value)) return(NULL)
-      if (value < 1500 || value > this_year + 20) {
-        return("Enter a year between 1500 and twenty years from now.")
+      if (value < FW_YEAR_MIN || value > this_year + FW_YEAR_FUTURE) {
+        return(fw_fill(fw_t("contribute", "validate", "end_year_range"),
+                       min = FW_YEAR_MIN))
       }
       start <- input$start_year
       if (!is.null(start) && !is.na(start) && value < start) {
-        "The end year cannot be before the start year."
+        fw_t("contribute", "validate", "end_before_start")
       }
     })
-    iv_timeline$add_rule("driver", sv_required(message = "Please choose a driver."))
+    iv_timeline$add_rule("driver", sv_required(message = fw_t("contribute", "validate", "driver")))
 
     iv_methods <- InputValidator$new()
-    iv_methods$add_rule("method_1", sv_required(message = "Please choose the main method."))
+    iv_methods$add_rule("method_1", sv_required(message = fw_t("contribute", "validate", "method")))
 
     iv_outcome <- InputValidator$new()
-    iv_outcome$add_rule("outcome", sv_required(message = "Please choose an outcome."))
+    iv_outcome$add_rule("outcome", sv_required(message = fw_t("contribute", "validate", "outcome")))
 
     iv_contributor <- InputValidator$new()
-    iv_contributor$add_rule("primary_contact_name", sv_required(message = "Please give a contact name."))
-    iv_contributor$add_rule("primary_contact_email", sv_required(message = "Please give a contact email."))
-    iv_contributor$add_rule("primary_contact_email", sv_email(message = "That does not look like an email address."))
+    iv_contributor$add_rule("primary_contact_name", sv_required(message = fw_t("contribute", "validate", "contact_name")))
+    iv_contributor$add_rule("primary_contact_email", sv_required(message = fw_t("contribute", "validate", "contact_email")))
+    iv_contributor$add_rule("primary_contact_email", sv_email(message = fw_t("contribute", "validate", "email_format")))
     iv_contributor$add_rule("secondary_contact_email", sv_optional())
-    iv_contributor$add_rule("secondary_contact_email", sv_email(message = "That does not look like an email address."))
+    iv_contributor$add_rule("secondary_contact_email", sv_email(message = fw_t("contribute", "validate", "email_format")))
 
     step_validators <- list(
       site = iv_site, waterbody = iv_waterbody, invasive = iv_invasive,
@@ -160,7 +164,7 @@ mod_contribute_server <- function(id, data, choices) {
     # The consent controls gate the whole submission, not one step.
     iv_consent <- InputValidator$new()
     iv_consent$add_rule("consent_data_use", function(value) {
-      if (!isTRUE(value)) "Please confirm you agree before sending."
+      if (!isTRUE(value)) fw_t("contribute", "validate", "consent")
     })
     # Deliberately NOT enabled here. Enabling at startup shows the contributor an
     # error on the opening panel before they have touched anything, which reads
@@ -310,7 +314,7 @@ mod_contribute_server <- function(id, data, choices) {
     observeEvent(input$start, {
       if (!isTRUE(input$consent_data_use)) {
         iv_consent$enable()
-        fw_announce(session, "Please confirm you agree before starting.")
+        fw_announce(session, fw_t("contribute", "announce", "consent_start"))
         return()
       }
       iv_consent$enable()
@@ -366,13 +370,13 @@ mod_contribute_server <- function(id, data, choices) {
       current <- input$waterbody_type %||% ""
       keep <- if (nzchar(current) && current %in% lst) current else ""
       if (nzchar(current) && !nzchar(keep)) {
-        fw_announce(session, paste0(
-          "The waterbody types have changed to match ",
-          tolower(fw_regime_label(rg)), ". Please choose again."))
+        fw_announce(session, fw_fill(
+          fw_t("contribute", "announce", "waterbody_changed"),
+          regime = tolower(fw_regime_label(rg))))
       }
       updateSelectizeInput(
         session, "waterbody_type",
-        choices = c(stats::setNames("", "Select..."), lst),
+        choices = c(stats::setNames("", fw_t("contribute", "placeholder", "select")), lst),
         selected = keep, server = FALSE
       )
     })
@@ -398,14 +402,16 @@ mod_contribute_server <- function(id, data, choices) {
         ""
       }
       if (nzchar(current) && !nzchar(keep)) {
-        fw_announce(session, paste("The regions have changed to match",
-                                   input$country, ". Please choose again."))
+        fw_announce(session, fw_fill(
+          fw_t("contribute", "announce", "regions_changed"),
+          country = input$country))
       }
       updateSelectizeInput(
         session, "region",
-        choices = c(stats::setNames("", "Select..."), subs),
+        choices = c(stats::setNames("", fw_t("contribute", "placeholder", "select")), subs),
         selected = keep, server = FALSE,
-        options = list(create = TRUE, placeholder = "Select or type...")
+        options = list(create = TRUE,
+                       placeholder = fw_t("contribute", "placeholder", "select_or_type"))
       )
     })
 
@@ -417,7 +423,7 @@ mod_contribute_server <- function(id, data, choices) {
       next_index$target <- i + 1L
       bind_pair_row(i, "target")
       fw_bind_remove(session, ns, input, i, "target", rows)
-      fw_announce(session, paste("Target", i, "added."))
+      fw_announce(session, fw_fill(fw_t("contribute", "announce", "target_added"), n = i))
     })
 
     observeEvent(input$add_beneficiary, {
@@ -428,7 +434,7 @@ mod_contribute_server <- function(id, data, choices) {
       next_index$benefit <- i + 1L
       bind_pair_row(i, "benefit")
       fw_bind_remove(session, ns, input, i, "benefit", rows)
-      fw_announce(session, paste("Beneficiary", i, "added."))
+      fw_announce(session, fw_fill(fw_t("contribute", "announce", "beneficiary_added"), n = i))
     })
 
     observeEvent(input$add_method, {
@@ -454,9 +460,10 @@ mod_contribute_server <- function(id, data, choices) {
       # fw_add_basemaps() gives it the shared stack and layer control, which
       # also means Satellite and Terrain are available for finding a waterbody
       # by sight, which is exactly what this map is for.
-      leaflet(options = leafletOptions(worldCopyJump = TRUE)) |>
+      fw_leaflet() |>
         fw_add_basemaps() |>
-        setView(lng = 0, lat = 20, zoom = 2)
+        setView(lng = FW_MAP$empty_view$lng, lat = FW_MAP$empty_view$lat,
+                zoom = FW_MAP$empty_view$zoom)
     })
 
     observeEvent(input$picker_click, {
@@ -467,8 +474,10 @@ mod_contribute_server <- function(id, data, choices) {
       updateNumericInput(session, "longitude", value = round(click$lng, FW_COORD_DP))
       syncing(FALSE)
       fw_place_pin(session, click$lat, click$lng)
-      fw_announce(session, sprintf("Location set to latitude %.6f, longitude %.6f",
-                                   click$lat, click$lng))
+      fmt <- paste0("%.", FW_COORD_DP, "f")
+      fw_announce(session, fw_fill(fw_t("contribute", "announce", "location_set"),
+                                   lat = sprintf(fmt, click$lat),
+                                   lng = sprintf(fmt, click$lng)))
     })
 
     observeEvent(list(input$latitude, input$longitude), {
@@ -491,8 +500,7 @@ mod_contribute_server <- function(id, data, choices) {
       fw_announce(session, if (length(res$errors) == 0) {
         fw_t("contribute", "check", "heading_clear")
       } else {
-        sub("{n}", length(res$errors),
-            fw_t("contribute", "check", "heading_errors_many"), fixed = TRUE)
+        fw_fill(fw_t("contribute", "check", "heading_errors_many"), n = length(res$errors))
       })
     })
 
@@ -528,8 +536,7 @@ mod_contribute_server <- function(id, data, choices) {
         div(
           class = "fw-check fw-check--errors", role = "alert",
           h3(if (n_err == 1) fw_t("contribute", "check", "heading_errors_one")
-             else sub("{n}", n_err, fw_t("contribute", "check", "heading_errors_many"),
-                      fixed = TRUE)),
+             else fw_fill(fw_t("contribute", "check", "heading_errors_many"), n = n_err)),
           p(fw_t("contribute", "check", "body_errors")),
           tags$ul(class = "fw-check__list",
                   lapply(res$errors, item, kind = "error"))
@@ -559,7 +566,7 @@ mod_contribute_server <- function(id, data, choices) {
       }))
 
       answers <- if (length(shown) == 0) {
-        p(class = "fw-caption", "Nothing entered yet.")
+        p(class = "fw-caption", fw_t("contribute", "announce", "nothing_entered"))
       } else {
         tagList(
           h3(fw_t("contribute", "check", "review_heading")),
@@ -587,7 +594,7 @@ mod_contribute_server <- function(id, data, choices) {
     # code that writes it, so the column set and the thing that fills it stay
     # side by side.
     assemble_record <- reactive({
-      fw_collect_submission(input, rows, choices$species_family)
+      fw_collect_submission(input, rows, choices)
     })
 
     observeEvent(input$send, {

@@ -53,12 +53,6 @@
 library(shiny)
 library(htmltools)
 
-# How many attempts the document lists. Unlike the Word file, which capped at 40
-# because Word could not repaginate a 900-row table, HTML lists everything: the
-# reader scrolls. The print rules repeat the header row across pages, and the
-# note under the table says how long a printed copy will run.
-FW_HTML_TABLE_ROWS <- Inf
-
 # ---- Inlining ----------------------------------------------------------------
 
 #' The MIME type for an inlined asset, by extension
@@ -199,185 +193,26 @@ fw_html_dependency_tags <- function(deps) {
 #'
 #' THE SAME SASS THE APP SERVES, not a second stylesheet written for print. That
 #' is the whole reason the report can reuse fw_plan_summary_ui(),
-#' fw_outcome_bars_ui(), fw_plan_table() and fw_plan_caveats_ui() directly: the
+#' fw_outcome_bars_ui() and fw_caveats_ui() directly: the
 #' markup and the rules that draw it travel together, so a component restyled in
 #' _components.scss is restyled in every report built afterwards, with no second
 #' edit and no chance of the two disagreeing.
 #'
-#' cache_key_extra for the same reason app.R passes it - sass caches on
-#' main.scss alone and never looks at what it imports.
+#' Compiled through fw_compile_css(), so it carries the same tokens as the app.
 fw_html_app_css <- function(dir = "www/scss") {
-  css <- as.character(sass::sass(
-    sass::sass_file(file.path(dir, "main.scss")),
-    options = sass::sass_options(output_style = "compressed"),
-    cache_key_extra = fw_scss_digest(dir)
-  ))
-  fw_html_inline_css_urls(css, dir)
+  fw_html_inline_css_urls(fw_compile_css(file.path(dir, "main.scss")), dir)
 }
 
 # ---- The report's own stylesheet ---------------------------------------------
 
 #' What the app's stylesheet does not cover: the page frame, and print
 #'
-#' Everything here is either specific to a standalone document (the letterhead,
-#' the toolbar, the paper the whole thing sits on) or specific to printing. The
-#' components in the body are already styled by fw_html_app_css() above.
-#'
-#' THE PRINT RULES ARE THE PDF EXPORT. There is no PDF library in this file; the
-#' browser's print engine is the renderer, and these rules are what make its
-#' output a document rather than a screenshot of a web page:
-#'
-#'   - the toolbar and anything else interactive is dropped
-#'   - print-color-adjust: exact keeps the outcome bars and the letterhead rule
-#'     coloured, because by default browsers strip backgrounds to save ink and
-#'     an outcome bar with no fill carries no information at all
-#'   - table headers repeat on every page, so page four of the attempts table
-#'     still says which column is which
-#'   - figures, tables rows and caveat blocks do not split across a page break
-#'   - plotly's SVG is allowed to scale down to the paper's width instead of
-#'     being clipped at whatever pixel width the screen happened to be
+#' Lives in www/scss/_report_frame.scss and is compiled through the same
+#' fw_compile_css() as the app, so the letterhead, the toolbar and the print
+#' rules use the same tokens as everything else. The print rules ARE the PDF
+#' export; see the note at the top of that file.
 fw_html_report_css <- function() {
-  HTML("
-    *, *::before, *::after { box-sizing: border-box; }
-    body { margin: 0; }
-    .fw-report {
-      max-width: 62rem;
-      margin: 0 auto;
-      padding: 2rem 1.5rem 4rem;
-      background: #ffffff;
-    }
-    @media (min-width: 60rem) {
-      body { background: #f7f4ef; }
-      .fw-report { margin: 2rem auto; border-radius: 10px; }
-    }
-
-    .fw-report__mark { display: block; width: 15rem; max-width: 60%; height: auto; }
-    .fw-report__head {
-      padding-bottom: 1rem;
-      border-bottom: 2px solid #108978;
-      margin-bottom: 1.5rem;
-    }
-    .fw-report__tagline { margin: 0.5rem 0 0; font-size: 0.85rem; color: #4a6a64; }
-    .fw-report__title { font-size: 2.1rem; margin: 1.25rem 0 0.25rem; }
-    .fw-report__subtitle { margin: 0; color: #4a6a64; font-size: 1.125rem; }
-
-    .fw-report h2 {
-      font-size: 1.7rem;
-      margin: 2.5rem 0 0.5rem;
-      padding-top: 1.25rem;
-      border-top: 1px solid rgba(101, 148, 141, 0.35);
-    }
-    .fw-report h2:first-of-type { border-top: 0; padding-top: 0; }
-    .fw-report .fw-caveats h2,
-    .fw-report .fw-caveats h3 { border-top: 0; padding-top: 0; }
-
-    /* The app lets the attempts table run off the side of a container the
-       reader can drag sideways. A document cannot be dragged once it is on
-       paper and is awkward to drag in an email client, so here the cells wrap
-       instead and the table fits the column. overflow-wrap is the other half
-       of that: a scientific binomial in brackets is one long unbreakable word,
-       and a column that cannot break it sets its own minimum width and pushes
-       the last column off the page.
-
-       ONLY THE TWO COLUMNS THAT NEED IT. anywhere lets a break fall between
-       any two characters, which is what a binomial in brackets requires and
-       what splits Successful across two lines in the narrow outcome column.
-       Columns 1 and 4 of fw_plan_table() are the site name and the species
-       list; if that column order changes, change this with it. */
-    .fw-report .fw-table td { white-space: normal; overflow-wrap: break-word; }
-    .fw-report .fw-table td:nth-child(1),
-    .fw-report .fw-table td:nth-child(4) { overflow-wrap: anywhere; }
-
-    .fw-report__note {
-      margin: 0 0 0.75rem;
-      color: #4a6a64;
-      font-size: 0.85rem;
-      font-style: italic;
-    }
-    .fw-report__figure { margin: 0 0 1.5rem; }
-    .fw-report__map { height: 26rem; margin-bottom: 0.5rem; }
-    .fw-report__map .leaflet-container { height: 100%; border-radius: 4px; }
-
-    /* The toolbar. Screen only, by construction - see the print block. */
-    .fw-report__tools {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      align-items: center;
-      padding: 1rem;
-      margin-bottom: 1.5rem;
-      background: #c7ede8;
-      border-radius: 10px;
-    }
-    .fw-report__tool {
-      font: inherit;
-      font-weight: 500;
-      cursor: pointer;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
-      border: 1px solid #0d574c;
-      background: #0d574c;
-      color: #ffffff;
-    }
-    .fw-report__tool:hover { background: #108978; border-color: #108978; }
-    .fw-report__tool--quiet { background: #ffffff; color: #0d574c; }
-    .fw-report__tool--quiet:hover { background: #ffffff; color: #108978; }
-    .fw-report__tools p { flex: 1 1 18rem; margin: 0; font-size: 0.85rem; color: #0a2e29; }
-
-    .fw-report__about { margin: 0 0 1.5rem; padding-left: 1.25rem; font-size: 0.85rem; color: #4a6a64; }
-    .fw-report__about li { margin-bottom: 0.35rem; }
-    .fw-report__footer {
-      margin-top: 2.5rem;
-      padding-top: 1rem;
-      border-top: 1px solid rgba(101, 148, 141, 0.35);
-      font-size: 0.8rem;
-      color: #4a6a64;
-    }
-
-    /* Popup markup travels with the map. Restated here because the app's own
-       rules for it live under a Bootstrap-scoped selector that is not in this
-       file. */
-    .fw-popup__row { display: flex; gap: 0.5rem; font-size: 0.85rem; }
-    .fw-popup__key { font-weight: 700; min-width: 6rem; }
-    .fw-species-figure__img { width: 100%; height: auto; border-radius: 4px; }
-    .fw-species-figure__credit { font-size: 0.7rem; color: #4a6a64; }
-
-    @page { size: A4; margin: 14mm; }
-
-    @media print {
-      body { background: #ffffff; }
-      .fw-report { max-width: none; margin: 0; padding: 0; border-radius: 0; }
-      .fw-report__tools, .fw-no-print { display: none !important; }
-
-      /* Ink-saving is the browser's default and it is wrong here: the outcome
-         bars ARE their fills, and a caveats panel that loses its tint stops
-         reading as a warning. */
-      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-
-      .fw-report h2 { break-after: avoid; page-break-after: avoid; }
-      .fw-report__figure, .fw-report__map, .fw-caveats__block,
-      .fw-summary-strip, .fw-outcome-bars__row { break-inside: avoid; page-break-inside: avoid; }
-
-      /* Page four of a long table still has to say which column is which. */
-      thead { display: table-header-group; }
-      .fw-table tr { break-inside: avoid; page-break-inside: avoid; }
-      .fw-table-scroll { overflow: visible !important; }
-
-      /* Seven columns of site names, species and contacts do not fit A4 at
-         reading size. The Word export solved this by turning the page
-         sideways and capping the table at forty rows; a step down in size
-         keeps every row, upright, and still reads on paper. */
-      .fw-report .fw-table { font-size: 0.78rem; }
-      .fw-report .fw-table th, .fw-report .fw-table td { padding: 0.3rem 0.5rem; }
-
-      /* Plotly writes a pixel width into its SVG from whatever the screen was.
-         Left alone that runs off the right edge of the paper. */
-      .js-plotly-plot, .plot-container, .svg-container { max-width: 100% !important; }
-      .main-svg { max-width: 100% !important; height: auto !important; }
-
-      a { text-decoration: none; color: inherit; }
-    }
-  ")
+  HTML(fw_compile_css("www/scss/report.scss"))
 }
 
 # ---- The report's own script -------------------------------------------------
@@ -499,7 +334,8 @@ fw_html_table <- function(df, num = character(0)) {
       tags$tr(lapply(names(df), function(nm) {
         v <- df[[nm]][i]
         tags$td(class = cls(nm),
-                if (is.na(v) || !nzchar(as.character(v))) "-" else as.character(v))
+                if (is.na(v) || !nzchar(as.character(v))) fw_t("common", "empty_value")
+                else as.character(v))
       }))
     }))
   )
@@ -522,23 +358,23 @@ fw_html_filters_table <- function(filters, n_rows, n_total, meta = NULL) {
 #' needs a connection, and a reader with the report on paper asking "where has
 #' this been tried" wants a list, not a picture. Sorted by count and capped, with
 #' the tail gathered rather than dropped, so the total still adds up.
-fw_report_country_table <- function(sel, limit = 15L) {
+fw_report_country_table <- function(sel, limit = FW_REPORT_COUNTRY_ROWS) {
   if (!nrow(sel)) return(NULL)
   counts <- sort(table(sel$country), decreasing = TRUE)
   keep <- utils::head(counts, limit)
-  out <- data.frame(
-    Country = names(keep),
-    Attempts = as.integer(keep),
-    stringsAsFactors = FALSE
-  )
+  out <- data.frame(country = names(keep), attempts = as.integer(keep),
+                    stringsAsFactors = FALSE)
   rest <- sum(counts) - sum(as.integer(keep))
   if (rest > 0) {
     out <- rbind(out, data.frame(
-      Country = paste0("Other countries (", length(counts) - length(keep), ")"),
-      Attempts = rest, stringsAsFactors = FALSE
+      country = fw_fill(fw_t("export", "other_countries"),
+                        n = length(counts) - length(keep)),
+      attempts = rest, stringsAsFactors = FALSE
     ))
   }
-  out$Attempts <- format(out$Attempts, big.mark = ",", trim = TRUE)
+  out$attempts <- format(out$attempts, big.mark = ",", trim = TRUE)
+  # The headings the reader sees come from the copy deck.
+  names(out) <- c(fw_t("export", "col_country"), fw_t("export", "col_attempts"))
   out
 }
 
@@ -549,7 +385,7 @@ fw_report_country_table <- function(sel, limit = 15L) {
 #' The logo is inlined as a data URI, so the mark survives the file being
 #' emailed, saved to a stick, or opened with the network down.
 fw_html_letterhead <- function(title, subtitle) {
-  logo <- fw_html_data_uri("www/img/FWISE-LOGO-ALL-6.png")
+  logo <- fw_html_data_uri(FW_LOGO$mark_file)
   tags$header(
     class = "fw-report__head",
     if (!is.null(logo)) {
@@ -576,6 +412,11 @@ fw_html_toolbar <- function() {
                   onclick = "fwDownload('fw-file-csv')", fw_t("plan", "html_csv")),
       tags$button(type = "button", class = "fw-report__tool fw-report__tool--quiet",
                   onclick = "fwDownload('fw-file-xlsx')", fw_t("plan", "html_xlsx")),
+      # The methods and caveats, carried here too. This file is the one piece of
+      # the bundle that travels on its own - somebody emails the report, not the
+      # zip - so it has to be able to hand back its own qualifications.
+      tags$button(type = "button", class = "fw-report__tool fw-report__tool--quiet",
+                  onclick = "fwDownload('fw-file-txt')", fw_t("plan", "html_txt")),
       p(fw_t("plan", "html_print_hint"))
     ),
     tags$ul(
@@ -623,6 +464,8 @@ fw_html_figure <- function(title, note, widget, extra = NULL) {
 #' @param meta        the release metadata, for provenance
 #' @param method_mode "share" or "count" - whichever the reader is looking at,
 #'   so the document matches the screen rather than re-deciding for them
+#' @param method_wb_mode the same for the methods-by-waterbody chart, which has
+#'   its own toggle because it counts uses rather than attempts
 #'
 #' EVERY PIECE OF TEXT COMES FROM THE SAME PLACE AS THE PAGE. The headings, the
 #' notes and the caveats are read from FW_COPY and fw_caveats() rather than
@@ -630,7 +473,8 @@ fw_html_figure <- function(title, note, widget, extra = NULL) {
 #' turns up in an inbox six months later has to carry its own qualifications,
 #' and two copies of a caveat are two caveats that can disagree.
 fw_write_html_report <- function(path, data, sel, export, filters,
-                                 meta = NULL, method_mode = "share") {
+                                 meta = NULL, method_mode = "count",
+                                 method_wb_mode = "count") {
   dir <- tempfile("fw-html-"); dir.create(dir)
   on.exit(unlink(dir, recursive = TRUE), add = TRUE)
 
@@ -638,7 +482,18 @@ fw_write_html_report <- function(path, data, sel, export, filters,
   title <- fw_t("plan", "report_title")
   s <- fw_plan_summary(data, sel)
   n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
-  n_duration <- sum(!is.na(sel$duration_days) & sel$duration_days > 0)
+  n_no_method <- fw_n_no_method(data, sel)
+  # THE COUNT THE CHART ACTUALLY DRAWS, not the count with a duration. The
+  # chart drops attempts that used more than one method - see
+  # fw_duration_sel() - so counting duration alone here would promise the
+  # reader more points than they can see.
+  n_duration <- nrow(fw_duration_sel(data, sel))
+  # FW_PLAN_SPECIES_N, the same limit the page uses, so the document and the
+  # screen show the same species rather than the report quietly showing more.
+  tiles_invasive <- fw_species_tiles_ui(data, sel, "invasive",
+                                        limit = FW_PLAN_SPECIES_N)
+  tiles_beneficiary <- fw_species_tiles_ui(data, sel, "beneficiary",
+                                           limit = FW_PLAN_SPECIES_N)
 
   # The two files the reader can pull back out. The workbook is built by the
   # SAME function the spreadsheet button serves, so the copy inside the report
@@ -646,11 +501,13 @@ fw_write_html_report <- function(path, data, sel, export, filters,
   csv_path <- fw_html_write_csv(export, dir)
   xlsx_path <- file.path(dir, fw_export_filename())
   fw_write_workbook(xlsx_path, data, export, filters, meta)
+  txt_path <- file.path(dir, fw_methods_filename())
+  writeLines(fw_methods_caveats_text(data), txt_path, useBytes = TRUE)
 
   body <- tagList(
     fw_html_letterhead(
       title,
-      sub("{date}", generated, fw_t("plan", "report_subtitle"), fixed = TRUE)
+      fw_fill(fw_t("plan", "report_subtitle"), date = generated)
     ),
     fw_html_toolbar(),
 
@@ -664,9 +521,13 @@ fw_write_html_report <- function(path, data, sel, export, filters,
     # ---- Summary -------------------------------------------------------------
     fw_html_block(fw_t("plan", "r_heading"), NULL, fw_plan_summary_ui(s)),
 
-    # ---- Outcomes ------------------------------------------------------------
-    fw_html_block(fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
-                  fw_outcome_bars_ui(sel)),
+    # ---- The figures, in the page's order ------------------------------------
+    # SAME ORDER AS THE SCREEN, and that is the requirement rather than a
+    # preference. A reader who looked at the report builder and then downloaded
+    # this file has to find the same argument in the same sequence, or the two
+    # read as two different documents about the same selection. The funnel is:
+    # where, then what happened, then in what water, then by what means, then to
+    # which species - and the two charts about time at the end.
 
     # ---- Where ---------------------------------------------------------------
     # The real map, not a picture of one. It is the single clearest gain over
@@ -674,56 +535,108 @@ fw_write_html_report <- function(path, data, sel, export, filters,
     if (nrow(sel) > 0) {
       tagList(
         fw_html_block(fw_t("plan", "r_map"), fw_t("plan", "r_map_note")),
+        # detail = "embed": there is no server to ask once the file is saved,
+        # so every record travels inside its marker. See fw_add_attempt_markers().
         div(class = "fw-report__map",
-            as.tags(fw_plan_map(data, sel), standalone = FALSE)),
+            as.tags(fw_plan_map(data, sel, detail = "embed"), standalone = FALSE)),
         p(class = "fw-caption", fw_t("plan", "html_map_note")),
         if (n_no_coords > 0) {
           p(class = "fw-caption",
-            sub("{n}", fw_fmt_num(n_no_coords), fw_t("plan", "r_map_missing"),
-                fixed = TRUE))
+            fw_fill(fw_t("plan", "r_map_missing"), n = fw_fmt_num(n_no_coords)))
         },
         fw_html_block(fw_t("plan", "report_where"),
                       fw_t("plan", "report_where_note"),
                       fw_html_table(fw_report_country_table(sel),
-                                    num = "Attempts"))
+                                    num = fw_t("export", "col_attempts")))
       )
     },
 
-    # ---- The figures ---------------------------------------------------------
+    # ---- Outcomes ------------------------------------------------------------
+    fw_html_block(fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
+                  fw_outcome_bars_ui(sel)),
+
+    fw_html_figure(fw_t("plan", "r_waterbody"), fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
+                   fw_chart_waterbody(sel)),
+
     fw_html_figure(fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
-                   fw_chart_method(data, sel, mode = method_mode)),
+                   fw_chart_method(data, sel, mode = method_mode),
+                   extra = if (n_no_method > 0) {
+                     p(class = "fw-caption",
+                       fw_fill(fw_t("plan", "r_method_missing"),
+                               n = fw_fmt_num(n_no_method)))
+                   }),
+
+    fw_html_figure(fw_t("plan", "r_method_wb"), fw_t("plan", "r_method_wb_note"),
+                   fw_chart_method_waterbody(data, sel, mode = method_wb_mode)),
+
+    # The species tiles are HTML rather than plotly, so they go through
+    # fw_html_block() like the outcome bars do. Built ONCE above and tested for
+    # NULL here: a block with NULL content still prints its heading, and
+    # building them twice to ask whether they exist would repeat ten image
+    # lookups for nothing.
+    # NO NOTE UNDER EITHER HEADING, matching the page. These two carried one
+    # each and they were WRONG as well as unwanted: both were filled with
+    # FW_TOP_N while the grids under them were built with FW_PLAN_SPECIES_N, so
+    # the downloaded report promised the ten named most often above a grid of
+    # three. The surviving note is on the page's own pair block; this document
+    # states the same caveat in r_species_pair_note where it introduces them.
+    if (!is.null(tiles_invasive)) {
+      fw_html_block(fw_t("plan", "r_invasive"), NULL, tiles_invasive)
+    },
+    if (!is.null(tiles_beneficiary)) {
+      fw_html_block(fw_t("plan", "r_beneficiary"), NULL, tiles_beneficiary)
+    },
+
     fw_html_figure(
       fw_t("plan", "r_duration"), fw_t("plan", "r_duration_note"),
       fw_chart_duration(data, sel),
       extra = p(class = "fw-caption",
-                sub("{n}", fw_fmt_num(n_duration),
-                    fw_t("plan", "r_duration_missing"), fixed = TRUE))
+                fw_fill(fw_t("plan", "r_duration_missing"), n = fw_fmt_num(n_duration)))
     ),
-    fw_html_figure(fw_t("plan", "r_cumulative"),
-                   fw_t("plan", "r_cumulative_note"),
-                   fw_chart_cumulative(sel)),
+    # The cumulative chart is NOT here, and its absence is deliberate. It moved
+    # to the dashboard, because it answers how the database has grown rather
+    # than anything about the selection this report is about. A report is read
+    # as being about its selection, which is exactly what made it misleading.
 
-    # ---- The attempts --------------------------------------------------------
-    # Every matching row, not the Word file's first forty. The page's own table
-    # function draws it, so the seven columns and their shortened multi-value
-    # cells are identical to the screen - and the note says where the unshortened
-    # values are, which is inside this same file.
-    if (nrow(export) > 0) {
+    # ---- The attempts, which are no longer rendered here ---------------------
+    #
+    # EVERY MATCHING ROW USED TO BE PRINTED HERE, drawn by the page's own table
+    # function so the columns matched the screen exactly. Both are gone: the
+    # client removed the table from the page, and this followed it so the
+    # document and the page stay the same document.
+    #
+    # THE RECORDS THEMSELVES ARE NOT LOST. The CSV and the workbook in this same
+    # bundle carry every row with its full, unshortened values - more than this
+    # table ever showed, since it truncated multi-value cells - and the map above
+    # still holds the full record behind every marker.
+    #
+    # WHAT IS LOST IS THE NARRATIVE READING, and the client asked on the same
+    # call for a record-by-record appendix in prose. That is the opposite
+    # direction from a table and was deferred to the next round; when it
+    # arrives it belongs here, and it should not be built out of cells.
+
+    # ---- The people ----------------------------------------------------------
+    # The page's own contacts block, drawn by the same function, so the document
+    # names the same people in the same order. Every row on one page: there is
+    # no pager in a file that is read as a document and printed.
+    #
+    # fw_plan_contacts() reads fw_contacts_summary(), which has already removed
+    # the address of anyone who asked not to be listed - and this file leaves the
+    # building, so that matters here more than anywhere else in the app.
+    local({
+      people <- fw_plan_contacts(data, sel)
+      if (!nrow(people)) return(NULL)
       tagList(
-        fw_html_block(
-          fw_t("plan", "r_table"),
-          sub("{n}", fw_fmt_num(nrow(export)),
-              fw_t("plan", "report_table_note"), fixed = TRUE)
-        ),
+        fw_html_block(fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note")),
         div(class = "fw-table-scroll",
-            fw_plan_table(export, page = 1L, per_page = nrow(export)))
+            fw_plan_contacts_ui(people, page = 1L, per_page = nrow(people)))
       )
-    },
+    }),
 
     # ---- Caveats -------------------------------------------------------------
     # Last, and never optional. The page's own panel, built from the same
     # fw_caveats() vector as the workbook's Caveats sheet.
-    fw_plan_caveats_ui(data),
+    fw_caveats_ui(data),
 
     p(class = "fw-report__footer", fw_t("plan", "report_footer")),
 
@@ -732,6 +645,8 @@ fw_write_html_report <- function(path, data, sel, export, filters,
                     "text/csv;charset=utf-8"),
     fw_html_payload("fw-file-xlsx", xlsx_path, fw_export_filename(),
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    fw_html_payload("fw-file-txt", txt_path, fw_methods_filename(),
+                    "text/plain;charset=utf-8"),
     fw_html_report_script()
   )
 

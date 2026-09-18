@@ -13,9 +13,9 @@ library(htmltools)
 # file does, so there is deliberately no sourcing loop here. Adding one would
 # source every module twice.
 #
-# It also means ANY file placed in R/ runs on boot. R/data_prep.R is a build
-# script, so its body is wrapped in a function and only executes when the file is
-# run directly with Rscript. Keep that guard if you add another script here.
+# It also means ANY file placed in R/ runs on boot. Scripts that build or change
+# data therefore live in dev/, never here. If one ever has to sit in R/, guard
+# its body with `if (sys.nframe() == 0L)` so it runs only under Rscript.
 
 # ---- Startup -----------------------------------------------------------------
 
@@ -29,6 +29,10 @@ FW_META <- fw_load_metadata()
 # Dropdown choices come from the data, so the client's ongoing cleaning flows
 # through without a code change.
 FW_CHOICES <- fw_startup_choices(FW_DATA)
+
+# The Explore page's filter bar is drawn in its static UI, so its choices are
+# needed before any session exists. See mod_explore_ui().
+FW_FILTER_CHOICES <- fw_filter_choices(FW_DATA)
 
 FW_LAST_UPDATED <- fw_last_updated(FW_DATA, FW_META)
 
@@ -57,32 +61,29 @@ ui <- page_navbar(
 
   header = tagList(
     tags$head(
-      tags$link(rel = "icon", type = "image/svg+xml", href = "img/favicon.svg"),
+      tags$link(rel = "icon", type = "image/png", href = FW_LOGO$badge_web),
       tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
       tags$meta(name = "description", content = fw_t("app", "tagline")),
-      # Compiled from www/scss/. sass caches the result, so this is a one-off
-      # cost at startup rather than per request.
-      #
-      # cache_key_extra IS NOT OPTIONAL. sass keys its cache on the input it is
-      # handed, which here is main.scss alone - it does not look at what that
-      # file @imports. Without the digest below, an edit to _tokens.scss or
-      # _components.scss compiles to the previously cached CSS and the change
-      # appears to have done nothing, even across a full restart. Hashing every
-      # file in the directory is what makes the cache notice.
-      tags$style(sass::sass(
-        sass::sass_file("www/scss/main.scss"),
-        options = sass::sass_options(output_style = "compressed"),
-        cache_key_extra = fw_scss_digest()
-      ))
+      # Compiled from www/scss/ with the tokens from R/brand.R injected. See
+      # fw_compile_css() for why the cache key has to include the partials.
+      tags$style(HTML(fw_compile_css("www/scss/main.scss")))
     ),
+    fw_loader(),
+    # A SPINNING BADGE ON ANY CHART OR MAP THAT IS TAKING A WHILE. Shiny's own
+    # busy indicators decide when - an output marked .recalculating, after the
+    # delay, so a quick redraw never flashes one - and _components.scss decides
+    # what: its default is a colour-filled mask, which would draw the badge as
+    # a flat silhouette. No page-top pulse bar; the loader is the one bar.
+    useBusyIndicators(spinners = TRUE, pulse = FALSE),
+    busyIndicatorOptions(spinner_delay = "400ms", spinner_size = "64px"),
     fw_skip_link(),
     fw_popover_script(),
     fw_client_script(),
     fw_live_region("fw_announce")
   ),
 
-  nav_panel(fw_t("nav", "home"),       value = "home",       mod_home_ui("home")),
-  nav_panel(fw_t("nav", "explore"),    value = "explore",    mod_explore_ui("explore")),
+  nav_panel(fw_t("nav", "home"),       value = "home",       mod_home_ui("home", fw_headline_stats(FW_DATA))),
+  nav_panel(fw_t("nav", "explore"),    value = "explore",    mod_explore_ui("explore", FW_FILTER_CHOICES)),
   nav_panel(fw_t("nav", "plan"),       value = "plan",       mod_plan_ui("plan")),
   nav_panel(fw_t("nav", "contribute"), value = "contribute", mod_contribute_ui("contribute")),
   nav_panel(fw_t("nav", "networking"), value = "networking", mod_networking_ui("networking")),

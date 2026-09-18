@@ -8,12 +8,33 @@ library(bslib)
 
 # ---- Styles ------------------------------------------------------------------
 
-#' A digest of every Sass source file
+#' Compile a stylesheet with the design tokens injected
 #'
-#' sass::sass() caches on the input it is given. Handed main.scss it never sees
-#' the partials that file imports, so an edit to _tokens.scss or
-#' _components.scss silently compiles to the stale cached CSS. Passing this as
-#' cache_key_extra puts the partials into the key. See app.R.
+#' THE ONE ROUTE FROM R/brand.R TO CSS. fw_sass_variables() is placed ahead of
+#' the entry file, so every `$fw-*` variable the stylesheet uses is defined
+#' from R before a line of Sass is read. www/scss/_tokens.scss carries no
+#' literal values for that reason: there is nothing there to fall out of step.
+#'
+#' Two entry files use this: www/scss/main.scss (the app, also inlined into
+#' the HTML report) and www/scss/report.scss (the report's own frame and print
+#' rules). Both see the same tokens.
+#'
+#' sass hashes its input - the token list included - into its cache key, so an
+#' edit to R/brand.R is picked up on restart. cache_key_extra covers what the
+#' hash cannot see: sass keys on the entry file alone and never looks at the
+#' partials it @imports. Without the digest below, an edit to _components.scss
+#' compiles to the previously cached CSS and appears to have done nothing.
+#'
+#' @param entry path to the Sass entry file
+fw_compile_css <- function(entry = "www/scss/main.scss") {
+  as.character(sass::sass(
+    list(fw_sass_variables(), sass::sass_file(entry)),
+    options = sass::sass_options(output_style = "compressed"),
+    cache_key_extra = fw_scss_digest(dirname(entry))
+  ))
+}
+
+#' A digest of every Sass source file in a directory
 fw_scss_digest <- function(dir = "www/scss") {
   files <- sort(list.files(dir, pattern = "[.]scss$", full.names = TRUE))
   paste(tools::md5sum(files), collapse = "-")
@@ -24,12 +45,9 @@ fw_scss_digest <- function(dir = "www/scss") {
 #' The standard content column
 fw_container <- function(...) div(class = "fw-container", ...)
 
-#' A vertical band of content
-#'
-#' @param variant one of "default", "paper", "shoal"
-#' @param tight   halve the vertical padding
-#' @param bleed   break out of the container to the full viewport width
-fw_section <- function(..., variant = c("default", "paper", "shoal"),
+
+fw_section <- function(..., variant = c("default", "paper", "shoal",
+                                        "lagoon", "indigo"),
                        tight = FALSE, bleed = FALSE, flush = NULL, id = NULL) {
   variant <- match.arg(variant)
   classes <- c(
@@ -42,39 +60,42 @@ fw_section <- function(..., variant = c("default", "paper", "shoal"),
   tags$section(class = paste(classes, collapse = " "), id = id, ...)
 }
 
-#' Page header: title plus a one-line description of what the page does
-fw_page_header <- function(title, description = NULL) {
-  tags$header(
-    class = "fw-page-header",
-    fw_container(
-      h1(class = "fw-page-header__title", title),
-      if (!is.null(description)) {
-        p(class = "fw-page-header__description", description)
-      }
-    )
-  )
+
+fw_emphasis <- function(text) {
+  parts <- strsplit(text, "**", fixed = TRUE)[[1]]
+  if (length(parts) < 2) return(text)
+  do.call(tagList, lapply(seq_along(parts), function(i) {
+    if (i %% 2 == 0) tags$strong(parts[[i]]) else parts[[i]]
+  }))
 }
 
-#' A filter sidebar beside a results column
+#' Page header: title plus a description of what the page does
 #'
-#' Used by the report builder and the dashboard. A CSS grid rather than
-#' bslib::layout_sidebar(), whose width is set in pixels and which brings its own
-#' collapse behaviour; see .fw-layout in _components.scss.
+#' `description` may be several paragraphs. They are emitted as siblings under
+#' ONE class rather than as a mix of .fw-lead, bare <p> and .fw-caption, so a
+#' page's introduction is a single voice at a single size. The report builder's
+#' intro used to be split across the header and a second block below the filter
+#' panel, in three different treatments; that is what this replaces.
 #'
-#' The sidebar is a real <details>, open by default. Below 900px that lets a
-#' reader fold ten controls away and get to the results in one scroll; above it
-#' the marker is hidden and the panel simply sits beside the content.
-#'
-#' @param summary the disclosure label, shown only on narrow screens
-fw_sidebar_layout <- function(sidebar, main, summary) {
-  div(
-    class = "fw-layout",
-    tags$details(
-      class = "fw-layout__sidebar", open = NA,
-      tags$summary(class = "fw-layout__summary", summary),
-      sidebar
-    ),
-    div(class = "fw-layout__main", main)
+#' @param format   turns one paragraph of copy into tags; the Welcome page
+#'   passes one that also makes [[page|words]] links
+#' @param modifier adds .fw-page-header--{modifier} for a page-specific size
+#' @param show_title FALSE keeps the h1 for screen readers only. The client
+#'   asked for the visible title on The solution page alone; every page still
+#'   needs one heading at the top of its outline.
+fw_page_header <- function(title, description = NULL, format = fw_emphasis,
+                           modifier = NULL, show_title = TRUE) {
+  tags$header(
+    class = paste(c("fw-page-header", if (!is.null(modifier)) paste0("fw-page-header--", modifier)),
+                  collapse = " "),
+    fw_container(
+      h1(class = paste(c("fw-page-header__title",
+                         if (!show_title) "fw-visually-hidden"), collapse = " "),
+         title),
+      lapply(description, function(para) {
+        p(class = "fw-page-header__description", format(para))
+      })
+    )
   )
 }
 
@@ -105,7 +126,7 @@ fw_kpi_strip <- function(...) div(class = "fw-kpi-strip", ...)
 
 #' Thousands separators, for figures shown to the reader
 fw_fmt_num <- function(x) {
-  if (is.null(x) || length(x) == 0 || is.na(x)) return("-")
+  if (is.null(x) || length(x) == 0 || is.na(x)) return(fw_t("common", "empty_value"))
   format(x, big.mark = ",", trim = TRUE, scientific = FALSE)
 }
 
@@ -133,7 +154,7 @@ fw_info <- function(text, label = NULL) {
   aria <- if (is.null(label)) {
     fw_t("common", "info_icon_label")
   } else {
-    paste0("More information about ", label)
+    fw_fill(fw_t("a11y", "more_about"), label = label)
   }
   tags$button(
     type = "button",
@@ -201,7 +222,7 @@ fw_field <- function(input, label, required = FALSE, tooltip = NULL,
             tags$span(class = "fw-required-mark", `aria-hidden` = "true", "*"),
             # The asterisk is decorative; this is what is actually announced, so
             # the requirement is never carried by a symbol alone.
-            tags$span(class = "fw-visually-hidden", " (required)")
+            tags$span(class = "fw-visually-hidden", fw_t("a11y", "required"))
           )
         }
       ),
@@ -212,39 +233,11 @@ fw_field <- function(input, label, required = FALSE, tooltip = NULL,
   )
 }
 
-# ---- Stub panel --------------------------------------------------------------
-
-#' The "in development" state shared by every unbuilt page
-#'
-#' One helper so the four stubs stay consistent and can be removed in one place
-#' as each page is built.
-fw_stub_panel <- function(extra = NULL) {
-  div(
-    class = "fw-stub",
-    div(class = "fw-stub__badge", fw_t("stub", "badge")),
-    h2(fw_t("stub", "heading")),
-    p(fw_t("stub", "body")),
-    div(
-      class = "fw-stub__actions",
-      tags$a(
-        class = "btn btn-primary",
-        href = "#", onclick = "Shiny.setInputValue('fw_nav_to', 'contribute', {priority:'event'}); return false;",
-        fw_t("stub", "action_contribute")
-      ),
-      tags$a(
-        class = "btn btn-outline-primary",
-        href = "#", onclick = "Shiny.setInputValue('fw_nav_to', 'networking', {priority:'event'}); return false;",
-        fw_t("stub", "action_networking")
-      )
-    ),
-    extra
-  )
-}
-
 # ---- Paging ------------------------------------------------------------------
 
-# The page sizes offered on paged tables. First element is the default.
-FW_CONTACTS_PAGE_SIZES <- c(25L, 50L, 100L)
+# The page sizes offered on paged tables are FW_CONTACTS_PAGE_SIZES (the
+# Networking directory) and FW_PLAN_CONTACTS_PAGE_SIZES (the report builder's
+# contacts block, which opens at ten), both in R/config.R.
 
 #' A numbered pager
 #'
@@ -272,7 +265,7 @@ fw_page_numbers <- function(input_id, current, total, window = 2L) {
     tags$button(
       type = "button",
       class = paste("fw-pager__page", if (is_current) "is-current"),
-      `aria-label` = paste("Page", n),
+      `aria-label` = fw_fill(fw_t("a11y", "page_n"), n = n),
       `aria-current` = if (is_current) "page",
       onclick = sprintf(
         "Shiny.setInputValue('%s', %d, {priority:'event'});", input_id, n
@@ -293,7 +286,7 @@ fw_page_numbers <- function(input_id, current, total, window = 2L) {
     previous <- n
   }
 
-  tags$nav(class = "fw-pager__pages", `aria-label` = "Pagination", items)
+  tags$nav(class = "fw-pager__pages", `aria-label` = fw_t("a11y", "pagination"), items)
 }
 
 # ---- Accessibility -----------------------------------------------------------
@@ -314,18 +307,26 @@ fw_live_region <- function(id) {
 }
 
 fw_skip_link <- function(target = "#fw-main") {
-  tags$a(class = "fw-skip-link", href = target, "Skip to main content")
+  tags$a(class = "fw-skip-link", href = target, fw_t("a11y", "skip_link"))
 }
 
 # ---- Chrome ------------------------------------------------------------------
 
+#' The navbar's logo
+#'
+#' THE FWISE-SIMPLE WORDMARK, at the client's request. It was the badge, which
+#' replaced the full lockup because the lockup's subtext was unreadable at bar
+#' height; SIMPLE is the lockup without the subtext, so it keeps the word FWISE
+#' - which the badge alone did not carry - at a size that can still be read.
+#' The badge moved to the loader and the busy spinner. See FW_LOGO in config.R
+#' for the files and why they are copies.
 fw_brand <- function() {
   tags$a(
     class = "navbar-brand",
     href = "#",
     onclick = "Shiny.setInputValue('fw_nav_to', 'home', {priority:'event'}); return false;",
     tags$img(
-      src = "img/FWISE-LOGO-ALL-6.png",
+      src = FW_LOGO$mark_web,
       alt = fw_t("footer", "logo_alt_fwise")
     )
   )
@@ -333,13 +334,11 @@ fw_brand <- function() {
 
 #' The footer, on every page
 #'
-#' Both supplied logo files are dark ink drawn for light backgrounds and the
-#' FWISE lockup is not knocked out of its own, so the pair share one white
-#' plaque. They are set to the same height and the attribution runs underneath
-#' as its own line, rather than sitting above one mark and skewing the pair.
-#' When reversed artwork exists, drop the plaque class and they can sit directly
-#' on the dark ground.
-#' The site footer
+#' Two tiers. The upper one carries both logos on the page ground: the FWISE
+#' lockup's wordmark is indigo, so it cannot sit on the indigo band. The lower
+#' one is that band, with the release date, the links and the licence. Each
+#' tier is full width and holds its own container, so the grounds run edge to
+#' edge. See .fw-footer in _components.scss.
 #'
 #' @param last_updated the release date from metadata.json
 #' @param in_review how many records are waiting on review. Shown quietly rather
@@ -356,24 +355,62 @@ fw_footer <- function(last_updated, in_review = 0L) {
   }
   tags$footer(
     class = "fw-footer",
-    fw_container(
-      div(
-        class = "fw-footer__top",
+    div(
+      class = "fw-footer__top",
+      fw_container(
+        # ---- Who built what, and whose logos those are ----------------------
+        #
+        # ORG LOGOS, THEN THE WORDS, THEN A RULE, THEN THE COLLABORATORS, in
+        # that order at the client's request. The FWISE and Weird Fishes marks
+        # lead the row with the credit beside them, and the collaborating
+        # organisations sit in their own group on the right behind the rule.
+        #
+        # TWO STATEMENTS, NOT ONE. This was a single line reading "Built by
+        # Weird Fishes Advisory" under both logos, which - sitting under the
+        # FWISE mark - could be read as claiming the database as well as the
+        # app. It does not: Weird Fishes Advisory built this tool, and the
+        # database is Freshwater Life's and its contributors'. Two sentences
+        # rather than one, so neither can be read into the other.
         div(
-          class = "fw-footer__plaque",
-          logo(fw_t("footer", "fwise_url"), "img/FWISE-LOGO-ALL-6.png",
-               fw_t("footer", "logo_alt_fwise")),
-          logo(fw_t("footer", "wfa_url"), "img/wfa-logo-rect-dark.png",
-               fw_t("footer", "logo_alt_wfa"))
-        ),
-        p(class = "fw-footer__built-by", fw_t("app", "built_by"))
-      ),
-      div(
-        class = "fw-footer__meta",
+          class = "fw-footer__row",
+          div(
+            class = "fw-footer__org",
+            logo(fw_t("footer", "fwise_url"), FW_LOGO$badge_full,
+                 fw_t("footer", "logo_alt_fwise")),
+            logo(fw_t("footer", "wfa_url"), "img/wfa-logo-rect-dark-320.png",
+                 fw_t("footer", "logo_alt_wfa"))
+          ),
+          div(
+            class = "fw-footer__credits",
+            p(class = "fw-footer__built-by", fw_t("app", "built_by")),
+            p(class = "fw-footer__built-by", fw_t("app", "data_by")),
+            p(class = "fw-footer__built-by", fw_t("app", "illustrated_by"))
+          ),
+          div(
+            class = "fw-footer__logos",
+            logo(fw_t("footer", "fwl_url"), "img/collab/FRESHWATER_LIFE.png",
+                 fw_t("footer", "logo_alt_fwl")),
+            logo(fw_t("footer", "ucsc_url"), "img/collab/UCSC.png",
+                 fw_t("footer", "logo_alt_ucsc")),
+            logo(fw_t("footer", "scripps_url"), "img/collab/UCSD_SCRIPPS.png",
+                 fw_t("footer", "logo_alt_scripps")),
+            logo(fw_t("footer", "issg_url"), "img/collab/ISSG_SSC_IUCN.png",
+                 fw_t("footer", "logo_alt_issg"))
+          )
+        )
+      )
+    ),
+    div(
+      class = "fw-footer__meta",
+      fw_container(
+        # The label takes the date's typeface, so the line does not change
+        # font halfway through. See .fw-footer__updated.
         tags$span(
+          class = "fw-footer__updated",
           fw_t("footer", "last_updated"), " ",
           tags$span(class = "fw-num",
-                    if (is.na(last_updated)) "-" else format(last_updated, "%d %B %Y"))
+                    if (is.na(last_updated)) fw_t("common", "empty_value")
+                    else format(last_updated, "%d %B %Y"))
         ),
         if (isTRUE(in_review > 0)) {
           tags$span(
@@ -391,8 +428,78 @@ fw_footer <- function(last_updated, in_review = 0L) {
   )
 }
 
+#' Mark a sliderInput so the client prints its handle bubbles in real units
+#'
+#' The log-scaled size sliders only. A data attribute rather than an option,
+#' because Shiny's slider binding owns ionRangeSlider's initialisation and
+#' prettify has to be a function - see fwSizePretty in fw_client_script().
+#'
+#' Walks to the <input> rather than assuming a position in the tag tree, so a
+#' change to how Shiny wraps its sliders cannot quietly stop this working.
+fw_slider_prettify <- function(tag) {
+  mark <- function(x) {
+    if (!inherits(x, "shiny.tag")) {
+      if (is.list(x)) return(lapply(x, mark))
+      return(x)
+    }
+    if (identical(x$name, "input")) {
+      x$attribs$`data-fw-prettify` <- "size"
+      return(x)
+    }
+    x$children <- lapply(x$children, mark)
+    x
+  }
+  mark(tag)
+}
+
 #' Client-side handlers shared by every page
 #'
+#' The loader: the whole page, until the app has drawn itself
+#'
+#' The badge over an indeterminate bar, on the page ground, covering everything
+#' until Shiny first goes idle - which is the point the first page's charts and
+#' map have been sent. Before this a visitor on a cold start saw the navbar and
+#' a set of empty boxes for several seconds, which read as a broken page rather
+#' than a loading one.
+#'
+#' IN THE MARKUP, NOT ADDED BY SCRIPT, so it is on screen from the first paint
+#' rather than from whenever a script gets to run.
+#'
+#' IT ALSO GOES ON A DISCONNECT. A server that fails at startup never goes idle,
+#' and a loader waiting for it would cover Shiny's own "disconnected" message
+#' for ever. There is deliberately no timeout: a cold start on Connect Cloud
+#' can legitimately take longer than any number worth picking.
+#'
+#' The badge's URL goes in as a custom property from here, so the stylesheet's
+#' busy spinner (see the .recalculating rule in _components.scss) draws the
+#' same file FW_LOGO names rather than a second copy of the path.
+fw_loader <- function() {
+  tagList(
+    tags$style(HTML(sprintf(":root{--fw-badge-url:url('%s');}",
+                            FW_LOGO$badge_web))),
+    div(
+      id = "fw-loader", class = "fw-loader",
+      role = "status", `aria-live` = "polite",
+      tags$img(class = "fw-loader__badge", src = FW_LOGO$badge_web, alt = ""),
+      div(class = "fw-loader__bar", div(class = "fw-loader__fill")),
+      span(class = "visually-hidden", fw_t("app", "loading"))
+    ),
+    tags$script(HTML("
+      $(document).one('shiny:idle shiny:disconnected', function () {
+        var el = document.getElementById('fw-loader');
+        if (!el) return;
+        el.classList.add('fw-loader--done');
+        // Removed once faded, so an invisible full-screen layer is never left
+        // sitting over the page. The timeout covers reduced motion, where the
+        // transition is too short to fire an event reliably.
+        var gone = function () { if (el.parentNode) el.parentNode.removeChild(el); };
+        el.addEventListener('transitionend', gone, { once: true });
+        setTimeout(gone, 600);
+      });
+    "))
+  )
+}
+
 #' Two messages: one writes into the polite live region so validation and step
 #' changes are announced, the other moves the navbar from the server, which is
 #' how the stub actions and the contacts page change page.
@@ -409,6 +516,13 @@ fw_client_script <- function() {
       Shiny.addCustomMessageHandler('fw-nav', function (value) {
         Shiny.setInputValue('fw_nav_to', value, { priority: 'event' });
       });
+      // A map record, fetched on click. The card script (R/maps.R) asks for
+      // it with an attempt id; this is the answer arriving. The panel exists
+      // by then, because only a click on a drawn marker can have asked.
+      Shiny.addCustomMessageHandler('fw-map-detail', function (msg) {
+        var panel = document.getElementById('fw-map-detail');
+        if (panel && panel.fwOpenDetail) panel.fwOpenDetail(msg.html);
+      });
       // Bring a block into view by id. The report builder uses this after a
       // build: its results now sit BELOW the questions rather than beside them,
       // so without this the reader presses Build and nothing visibly happens.
@@ -419,9 +533,51 @@ fw_client_script <- function() {
         if (!el) return;
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
+      // Collapse a <details> from the server. The report builder folds its
+      // filter panel away once a report has been built, so the results are not
+      // pushed below a screen of controls the reader has finished with.
+      //
+      // A CLASS TOGGLE RATHER THAN A RE-RENDER, and that is the whole point:
+      // re-rendering the panel to close it would rebuild every selectize inside
+      // it at its default and throw away the selection the reader just built
+      // the report from. The panel is rendered once and only its open state
+      // changes. Expanding again is the browser's own job.
+      Shiny.addCustomMessageHandler('fw-collapse', function (id) {
+        var el = document.getElementById(id);
+        if (el) el.open = false;
+      });
       // The feedback box. The address is assembled here rather than served as
       // a mailto href, for the same scraping reason as the contacts page, and
       // the message never reaches the server at all.
+      // THE SIZE SLIDERS' TOOLTIPS, IN REAL UNITS. Their positions are log10 -
+      // hectares run from 0.0014 to 237,500, so a linear slider puts every
+      // usable value in the first pixel - and the one thing the reader must
+      // never be shown is the logarithm. The readout under the slider was
+      // already in real units; the handle's own bubble was not, and read
+      // \"0.5 to 3.4\" for a range of 3 ha to 2,500 ha.
+      //
+      // ionRangeSlider takes a prettify function, but only through JavaScript:
+      // a data attribute can only carry a string, and Shiny's slider binding
+      // owns the initialisation. So the instance is updated once it is bound.
+      // shiny:bound fires after the binding's initialize(), which is where the
+      // slider is created, so the instance is always there by now.
+      //
+      // THE ROUNDING MIRRORS fw_size_label() IN R/filters.R. Two copies of one
+      // rule, which is a cost; the alternative is a server round-trip on every
+      // pixel of a drag. If the thresholds there change, change them here.
+      window.fwSizePretty = function (n) {
+        var v = Math.pow(10, Number(n));
+        var digits = v >= 100 ? 0 : v >= 10 ? 1 : v >= 1 ? 2 : 4;
+        var parts = v.toFixed(digits).split('.');
+        parts[0] = parts[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');
+        return parts.join('.');
+      };
+      $(document).on('shiny:bound', function (e) {
+        var $el = $(e.target);
+        if ($el.data('fwPrettify') !== 'size') return;
+        var slider = $el.data('ionRangeSlider');
+        if (slider) slider.update({ prettify: window.fwSizePretty });
+      });
       Shiny.addCustomMessageHandler('fw-mailto', function (msg) {
         var href = 'mail' + 'to:' + msg.to +
           '?subject=' + encodeURIComponent(msg.subject) +
@@ -430,4 +586,110 @@ fw_client_script <- function() {
       });
     });
   "))
+}
+
+# ---- Shared blocks -----------------------------------------------------------
+
+#' A titled block with its qualification directly beneath the heading
+#'
+#' The note sits ABOVE the content, not below it. A caveat under a chart is read
+#' after the reader has already drawn their conclusion from it.
+#'
+#' Was fw_plan_block() in mod_plan.R. It lives here because the dashboard draws
+#' summary graphics of its own now, and two pages laying out a titled block in
+#' two different ways is how they drifted apart the first time.
+fw_block <- function(title, note, content) {
+  div(
+    class = "fw-plan__block",
+    h3(title),
+    if (!is.null(note)) p(class = "fw-plan__note", note),
+    content
+  )
+}
+
+#' A click-to-open panel
+#'
+#' A real <details>, not a scripted accordion. That is the same choice the
+#' report builder's filter panel already makes: the
+#' open and closed states, the keyboard behaviour and what a screen reader
+#' announces all come from the browser, and there is nothing to initialise after
+#' an insertUI. The server can still close one through the `fw-collapse` message
+#' handler in fw_client_script() if it ever needs to.
+#'
+#' THE SUMMARY CARRIES TWO LINES, and both matter. A reader decides whether to
+#' open a panel from the title and the note alone, so a note that only restates
+#' the title is a panel nobody opens - or worse, one everybody opens to find out
+#' what it was.
+#'
+#' @param title the disclosure label
+#' @param ... the panel body
+#' @param note one line under the title saying what is inside
+#' @param open whether it starts expanded
+fw_disclosure <- function(title, ..., note = NULL, id = NULL, open = FALSE) {
+  tags$details(
+    class = "fw-disclosure", id = id,
+    # NA is how htmltools writes a bare boolean attribute. FALSE would write
+    # open="FALSE", which a browser reads as open.
+    open = if (isTRUE(open)) NA,
+    tags$summary(
+      class = "fw-disclosure__summary",
+      tags$span(class = "fw-disclosure__title", title),
+      if (!is.null(note)) tags$span(class = "fw-disclosure__note", note)
+    ),
+    div(class = "fw-disclosure__body", ...)
+  )
+}
+
+#' The caveats panel
+#'
+#' ON THE ABOUT PAGE NOW, not on the report builder. They are properties of the
+#' whole database rather than of any one selection, and sitting under a result
+#' the reader had just built they read as qualifications of that selection
+#' alone. Moving them does NOT take them out of the downloads: the same
+#' fw_caveats() vector is still a sheet in the workbook, a block in the HTML
+#' report and the second half of the methods-and-caveats text file, because a
+#' file that turns up in an inbox six months later has to carry its own
+#' qualifications. See the header of R/export.R.
+#'
+#' THEY FOLD NOW. This panel was deliberately always visible - "the reader who
+#' would collapse it is the reader who needs it" - and the client has since
+#' asked for it to be one of the About page's click-to-open panels, alongside
+#' the methods and the related databases. The earlier reasoning was not wrong
+#' about who needs the caveats; what changed is that the page they sit on is now
+#' a summary with depth behind it rather than a run of prose, so a caveats block
+#' left permanently open is the only thing on it that cannot be folded. The
+#' summary line names what is inside (how success is defined, what is missing,
+#' why there is no success rate) rather than saying "caveats", which is what
+#' stops it reading as small print to skip. In the downloads they are still not
+#' collapsible, because a spreadsheet has nowhere to hide them.
+#'
+#' @param heading whether to draw the panel's own heading. FALSE where the
+#'   caller has already placed one, as the About page has.
+fw_caveats_ui <- function(data, heading = TRUE) {
+  # Parsed by fw_caveat_blocks() next to fw_caveats(), so the panel never has to
+  # know how many blocks there are. Add or remove one there and this reflows.
+  blocks <- fw_caveat_blocks(data)
+
+  div(
+    class = "fw-caveats",
+    if (isTRUE(heading)) h2(class = "fw-visually-hidden", fw_t("about", "caveats_heading")),
+    # The blocks sit in their own grid wrapper rather than directly in the
+    # panel, so the heading above stays full width and only the blocks column
+    # up. See .fw-caveats__grid.
+    div(
+      class = "fw-caveats__grid",
+      lapply(blocks, function(b) {
+        div(
+          class = "fw-caveats__block",
+          h3(fw_caveat_title(b$heading)),
+          lapply(b$body, function(x) p(x))
+        )
+      })
+    )
+  )
+}
+
+# The export sheet wants shouting headings; a web page does not.
+fw_caveat_title <- function(x) {
+  paste0(substr(x, 1, 1), tolower(substr(x, 2, nchar(x))))
 }
