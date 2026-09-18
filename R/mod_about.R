@@ -8,7 +8,7 @@
 # loaded data - never by typing a number that will be wrong by next quarter.
 #
 # THE SHAPE OF THE PAGE, which is a client decision and not a layout accident:
-# a short summary that is always visible - what FWISE is, how big it is and how
+# a short summary that is always visible - what FWISE is and how
 # to hear about it - and then five click-to-open panels holding the depth, the
 # citation and the small print included. A reader who wants to know whether to
 # trust a figure opens the caveats; a reader who wants to know where the records
@@ -60,8 +60,6 @@ mod_about_server <- function(id, data, meta = NULL) {
 
     output$body <- renderUI({
       s <- fw_headline_stats(data)
-      n_contributors <- sum(!is.na(data$contact$contact_name) &
-                              nzchar(data$contact$contact_name))
 
       section <- function(key, ...) {
         tagList(tags$h2(class = "fw-visually-hidden", fw_t("about", paste0(key, "_heading"))), ...)
@@ -74,10 +72,6 @@ mod_about_server <- function(id, data, meta = NULL) {
 
           # ---- What this is, and how big it is ---------------------------
           section("database", para("database"), para("database2")),
-
-          # Computed, never typed. The sentence is the client's; the numbers in
-          # it come from the data that is loaded right now.
-          p(class = "fw-lead", fw_about_scale(s, n_contributors, ns)),
 
           # ---- Hear about it ---------------------------------------------
           fw_about_signup()
@@ -168,30 +162,6 @@ mod_about_server <- function(id, data, meta = NULL) {
 }
 
 # ---- Pieces ------------------------------------------------------------------
-
-#' The one sentence in the app that states the size of the database
-#'
-#' Assembled from live counts, with the invitation to be the next contributor
-#' wired to the contribute page rather than written as a dead sentence.
-fw_about_scale <- function(s, n_contributors, ns) {
-  text <- fw_fill(
-    fw_t("about", "scale"),
-    attempts     = fw_fmt_num(s$attempts),
-    countries    = fw_fmt_num(s$countries),
-    contributors = fw_fmt_num(n_contributors),
-    species      = fw_fmt_num(s$species),
-    year         = as.character(s$earliest_year)
-  )
-
-  tagList(
-    text, " ",
-    tags$a(
-      href = "#",
-      onclick = "Shiny.setInputValue('fw_nav_to','contribute',{priority:'event'}); return false;",
-      fw_fill(fw_t("about", "scale_action"), n = fw_ordinal(n_contributors + 1L))
-    )
-  )
-}
 
 #' Hear about new releases
 #'

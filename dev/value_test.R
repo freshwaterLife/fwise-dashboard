@@ -100,13 +100,6 @@ ok("footer: the FWISE logo is the long SIMPLE wordmark",
 ok("footer: the FWISE logo goes to The solution, in the same tab",
    grepl("fw_nav_to&#39;, &#39;home&#39;", fwise_a, fixed = TRUE) && !grepl("_blank", fwise_a, fixed = TRUE))
 
-# About's scale sentence.
-n_contrib <- sum(!is.na(d$contact$contact_name) & nzchar(d$contact$contact_name))
-scale_txt <- strip(fw_about_scale(s, n_contrib, NS("x")))
-ok("about: names the attempt count",  grepl(fw_fmt_num(nrow(a)), scale_txt, fixed = TRUE))
-ok("about: names the contributor count", grepl(fw_fmt_num(n_contrib), scale_txt, fixed = TRUE))
-ok("about: no placeholder left", !grepl("\\{[a-z_]+\\}", scale_txt))
-
 # The caveats.
 blocks <- fw_caveat_blocks(d)
 n <- nrow(a)

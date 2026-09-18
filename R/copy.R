@@ -606,13 +606,6 @@ FW_COPY <- list(
       "proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
     ),
 
-    scale = paste(
-      "{attempts} eradication attempts across {countries} countries, against",
-      "{species} invasive species, going back to {year} - curated from the",
-      "published literature and contributed directly by {contributors} people."
-    ),
-    scale_action = "Become the {n}.",
-
     # ---- Sign-up -------------------------------------------------------------
     # NO ADDRESS IS COLLECTED HERE. The button is a link out to the list, so the
     # app never holds an email address, never has a form to secure and never has
