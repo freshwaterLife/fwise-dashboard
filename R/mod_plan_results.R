@@ -93,38 +93,12 @@ fw_species_top_title <- function(data, sel, role_name, limit = FW_PLAN_SPECIES_N
 
 #' The top species for a role, as photographs
 #'
-#' A GRID OF PICTURES RATHER THAN A BAR CHART, and that is the point of it. The
-#' rest of this page is counts; this is the row where a reader recognises the
-#' animal they are actually dealing with. The count and the outcome split are
-#' still there, so nothing is traded away for the photograph.
-#'
-#' Every photograph carries its credit and a linked licence. That is a condition
-#' of using them, not decoration - fw_species_figure() builds both, and returns
-#' a placeholder rather than a bare image when a species has no licensed
-#' photograph. See the header of R/species_images.R.
-#'
-#' live = FALSE always. A grid of these is built at once and none of them may
-#' reach Wikimedia while the page is rendering.
-#'
-#' @param limit how many tiles. The page passes FW_PLAN_SPECIES_N (five), which
-#'   is deliberately fewer than the FW_TOP_N the ranked bar charts use: a tile
-#'   is a photograph rather than a line, so ten of them ran to two full rows and
-#'   pushed the rest of the report below the fold.
-#'
-#' @param role_name "invasive" or "beneficiary"
-#' @return NULL when the selection has none of that role, so the calling block
-#'   disappears rather than standing over an empty grid. 107 of 914 attempts
-#'   record no beneficiary at all.
+#' A GRID OF PICTURES RATHER THAN A BAR CHART.
 fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
   top <- fw_species_top_n(data, sel, role_name, limit)
   if (!nrow(top)) return(NULL)
 
-  # THE COLUMN COUNT IS THE TILE COUNT, handed to the stylesheet as a custom
-  # property. The grid used to be auto-fill, which lays out as many tracks as
-  # fit and leaves the ones it has no tile for standing empty - the dead space
-  # the client objected to once each role became a full-width row. A selection
-  # with two species gets two columns that share the width, not three with a
-  # gap at the end.
+  # THE COLUMN COUNT IS THE TILE COUNT.
   div(
     class = "fw-species-tiles",
     style = sprintf("--fw-tiles:%d;", nrow(top)),
@@ -220,15 +194,9 @@ fw_plan_pages <- function(n_rows, per_page) {
 
 #' The people attached to the attempts in this selection
 #'
-#' REDACTION IS NOT DONE HERE, and must not be. fw_contacts_summary() replaces
-#' the address of any contact flagged not-public with NA before the data reaches
-#' the session, so this function - and the page built from it - has no code path
-#' that can see one. Do not reach past it to data$contact.
+#' REDACTION IS NOT DONE HERE.
 #'
-#' RELEVANCE IS THE SELECTION ITSELF, not a second idea of "region". A contact
-#' is relevant if they are attached to an attempt the reader actually built, so
-#' the table cannot disagree with the filters above it. `attempt_ids` is the
-#' list column fw_contacts_summary() already derives from both contact slots.
+#' RELEVANCE IS IN THE SELECTION.
 #'
 #' @return one row per contact, most involved in THIS selection first, with
 #'   attempt_count replaced by the count within the selection.
@@ -246,12 +214,7 @@ fw_plan_contacts <- function(data, sel) {
 }
 
 #' One page of the relevant contacts
-#'
-#' Hand-built, like every other table in the app, and the mailto comes from
-#' fw_contact_action() in mod_networking.R rather than a second copy of it: the
-#' address is assembled in JavaScript at click time so a scraper reading the
-#' served markup does not harvest it in one pass, and a contact with no public
-#' address gets an empty cell rather than a badge advertising a hidden one.
+
 fw_plan_contacts_ui <- function(contacts, page = 1L,
                                 per_page = FW_PLAN_CONTACTS_PAGE_SIZES[1]) {
   if (!nrow(contacts)) return(p(fw_t("plan", "r_contacts_none")))
@@ -284,9 +247,3 @@ fw_plan_contacts_ui <- function(contacts, page = 1L,
   )
 }
 
-# ---- Caveats -----------------------------------------------------------------
-#
-# THE PANEL MOVED TO THE ABOUT PAGE. fw_caveats_ui() and fw_caveat_title() now
-# live in R/ui_helpers.R, because About and this page's downloads both draw
-# them and neither owns the other. The text
-# itself has always come from fw_caveat_blocks() in R/export.R and still does.

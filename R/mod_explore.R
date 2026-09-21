@@ -38,12 +38,25 @@ mod_explore_ui <- function(id, choices) {
 
           div(
             class = "fw-explore-charts",
+            # THE EMPTY CONTROLS ROW IS NOT A LEFTOVER. The method chart has a
+            # count/share switch above it and this one has none; each block is
+            # a subgrid of the same three rows (see .fw-explore-charts), so an
+            # empty row here is what keeps the two plots level side by side.
             fw_block(fw_t("explore", "cumulative"),
                      fw_t("explore", "cumulative_note"),
-                     plotly::plotlyOutput(ns("cumulative"), height = "auto")),
+                     tagList(
+                       div(class = "fw-explore-charts__controls"),
+                       plotly::plotlyOutput(ns("cumulative"), height = "auto")
+                     )),
             fw_block(fw_t("explore", "method"),
                      fw_t("explore", "method_note"),
-                     plotly::plotlyOutput(ns("method"), height = "auto"))
+                     tagList(
+                       div(class = "fw-explore-charts__controls",
+                           fw_mode_toggle(ns("method_mode"),
+                                          fw_t("plan", "r_method_count"),
+                                          fw_t("plan", "r_method_share"))),
+                       plotly::plotlyOutput(ns("method"), height = "auto")
+                     ))
           )
         )
       )
@@ -154,7 +167,8 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     # aggregations over at most 914 rows - and watching them move under the
     # filters is the whole reason they are here rather than on Plan.
     output$method <- plotly::renderPlotly(
-      fw_chart_or_empty(fw_chart_method(data, sel(), mode = "count")))
+      fw_chart_or_empty(fw_chart_method(data, sel(),
+                                        mode = input$method_mode %||% "count")))
     output$cumulative <- plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_cumulative(sel())))
   })

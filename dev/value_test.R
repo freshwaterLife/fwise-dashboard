@@ -972,14 +972,20 @@ for (nm in names(all_charts)) {
   ok(paste0("plotly ", nm, ": the button is plotly's default (hover)"),
      is.null(bx$config$displayModeBar))
 }
-# THE A/B TEST: axis lines and ticks on exactly the charts FW_CHART names.
-for (nm in c("methods", "waterbody", "method_waterbody", "duration")) {
+# BARE AXES, WITH ROOM. The A/B test is over (Sept 2026): no chart draws an
+# axis line, and every axis keeps its labels FW_CHART$tick_gap off the axis
+# with ticks that are there only as spacing - long enough, and no colour.
+for (nm in names(all_charts)) {
   bx <- plotly::plotly_build(all_charts[[nm]])$x$layout
-  styled <- nm %in% FW_CHART$axis$styled
-  ok(paste0("axis style ", nm, ": ", if (styled) "lines and ticks" else "plain"),
-     c(isTRUE(bx$xaxis$showline), identical(bx$xaxis$ticks, "outside"),
-       isTRUE(bx$yaxis$showline), identical(bx$yaxis$ticks, "outside")),
-     rep(styled, 4))
+  for (ax in c("xaxis", "yaxis")) {
+    axl <- bx[[ax]]
+    ok(paste0("axis ", nm, " ", ax, ": no axis line"), isTRUE(axl$showline), FALSE)
+    ok(paste0("axis ", nm, " ", ax, ": labels ", FW_CHART$tick_gap, "px off the axis"),
+       c(identical(axl$ticks, "outside"), identical(axl$ticklen, FW_CHART$tick_gap)),
+       c(TRUE, TRUE))
+    ok(paste0("axis ", nm, " ", ax, ": the spacing ticks are not drawn"),
+       axl$tickcolor, FW_TRANSPARENT)
+  }
 }
 
 # A category chart with Other.
@@ -1390,8 +1396,22 @@ ok("welcome: the sentence carries both figures in bold, attempts then species",
    kpi_bold, paste0("<strong>", c(fw_fmt_num(n_successful), fw_fmt_num(n_protected)), "</strong>"))
 ok("welcome: the sentence reads as the client wrote it",
    grepl(paste0("<strong>", fw_fmt_num(n_successful),
-                "</strong> successful eradication attempts so far has protected <strong>",
+                "</strong> successful eradications recorded so far have protected &gt;<strong>",
                 fw_fmt_num(n_protected), "</strong> species."), kpi_html, fixed = TRUE))
+# The map's instruction is the caption under the map, in the map colours, and
+# not in the bar.
+cap_html <- regmatches(home_html, regexpr('(?s)<figcaption class="fw-compare__caption">.*?</figcaption>', home_html, perl = TRUE))
+ok("welcome: the map line is under the map, both states in their map colours",
+   c(length(cap_html) == 1L,
+     grepl('<span class="fw-compare__now">successes (blue)</span>', cap_html, fixed = TRUE),
+     grepl('<span class="fw-compare__later">opportunities (yellow)</span>', cap_html, fixed = TRUE)),
+   c(TRUE, TRUE, TRUE))
+ok("welcome: the bar holds only the sentence", grepl("fw-compare__", kpi_html, fixed = TRUE), FALSE)
+# The title's ** pairs are bold, not literal asterisks.
+title_html <- regmatches(home_html, regexpr('(?s)<h1 class="fw-page-header__title">.*?</h1>', home_html, perl = TRUE))
+ok("welcome: the title's ** pairs render as bold",
+   c(grepl("**", title_html, fixed = TRUE), grepl("<strong>", title_html, fixed = TRUE)),
+   c(FALSE, TRUE))
 ok("welcome: no more protected than beneficiaries overall",
    n_protected <= fw_headline_stats(d)$beneficiaries)
 ok("welcome: no unfilled slot left in the page", !grepl("\\{[a-z_]+\\}", home_html))

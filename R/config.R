@@ -542,11 +542,10 @@ FW_CHART <- list(
   box_line = 1.5,
   # The step line on the cumulative chart.
   line = 1,
-  # AXIS LINES AND TICK MARKS, as an A/B test for user testers (Sept 2026):
-  # the charts named in `styled` get a solid ink line on both axes with
-  # outside ticks, the rest keep plotly's bare axes. After the vote, list all
-  # four (or none) here - nothing else needs to change. See fw_axis_lines().
-  axis = list(styled = c("methods", "waterbody"), line = 1.5, tick_len = 6),
+  # The gap between an axis and its tick labels, in px. Made by invisible
+  # outside ticks of this length - see fw_tick_gap(). The axis-line A/B test
+  # that used to sit here ended with the client choosing bare axes (Sept 2026).
+  tick_gap = 8,
   # The duration chart's dots are spread across their row rather than drawn on
   # one line, so a pile of identical durations shows as a column you can count.
   # `bin` is how close two durations have to be (in log10 days) to count as

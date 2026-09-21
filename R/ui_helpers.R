@@ -91,9 +91,11 @@ fw_page_header <- function(title, description = NULL, format = fw_emphasis,
     class = paste(c("fw-page-header", if (!is.null(modifier)) paste0("fw-page-header--", modifier)),
                   collapse = " "),
     fw_container(
+      # **bold** works in a title as it does in the description. A title with
+      # no ** comes back from fw_emphasis() as the same plain string.
       h1(class = paste(c("fw-page-header__title",
                          if (!show_title) "fw-visually-hidden"), collapse = " "),
-         title),
+         fw_emphasis(title)),
       lapply(description, function(para) {
         p(class = "fw-page-header__description", format(para))
       })

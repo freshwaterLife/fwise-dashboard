@@ -1,53 +1,10 @@
 # mod_home.R
-# BUILT. The Welcome page ("The solution"): why freshwater eradication matters,
+# The Welcome page ("The solution"): why freshwater eradication matters,
 # that it works, where it has and has not been done, and where to go next.
 #
 # ==============================================================================
-# THE PAGE, in its fixed order. BUILT TO FIT ONE LAPTOP SCREEN (client, Sept
-# 2026): every part is sized so a 1366x768 window shows the lot with little or
+# THE PAGE, in its fixed order. BUILT TO FIT ONE LAPTOP SCREEN: every part is sized so a 1366x768 window shows the lot with little or
 # no scroll. Add nothing below the map without re-measuring.
-# ==============================================================================
-#
-# 1. HEADER. The two-sentence headline and three short lines in the indigo page
-#    header, set a step smaller than other pages (.fw-page-header--home). The
-#    last line's phrases link to Explore, Plan, Contribute and Networking.
-#
-# 2. THE SENTENCE. One line across the full width in the teal box: successful
-#    attempts and species protected (the distinct beneficiaries of those
-#    attempts), both filled from the data and never typed, in bold, then the
-#    hint to click the pictures.
-#
-# 3. PICTURES | MAP, side by side (client, Sept 2026). The left third is the
-#    six beneficiaries, two columns of three in FW_HOME_ORDER; each is a
-#    button that opens its story's card. The right two-thirds is the map.
-#    Stacked, pictures first, on a narrow screen.
-#
-# 4. STORY CARDS. Native popovers (the HTML popover attribute), so opening,
-#    Esc, clicking away and the top layer need no script. A card holds the
-#    beneficiary only - the client took the invasive plate out - then the title
-#    and the account. A picture the client has not supplied (NA in
-#    FW_HOME_IMG) draws as a placeholder.
-#
-# 5. CURRENT WORK AND GAPS, the map. Two STATIC pictures in register with a
-#    slider that reveals the priorities map from the left, starting fully on
-#    current work. The slider is a native range input laid over the figure.
-#    There is no separate legend: the caption names the two states in the
-#    map's own hues. The map's width follows the window HEIGHT as well as its
-#    column (see .fw-compare-wrap).
-#
-# THE PICTURES ARE WEB COPIES. The client's originals are in resources/ (not
-# served) and are never altered. The copies in www/img/home/ were made with
-# macOS sips and base R's png package:
-#   maps:    sips -Z 2400 <original> ; sips -c 1140 2400 --cropOffset 90 0
-#            (the same crop for both, so they stay in register; it drops the
-#            legend strip, which sits below row 1230 at that width)
-#   species: sips -Z 1000, trimmed to the drawing's alpha bounding box plus
-#            12px (png::readPNG / writePNG), then sips -Z 640
-# Redo both steps if the client sends new artwork.
-#
-# THE LETTERED PLATES the story cards show are the same trim at a bigger size,
-# and that one IS a script: dev/build_success_named.R. It says there why 1600px
-# is the ceiling worth serving and why the trim matters more than the resize.
 # ==============================================================================
 
 mod_home_ui <- function(id, stats) {
@@ -135,9 +92,8 @@ fw_home_tile <- function(key, s, img) {
 
 #' One success story, as a popover card: the beneficiary beside the account
 #'
-#' Picture on the left, title and text on the right, half the card each
-#' (client, Sept 2026 user testing). The two halves stack on a narrow screen -
-#' see .fw-home-card__body in _components.scss.
+#' Picture on the left, title and text on the right, half the card each. 
+#' The two halves stack on a narrow screen - see .fw-home-card__body in _components.scss.
 fw_home_card <- function(key, s, img) {
   sp <- s$beneficiary
   title_id <- paste0(fw_home_card_id(key), "-title")
@@ -172,18 +128,11 @@ fw_home_card <- function(key, s, img) {
 }
 
 #' The before/after map reveal
-#'
 #' --fw-pos is how much of the priorities map shows, from the left. The input
 #' writes it on every move; the stylesheet does the rest. It starts at 0, fully
 #' on current work, matching the input's value so the first paint is right
 #' without any script having run.
 fw_home_compare <- function(input_id) {
-  cap <- fw_t("home", "map_caption")
-  piece <- function(i) {
-    nm <- names(cap)[i]
-    if (nzchar(nm)) tags$span(class = paste0("fw-compare__", nm), cap[[i]]) else cap[[i]]
-  }
-
   tags$figure(
     class = "fw-compare-wrap",
     div(
@@ -202,8 +151,24 @@ fw_home_compare <- function(input_id) {
         oninput = "this.parentNode.style.setProperty('--fw-pos', this.value + '%')"
       )
     ),
-    tags$figcaption(class = "fw-compare__caption", lapply(seq_along(cap), piece))
+    tags$figcaption(class = "fw-compare__caption", fw_home_map_line())
   )
+}
+
+#' How to use the map, with its two states in their map colours
+#'
+#' The caption under the map. The named pieces of the copy become
+#' spans coloured .fw-compare__now and .fw-compare__later.
+fw_home_map_line <- function() {
+  cap <- fw_t("home", "map_caption")
+  lapply(seq_along(cap), function(i) {
+    nm <- names(cap)[i]
+    if (nzchar(nm)) {
+      tags$span(.noWS = "outside", class = paste0("fw-compare__", nm), cap[[i]])
+    } else {
+      cap[[i]]
+    }
+  })
 }
 
 #' Prose with [[page|words]] links to other tabs, and **bold**

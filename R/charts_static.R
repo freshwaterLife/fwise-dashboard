@@ -50,18 +50,20 @@ FW_GG_FAMILY <- "FWISE Ubuntu"
 
 #' The one theme every static figure shares
 #'
-#' @param axis_key the chart's name in FW_CHART$axis$styled, so the A/B axis
-#'   styling reaches the PDF exactly as it reaches the page.
-fw_gg_theme <- function(axis_key = "") {
+#' Bare axes, as on the page, with the same breathing room between an axis and
+#' its labels (FW_CHART$tick_gap, taken as px at 96 dpi and printed in pt).
+fw_gg_theme <- function() {
   fw_gg_fonts()
   pt <- FW_PRINT$floor
   ink <- FW_COLOURS$ink
-  styled <- axis_key %in% FW_CHART$axis$styled
+  gap <- FW_CHART$tick_gap * 0.75
 
-  t <- theme_minimal(base_family = FW_GG_FAMILY, base_size = pt) +
+  theme_minimal(base_family = FW_GG_FAMILY, base_size = pt) +
     theme(
       text = element_text(colour = ink, size = pt),
       axis.text = element_text(colour = ink, size = pt),
+      axis.text.x = element_text(margin = margin(t = gap)),
+      axis.text.y = element_text(margin = margin(r = gap)),
       axis.title = element_text(colour = ink, size = pt),
       legend.text = element_text(colour = ink, size = pt),
       legend.title = element_blank(),
@@ -77,16 +79,6 @@ fw_gg_theme <- function(axis_key = "") {
       panel.background = element_rect(fill = NA, colour = NA),
       plot.margin = margin(2, 6, 2, 2)
     )
-  if (styled) {
-    t <- t + theme(
-      # ggplot's linewidth is in units of about 0.75pt, so the page's 1.5px
-      # line (FW_CHART$axis$line) prints at roughly the same weight.
-      axis.line = element_line(colour = ink, linewidth = FW_CHART$axis$line / 3),
-      axis.ticks = element_line(colour = ink, linewidth = 0.35),
-      axis.ticks.length = unit(FW_CHART$axis$tick_len * 0.75, "pt")
-    )
-  }
-  t
 }
 
 # ---- Writing -----------------------------------------------------------------
@@ -142,7 +134,7 @@ fw_gg_height <- function(chart, rows) {
 #'   does on the method charts and not on the kind-of-water chart
 #' @param key_labels what the key calls each level, if not the level itself
 fw_gg_stack <- function(d, order_lv, fill, levels, colours, inks, mode, x_title,
-                        numerals = TRUE, axis_key = "", key_labels = levels) {
+                        numerals = TRUE, key_labels = levels) {
   d$label <- factor(d$label, levels = order_lv)
   d$fill <- factor(d[[fill]], levels = levels)
   d$text <- if (mode == "share") paste0(round(d$share), "%") else as.character(d$n)
@@ -166,7 +158,7 @@ fw_gg_stack <- function(d, order_lv, fill, levels, colours, inks, mode, x_title,
     scale_fill_manual(values = colours, breaks = levels, labels = key_labels,
                       drop = TRUE) +
     labs(x = x_title, y = NULL) +
-    fw_gg_theme(axis_key)
+    fw_gg_theme()
 
   p <- p + if (mode == "share") {
     scale_x_continuous(limits = c(0, 100.001), breaks = seq(0, 100, 25),
@@ -198,8 +190,7 @@ fw_gg_method <- function(data, sel, mode = "count") {
   d <- mutate(md$d, label = method_label)
   fw_gg_stack(d, md$order_lv, "outcome", FW_OUTCOME_LEVELS, FW_OUTCOME_COLOURS,
               FW_OUTCOME_LABEL_INK, md$mode,
-              fw_t("charts", if (md$mode == "share") "x_share" else "x_attempts"),
-              axis_key = "methods")
+              fw_t("charts", if (md$mode == "share") "x_share" else "x_attempts"))
 }
 
 #' Attempts by kind of water, stacked by outcome
@@ -209,8 +200,7 @@ fw_gg_waterbody <- function(sel, mode = "count") {
   # Numerals in the segments, count or %, as the page's chart now prints them.
   fw_gg_stack(cd$d, cd$order_lv, "outcome", FW_OUTCOME_LEVELS,
               FW_OUTCOME_COLOURS, FW_OUTCOME_LABEL_INK, mode,
-              fw_t("charts", if (mode == "share") "x_share" else "x_attempts"),
-              axis_key = "waterbody")
+              fw_t("charts", if (mode == "share") "x_share" else "x_attempts"))
 }
 
 #' Methods used in each kind of water, stacked by method

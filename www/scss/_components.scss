@@ -170,7 +170,7 @@
   // A stable min-height rather than padding alone. Bootstrap's navbar collapses
   // its own height around the brand, which was cropping the top of the logo.
   min-height: 72px;
-  padding-block: $fw-space-1;
+  padding-block: 0;
   // The brand steps up to 6rem at md, so the bar has to grow with it or
   // Bootstrap crops the mark the way it did at 38px.
   @media (min-width: $fw-bp-md) { min-height: 7.5rem; }
@@ -2752,6 +2752,22 @@
     // they stack, which is the "two rows on a smaller screen" the brief asks for.
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
+
+    // THE TWO PLOTS SIT LEVEL. Each block is a subgrid of the parent's three
+    // rows - title, controls, chart - so a row is as tall as the taller of the
+    // two cells in it. The method chart's count/share switch sets the controls
+    // row, and the cumulative chart's empty controls cell (see mod_explore_ui())
+    // takes the same height, so its plot starts on the same line. Without this
+    // the switch pushed one chart down by its own height.
+    grid-template-rows: auto auto auto;
+    row-gap: 0;
+
+    .fw-plan__block {
+      display: grid;
+      grid-row: span 3;
+      grid-template-rows: subgrid;
+      row-gap: 0;
+    }
   }
 
   // fw_block() draws .fw-plan__block on both pages. Its own bottom margin would
@@ -3358,7 +3374,8 @@ table.dataTable,
   color: $fw-ink;
 }
 
-// THE CAPTION IS THE LEGEND. The map's own hues, darkened to pass as text.
+// THE CAPTION IS THE LEGEND (fw_home_map_line()). The map's own hues,
+// darkened to pass as text.
 .fw-compare__now  { color: $fw-map-now-text; }
 .fw-compare__later { color: $fw-map-next-text; }
 

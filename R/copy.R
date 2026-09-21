@@ -128,25 +128,20 @@ FW_COPY <- list(
 
   home = list(
     title = paste(
-      "Freshwaters cover <1% of earth yet are home to 45% of all threatened animal species.",
-      "Eradicating freshwater invasives is the best way to save them from extinction."
+      "Freshwaters cover **<1%** of earth yet are home to **45% of all threatened animal species**.",
+      "Eradicating freshwater invasives is the **best** way to **save them from extinction**."
     ),
     lead = c(
-      "But almost nobody knows this. The **Freshwater Invasive Species Eradication Database** shows the world, for the first time, **what works**, **where**, and **how**.",
+      "But almost nobody knows this. Enter the **Freshwater Invasive Species Eradication Database**. It shows the world **what works**, **where**, and **how**.",
       paste(
         "Use it now to [[explore|understand this solution]],",
         "[[plan|plan a new eradication]], [[contribute|add your own data]],",
         "and [[networking|connect with others]]."
       )
     ),
-
-    # THE ONE SENTENCE across the top of the page, in the teal box. Both
-    # numbers are filled from the data and never typed: {attempts} is attempts
-    # recorded as successful, {protected} the distinct beneficiaries of those.
-    # The ** pairs set them in bold.
     kpi_sentence = paste(
-      "**{attempts}** successful eradication attempts so far has protected **{protected}** species.",
-      "Click the species to read success stories from around the globe."
+      "**{attempts}** successful eradications recorded so far have protected >**{protected}** species.",
+      "Click the species to read worldwide success stories."
     ),
 
     # ---- Success stories ----
@@ -206,10 +201,11 @@ FW_COPY <- list(
     # blue and amber (map_now_text, map_next_text). No swatches.
     map_slider_label = "Reveal the priority countries map over the successful eradications map",
     map_caption = c(
-      "Use the slider to move from ",
-      now  = "past successes",
+      "Move the map from ",
+      now  = "successes (blue)",
       " to ",
-      later = "future opportunities"
+      later = "opportunities (yellow)",
+      "."
     )
   ),
 
