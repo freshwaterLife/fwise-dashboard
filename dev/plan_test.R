@@ -415,31 +415,22 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   utils::unzip(book, exdir = xl)
   path <- list.files(xl, pattern = "[.]xlsx$", full.names = TRUE)[1]
   sheets <- openxlsx::getSheetNames(path)
-  ok("all five sheets present",
-     all(c("Attempts", "Contacts", "Caveats", "Field definitions",
-           "Filters applied") %in% sheets), TRUE)
+  ok("all four sheets present, and no contacts sheet",
+     sheets, c("Attempts", "Caveats", "Field definitions", "Filters applied"))
   ok("data sheet matches the selection",
      nrow(openxlsx::read.xlsx(path, "Attempts")), nrow(report()$sel))
   ok("field definitions cover every exported column",
      all(names(openxlsx::read.xlsx(path, "Attempts")) %in%
            openxlsx::read.xlsx(path, "Field definitions")$Field), TRUE)
-  ok("and the contacts sheet's columns too",
-     all(names(openxlsx::read.xlsx(path, "Contacts")) %in%
-           openxlsx::read.xlsx(path, "Field definitions")$Field), TRUE)
-
-  # ONE ROW PER PERSON, and the count is the count in front of the reader.
-  people <- openxlsx::read.xlsx(path, "Contacts")
-  ok("contacts sheet is one row per person",
-     anyDuplicated(people$contact_id), 0L)
-  ok("and counts attempts within the extract only",
-     all(people$attempts_in_extract <= nrow(report()$sel)), TRUE)
 
   # THE CONTROL, not the intention. An address belonging to a contact who asked
   # not to be listed must not be anywhere in the workbook.
   private <- d$contact$contact_email[!d$contact$email_public]
   private <- private[!is.na(private) & nzchar(private)]
-  ok("no private address reaches the contacts sheet",
-     any(private %in% people$contact_email), FALSE)
+  rows <- openxlsx::read.xlsx(path, "Attempts")
+  ok("no private address reaches the attempts sheet",
+     any(private %in% c(rows$primary_contact_email, rows$secondary_contact_email)),
+     FALSE)
 
   # ---- The attempts file ---------------------------------------------------
   #

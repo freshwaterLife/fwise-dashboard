@@ -267,78 +267,16 @@ fw_methods_caveats_text <- function(data) {
 #' Filename for the methods-and-caveats text
 fw_methods_filename <- function() fw_t("export", "methods_filename")
 
-# ---- Contacts ----------------------------------------------------------------
-
-#' The contacts attached to an extract, one row per person
-#'
-#' WHY THIS EXISTS BESIDE THE PER-ROW CONTACT COLUMNS. The attempts sheet
-#' already carries primary_contact_* and secondary_contact_* on every row, which
-#' answers "who recorded this attempt". This answers the different question the
-#' report builder's contacts block asks - "who should I talk to" - by
-#' deduplicating those people and counting how many of the attempts in front of
-#' the reader each is attached to. The data dictionary says so, rather than
-#' leaving a reader to wonder which of the two to trust.
-#'
-#' REDACTION happens in fw_contacts_summary() and nowhere else. This function
-#' reads only from there, and fw_write_workbook() asserts the result before it
-#' writes - see fw_assert_export_safe().
-#'
-#' @param attempt_ids the extract. NULL means every approved attempt.
-fw_contacts_export <- function(data, attempt_ids = NULL) {
-  contacts <- fw_contacts_summary(data)
-  ids <- attempt_ids %||% data$attempt$attempt_id
-
-  here <- vapply(contacts$attempt_ids, function(x) length(intersect(x, ids)),
-                 integer(1))
-  keep <- contacts[here > 0, , drop = FALSE]
-  keep$attempts_in_extract <- here[here > 0]
-  keep <- keep[order(-keep$attempts_in_extract, keep$contact_name), , drop = FALSE]
-
-  out <- data.frame(
-    contact_id         = keep$contact_id,
-    contact_name       = keep$contact_name,
-    organisation       = keep$organisation,
-    contact_email      = keep$contact_email,
-    continents         = keep$continent_label,
-    countries          = keep$country_label,
-    attempts_in_extract = keep$attempts_in_extract,
-    stringsAsFactors = FALSE
-  )
-  rownames(out) <- NULL
-  fw_assert_export_safe(out, data)
-  out
-}
-
 # ---- Field definitions -------------------------------------------------------
 
 #' The data dictionary that travels with the export
 #'
 #' The definitions live in R/copy_export.R, one per exported column. This only
 #' shapes them into the sheet.
-#'
-#' TWO FRAMES, ONE SHEET. The attempts columns come first and are exactly
-#' FW_EXPORT_COLUMNS, in order - the tests check that and nothing should be
-#' appended to `dictionary` that is not an exported column. The contacts sheet's
-#' own columns follow under their own heading row, because a reader looking up a
-#' column name does not know or care which of the two lists it is in.
 fw_field_definitions <- function() {
-  sheets <- fw_t("export", "sheets")
-  # Column names are set HERE rather than at the end: rbind() on data frames
-  # matches by name, not by position, so two frames built with auto-generated
-  # names would not stack.
-  row <- function(field, definition) {
-    data.frame(field = field, definition = definition, stringsAsFactors = FALSE)
-  }
-  frame <- function(d) row(names(d), unname(d))
-  group <- function(sheet) row(fw_fill(fw_t("export", "dict_group"), sheet = sheet), "")
-
-  out <- rbind(
-    frame(fw_t("export", "dictionary")),
-    group(sheets$contacts),
-    frame(fw_t("export", "dictionary_contacts"))
-  )
+  d <- fw_t("export", "dictionary")
+  out <- data.frame(names(d), unname(d), stringsAsFactors = FALSE)
   names(out) <- c(fw_t("export", "col_field"), fw_t("export", "col_definition"))
-  rownames(out) <- NULL
   out
 }
 
@@ -385,11 +323,10 @@ fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL) {
 
 #' Write the workbook
 #'
-#' FIVE SHEETS, ALWAYS. The data is useless to a careful reader without the other
-#' four, and a reader who did not ask for the caveats is exactly the reader who
-#' needs them. The contacts sheet is the newest: it is the one-row-per-person,
-#' deduplicated view of the people behind the extract, which the per-row contact
-#' columns on the attempts sheet cannot answer - see fw_contacts_export().
+#' FOUR SHEETS, ALWAYS. The data is useless to a careful reader without the other
+#' three, and a reader who did not ask for the caveats is exactly the reader who
+#' needs them. There is no contacts sheet: the attempts sheet already carries
+#' primary_contact_* and secondary_contact_* on every row (client, 21 Sept 2026).
 fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
   wb <- openxlsx::createWorkbook()
   header <- openxlsx::createStyle(
@@ -405,11 +342,6 @@ fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
 
   sheets <- fw_t("export", "sheets")
   add(sheets$attempts, export)
-  # Asserted inside fw_contacts_export() before it gets here, and built from
-  # fw_contacts_summary(), which redacts. Two controls, on purpose: an export is
-  # the one place a mistake travels outside the building and cannot be recalled.
-  add(sheets$contacts, fw_contacts_export(data, export$attempt_id),
-      widths = c(20, 28, 34, 30, 22, 34, 18))
   add(sheets$caveats,
       fw_text_sheet(fw_caveats(data), fw_t("export", "caveats_heading")),
       widths = 110)

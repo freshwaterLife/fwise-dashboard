@@ -202,7 +202,6 @@ fw_write_records_html <- function(path, data, export, filters, meta = NULL) {
         tags$img(class = "fw-rec-head__mark", src = fw_html_data_uri(FW_LOGO$mark_file),
                  alt = fw_t("app", "full_title"))
       },
-      p(class = "fw-rec-head__tagline", fw_t("app", "tagline")),
       h1(fw_t("export", "records_title")),
       p(class = "fw-rec-head__subtitle",
         fw_fill(fw_t("export", "records_subtitle"), n = fw_fmt_num(n), date = generated)),

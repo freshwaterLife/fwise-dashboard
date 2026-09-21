@@ -1139,16 +1139,14 @@ xlsx <- tempfile(fileext = ".xlsx")
 f1_plan <- modifyList(base, list(country = unique(sel1$country)))
 fw_write_workbook(xlsx, d, export, f1_plan, m)
 sheet_names <- unname(unlist(fw_t("export", "sheets")))
-ok("workbook: the five sheets, named from the copy", openxlsx::getSheetNames(xlsx), sheet_names)
+ok("workbook: the four sheets, named from the copy", openxlsx::getSheetNames(xlsx), sheet_names)
 ok("workbook: attempts sheet rows", nrow(openxlsx::read.xlsx(xlsx, sheet_names[1])), nrow(sel1))
-# BY NAME, not by position. The sheet list gained Contacts, and an index that
-# silently pointed at the wrong sheet is how this assertion stopped meaning
-# anything the first time.
+# BY NAME, not by position. The sheet list has changed before, and an index
+# that silently pointed at the wrong sheet is how this assertion stopped
+# meaning anything the first time.
 defs <- openxlsx::read.xlsx(xlsx, fw_t("export", "sheets")$definitions)
-ok("workbook: dictionary opens with exactly the export columns",
-   defs[[1]][seq_along(FW_EXPORT_COLUMNS)], FW_EXPORT_COLUMNS)
-ok("workbook: and then defines the contacts sheet's own columns",
-   all(names(fw_t("export", "dictionary_contacts")) %in% defs[[1]]), TRUE)
+ok("workbook: dictionary is exactly the export columns",
+   defs[[1]], FW_EXPORT_COLUMNS)
 fs <- openxlsx::read.xlsx(xlsx, fw_t("export", "sheets")$filters)
 # grepl, not %in%: size contributes one row per unit, each labelled
 # "<label> (<unit>)", so an exact match would miss it.

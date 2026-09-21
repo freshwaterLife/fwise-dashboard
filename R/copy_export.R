@@ -17,7 +17,6 @@ FW_COPY_EXPORT <- list(
     # ORDER IS THE SHEET ORDER in the workbook, and `attempts` must stay first.
     sheets = list(
       attempts    = "Attempts",
-      contacts    = "Contacts",
       caveats     = "Caveats",
       definitions = "Field definitions",
       filters     = "Filters applied"
@@ -132,10 +131,6 @@ FW_COPY_EXPORT <- list(
     # One entry per exported column, in export order. fw_field_definitions()
     # turns this into the sheet, and the tests check it covers every column in
     # FW_EXPORT_COLUMNS and nothing else.
-    #
-    # THE CONTACTS SHEET HAS ITS OWN, `dictionary_contacts` below. It is a
-    # different frame with different columns, and folding the two together would
-    # break the one-to-one relationship this list has with FW_EXPORT_COLUMNS.
     dictionary = c(
       attempt_id          = "Permanent identifier for the attempt. Minted once and never reassigned, so it is safe to join on across releases.",
       site_name           = "The treated site or waterbody, as the source described it.",
@@ -193,26 +188,6 @@ FW_COPY_EXPORT <- list(
       secondary_contact_org   = "Their organization.",
       secondary_contact_email = "Their email, where they agreed to it being listed."
     ),
-
-    # ---- The contacts sheet's dictionary ----------------------------------------
-    # Separate from `dictionary` above because it describes a different frame.
-    # Keys are the columns of fw_contacts_export(), in the order it builds them.
-    #
-    # THE FIRST ENTRY EXISTS TO ANSWER AN OBVIOUS QUESTION: the attempts sheet
-    # already carries contact columns on every row, so a reader needs telling
-    # what this sheet adds rather than being left to guess which to trust.
-    dictionary_contacts = c(
-      contact_id    = "Permanent identifier for the person. One row per person here, unlike the attempts sheet, which repeats them on every attempt they are attached to.",
-      contact_name  = "The person, as the source recorded them.",
-      organisation  = "Their organization, where recorded.",
-      contact_email = "Their email, where they agreed to it being listed. Blank means no published address, not no contact.",
-      continents    = "Continents they have attempts in, within this extract. Semicolon-delimited.",
-      countries     = "Countries they have attempts in, within this extract. Semicolon-delimited.",
-      attempts_in_extract = "How many attempts IN THIS EXTRACT they are attached to, in either contact slot. Not their total in the database."
-    ),
-
-    # The heading that separates the two dictionaries on the definitions sheet.
-    dict_group = "{sheet} sheet",
 
     # ---- The PDF report's own tables -------------------------------------------
     col_country     = "Country",

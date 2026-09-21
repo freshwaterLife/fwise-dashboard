@@ -73,11 +73,9 @@
 
 // ---- The letterhead ----------------------------------------------------------
 
-#let fw-letterhead(title: "", subtitle: "", tagline: "") = {
+#let fw-letterhead(title: "", subtitle: "") = {
   image(fw-logo-mark, height: 20mm)
-  v(2mm)
-  text(fill: fw-ink-muted)[#tagline]
-  v(5mm)
+  v(7mm)
   heading(level: 1)[#title]
   text(fill: fw-ink-muted)[#subtitle]
   v(3mm)

@@ -397,8 +397,7 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
 
   parts <- list(
     paste0("#fw-letterhead(title: ", fw_typ_str(fw_t("plan", "report_title")),
-           ", subtitle: ", fw_typ_str(fw_fill(fw_t("plan", "report_subtitle"), date = generated)),
-           ", tagline: ", fw_typ_str(fw_t("app", "tagline")), ")"),
+           ", subtitle: ", fw_typ_str(fw_fill(fw_t("plan", "report_subtitle"), date = generated)), ")"),
 
     # What was asked, before anything that came back.
     fw_typ_block(fw_t("plan", "report_selection"), NULL,
