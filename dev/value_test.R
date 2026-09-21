@@ -82,8 +82,11 @@ ok("summary: attempts",  ps$attempts,  nrow(sel1))
 ok("summary: countries", ps$countries, length(unique(sel1$country)))
 ok("summary: species",   ps$species,
    length(unique(asp$species_id[asp$role == "invasive" & asp$attempt_id %in% sel1$attempt_id])))
-ok("summary: methods",   ps$methods,
-   length(unique(am$method_id[am$attempt_id %in% sel1$attempt_id])))
+ok("summary: species protected", ps$beneficiaries,
+   length(unique(asp$species_id[asp$role == "beneficiary" & asp$attempt_id %in% sel1$attempt_id])))
+ok("summary: no methods count any more", is.null(ps$methods))
+ok("summary: the strip shows protected as a floor",
+   grepl(paste0("&gt;", fw_fmt_num(ps$beneficiaries)), as.character(fw_plan_summary_ui(ps)), fixed = TRUE))
 yrs <- sel1$start_year[!is.na(sel1$start_year)]
 ok("summary: year span", ps$year_span, paste0(min(yrs), "-", max(yrs)))
 
@@ -405,24 +408,129 @@ if (nrow(no_ben)) {
      grepl(fw_popup_thumb_unrecorded(),
            fw_record_detail_html(nb, d$species), fixed = TRUE))
 }
-# RECORDED BY IS THE PRIMARY CONTACT OR NOTHING. It used to fall back to the
-# reference; the row now stays, empty.
-no_contact <- map_pts[is.na(map_pts$primary_contact_name) &
-                        !is.na(map_pts$reference) & nzchar(map_pts$reference), ]
-if (nrow(no_contact)) {
-  nc <- no_contact[1, ]
-  nc_card <- fw_map_hover_html(nc)
-  ok("hover: no contact does not fall back to the reference",
-     grepl(htmltools::htmlEscape(nc$reference), nc_card, fixed = TRUE), FALSE)
-  ok("hover: and still draws an empty Recorded by row",
-     grepl(paste0(fw_t("species", "p_recorded_by"),
-                  '</span><span class="fw-popup__val fw-popup__val--none"></span>'),
-           nc_card, fixed = TRUE))
+# THE CARD'S FIELDS, IN THE CLIENT'S ORDER (21 Sept 2026), EVERY ONE DRAWN.
+# Location and country unlabelled, then nine labelled rows. Recorded by is
+# gone from the card. A blank field says "Not noted".
+hover_keys <- c("p_targeted", "p_protected", "p_outcome", "p_began",
+                "p_duration", "p_methods", "p_waterbody")
+key_pos <- function(html, key) regexpr(paste0('fw-popup__key">', fw_t("species", key), "<"),
+                                       html, fixed = TRUE)
+ok("hover: every card has every field, in order",
+   all(vapply(cards, function(x) {
+     pos <- vapply(hover_keys, function(k) key_pos(x, k), integer(1))
+     all(pos > 0) && !is.unsorted(pos)
+   }, logical(1))))
+ok("hover: every card names its country, unlabelled",
+   all(grepl('class="fw-popup__place', cards, fixed = TRUE)))
+ok("hover: no card carries a Recorded by row",
+   any(grepl("Recorded by", cards, fixed = TRUE)), FALSE)
+blank_row <- map_pts[1, ]
+blank_row$waterbody_type <- NA; blank_row$method_names <- NA
+blank_row$duration_days <- NA; blank_row$start_year <- NA
+blank_row$inv_list <- NA; blank_row$country <- NA
+blank_card <- fw_map_hover_html(blank_row)
+# Six fields blanked above: the country line and five rows.
+ok("hover: blank fields say Not noted",
+   lengths(regmatches(blank_card, gregexpr(fw_t("species", "p_not_noted"), blank_card, fixed = TRUE))), 6L)
+ok("hover: and the rows are still all there",
+   all(vapply(hover_keys, function(k) key_pos(blank_card, k) > 0, logical(1))))
+
+# THE RECORD: EVERY FIELD DRAWN FOR EVERY ATTEMPT, so every record has the
+# same labels. Verification notes are gone; contacts are one bulleted row.
+detail_keys <- c("p_species", "p_beneficiary", "p_outcome", "p_began",
+                 "p_duration", "p_driver", "p_waterbody", "p_area",
+                 "p_methods", "p_method_desc", "p_verified", "p_contacts",
+                 "p_reference")
+recs_all <- fw_attempt_records(d, a)
+details <- vapply(seq_len(nrow(recs_all)), function(i)
+  fw_record_detail_html(recs_all[i, ], d$species, figure_cache = character(0)),
+  character(1))
+ok("detail: every record has every field, in order",
+   all(vapply(details, function(x) {
+     pos <- vapply(detail_keys, function(k) key_pos(x, k), integer(1))
+     all(pos > 0) && !is.unsorted(pos)
+   }, logical(1))))
+ok("detail: every record has the download pointer",
+   all(grepl(fw_t("species", "p_download_hint"), details, fixed = TRUE)))
+# THE SOURCE BUTTON, ONLY WHERE THERE IS A LINK (21 Sept 2026). No link, no
+# line at all - the "Read the source: Not noted" line is gone.
+has_src <- !is.na(recs_all$reference_link) & nzchar(recs_all$reference_link)
+ok("detail: a source button exactly where the record has a link",
+   identical(grepl("fw-popup-detail__link-btn", details, fixed = TRUE), has_src))
+ok("detail: no record says Read the source: Not noted",
+   any(grepl(paste0(fw_t("species", "p_read_source"), ": "), details, fixed = TRUE)), FALSE)
+ok("detail: some records have a link and some do not",
+   any(has_src) && !all(has_src))
+# By its row, not its text: one attempt repeats its note in What was done.
+ok("detail: no record has a verification notes row",
+   any(grepl('fw-popup__key">Verification<', details, fixed = TRUE)), FALSE)
+unk <- which(recs_all$verification_method == "Unknown")[1]
+ok("detail: an Unknown verification is shown as Unknown",
+   grepl(paste0(fw_t("species", "p_verified"), '</span><span class="fw-popup__val">Unknown<'),
+         details[unk], fixed = TRUE))
+two_c <- which(!is.na(recs_all$primary_contact_name) & !is.na(recs_all$secondary_contact_name))[1]
+if (!is.na(two_c)) {
+  ok("detail: two contacts are two bullets",
+     lengths(regmatches(sub(".*Contact\\(s\\)", "", details[two_c]),
+                        gregexpr("<li>", sub(".*Contact\\(s\\)", "", details[two_c]), fixed = TRUE))), 2L)
 }
-with_contact <- map_pts[!is.na(map_pts$primary_contact_name), ][1, ]
-ok("hover: Recorded by names the primary contact",
-   grepl(htmltools::htmlEscape(with_contact$primary_contact_name),
-         fw_map_hover_html(with_contact), fixed = TRUE))
+
+# METHODS BY NAME ONLY, at most three, recomputed from attempts.csv. No note
+# text reaches a card or a record.
+am_sorted <- am[order(am$attempt_id, am$method_order), ]
+want_names <- vapply(as.character(a$attempt_id), function(id) {
+  nm <- unname(method_name[as.character(am_sorted$method_id[am_sorted$attempt_id == id])])
+  paste(unique(nm[!is.na(nm)]), collapse = FW_POPUP_SEP)
+}, character(1), USE.NAMES = FALSE)
+got_names <- recs_all$method_names[match(a$attempt_id, recs_all$attempt_id)]
+got_names[is.na(got_names)] <- ""
+ok("methods: the record's method names match the bridge, in order", got_names, want_names)
+before_contacts <- sub("Contact\\(s\\).*", "", details)
+ok("methods: no record lists more than three",
+   max(lengths(regmatches(before_contacts, gregexpr("<li>", before_contacts, fixed = TRUE)))) <= 3L)
+
+# THE PLAN SPECIES TITLES name the tiles shown and the role's full count.
+for (role in c("invasive", "beneficiary")) {
+  n_role <- length(unique(asp$species_id[asp$role == role & asp$attempt_id %in% sel1$attempt_id]))
+  ttl <- fw_species_top_title(d, sel1, role)
+  ok(paste0("species title (", role, "): names the total"),
+     grepl(paste0(if (role == "beneficiary") ">" else "(of ", fw_fmt_num(n_role), " total)"), ttl, fixed = TRUE))
+  ok(paste0("species title (", role, "): names the tiles shown"),
+     grepl(paste0("Top ", fw_num_word(min(FW_PLAN_SPECIES_N, n_role)), " "), ttl, fixed = TRUE))
+}
+# STRUCTURALLY, not by searching for note text: the notes repeat inside What
+# was done and elsewhere, so a text search proves nothing. The Method(s) row's
+# bullets must be exactly the attempt's method names from the bridge table.
+methods_row <- function(html) {
+  m <- regmatches(html, regexpr('Method\\(s\\)</span><span class="fw-popup__val[^"]*">.*?</span></div>', html))
+  if (!length(m)) return(NA_character_)
+  items <- regmatches(m, gregexpr("<li>.*?</li>", m))[[1]]
+  paste(gsub("</?li>", "", items), collapse = FW_POPUP_SEP)
+}
+got_rows <- vapply(details, methods_row, character(1), USE.NAMES = FALSE)
+want_rows <- vapply(want_names[match(recs_all$attempt_id, a$attempt_id)],
+                    function(x) paste(htmltools::htmlEscape(fw_popup_parts(x)), collapse = FW_POPUP_SEP),
+                    character(1), USE.NAMES = FALSE)
+ok("methods: every record's bullets are its method names and nothing else", got_rows, want_rows)
+ok("methods: every hover card's bullets are too",
+   vapply(cards, methods_row, character(1), USE.NAMES = FALSE),
+   vapply(map_pts$attempt_id, function(id) paste(htmltools::htmlEscape(fw_popup_parts(
+     want_names[match(id, a$attempt_id)])), collapse = FW_POPUP_SEP), character(1), USE.NAMES = FALSE))
+
+# DURATION, recomputed by hand: days under a year, years to 1dp from 365 on.
+ok("duration: 1 day",    fw_popup_duration(1),   "1 day")
+ok("duration: 20 days",  fw_popup_duration(20),  "20 days")
+ok("duration: 364 days", fw_popup_duration(364), "364 days")
+ok("duration: 365 is 1.0 years", fw_popup_duration(365), "1.0 years")
+ok("duration: 400 is 1.1 years", fw_popup_duration(400), "1.1 years")
+ok("duration: 10220 is 28.0 years", fw_popup_duration(10220), "28.0 years")
+ok("duration: none is NA", fw_popup_duration(NA), NA_character_)
+ok("years: a range", fw_popup_years(1998, 2004), "1998-2004")
+ok("years: start only", fw_popup_years(1998, NA), "1998")
+dur_i <- which(!is.na(recs_all$duration_days))[1]
+ok("duration: a record shows its own",
+   grepl(fw_popup_duration(recs_all$duration_days[dur_i]), details[dur_i], fixed = TRUE))
+
 # THE BASEMAPS. No place-label layer, and no null overlay - leaflet.js turns a
 # null into a checkbox named null in the layer switcher.
 bm <- fw_add_basemaps(fw_leaflet())
@@ -482,7 +590,7 @@ ok("hover: the card script fills a by-reference slot",
 # to open a record wants to know whether it is from this decade or the eighties.
 dated <- map_pts[!is.na(map_pts$start_year), ][1, ]
 ok("hover: the card names the years",
-   grepl(fw_popup_years(dated$start_year, dated$end_year),
+   grepl(paste0(">", fw_popup_years(dated$start_year, dated$end_year), "<"),
          fw_map_popup(dated, d$species, detail = "lazy"), fixed = TRUE))
 
 # "SELECT FOR THE FULL RECORD" IS A BUTTON NOW, not a line of quiet text.
@@ -1158,8 +1266,10 @@ ok("map: the record frame holds every attempt, located or not", nrow(recs), nrow
 ok("map: and the located ones are byte-identical to the map's",
    identical(as.data.frame(recs[match(mp$attempt_id, recs$attempt_id), ], row.names = NULL),
              as.data.frame(mp, row.names = NULL)))
-ok("map: the orphan notes reach the popup frame",
-   all(!is.na(mp$method_pairs[match(intersect(orphan_ids, mp$attempt_id), mp$attempt_id)])))
+# The orphan notes no longer reach the map: it lists method names only
+# (client, 21 Sept 2026), and those notes stay in the export asserted above.
+ok("map: an attempt with only a note lists no method",
+   all(is.na(mp$method_names[match(intersect(orphan_ids, mp$attempt_id), mp$attempt_id)])))
 
 # Cached figures are the figures. Rendering once per species must give the same
 # panel as rendering per marker, or the cache has changed what the reader sees.

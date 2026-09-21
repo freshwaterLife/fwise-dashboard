@@ -138,6 +138,7 @@ fw_plan_results_ui <- function(ns) {
       fw_t("plan", "r_map"), fw_t("plan", "r_map_note"),
       tagList(
         fw_map_output(ns("map")),
+        fw_map_note(),
         uiOutput(ns("map_missing"))
       )
     ),
@@ -246,6 +247,10 @@ fw_plan_results_ui <- function(ns) {
     # fw_contacts_summary(), so a redacted address cannot reach this page.
     fw_block(
       fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note"),
+      # THE ONE NOTE LEFT AS TEXT. Every chart's note is an (i) beside its
+      # title now; this one has to be read, not asked for - it says the people
+      # listed are not expecting to hear from the reader.
+      note_as = "text",
       tagList(
         div(
           class = "fw-table-toolbar",
@@ -448,50 +453,24 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
     # ---- What these attempts were about -------------------------------------
     #
-    # ONE BLOCK, TWO ROWS - the targeted species, then the ones that stood
-    # to gain, each row across the full width of the page with its tiles
-    # sharing that width equally. The two used to sit side by side, which
-    # at three tiles each left half-width photographs and dead space at
-    # the end of every row; the client asked for the width to be used.
-    # See .fw-plan__species-pair and .fw-species-tiles.
+    # TWO PLAIN BLOCKS, each titled like every other block on the page: "Top
+    # three invasive species targeted (of 41 total)", then "Top three species
+    # protected (of >12 total)". They used to share one block under "Most
+    # targeted species and beneficiaries" with a note and a smaller heading
+    # per half; the client cut that down to the two titles (21 Sept 2026).
+    # Each row runs the full width of the page with its tiles sharing it.
     #
-    # THE HALF NOTES ARE GONE, and the beneficiary half used to keep one on
-    # the explicit reasoning that a warning about how thinly beneficiaries
-    # are recorded has to sit with the tiles it qualifies. The client has
-    # reversed that: three tiles under a heading under a note under a
-    # heading was more apparatus than the grids themselves. The warning now
-    # sits in the block note above both halves (r_species_pair_note), which
-    # is the one place left that says it - so that note is load-bearing, not
-    # an introduction that can be trimmed next.
+    # The protected block is dropped entirely when the selection records no
+    # beneficiary, rather than standing over an empty grid.
     output$species <- renderUI({
       sel <- results()$sel
-      # Whether the selection records any beneficiary at all. This used to be a
-      # pair of counts feeding the two notes under the tile grids - "the five
-      # named most often, of 212" - and the client removed the notes. The
-      # beneficiary count survives them because the half itself is dropped when
-      # it would be empty, which is a layout decision rather than a caption.
-      n_beneficiary <- dplyr::n_distinct(
-        fw_species_rows(data, sel, "beneficiary")$species_id)
-      fw_block(
-        fw_t("plan", "r_species_pair"), fw_t("plan", "r_species_pair_note"),
-        div(
-          class = "fw-plan__species-pair",
-          div(
-            class = "fw-plan__species-half",
-            h4(fw_t("plan", "r_invasive")),
-            fw_species_tiles_ui(data, sel, "invasive", limit = FW_PLAN_SPECIES_N)
-          ),
-          # Dropped entirely rather than shown empty: the grid is two columns
-          # of 1fr, so the surviving half takes the full width on its own.
-          if (n_beneficiary > 0) {
-            div(
-              class = "fw-plan__species-half",
-              h4(fw_t("plan", "r_beneficiary")),
-              fw_species_tiles_ui(data, sel, "beneficiary", limit = FW_PLAN_SPECIES_N)
-            )
-          }
-        )
-      )
+      role_block <- function(role_name) {
+        title <- fw_species_top_title(data, sel, role_name)
+        if (is.null(title)) return(NULL)
+        fw_block(title, NULL,
+                 fw_species_tiles_ui(data, sel, role_name, limit = FW_PLAN_SPECIES_N))
+      }
+      tagList(role_block("invasive"), role_block("beneficiary"))
     })
 
     output$outcome_bars <- renderUI(fw_outcome_bars_ui(results()$sel))

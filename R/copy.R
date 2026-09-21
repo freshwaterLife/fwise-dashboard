@@ -109,6 +109,15 @@ FW_COPY <- list(
     basemap_satellite = "Satellite",
     year_one  = "year",
     year_many = "years",
+    # The Duration field on the hover card and the record: days under a year,
+    # years to one decimal place from there. See fw_popup_duration().
+    day_one   = "day",
+    day_many  = "days",
+    # Under both interactive maps. Worded by the client.
+    mercator_note = paste(
+      "Leaflet requires the use of Mercator - when non-Mercator layers are",
+      "available, this will be updated to Equal Earth."
+    ),
     # The accessible name of a group of markers. The count is drawn inside the
     # circle, so this is what says what the number means - to a screen reader,
     # and on hover. {n} is the number of attempts grouped at that point.
@@ -262,28 +271,36 @@ FW_COPY <- list(
     no_image   = "No photograph available",
     fig_none   = "None noted",
     alt_prefix = "Photograph of",
-    unnamed_site = "Unnamed site",
-    p_country  = "Country",
-    p_species  = "Invasive species",
+    # EVERY FIELD IS ALWAYS DRAWN, on the hover card and in the record, and a
+    # field with nothing in it says this (client, 21 Sept 2026). The photograph
+    # tile for a role with no species says the same, so tile and row agree.
+    p_not_noted = "Not noted",
+    p_none     = "Not noted",
+    p_species  = "Invasive species targeted",
     p_beneficiary = "Species protected",
-    p_none     = "Not recorded",
+    # The hover card's shorter pair, the same words as the photograph captions.
+    p_targeted  = "Targeted",
+    p_protected = "Protected",
     fig_invasive = "Targeted",
     fig_beneficiary = "Protected",
     p_outcome  = "Outcome",
-    p_began    = "Ran",
-    p_recorded_by = "Recorded by",
-    p_also     = "Also recorded by",
+    p_began    = "Years",
+    p_duration = "Duration",
 
     # ---- The detail panel, opened by clicking a marker ------------------------
-    p_method       = "Method",
+    p_methods      = "Method(s)",
     p_method_desc  = "What was done",
-    p_verified     = "Verified by",
-    p_verified_notes = "Verification",
+    p_verified     = "Verification via",
+    p_contacts     = "Contact(s)",
     p_waterbody    = "Kind of water",
-    p_area         = "Area treated",
+    p_area         = "Area/length treated",
     p_driver       = "Reason",
     p_reference    = "Reference",
     p_read_source  = "Read the source",
+    p_download_hint = paste(
+      "Download the data for more details on water volume and flow rates or",
+      "chemical concentrations."
+    ),
     more_hint      = "Select for the full record",
     fig_prev       = "Previous species",
     fig_next       = "Next species",
@@ -309,7 +326,7 @@ FW_COPY <- list(
   filters = list(
     continent   = "Continent",
     country     = "Country",
-    taxa        = "Kind of animal",
+    taxa        = "Kind of invasive animal",
     species     = "Invasive species",
     beneficiary = "Species protected",
     taxa_beneficiary = "Kind of animal protected",
@@ -344,7 +361,7 @@ FW_COPY <- list(
       "instead - that will show you the closest evidence there is."
     ),
     tip_regime = paste(
-      "Still water (Lentic) is lakes, ponds and reservoirs, etc; flowing water (Loctic)",
+      "Still water (Lentic) is lakes, ponds and reservoirs, etc; flowing water (Lotic)",
       "is rivers and streams, etc."
     ),
     tip_waterbody = paste(
@@ -507,7 +524,9 @@ FW_COPY <- list(
     r_attempts   = "attempts",
     r_countries  = "countries",
     r_species    = "invasive species",
-    r_methods    = "methods used",
+    # Shown after a ">" on the figure: beneficiaries are under-recorded, so the
+    # count is a floor rather than a total. See db_beneficiary_tip.
+    r_beneficiaries = "species protected",
     r_years      = "year range",
     r_outcomes   = "Outcomes",
     r_outcome_note = paste(
@@ -549,15 +568,16 @@ FW_COPY <- list(
 
     # ---- The species tiles ----------------------------------------------------
 
-    r_species_pair = "Most targeted species and beneficiaries",
-    r_species_pair_note = paste(
-      "What these attempts targetting, and what was protected. Each tile is",
-      "one species, and includes number of attempts and a visual representation of the outcome mix"
-    ),
+    # Two plain block titles (client, 21 Sept 2026). {n_word} is how many tiles
+    # are shown, {total} how many species of that role the selection holds.
+    # The protected total carries a ">" because beneficiaries are
+    # under-recorded - see db_beneficiary_tip.
+    r_species_top_inv = "Top {n_word} invasive species targeted (of {total} total)",
+    r_species_top_ben = "Top {n_word} species protected (of >{total} total)",
     r_tile_attempt  = "attempt",
     r_tile_attempts = "attempts",
-    r_invasive   = "What these attempts targeted",
-    r_beneficiary = "What was protected",
+    # A species tile's outcome bar, one segment on hover.
+    r_tile_seg = "{outcome}: {pc}% ({n} of {total})",
     r_duration   = "How long attempts took",
     r_duration_note = paste(
       "Start to finish, on a log scale, with a dotted line at a day, a week, a",

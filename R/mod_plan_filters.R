@@ -64,9 +64,11 @@ fw_plan_filters_ui <- function(ns, ch) {
         class = "fw-field fw-field--range",
         div(
           class = "fw-field__label-row",
-          tags$label(class = "form-label", `for` = ns("years"),
-                     fw_filter_label("years")),
-          fw_info(fw_filter_tip("years", ch), fw_filter_label("years"))
+          fw_with_info(
+            fw_filter_label("years"),
+            fw_info(fw_filter_tip("years", ch), fw_filter_label("years")),
+            wrap = function(x) tags$label(class = "form-label", `for` = ns("years"), x)
+          )
         ),
         # ticks = FALSE is not cosmetic. ionRangeSlider draws a grid of labels
         # across a 90-year span that overlap and pile up at both ends, which is
@@ -208,9 +210,11 @@ fw_plan_size_ui <- function(ns, ch, units = FW_SIZE_UNITS) {
   tagList(
     div(
       class = "fw-field__label-row",
-      tags$label(class = "form-label",
-                 paste0(fw_filter_label("size"), " ", unit_phrase)),
-      fw_info(fw_filter_tip("size", ch), fw_filter_label("size"))
+      fw_with_info(
+        paste0(fw_filter_label("size"), " ", unit_phrase),
+        fw_info(fw_filter_tip("size", ch), fw_filter_label("size")),
+        wrap = function(x) tags$label(class = "form-label", x)
+      )
     ),
     lapply(units, slider),
     # DEFAULTS ON, exactly as the year range's companion does: a size range

@@ -5,7 +5,7 @@ library(dplyr)
 
 # The filters this page offers, by registry id. Everything else in FW_FILTERS
 # is dropped here and kept on the report builder.
-FW_EXPLORE_FILTERS <- c("continent", "country", "taxa", "family",
+FW_EXPLORE_FILTERS <- c("continent", "country", "regime", "taxa", "family",
                         "taxa_beneficiary", "family_beneficiary")
 
 #' @param choices fw_filter_choices() of the loaded data. The filter bar is
@@ -32,7 +32,8 @@ mod_explore_ui <- function(id, choices) {
           div(
             class = "fw-explore-block",
             p(class = "fw-explore-block__note", fw_t("explore", "map_note")),
-            fw_map_output(ns("map"))
+            fw_map_output(ns("map")),
+            fw_map_note()
           ),
 
           div(

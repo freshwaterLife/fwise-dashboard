@@ -578,7 +578,14 @@
     h3 { margin-block: 0 $fw-space-1; }
   }
 
-  // The qualification sits ABOVE the chart. A caveat printed underneath is read
+  // THE NOTE IS AN (i) BESIDE THE TITLE, not a line under it (client, 21 Sept
+// 2026). The button is the first line's height, so it sits level with the
+// words rather than under the last one when a title wraps.
+.fw-plan__block .fw-block__title .fw-info-btn {
+  margin-inline-start: $fw-space-1;
+}
+
+// The qualification sits ABOVE the chart. A caveat printed underneath is read
   // after the reader has already drawn their conclusion from the picture.
   &__note {
     margin-block: 0 $fw-space-2;
@@ -843,7 +850,7 @@
 
   &__title {
     font-size: $fw-size-h3;
-    margin-block: $fw-space-1 $fw-space-1;
+    margin-block: $fw-space-1 0.15rem;
     color: $fw-teal-text;
   }
 
@@ -866,17 +873,16 @@
 
   &__val { font-size: $fw-size-caption; }
 
-  // "Not recorded" in one of the two species rows, which are always drawn even
-  // when the record names nobody - fw_popup_row()'s fallback. Muted and italic
-  // so a scan down the card can tell an absence from a name without reading it.
+  // "Not noted": every row is always drawn now, on the card and in the record,
+  // and this is fw_popup_row()'s fallback. Muted and italic so a scan down the
+  // card can tell an absence from a value without reading it.
   &__val--none {
     color: $fw-ink-muted;
     font-style: italic;
   }
 
-  // Several methods, each with its own note. A list rather than a comma string,
-  // because "Rotenone - Betamax vet." already contains punctuation and the two
-  // run together unreadably on one line.
+  // Methods, and the record's contacts: up to three bullets rather than a
+  // comma string, so each reads as its own item.
   &__list {
     margin: 0;
     padding-inline-start: 1rem;
@@ -1017,19 +1023,38 @@
   &__detail { display: none; }
 }
 
-// The "read the source" link at the foot of the detail panel. It had NO RULE AT
-// ALL, so it inherited the document's link styling inside a panel where nothing
-// else does, and read as something that had escaped the design rather than as
-// the reference it is.
+// The country, unlabelled, under the title on the hover card and the record.
+.fw-popup__place {
+  font-size: $fw-size-caption;
+  color: $fw-ink-muted;
+  margin-block: 0 $fw-space-1;
+}
+
+// The "read the source" button at the foot of the detail panel, drawn only
+// when the record has a link. Same green as the hover card's .fw-popup__more-btn
+// so the two actions read as one family.
 .fw-popup-detail__link {
   margin-block: $fw-space-2 0;
-  padding-block-start: $fw-space-1;
+  padding-block-start: $fw-space-2;
   border-top: 1px solid rgba($fw-teal-tint, 0.8);
   font-size: $fw-size-caption;
+}
 
-  a {
-    color: $fw-teal-text;
-    text-decoration: underline;
+.fw-popup-detail__link-btn {
+  display: inline-block;
+  padding: 0.3rem $fw-space-2;
+  border-radius: $fw-radius-input;
+  background: $fw-teal-text;
+  color: $fw-on-indigo;
+  font-weight: $fw-weight-bold;
+  text-decoration: none;
+
+  &:hover,
+  &:focus { color: $fw-on-indigo; background: $fw-teal-hover; text-decoration: none; }
+
+  &:focus-visible {
+    outline: 2px solid $fw-teal-text;
+    outline-offset: 2px;
   }
 }
 
@@ -1052,7 +1077,8 @@
   .fw-popup__val,
   .fw-popup__list,
   .fw-popup__more,
-  .fw-popup-detail__place,
+  .fw-popup__place,
+  .fw-popup-detail__hint,
   .fw-popup-fig__role,
   .fw-popup-fig__name,
   .fw-species-figure__credit,
@@ -1061,8 +1087,8 @@
   }
 }
 
-// Inside the panel the key column has to hold "Also recorded by" and
-// "Verification", which the card's 6.5rem cannot. Widened here only, so the
+// Inside the panel the key column has to hold "Invasive species targeted" and
+// "Verification via", which the card's 6.5rem cannot. Widened here only, so the
 // hover card keeps its narrow measure.
 .fw-map-detail .fw-popup__row {
   grid-template-columns: 9.5rem 1fr;
@@ -1239,12 +1265,6 @@
 .fw-popup-detail {
   &__title { font-size: $fw-size-h2; margin-block: 0 0.15rem; color: $fw-teal-text; }
 
-  &__place {
-    font-size: $fw-size-caption;
-    color: $fw-ink-muted;
-    margin-block: 0 $fw-space-2;
-  }
-
   // Invasive left, beneficiary right. Collapses to one column on a narrow
   // screen rather than squeezing two photographs into half a phone each.
   &__figures {
@@ -1259,6 +1279,13 @@
   &__rows { margin-block-start: $fw-space-2; }
 
   &__link { margin-block: $fw-space-2 0; }
+
+  // The line pointing at the download for water volume, flow and chemical
+  // concentrations. Small: it is a pointer, not part of the record.
+  &__hint {
+    margin-block: $fw-space-1 0;
+    color: $fw-ink-muted;
+  }
 }
 
 // THE RECORD ON A PHONE. Two photographs stacked at their desktop height, on a
@@ -1331,27 +1358,6 @@
   }
 
   &__count { font-size: $fw-size-caption; color: $fw-ink-muted; }
-}
-
-// The two species rows: what was targeted, then what benefited.
-//
-// STACKED AT EVERY WIDTH, and they used to sit side by side above $fw-bp-lg.
-// At three tiles a role that made two half-width grids of small photographs
-// with space left over at the end of each, and the client asked for each role
-// to be a row across the whole page instead. The tiles inside take care of
-// using that width - see .fw-species-tiles.
-.fw-plan__species-pair {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: $fw-space-3;
-
-  // The role headings INSIDE the block, under the block's own h3. They are a
-  // step down from it rather than another h3, so the two rows read as parts
-  // of one block rather than as two blocks.
-  h4 {
-    margin-block: 0 $fw-space-1;
-    font-size: $fw-size-lead;
-  }
 }
 
 // The species grid. The one place on the report a reader meets the animal
@@ -1458,16 +1464,25 @@
   // DECORATION, and nothing is lost without it. The counts are in the title
   // attribute and the same four numbers are in the Outcomes block at the top of
   // the report.
+  // HOVERABLE, one segment at a time (client, 21 Sept 2026): each carries a
+  // popover with its outcome's share, so it is tall enough to aim at and
+  // takes focus for a keyboard.
   &__bar {
     display: flex;
-    height: 4px;
+    height: 10px;
     margin-block-start: auto;
-    border-radius: 2px;
+    border-radius: 3px;
     overflow: hidden;
     background: $fw-teal-wash;
   }
 
-  &__seg { height: 100%; }
+  &__seg {
+    height: 100%;
+    cursor: default;
+
+    &:hover { filter: brightness(1.12); }
+    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: -2px; }
+  }
 }
 
 // A photograph, its credit, and the state before it has arrived.
@@ -1911,6 +1926,9 @@
     color: $fw-teal-text;
   }
 
+  // THE (i) FOLLOWS THE LAST WORD (fw_with_info()). It used to wrap onto a
+  // line of its own under a two-line label ("species recorded as protected")
+  // and read as belonging to nothing.
   &__label {
     display: block;
     margin-block-start: $fw-space-1;
@@ -2030,11 +2048,16 @@
 .fw-field {
   margin-block-end: $fw-space-3;
 
+  // INLINE FLOW, NOT FLEX (21 Sept 2026). As flex items the label took the
+  // rest of the row, so a label that wrapped - five filters across Explore -
+  // left its (i) stranded at the far edge of the cell. Inline, the (i) follows
+  // the last word wherever the text breaks.
   &__label-row {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
+    display: block;
     margin-block-end: 0.35rem;
+
+    .form-label { display: inline; margin: 0; }
+    .fw-info-btn { margin-inline-start: 0.4rem; }
   }
 
   &__help {
@@ -2056,7 +2079,9 @@
   display: flex;
   align-items: center;
   gap: $fw-space-1;
-  flex-wrap: wrap;
+  // NOWRAP: on a phone the checkbox's label wraps inside its own box rather
+  // than pushing the icon onto a line of its own (21 Sept 2026).
+  flex-wrap: nowrap;
 
   // The container has to give up BOTH its bottom margin and its full width.
   // The margin would push the icon out of line with the label it belongs to;
@@ -2074,6 +2099,10 @@
   // The checkbox's own label carries a bottom margin from Bootstrap too.
   .checkbox { margin: 0; }
 }
+
+// The last word of a label and its (i), kept on one line. See fw_with_info().
+.fw-nowrap { white-space: nowrap; }
+.fw-nowrap .fw-info-btn, .fw-kpi__label .fw-info-btn { margin-inline-start: 0.4rem; }
 
 .fw-info-btn {
   display: inline-flex;
@@ -2094,6 +2123,9 @@
   line-height: 1;
   cursor: pointer;
   flex: none;
+  // In running text (a label, a block title) it sits on the text's middle
+  // rather than its baseline.
+  vertical-align: middle;
 
   &:hover { background: $fw-teal-wash; border-color: $fw-teal-text; }
 }
@@ -3012,10 +3044,12 @@ table.dataTable,
 
 // PICTURES | MAP: one third to two, at the client's request. Stacked, pictures
 // first, where two-thirds would leave the map too small to read.
+// STRETCH, so the picture column is as tall as the map beside it and the
+// three rows can spread over that height (client, 21 Sept 2026).
 .fw-home-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  align-items: center;
+  align-items: stretch;
   gap: $fw-space-3;
 
   @media (max-width: $fw-bp-md) { grid-template-columns: minmax(0, 1fr); }
@@ -3023,12 +3057,46 @@ table.dataTable,
 
 // Two columns of three, FILLED BY COLUMN, so FW_HOME_ORDER reads down the left
 // then down the right - which is also the tab order.
+//
+// SPREAD OVER THE MAP'S HEIGHT, top row level with the map's top edge and
+// bottom row with its bottom edge, with more room between the two columns
+// (client, 21 Sept 2026).
+//
+// A SIZE CONTAINER, so the pictures take their height FROM the map rather than
+// adding to it: the grid contributes nothing to the row, the row is the map's
+// height, and the grid is stretched to fill it. Each picture is then 6.5rem,
+// or a third of what is left after the gaps if the map is shorter than that
+// (a 768px laptop), so the column never runs past the map's bottom edge. The
+// bottom padding is the caption under the map (one lead line and its margin),
+// so the pictures line up with the image rather than with the caption.
 .fw-home-species-grid {
+  --fw-home-caption: calc(#{$fw-size-lead} * 1.5 + #{$fw-space-1});
+  --fw-home-gap: #{$fw-space-2};
+  container-type: size;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(3, auto);
   grid-auto-flow: column;
-  gap: $fw-space-2;
+  align-content: space-between;
+  column-gap: $fw-space-4;
+  row-gap: var(--fw-home-gap);
+  padding-block-end: var(--fw-home-caption);
+
+  .fw-home-species {
+    height: #{"min(6.5rem, calc((100cqh - 2 * var(--fw-home-gap)) / 3))"};
+  }
+
+  // Stacked, there is no map beside it to take a height from.
+  @media (max-width: $fw-bp-md) {
+    container-type: normal;
+    align-content: start;
+    padding-block-end: 0;
+
+    .fw-home-species { height: 6.5rem; }
+  }
+  @media (max-width: $fw-bp-sm) {
+    .fw-home-species { height: 5rem; }
+  }
 }
 
 // One picture. A real button, so it takes focus and Enter/Space; the drawing
@@ -3201,6 +3269,9 @@ table.dataTable,
     margin-inline: auto;
   }
 }
+
+// Under the Explore and Plan maps: why they are in Mercator. fw_map_note().
+.fw-map-note { margin-block: $fw-space-1 0; }
 
 .fw-compare__caption {
   margin-block-start: $fw-space-1;

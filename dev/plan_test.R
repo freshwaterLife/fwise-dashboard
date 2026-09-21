@@ -75,9 +75,10 @@ ok("and those, plus the Explore-only fish family pair, are all that is dropped",
 # every chart, the map and the table - it is just never used to narrow.
 ok("the dashboard does not offer outcome either",
    "outcome" %in% FW_EXPLORE_FILTERS, FALSE)
-ok("the dashboard's filters are place, animal and fish family",
+# Still vs flowing joined them on 21 Sept 2026 (client).
+ok("the dashboard's filters are place, water regime, animal and fish family",
    sort(FW_EXPLORE_FILTERS),
-   sort(c("continent", "country", "taxa", "taxa_beneficiary",
+   sort(c("continent", "country", "regime", "taxa", "taxa_beneficiary",
           "family", "family_beneficiary")))
 
 cat("\n-- the size filter --\n")

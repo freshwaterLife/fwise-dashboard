@@ -140,6 +140,14 @@ fw_map_output <- function(output_id, class = NULL) {
   )
 }
 
+#' The line under every interactive map saying why it is in Mercator
+#'
+#' See PROJECTION at the top of this file. Worded by the client; drawn under
+#' the Explore and Plan maps, which are the two Leaflet maps a reader sees.
+fw_map_note <- function() {
+  p(class = "fw-caption fw-map-note", fw_t("maps", "mercator_note"))
+}
+
 # ---- Markers and popups ------------------------------------------------------
 
 # Multi-value popup fields travel as one delimited string per attempt, because
@@ -194,25 +202,19 @@ fw_attempt_records <- function(data, sel) {
     out
   }
 
-  # Methods WITH THEIR OWN NOTES, in the order they were applied. Deliberately
-  # not fw_export_frame()'s method_notes, which collapses the notes across
-  # methods with unique() and loses which note belongs to which method - the
-  # pairing is the useful part ("Rotenone - Betamax vet.").
+  # Methods BY NAME ONLY, in the order they were applied, at most three (the
+  # data never has more). The notes used to ride along ("Rotenone - Betamax
+  # vet.") and the client removed them from the map (21 Sept 2026): the card
+  # and the record list what was used, and the detail is in the download.
   methods <- data$attempt_method |>
     dplyr::filter(attempt_id %in% pts$attempt_id) |>
     dplyr::left_join(dplyr::select(data$method, method_id, method_name),
                      by = "method_id") |>
+    dplyr::filter(!is.na(method_name)) |>
     dplyr::arrange(attempt_id, method_order) |>
     dplyr::group_by(attempt_id) |>
     dplyr::summarise(
-      method_list = paste(unique(method_name[!is.na(method_name)]),
-                          collapse = ", "),
-      method_pairs = paste(
-        ifelse(is.na(method_notes) | !nzchar(method_notes),
-               method_name,
-               paste0(method_name, " - ", method_notes)),
-        collapse = FW_POPUP_SEP
-      ),
+      method_names = paste(unique(method_name), collapse = FW_POPUP_SEP),
       .groups = "drop"
     )
 
@@ -247,14 +249,6 @@ fw_attempt_records <- function(data, sel) {
       by = "secondary_contact_id"
     )
 
-  # A NOTE WITH NO METHOD STILL SHOWS. Nine attempts record something about the
-  # method - "Piscicide (unspecified)" - and no method, so they have no bridge
-  # row and the join above leaves them blank. The raw cell on the attempt is
-  # the only place the note survives; it is shown on its own, with no method
-  # name in front of it. Same rule as fw_export_frame().
-  orphan <- is.na(out$method_pairs) & !is.na(out$method_notes) & nzchar(out$method_notes)
-  out$method_pairs[orphan] <- gsub(FW_NOTES_SEP, FW_POPUP_SEP,
-                                   out$method_notes[orphan], fixed = TRUE)
   out
 }
 
@@ -288,18 +282,16 @@ fw_popup_parts <- function(x) {
   strsplit(as.character(x), FW_POPUP_SEP, fixed = TRUE)[[1]]
 }
 
-# One label/value row. Returns "" for an absent value, so a row a record does
-# not have simply is not drawn.
+# One label/value row.
 #
-# UNLESS A FALLBACK IS GIVEN, in which case the row is drawn with the fallback
-# in place of the value. That is for the two species roles on the hover card:
-# see fw_map_hover_html() for why a missing role has to say it is missing rather
-# than vanish. An empty fallback draws the row with nothing in it, which is what
-# "Recorded by" does. Everywhere else a field with nothing in it is still no row.
-fw_popup_row <- function(label, value, html = FALSE, fallback = NULL) {
+# EVERY ROW IS ALWAYS DRAWN (client, 21 Sept 2026). A field with nothing in it
+# - missing, blank or NA - says "Not noted" rather than vanishing, on the hover
+# card and in the record alike, so every record has the same rows in the same
+# places and a gap reads as a gap in the data rather than a layout fault.
+fw_popup_row <- function(label, value, html = FALSE,
+                         fallback = fw_t("species", "p_not_noted")) {
   esc <- htmltools::htmlEscape
   if (length(value) != 1 || is.na(value) || !nzchar(as.character(value))) {
-    if (is.null(fallback)) return("")
     return(paste0('<div class="fw-popup__row"><span class="fw-popup__key">',
                   esc(label),
                   '</span><span class="fw-popup__val fw-popup__val--none">',
@@ -311,21 +303,54 @@ fw_popup_row <- function(label, value, html = FALSE, fallback = NULL) {
          "</span></div>")
 }
 
-#' The years an attempt ran, as one phrase
+# A pipe-delimited field as a bulleted list, at most `max` items. NA for none,
+# so fw_popup_row() says "Not noted". Items are escaped unless `html`.
+fw_popup_list <- function(x, max = 3L, html = FALSE) {
+  items <- if (length(x) > 1) x else fw_popup_parts(x)
+  items <- utils::head(items[!is.na(items) & nzchar(items)], max)
+  if (!length(items)) return(NA_character_)
+  if (!html) items <- htmltools::htmlEscape(items)
+  paste0('<ul class="fw-popup__list"><li>',
+         paste(items, collapse = "</li><li>"), "</li></ul>")
+}
+
+# The unlabelled country line under the title, "Not noted" when absent.
+fw_popup_place <- function(country) {
+  none <- is.na(country) || !nzchar(country)
+  paste0('<p class="fw-popup__place', if (none) " fw-popup__val--none", '">',
+         htmltools::htmlEscape(if (none) fw_t("species", "p_not_noted") else country),
+         "</p>")
+}
+
+#' The years an attempt ran
 #'
-#' "1998-2004 (6 years)" rather than a bare start year. 144 of 914 attempts have
-#' no end year, and a good part of those are still running, so a missing end is
-#' shown as the start year alone - never as a dash to nowhere, which reads as
-#' data that should be there and is not.
+#' "1998-2004", or the start year alone where there is no end - 144 of 914
+#' attempts have none, and a good part of those are still running, so a dash to
+#' nowhere would read as missing data. How long it lasted is its own field now
+#' (fw_popup_duration()), from the recorded duration rather than year
+#' arithmetic, so this no longer carries a bracket.
 fw_popup_years <- function(start, end) {
   if (is.na(start)) return(NA_character_)
   # An end year that is the same as the start, or earlier than it, is not a
-  # range. "2000-2000 (0 years)" reads as a fault in the data rather than as a
-  # campaign that began and finished inside one year.
+  # range. "2000-2000" reads as a fault in the data rather than as a campaign
+  # that began and finished inside one year.
   if (is.na(end) || end <= start) return(as.character(start))
-  n <- round(end - start)
-  unit <- if (n == 1) fw_t("maps", "year_one") else fw_t("maps", "year_many")
-  paste0(start, "-", end, " (", n, " ", unit, ")")
+  paste0(start, "-", end)
+}
+
+#' How long an attempt lasted, from duration_days
+#'
+#' Days under a year ("1 day", "20 days"), years to one decimal place from 365
+#' on ("1.0 years", "1.1 years"), at the client's request (21 Sept 2026). NA
+#' when no duration is recorded, which the row shows as "Not noted".
+fw_popup_duration <- function(days) {
+  if (length(days) != 1 || is.na(days)) return(NA_character_)
+  if (days < 365) {
+    d <- round(days)
+    return(paste(d, fw_t("maps", if (d == 1) "day_one" else "day_many")))
+  }
+  paste(formatC(round(days / 365, 1), format = "f", digits = 1),
+        fw_t("maps", "year_many"))
 }
 
 #' The hover card: enough to decide whether to open the record
@@ -367,40 +392,31 @@ fw_popup_years <- function(start, end) {
 #'   fw_popup_thumb()
 fw_map_hover_html <- function(row, thumbs = NULL, thumb_ref = FALSE) {
   esc <- htmltools::htmlEscape
-  outcome <- if (is.na(row$outcome)) "Unknown" else row$outcome
 
   paste0(
     # The id is how a click asks the server for the rest of the record when
     # the detail is not embedded. See fw_add_attempt_markers().
     '<div class="fw-popup" data-fw-id="', esc(row$attempt_id), '">',
+    # THE FIELDS, IN THE CLIENT'S ORDER (21 Sept 2026), every one always
+    # drawn: Location and Country unlabelled, then Targeted, Protected,
+    # Outcome, Years, Duration, Method(s) and Kind of water. A field with
+    # nothing in it says "Not noted" - see fw_popup_row(). The photographs sit
+    # between the place and the rows, as they did.
     '<h3 class="fw-popup__title">',
-    esc(row$site_name %|na|% fw_t("species", "unnamed_site")),
+    esc(row$site_name %|na|% fw_t("species", "p_not_noted")),
     "</h3>",
+    fw_popup_place(row$country),
     fw_popup_thumb(row, thumbs, ref = thumb_ref),
-    fw_popup_row(fw_t("species", "p_country"), row$country),
-    # THE YEARS, at the client's request. A reader deciding whether to open a
-    # record wants to know whether it is from this decade or the nineteen
-    # eighties, and that was previously only in the record itself.
+    fw_popup_row(fw_t("species", "p_targeted"), row$inv_list),
+    fw_popup_row(fw_t("species", "p_protected"), row$ben_list),
+    # The outcome is words as well as colour, so it never depends on the dot.
+    fw_popup_row(fw_t("species", "p_outcome"), row$outcome),
     fw_popup_row(fw_t("species", "p_began"),
                  fw_popup_years(row$start_year, row$end_year)),
-    # BOTH ROLES, ALWAYS, at the client's request. These two used to drop out
-    # when a record had nothing in them, and a card showing only "Invasive
-    # species" left the reader unable to tell an attempt that helped nothing in
-    # particular from one whose beneficiary nobody wrote down. Beneficiaries are
-    # the more thinly recorded half of the database (see the note in
-    # mod_plan.R), so that silence was the common case rather than the odd one.
-    fw_popup_row(fw_t("species", "p_species"), row$inv_list,
-                 fallback = fw_t("species", "p_none")),
-    fw_popup_row(fw_t("species", "p_beneficiary"), row$ben_list,
-                 fallback = fw_t("species", "p_none")),
-    fw_popup_row(fw_t("species", "p_method"), row$method_list),
-    # The outcome is words as well as colour, so it never depends on the dot.
-    fw_popup_row(fw_t("species", "p_outcome"), outcome),
-    # THE PRIMARY CONTACT ONLY, and an empty row where there is none. It used
-    # to fall back to the reference, which put a citation where a person was
-    # expected; the client asked for the blank instead.
-    fw_popup_row(fw_t("species", "p_recorded_by"), row$primary_contact_name,
-                 fallback = ""),
+    fw_popup_row(fw_t("species", "p_duration"), fw_popup_duration(row$duration_days)),
+    fw_popup_row(fw_t("species", "p_methods"), fw_popup_list(row$method_names),
+                 html = TRUE),
+    fw_popup_row(fw_t("species", "p_waterbody"), row$waterbody_type),
     # A BUTTON, NOT A LINE OF QUIET TEXT. It read as a caption and the client
     # reported readers not realising the card opened into anything.
     #
@@ -495,7 +511,7 @@ fw_popup_thumb_none <- function(text = fw_t("species", "fig_none")) {
 
 #' The blank tile for a role with no species recorded at all
 #'
-#' Worded like the card's text rows ("Not recorded"), at the client's request,
+#' Worded like the card's text rows ("Not noted"), at the client's request,
 #' so the tile and the row under it give the same answer. Used by the hover
 #' card and the detail panel alike.
 fw_popup_thumb_unrecorded <- function() {
@@ -610,21 +626,31 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
     if (!is.na(org) && nzchar(org)) paste0(who, ", ", esc(org)) else who
   }
 
-  methods <- fw_popup_parts(row$method_pairs)
-  outcome <- if (is.na(row$outcome)) "Unknown" else row$outcome
   area <- if (!is.na(row$area_treated)) {
     paste(format(row$area_treated, big.mark = ",", trim = TRUE),
           row$area_unit %|na|% "")
   } else NA_character_
 
+  # CONTACTS AS A LIST, primary then secondary, replacing the separate
+  # "Recorded by" and "Also recorded by" rows.
+  contacts <- c(
+    person(row$primary_contact_name, row$primary_contact_email,
+           row$primary_contact_org),
+    person(row$secondary_contact_name, row$secondary_contact_email,
+           row$secondary_contact_org)
+  )
+  has_link <- !is.na(row$reference_link) && nzchar(row$reference_link)
+
+  # THE FIELDS, IN THE CLIENT'S ORDER (21 Sept 2026), and EVERY ONE ALWAYS
+  # DRAWN: a field with nothing in it says "Not noted" (fw_popup_row()). The
+  # verification notes are gone - more often unhelpful than detailed, in the
+  # client's reading of the records.
   paste0(
     '<div class="fw-popup-detail">',
     '<h2 class="fw-popup-detail__title">',
-    esc(row$site_name %|na|% fw_t("species", "unnamed_site")),
+    esc(row$site_name %|na|% fw_t("species", "p_not_noted")),
     "</h2>",
-    '<p class="fw-popup-detail__place">',
-    esc(paste(stats::na.omit(c(row$region, row$country)), collapse = ", ")),
-    "</p>",
+    fw_popup_place(row$country),
 
     # Invasive left, beneficiary right, both labelled.
     '<div class="fw-popup-detail__figures">',
@@ -633,41 +659,33 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
     "</div>",
 
     '<div class="fw-popup-detail__rows">',
-    fw_popup_row(fw_t("species", "p_outcome"), outcome),
-    fw_popup_row(fw_t("species", "p_verified"), row$verification_method),
-    fw_popup_row(fw_t("species", "p_verified_notes"), row$verification_notes),
+    fw_popup_row(fw_t("species", "p_species"), row$inv_list),
+    fw_popup_row(fw_t("species", "p_beneficiary"), row$ben_list),
+    fw_popup_row(fw_t("species", "p_outcome"), row$outcome),
     fw_popup_row(fw_t("species", "p_began"),
                  fw_popup_years(row$start_year, row$end_year)),
-    fw_popup_row(
-      fw_t("species", "p_method"),
-      if (length(methods)) {
-        paste0("<ul class=\"fw-popup__list\"><li>",
-               paste(esc(methods), collapse = "</li><li>"), "</li></ul>")
-      } else NA_character_,
-      html = TRUE
-    ),
-    fw_popup_row(fw_t("species", "p_method_desc"), row$method_description),
+    fw_popup_row(fw_t("species", "p_duration"), fw_popup_duration(row$duration_days)),
+    fw_popup_row(fw_t("species", "p_driver"), row$driver),
     fw_popup_row(fw_t("species", "p_waterbody"), row$waterbody_type),
     fw_popup_row(fw_t("species", "p_area"), area),
-    fw_popup_row(fw_t("species", "p_driver"), row$driver),
-    fw_popup_row(fw_t("species", "p_recorded_by"),
-                 person(row$primary_contact_name, row$primary_contact_email,
-                        row$primary_contact_org),
-                 html = TRUE, fallback = ""),
-    fw_popup_row(fw_t("species", "p_also"),
-                 person(row$secondary_contact_name,
-                        row$secondary_contact_email,
-                        row$secondary_contact_org),
+    fw_popup_row(fw_t("species", "p_methods"), fw_popup_list(row$method_names),
                  html = TRUE),
+    fw_popup_row(fw_t("species", "p_method_desc"), row$method_description),
+    fw_popup_row(fw_t("species", "p_verified"), row$verification_method),
+    fw_popup_row(fw_t("species", "p_contacts"),
+                 fw_popup_list(contacts, max = 2L, html = TRUE), html = TRUE),
     fw_popup_row(fw_t("species", "p_reference"), row$reference),
-    # 432 of 914 attempts have a link. Where there is none the reference above
-    # stands on its own rather than a button going nowhere.
-    if (!is.na(row$reference_link) && nzchar(row$reference_link)) {
-      paste0('<p class="fw-popup-detail__link"><a href="',
+    # 432 of 914 attempts have a link. Where there is one it is a green button,
+    # matching the hover card's; where there is none, nothing is drawn (21 Sept
+    # 2026 - the "Not noted" line was dropped at the client's request).
+    if (has_link) {
+      paste0('<p class="fw-popup-detail__link"><a class="fw-popup-detail__link-btn" href="',
              esc(row$reference_link),
              '" target="_blank" rel="noopener noreferrer">',
              esc(fw_t("species", "p_read_source")), "</a></p>")
     } else "",
+    '<p class="fw-popup-detail__hint">',
+    esc(fw_t("species", "p_download_hint")), "</p>",
     "</div>",
     "</div>"
   )

@@ -15,16 +15,16 @@ library(dplyr)
 #' invites the reader to stop there.
 fw_plan_summary <- function(data, sel) {
   ids <- sel$attempt_id
-  inv <- data$attempt_species |>
-    filter(attempt_id %in% ids, role == "invasive")
-  me <- data$attempt_method |> filter(attempt_id %in% ids)
+  sp <- data$attempt_species |> filter(attempt_id %in% ids)
 
   years <- sel$start_year[!is.na(sel$start_year)]
   list(
     attempts  = nrow(sel),
     countries = n_distinct(sel$country),
-    species   = n_distinct(inv$species_id),
-    methods   = n_distinct(me$method_id),
+    species   = n_distinct(sp$species_id[sp$role == "invasive"]),
+    # Species protected, in place of the methods count (client, 21 Sept 2026).
+    # Shown as a floor (">X"): beneficiaries are under-recorded.
+    beneficiaries = n_distinct(sp$species_id[sp$role == "beneficiary"]),
     year_span = if (length(years)) paste0(min(years), "-", max(years))
                 else fw_t("common", "empty_value")
   )
@@ -41,7 +41,7 @@ fw_plan_summary_ui <- function(s) {
     item(fw_fmt_num(s$attempts),  fw_t("plan", "r_attempts")),
     item(fw_fmt_num(s$countries), fw_t("plan", "r_countries")),
     item(fw_fmt_num(s$species),   fw_t("plan", "r_species")),
-    item(fw_fmt_num(s$methods),   fw_t("plan", "r_methods")),
+    item(paste0(">", fw_fmt_num(s$beneficiaries)), fw_t("plan", "r_beneficiaries")),
     item(s$year_span,             fw_t("plan", "r_years"))
   )
 }
@@ -74,6 +74,22 @@ fw_outcome_bars_ui <- function(sel) {
 }
 
 # ---- Species tiles -----------------------------------------------------------
+
+#' The heading over one role's tiles
+#'
+#' "Top three invasive species targeted (of 41 total)", and for the protected
+#' side "(of >12 total)" because beneficiaries are under-recorded. The number
+#' word is the tiles actually shown, so a selection with two species says "Top
+#' two". Shared by the page and the HTML report so the two cannot disagree.
+#'
+#' @return NULL when the selection has no species in that role
+fw_species_top_title <- function(data, sel, role_name, limit = FW_PLAN_SPECIES_N) {
+  total <- dplyr::n_distinct(fw_species_rows(data, sel, role_name)$species_id)
+  if (!total) return(NULL)
+  key <- if (role_name == "invasive") "r_species_top_inv" else "r_species_top_ben"
+  fw_fill(fw_t("plan", key), n_word = fw_num_word(min(limit, total)),
+          total = fw_fmt_num(total))
+}
 
 #' The top species for a role, as photographs
 #'
@@ -129,18 +145,31 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
           span(class = "fw-species-tile__count",
                fw_fmt_num(row$n), " ",
                fw_t("plan", if (row$n == 1) "r_tile_attempt" else "r_tile_attempts")),
-          # The outcome split as a single bar. Decoration: the numbers are in
-          # the title attribute and in the Outcomes block above, so a reader who
-          # cannot separate the colours has lost nothing.
+          # The outcome split as a single bar, EACH SEGMENT HOVERABLE (client,
+          # 21 Sept 2026): a popover gives its outcome and share, "Successful:
+          # 25% (3 of 12)". The same popovers as the (i) buttons, initialised by
+          # fw_popover_script() when renderUI adds them, and focusable so a
+          # keyboard reaches them too. The bar's aria-label carries the whole
+          # split for a screen reader in one go.
           div(
             class = "fw-species-tile__bar",
-            title = paste(paste0(FW_OUTCOME_LEVELS, ": ", counts),
-                          collapse = ", "),
+            role = "img",
+            `aria-label` = paste(paste0(FW_OUTCOME_LEVELS, ": ", counts),
+                                 collapse = ", "),
             lapply(FW_OUTCOME_LEVELS, function(o) {
               n <- counts[[o]]
               if (n == 0L) return(NULL)
               div(
                 class = "fw-species-tile__seg",
+                tabindex = "0",
+                `data-bs-toggle` = "popover",
+                `data-bs-trigger` = "hover focus",
+                `data-bs-placement` = "top",
+                `data-bs-content` = fw_fill(fw_t("plan", "r_tile_seg"),
+                                            outcome = o,
+                                            pc = sprintf("%.0f", 100 * n / total),
+                                            n = fw_fmt_num(n),
+                                            total = fw_fmt_num(total)),
                 style = sprintf("width:%.2f%%;background:%s;",
                                 100 * n / total, FW_OUTCOME_COLOURS[[o]])
               )

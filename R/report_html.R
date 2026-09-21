@@ -542,6 +542,7 @@ fw_write_html_report <- function(path, data, sel, export, filters,
         div(class = "fw-report__map",
             as.tags(fw_plan_map(data, sel, detail = "embed"), standalone = FALSE)),
         p(class = "fw-caption", fw_t("plan", "html_map_note")),
+        fw_map_note(),
         if (n_no_coords > 0) {
           p(class = "fw-caption",
             fw_fill(fw_t("plan", "r_map_missing"), n = fw_fmt_num(n_no_coords)))
@@ -576,17 +577,14 @@ fw_write_html_report <- function(path, data, sel, export, filters,
     # NULL here: a block with NULL content still prints its heading, and
     # building them twice to ask whether they exist would repeat ten image
     # lookups for nothing.
-    # NO NOTE UNDER EITHER HEADING, matching the page. These two carried one
-    # each and they were WRONG as well as unwanted: both were filled with
-    # FW_TOP_N while the grids under them were built with FW_PLAN_SPECIES_N, so
-    # the downloaded report promised the ten named most often above a grid of
-    # three. The surviving note is on the page's own pair block; this document
-    # states the same caveat in r_species_pair_note where it introduces them.
+    # THE SAME TWO TITLES AS THE PAGE - "Top three invasive species targeted
+    # (of 41 total)" and its protected pair - from fw_species_top_title(), so
+    # the document and the screen name the same count. No note under either.
     if (!is.null(tiles_invasive)) {
-      fw_html_block(fw_t("plan", "r_invasive"), NULL, tiles_invasive)
+      fw_html_block(fw_species_top_title(data, sel, "invasive"), NULL, tiles_invasive)
     },
     if (!is.null(tiles_beneficiary)) {
-      fw_html_block(fw_t("plan", "r_beneficiary"), NULL, tiles_beneficiary)
+      fw_html_block(fw_species_top_title(data, sel, "beneficiary"), NULL, tiles_beneficiary)
     },
 
     fw_html_figure(

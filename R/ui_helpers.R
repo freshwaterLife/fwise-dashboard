@@ -116,10 +116,12 @@ fw_kpi_stat <- function(value, label, tooltip = NULL) {
   div(
     class = "fw-kpi",
     tags$span(class = "fw-kpi__value", value),
+    # The label text in its own span so a label that wraps keeps the (i) to
+    # its right, level with the first line, rather than dropping it under the
+    # last word (client, 21 Sept 2026). See .fw-kpi__label.
     tags$span(
       class = "fw-kpi__label",
-      label,
-      if (!is.null(tooltip)) fw_info(tooltip, label)
+      fw_with_info(label, if (!is.null(tooltip)) fw_info(tooltip, label))
     )
   )
 }
@@ -170,6 +172,35 @@ fw_info <- function(text, label = NULL) {
   )
 }
 
+#' Text with an (i) that stays beside its last word
+#'
+#' EVERY (i) SITS BESIDE ITS TEXT (client, 21 Sept 2026). An inline button
+#' after a label can wrap onto a line of its own when the label fills its line
+#' exactly - five filters across Explore did it at most laptop widths - and a
+#' word joiner does not stop it. So the last word and the button share a
+#' nowrap span and break as one.
+#'
+#' @param text  the label, as a single string. Anything else (a tag) is drawn
+#'   as before, text then button.
+#' @param info  the fw_info() button, or NULL for none
+#' @param wrap  wraps each run of text, for a <label for> that has to hold it
+#'   (a field label is split into two labels for the same control, which is
+#'   valid HTML, and a screen reader joins them into one name)
+#' @param tail  anything that belongs after the last word, inside the wrap
+#'   (the required marker)
+fw_with_info <- function(text, info, wrap = identity, tail = NULL) {
+  if (is.null(info)) return(wrap(tagList(text, tail)))
+  if (!is.character(text) || length(text) != 1) return(tagList(wrap(tagList(text, tail)), info))
+  words <- trimws(text)
+  cut <- regexpr("[[:space:]][^[:space:]]+$", words)
+  head <- if (cut > 0) paste0(substr(words, 1, cut), "") else ""
+  last <- if (cut > 0) substr(words, cut + 1, nchar(words)) else words
+  tagList(
+    if (nzchar(head)) wrap(head),
+    tags$span(class = "fw-nowrap", wrap(tagList(last, tail)), info)
+  )
+}
+
 # Bootstrap popovers are opt-in and have to be initialised. bslib loads the
 # Bootstrap bundle, so this only needs to find the triggers, including any added
 # later by insertUI.
@@ -215,11 +246,11 @@ fw_field <- function(input, label, required = FALSE, tooltip = NULL,
     class = "fw-field",
     div(
       class = "fw-field__label-row",
-      tags$label(
-        class = "form-label",
-        `for` = input_id,
+      fw_with_info(
         label,
-        if (required) {
+        if (!is.null(tooltip)) fw_info(tooltip, label),
+        wrap = function(x) tags$label(class = "form-label", `for` = input_id, x),
+        tail = if (required) {
           tagList(
             tags$span(class = "fw-required-mark", `aria-hidden` = "true", "*"),
             # The asterisk is decorative; this is what is actually announced, so
@@ -227,8 +258,7 @@ fw_field <- function(input, label, required = FALSE, tooltip = NULL,
             tags$span(class = "fw-visually-hidden", fw_t("a11y", "required"))
           )
         }
-      ),
-      if (!is.null(tooltip)) fw_info(tooltip, label)
+      )
     ),
     input,
     if (!is.null(help)) div(class = "fw-field__help", help)
@@ -638,19 +668,25 @@ fw_client_script <- function() {
 
 # ---- Shared blocks -----------------------------------------------------------
 
-#' A titled block with its qualification directly beneath the heading
+#' A titled block, its qualification behind an (i) beside the heading
 #'
-#' The note sits ABOVE the content, not below it. A caveat under a chart is read
-#' after the reader has already drawn their conclusion from it.
+#' THE NOTE IS A POPUP NOW, at the client's request (21 Sept 2026): every chart
+#' and map note sits in an (i) next to its title rather than as a line of text
+#' under it. `note_as = "text"` keeps the old visible line, for the one block
+#' whose note has to be read rather than asked for - the contacts table, where
+#' it says the people listed are not expecting to be contacted.
 #'
 #' Was fw_plan_block() in mod_plan.R. It lives here because the dashboard draws
 #' summary graphics of its own now, and two pages laying out a titled block in
 #' two different ways is how they drifted apart the first time.
-fw_block <- function(title, note, content) {
+fw_block <- function(title, note, content, note_as = c("info", "text")) {
+  note_as <- match.arg(note_as)
+  info <- !is.null(note) && note_as == "info"
   div(
     class = "fw-plan__block",
-    h3(title),
-    if (!is.null(note)) p(class = "fw-plan__note", note),
+    h3(class = if (info) "fw-block__title",
+       fw_with_info(title, if (info) fw_info(note, title))),
+    if (!is.null(note) && !info) p(class = "fw-plan__note", note),
     content
   )
 }
