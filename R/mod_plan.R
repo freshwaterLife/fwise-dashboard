@@ -200,7 +200,16 @@ fw_plan_results_ui <- function(ns) {
     # has to clear the filter registry in R/filters.R first.
     fw_block(
       fw_t("plan", "r_waterbody"), fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
-      plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
+      tagList(
+        # Its own toggle, like the two method charts. The denominator here is
+        # the kind of water's own attempts, so share answers "in a lake, how
+        # often did it work" - and the count stays in the bar's label either
+        # way, so a share off four attempts still shows it is off four.
+        fw_mode_toggle(ns("waterbody_mode"),
+                       fw_t("plan", "r_waterbody_count"),
+                       fw_t("plan", "r_waterbody_share")),
+        plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
+      )
     ),
 
     # Segmented by METHOD, not by outcome, and on its own colour scale. ITS
@@ -507,7 +516,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # results, which put them back to count each time; now that they persist,
     # a build does that explicitly. See fw_mode_toggle().
     observeEvent(input$build, {
-      for (id in c("method_mode", "method_wb_mode")) {
+      for (id in c("method_mode", "method_wb_mode", "waterbody_mode")) {
         if (!identical(input[[id]] %||% "count", "count")) {
           updateRadioButtons(session, id, selected = "count")
         }
@@ -608,8 +617,10 @@ mod_plan_server <- function(id, data, meta = NULL) {
         fw_chart_method_waterbody(data, results()$sel,
                                   mode = input$method_wb_mode %||% "count"))
     })
+    # Same again: the toggle redraws the same numbers, it does not reselect.
     output$chart_waterbody <- plotly::renderPlotly(
-      fw_chart_or_empty(fw_chart_waterbody(results()$sel)))
+      fw_chart_or_empty(fw_chart_waterbody(results()$sel,
+                                           mode = input$waterbody_mode %||% "count")))
     output$duration <- plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_duration(data, results()$sel)))
 
@@ -690,7 +701,8 @@ mod_plan_server <- function(id, data, meta = NULL) {
           path = file, parts = input$download_parts, data = data,
           sel = r$sel, export = r$export, filters = r$filters, meta = meta,
           method_mode = input$method_mode %||% "count",
-          method_wb_mode = input$method_wb_mode %||% "count"
+          method_wb_mode = input$method_wb_mode %||% "count",
+          waterbody_mode = input$waterbody_mode %||% "count"
         )
       }
     )

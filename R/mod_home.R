@@ -44,6 +44,10 @@
 #   species: sips -Z 1000, trimmed to the drawing's alpha bounding box plus
 #            12px (png::readPNG / writePNG), then sips -Z 640
 # Redo both steps if the client sends new artwork.
+#
+# THE LETTERED PLATES the story cards show are the same trim at a bigger size,
+# and that one IS a script: dev/build_success_named.R. It says there why 1600px
+# is the ceiling worth serving and why the trim matters more than the resize.
 # ==============================================================================
 
 mod_home_ui <- function(id, stats) {
@@ -74,8 +78,14 @@ mod_home_ui <- function(id, stats) {
           )
         )
       ),
+      # THE LETTERED PLATE, not the tile's drawing. The card is where the
+      # reader has asked for the story, so it gets the version carrying the
+      # common name and the binomial. The strip above keeps the small
+      # unlettered one: six lettered plates at tile size would be six pieces of
+      # text too small to read.
       lapply(keys, function(key) {
-        fw_home_card(key, fw_t("home", "stories", key), FW_HOME_IMG$stories[[key]])
+        fw_home_card(key, fw_t("home", "stories", key),
+                     FW_HOME_IMG$stories_named[[key]])
       })
     )
   )
@@ -98,7 +108,13 @@ fw_home_art <- function(src, alt) {
     div(class = "fw-story__placeholder", role = "img", `aria-label` = alt,
         fw_t("home", "image_placeholder"))
   } else {
-    tags$img(src = src, alt = alt, loading = "lazy")
+    # loading = "lazy" IS LOad-BEARING, not a tidy-up. Every story card is in
+    # the page from the start (they are native popovers), so without it the six
+    # lettered plates would be fetched on arrival by readers who never open a
+    # card. A lazy image inside a closed popover is display:none, never near the
+    # viewport, and so never fetched until the card opens. decoding = "async"
+    # keeps the decode of the larger plate off the main thread when it does.
+    tags$img(src = src, alt = alt, loading = "lazy", decoding = "async")
   }
 }
 

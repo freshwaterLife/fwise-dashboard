@@ -472,7 +472,8 @@ fw_bundle_filename <- function(parts = character(0)) {
 #' @param ... the report's own arguments, passed through to
 #'   fw_write_html_report() so the document matches the screen it came from.
 fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL,
-                            method_mode = "count", method_wb_mode = "count") {
+                            method_mode = "count", method_wb_mode = "count",
+                            waterbody_mode = "count") {
   parts <- fw_bundle_parts(parts)
 
   dir <- tempfile("fw-bundle-"); dir.create(dir)
@@ -495,7 +496,8 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
     fw_write_html_report(
       path = file.path(dir, fw_html_filename()), data = data, sel = sel,
       export = export, filters = filters, meta = meta,
-      method_mode = method_mode, method_wb_mode = method_wb_mode
+      method_mode = method_mode, method_wb_mode = method_wb_mode,
+      waterbody_mode = waterbody_mode
     )
     files <- c(files, fw_html_filename())
   }

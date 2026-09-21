@@ -707,13 +707,20 @@ fw_chart_duration <- function(data, sel) {
 #' different looks for the same shape of question.
 #'
 #' @param d      a frame with `category` and `outcome`
-#' @param title  the x-axis label
 #' @param limit  keep the top n categories and gather the rest into "Other"
 #' @param filename what a PNG export is called. Each caller passes its own,
-#'   because this one builder draws waterbodies, drivers and species.
+#'   because this one builder draws waterbodies, drivers and species. The mode
+#'   is appended to it, so the two views do not export over each other.
 #' @param axis_key the chart's name in FW_CHART$axis$styled.
-fw_chart_category <- function(d, title, limit = NA_integer_,
-                              filename = "fwise-categories", axis_key = "") {
+#' @param mode "count" for absolute stacked, "share" for 100% stacked. The
+#'   denominator is the CATEGORY's own total, so share answers "within this kind
+#'   of thing, how did it go" - the same question, and the same arithmetic, as
+#'   the mode on fw_chart_method(). It is not each category's share of the
+#'   selection.
+fw_chart_category <- function(d, limit = NA_integer_,
+                              filename = "fwise-categories", axis_key = "",
+                              mode = c("count", "share")) {
+  mode <- match.arg(mode)
   if (!nrow(d)) return(NULL)
   d$outcome <- as.character(fw_outcome_factor(d$outcome))
   other <- fw_t("charts", "other")
@@ -734,7 +741,9 @@ fw_chart_category <- function(d, title, limit = NA_integer_,
   d <- d |>
     count(category, outcome, name = "n") |>
     left_join(select(totals, category, total), by = "category") |>
-    mutate(label = paste0(category, "  (", total, ")"))
+    mutate(share = 100 * n / total,
+           value = if (mode == "share") share else n,
+           label = paste0(category, "  (", total, ")"))
   order_lv <- paste0(totals$category, "  (", totals$total, ")")
 
   p <- plotly::plot_ly(height = fw_chart_height("category", nrow(totals)))
@@ -743,19 +752,33 @@ fw_chart_category <- function(d, title, limit = NA_integer_,
     if (!nrow(dd)) next
     p <- plotly::add_trace(
       p, data = dd, type = "bar", orientation = "h",
-      y = ~factor(label, levels = order_lv), x = ~n, name = o,
+      y = ~factor(label, levels = order_lv), x = ~value, name = o,
       marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
                     line = list(color = FW_COLOURS$surface,
                                 width = FW_CHART$separator_outcome)),
-      hovertemplate = paste0("%{y}<br>", o, ": %{x}<extra></extra>")
+      # ITS OWN COPY OF THE COUNT, not %{x}. The hover used to read the drawn
+      # value, which is right up until the bar is a 100% stack and the reader is
+      # told "Successful: 33.33333". Same fix, and the same reasoning, as
+      # fw_chart_method(): the hover carries the raw count in BOTH modes, so a
+      # share never hides how much evidence is behind it.
+      hovertemplate = paste0("%{y}<br>", o, ": %{customdata}<extra></extra>"),
+      customdata = ~paste0(n, fw_t("charts", "hover_of"), total)
     )
   }
+
+  x_axis <- if (mode == "share") {
+    list(title = fw_t("charts", "x_share"), range = c(0, 100), ticksuffix = "%",
+         zeroline = FALSE, gridcolor = FW_COLOURS$border)
+  } else {
+    list(title = fw_t("charts", "x_attempts"), zeroline = FALSE,
+         gridcolor = FW_COLOURS$border)
+  }
+
   fw_plotly_style(p, legend_labels = FW_OUTCOME_LEVELS,
-                  filename = filename) |>
+                  filename = paste0(filename, "-", mode)) |>
     plotly::layout(
       barmode = "stack",
-      xaxis = modifyList(list(title = title, zeroline = FALSE, gridcolor = FW_COLOURS$border),
-                         fw_axis_lines(axis_key)),
+      xaxis = modifyList(x_axis, fw_axis_lines(axis_key)),
       yaxis = modifyList(list(title = "", automargin = TRUE), fw_axis_lines(axis_key))
     )
 }
@@ -765,12 +788,17 @@ fw_chart_category <- function(d, title, limit = NA_integer_,
 #' The specific type rather than the still/flowing split: "Lake" and "Pond"
 #' behave differently enough that collapsing them loses the useful part, and the
 #' regime is one filter away in the sidebar.
-fw_chart_waterbody <- function(sel) {
+#'
+#' @param mode "count" for attempts, "share" for the outcome mix in each kind of
+#'   water as a 100% bar. The bar labels keep their counts in both modes, so the
+#'   evidence behind a share is never off the chart.
+fw_chart_waterbody <- function(sel, mode = c("count", "share")) {
+  mode <- match.arg(mode)
   d <- sel |>
     filter(!is.na(waterbody_type)) |>
     transmute(category = waterbody_type, outcome)
-  fw_chart_category(d, fw_t("charts", "x_attempts"), limit = FW_TOP_N,
-                    filename = "fwise-waterbody-types", axis_key = "waterbody")
+  fw_chart_category(d, limit = FW_TOP_N, filename = "fwise-waterbody-types",
+                    axis_key = "waterbody", mode = mode)
 }
 
 #' One row per (attempt, species) for a role, labelled and with its outcome

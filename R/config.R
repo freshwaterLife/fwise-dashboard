@@ -277,8 +277,19 @@ FW_LOGO <- list(
 # placeholder.
 #
 # BENEFICIARIES ONLY (client, Sept 2026): the story cards no longer show the
-# invasive species. Its greyscale plates are still in www/img/home/success/ -
-# client artwork, kept - but nothing serves them.
+# invasive species. Its greyscale plates are client artwork and are kept in
+# resources/success-pic/, but they are no longer served.
+#
+# TWO SETS, AND THE DIFFERENCE IS THE LETTERING. `stories` is the small
+# unlettered drawing in the tile strip; `stories_named` is the same beneficiary
+# with its common name and binomial hand-lettered in, which is what the pop-up
+# shows once a tile is clicked. Both are web copies - the -named ones are built
+# by dev/build_success_named.R, NOT the print originals they are named after,
+# which stay in resources/success-pic/.
+#
+# The two sets spell their filenames differently - underscores for the
+# thumbnails, hyphens for the lettered plates. That is how the client sent them
+# and how they already sit in www/; the build script preserves it on purpose.
 FW_HOME_IMG <- list(
   map_now  = "img/home/map-now.png",
   map_next = "img/home/map-next.png",
@@ -289,6 +300,14 @@ FW_HOME_IMG <- list(
     latin_america = "img/home/success/la_valchetta_frog.png",
     north_america = "img/home/success/na_apache_trout.png",
     oceania       = "img/home/success/oc_golden_galaxias.png"
+  ),
+  stories_named = c(
+    africa        = "img/home/success/africa-fiery-redfin-named.png",
+    asia          = "img/home/success/as-little-grebe-named.png",
+    europe        = "img/home/success/eu-pearl-mussel-named.png",
+    latin_america = "img/home/success/la-valchetta-frog-named.png",
+    north_america = "img/home/success/na-apache-trout-named.png",
+    oceania       = "img/home/success/oc-golden-galaxias-named.png"
   )
 )
 

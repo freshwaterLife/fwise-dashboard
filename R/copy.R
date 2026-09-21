@@ -120,10 +120,10 @@ FW_COPY <- list(
   home = list(
     title = paste(
       "Freshwaters cover <1% of earth yet are home to 45% of all threatened animal species.",
-      "Eradicating freshwater invasives is the one of the best way to save them from extinction."
+      "Eradicating freshwater invasives is the best way to save them from extinction."
     ),
     lead = c(
-      "The **Freshwater Invasive Species Eradication Database**. FWISE shows the world, for the first time, **what works**, **where**, and **how**.",
+      "But almost nobody knows this. Enter the **Freshwater Invasive Species Eradication Database**. It shows the world, for the first time, **what works**, **where**, and **how**.",
       paste(
         "Use it now to [[explore|understand this solution]],",
         "[[plan|plan a new eradication]], [[contribute|add your own data]],",
@@ -136,8 +136,8 @@ FW_COPY <- list(
     # recorded as successful, {protected} the distinct beneficiaries of those.
     # The ** pairs set them in bold.
     kpi_sentence = paste(
-      "Over **{attempts}** successful eradication attempts have led to **{protected}** species protected.",
-      "Click the species images to read case studies from around the globe."
+      "**{attempts}** successful eradication attempts so far has protected **{protected}** species.",
+      "Click the species to read success stories from around the globe."
     ),
 
     # ---- Success stories ----
@@ -243,7 +243,7 @@ FW_COPY <- list(
       "method is counted once under each of them, so the bars add up to more",
       "than the number of attempts. Hover a segment for its count."
     ),
-    cumulative = "Eradication attempts over time are increasing",
+    cumulative = "Eradication attempts over time",
     cumulative_note = paste(
       "Attempts counted from the year each one began, adding up over time and",
       "split by the outcome of the attempt. Attempts with no start year are not on this chart."
@@ -252,8 +252,7 @@ FW_COPY <- list(
     # ---- The map -------------------------------------------------------------
     map = "Where these attempts happened",
     map_note = paste(
-      "Each marker is one attempt, coloured and labelled by outcome. Hover for",
-      "a summary, select for the full record."
+      "Each marker is one eradication attempt, coloured and labelled by outcome. Hover for a summary, select for the full record. Toggle between layers for hydrological, topographic, and satellite imagery."
     )
   ),
 
@@ -345,7 +344,7 @@ FW_COPY <- list(
       "instead - that will show you the closest evidence there is."
     ),
     tip_regime = paste(
-      "Still water (Lotic) is lakes, ponds and reservoirs, etc; flowing water (lentic)",
+      "Still water (Lentic) is lakes, ponds and reservoirs, etc; flowing water (Loctic)",
       "is rivers and streams, etc."
     ),
     tip_waterbody = paste(
@@ -525,6 +524,12 @@ FW_COPY <- list(
       "Attempts by the kind of waterbody treated, with the outcome mix in each.",
       "The {n_word} most common are named and the rest gathered into Other."
     ),
+    # Its own pair, though the words match r_method_count/share today. The two
+    # charts agree on their denominator by coincidence - both count attempts -
+    # and sharing one key would tie the wording of two blocks together for a
+    # reason that is not about either of them.
+    r_waterbody_share = "Share of attempts",
+    r_waterbody_count = "Number of attempts",
 
     r_method     = "Outcomes of methods within selection",
     r_method_note = paste(
@@ -535,7 +540,7 @@ FW_COPY <- list(
     r_method_count = "Number of attempts",
     r_method_missing = "{n} of these attempts have no method recorded and are not in the two method charts.",
 
-    r_method_wb  = "Methods used within each kind of waterbody",
+    r_method_wb  = "Methods used by waterbody",
     r_method_wb_note = paste(
       "The methods used in each kind of waterbody, counted once per attempt."
     ),
@@ -553,7 +558,7 @@ FW_COPY <- list(
     r_tile_attempts = "attempts",
     r_invasive   = "What these attempts targeted",
     r_beneficiary = "What was protected",
-    r_duration   = "How long these attempts took",
+    r_duration   = "How long attempts took",
     r_duration_note = paste(
       "Start to finish, on a log scale, with a dotted line at a day, a week, a",
       "month, a year, five years and ten. Each point is one attempt that used a",

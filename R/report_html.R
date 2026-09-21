@@ -466,6 +466,7 @@ fw_html_figure <- function(title, note, widget, extra = NULL) {
 #'   so the document matches the screen rather than re-deciding for them
 #' @param method_wb_mode the same for the methods-by-waterbody chart, which has
 #'   its own toggle because it counts uses rather than attempts
+#' @param waterbody_mode the same again for the kind-of-water chart
 #'
 #' EVERY PIECE OF TEXT COMES FROM THE SAME PLACE AS THE PAGE. The headings, the
 #' notes and the caveats are read from FW_COPY and fw_caveats() rather than
@@ -474,7 +475,8 @@ fw_html_figure <- function(title, note, widget, extra = NULL) {
 #' and two copies of a caveat are two caveats that can disagree.
 fw_write_html_report <- function(path, data, sel, export, filters,
                                  meta = NULL, method_mode = "count",
-                                 method_wb_mode = "count") {
+                                 method_wb_mode = "count",
+                                 waterbody_mode = "count") {
   dir <- tempfile("fw-html-"); dir.create(dir)
   on.exit(unlink(dir, recursive = TRUE), add = TRUE)
 
@@ -556,7 +558,7 @@ fw_write_html_report <- function(path, data, sel, export, filters,
                   fw_outcome_bars_ui(sel)),
 
     fw_html_figure(fw_t("plan", "r_waterbody"), fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
-                   fw_chart_waterbody(sel)),
+                   fw_chart_waterbody(sel, mode = waterbody_mode)),
 
     fw_html_figure(fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
                    fw_chart_method(data, sel, mode = method_mode),

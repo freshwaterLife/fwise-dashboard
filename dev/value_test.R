@@ -845,7 +845,7 @@ ok("duration: the method axis draws no gridlines",
 all_charts <- list(
   methods = fw_chart_method(d, all_sel, "count"),
   duration = fw_chart_duration(d, all_sel),
-  waterbody = fw_chart_waterbody(all_sel),
+  waterbody = fw_chart_waterbody(all_sel, "count"),
   method_waterbody = fw_chart_method_waterbody(d, all_sel, "count"),
   cumulative = fw_chart_cumulative(all_sel)
 )
@@ -878,7 +878,7 @@ for (nm in c("methods", "waterbody", "method_waterbody", "duration")) {
 wb <- all_sel$waterbody_type[!is.na(all_sel$waterbody_type)]
 wb_out <- outcome_of[as.character(all_sel$attempt_id[!is.na(all_sel$waterbody_type)])]
 totals <- sort(table(wb), decreasing = TRUE)
-b <- plotly::plotly_build(fw_chart_waterbody(all_sel))
+b <- plotly::plotly_build(fw_chart_waterbody(all_sel, "count"))
 tr <- b$x$data
 labels <- unique(unlist(lapply(tr, function(t) as.character(t$y))))
 n_named <- min(FW_TOP_N, length(totals)); has_other <- length(totals) > FW_TOP_N
@@ -899,6 +899,34 @@ wb_named <- if (has_other) ifelse(wb %in% names(totals)[seq_len(FW_TOP_N)], wb, 
 ok("category: every segment is the direct count",
    all(unlist(lapply(tr, function(t) vapply(seq_along(t$y), function(i)
      sum(wb_named == label_name(t$y[i]) & wb_out == t$name) == t$x[i], logical(1))))))
+
+# THE SHARE VIEW IS OF EACH BAR, NOT OF THE SELECTION. Every kind of water
+# reaches 100%, which is what makes it the outcome mix rather than the
+# selection's composition - the two read the same on a one-category chart and
+# quite differently on a real one.
+tr_wb_share <- plotly::plotly_build(fw_chart_waterbody(all_sel, "share"))$x$data
+wb_sums <- tapply(unlist(lapply(tr_wb_share, `[[`, "x")),
+                  unlist(lapply(tr_wb_share, function(t) as.character(t$y))), sum)
+ok("category: shares sum to 100 per kind of water", all(abs(wb_sums - 100) < 1e-9))
+
+# THE HOVER CARRIES THE RAW COUNT IN BOTH MODES. It used to read the drawn
+# value, so share mode would have offered "Successful: 33.33333" - and a reader
+# who never switches back to counts would never see how many attempts that is.
+for (mode in c("count", "share")) {
+  tr_h <- plotly::plotly_build(fw_chart_waterbody(all_sel, mode))$x$data
+  all_ok <- TRUE
+  for (t in tr_h) {
+    if (grepl("%{x}", t$hovertemplate[1], fixed = TRUE)) all_ok <- FALSE
+    for (i in seq_along(t$y)) {
+      lab <- label_name(t$y[i])
+      n <- sum(wb_named == lab & wb_out == t$name)
+      want <- paste0(n, fw_t("charts", "hover_of"), sum(wb_named == lab))
+      if (!identical(as.character(t$customdata[i]), want)) all_ok <- FALSE
+    }
+  }
+  ok(paste0("category ", mode, ": hover is the count out of the bar's total"),
+     all_ok)
+}
 
 # Methods within each kind of water.
 wbt <- stats::setNames(all_sel$waterbody_type, as.character(all_sel$attempt_id))
@@ -1202,9 +1230,9 @@ ok("welcome: the sentence is on the page", length(kpi_html), 1L)
 ok("welcome: the sentence carries both figures in bold, attempts then species",
    kpi_bold, paste0("<strong>", c(fw_fmt_num(n_successful), fw_fmt_num(n_protected)), "</strong>"))
 ok("welcome: the sentence reads as the client wrote it",
-   grepl(paste0("Over <strong>", fw_fmt_num(n_successful),
-                "</strong> successful eradication attempts have led to <strong>",
-                fw_fmt_num(n_protected), "</strong> species protected."), kpi_html, fixed = TRUE))
+   grepl(paste0("<strong>", fw_fmt_num(n_successful),
+                "</strong> successful eradication attempts so far has protected <strong>",
+                fw_fmt_num(n_protected), "</strong> species."), kpi_html, fixed = TRUE))
 ok("welcome: no more protected than beneficiaries overall",
    n_protected <= fw_headline_stats(d)$beneficiaries)
 ok("welcome: no unfilled slot left in the page", !grepl("\\{[a-z_]+\\}", home_html))
@@ -1231,7 +1259,8 @@ ok("welcome: pictures run Apache, Valcheta, redfin | grebe, galaxias, mussel",
    c("Apache trout", "Valcheta frog", "Fiery redfin",
      "Little grebe", "Golden galaxias", "Freshwater pearl mussel"))
 ok("welcome: every button opens a card that exists", setequal(opens, card_ids))
-pics <- na.omit(unlist(c(FW_HOME_IMG$stories, FW_HOME_IMG[c("map_now", "map_next")])))
+pics <- na.omit(unlist(c(FW_HOME_IMG$stories, FW_HOME_IMG$stories_named,
+                         FW_HOME_IMG[c("map_now", "map_next")])))
 ok("welcome: every picture named exists under www/", all(file.exists(file.path("www", pics))))
 ok("welcome: every story has its beneficiary picture", !any(is.na(FW_HOME_IMG$stories)))
 ok("welcome: placeholders drawn for each missing picture",
@@ -1243,6 +1272,26 @@ ok("welcome: the cards show the beneficiary only",
 ok("welcome: one picture per card",
    lengths(regmatches(home_html, gregexpr('class="fw-story__figure"', home_html))),
    length(fw_t("home", "stories")))
+
+# THE TILE AND THE CARD SHOW DIFFERENT PLATES, and which way round matters.
+# The card gets the lettered one because that is where the reader asked for the
+# story; the strip keeps the unlettered drawing because six lettered plates at
+# tile size are six pieces of unreadable text. Swapping them looks harmless in
+# a diff and is the whole of this feature.
+ok("welcome: every story card carries the lettered plate",
+   all(vapply(FW_HOME_IMG$stories_named,
+              function(p) grepl(paste0('src="', p, '"'), home_html, fixed = TRUE),
+              TRUE)))
+ok("welcome: the tile strip keeps the unlettered drawing",
+   all(vapply(FW_HOME_IMG$stories,
+              function(p) grepl(paste0('src="', p, '"'), home_html, fixed = TRUE),
+              TRUE)))
+# Both sets are in the page at once, so the lettered plates must not be fetched
+# until a card opens. They are inside a closed popover, which is display:none,
+# and it is loading="lazy" that stops the browser fetching them anyway.
+ok("welcome: every story picture is lazy",
+   lengths(regmatches(home_html, gregexpr('loading="lazy"', home_html))) >=
+     length(FW_HOME_IMG$stories) + length(FW_HOME_IMG$stories_named))
 nav_to <- regmatches(home_html, gregexpr("fw_nav_to&#39;,&#39;[a-z_]+", home_html))[[1]]
 nav_to <- sub(".*&#39;", "", nav_to)
 ok("welcome: header links go to explore, plan, contribute, networking",

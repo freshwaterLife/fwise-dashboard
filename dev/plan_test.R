@@ -280,7 +280,8 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     ok(paste0(cc, ": method chart redrawn"),
        identical(chart_x(output$methods), expect_x(fw_chart_method(d, s, mode = "count"))))
     ok(paste0(cc, ": waterbody chart redrawn"),
-       identical(chart_x(output$chart_waterbody), expect_x(fw_chart_waterbody(s))))
+       identical(chart_x(output$chart_waterbody),
+                 expect_x(fw_chart_waterbody(s, mode = "count"))))
     ok(paste0(cc, ": duration chart redrawn"),
        identical(chart_x(output$duration), expect_x(fw_chart_duration(d, s))))
     ok(paste0(cc, ": summary counts the new selection"),
@@ -512,6 +513,14 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("and the method chart above it stays on count",
      grepl(fw_t("charts", "x_attempts"), doc2, fixed = TRUE) &&
        !grepl(fw_t("charts", "x_share"), doc2, fixed = TRUE), TRUE)
+  # And the kind-of-water chart has a third toggle, which the document follows
+  # too. x_share is ITS axis - the check above pins that nothing else puts it
+  # in the file, so seeing it here is this chart and no other.
+  session$setInputs(waterbody_mode = "share")
+  doc3 <- fw_html_read_text(report_from_bundle())
+  ok("the kind-of-water chart follows its own toggle",
+     grepl(fw_t("charts", "x_share"), doc3, fixed = TRUE), TRUE)
+  session$setInputs(waterbody_mode = "count")
   # The caption naming attempts with no method, recomputed in base R. Present
   # with the right number when there are any, absent when there are none.
   n_no_method <- sum(!report()$sel$attempt_id %in% d$attempt_method$attempt_id)
