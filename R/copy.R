@@ -132,7 +132,7 @@ FW_COPY <- list(
       "Eradicating freshwater invasives is the best way to save them from extinction."
     ),
     lead = c(
-      "But almost nobody knows this. Enter the **Freshwater Invasive Species Eradication Database**. It shows the world, for the first time, **what works**, **where**, and **how**.",
+      "But almost nobody knows this. The **Freshwater Invasive Species Eradication Database** shows the world, for the first time, **what works**, **where**, and **how**.",
       paste(
         "Use it now to [[explore|understand this solution]],",
         "[[plan|plan a new eradication]], [[contribute|add your own data]],",
