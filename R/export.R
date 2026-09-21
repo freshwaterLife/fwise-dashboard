@@ -480,36 +480,56 @@ fw_write_csv <- function(export, dir) {
 #' @param parts what the reader ticked. Anything not recognised is ignored.
 #' @param method_mode,method_wb_mode,waterbody_mode the chart toggles, passed to
 #'   fw_write_pdf_report() so the document matches the screen it came from.
+#' @param progress called as progress(value, detail) before each step, value
+#'   running 0 to 1 across the whole bundle. The handler passes Shiny's
+#'   setProgress(); the default does nothing, so the tests need no session.
 fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL,
                             method_mode = "count", method_wb_mode = "count",
-                            waterbody_mode = "count") {
+                            waterbody_mode = "count",
+                            progress = function(value, detail) NULL) {
   parts <- fw_bundle_parts(parts)
+
+  # THE BAR IS WEIGHTED BY WHAT TAKES THE TIME, not by the number of steps: the
+  # PDF (Quarto on the server) is most of any bundle that has one, and a bar
+  # that spent a sixth of itself on a text file would stall at the end.
+  steps <- c(txt = 1, xlsx = 2, csv = 1, pdf = 12, records = 3, zip = 1)
+  steps <- steps[c("txt", parts, if (length(parts)) "zip")]
+  ends <- cumsum(steps) / sum(steps)
+  starts <- stats::setNames(c(0, utils::head(ends, -1)), names(steps))
+  step <- function(id, key) progress(starts[[id]], fw_t("plan", key))
 
   dir <- tempfile("fw-bundle-"); dir.create(dir)
   on.exit(unlink(dir, recursive = TRUE), add = TRUE)
 
   # Always, and first, so it is the first thing in the archive listing.
+  step("txt", "progress_txt")
   txt <- file.path(dir, fw_methods_filename())
   writeLines(fw_methods_caveats_text(data), txt, useBytes = TRUE)
   files <- fw_methods_filename()
 
   if ("xlsx" %in% parts) {
+    step("xlsx", "progress_xlsx")
     fw_write_workbook(file.path(dir, fw_export_filename()), data, export,
                       filters, meta)
     files <- c(files, fw_export_filename())
   }
   if ("csv" %in% parts) {
-    files <- c(files, basename(fw_write_csv(export, dir)))
+    step("csv", "progress_csv")
+    files <-c(files, basename(fw_write_csv(export, dir)))
   }
   if ("pdf" %in% parts) {
     fw_write_pdf_report(
       path = file.path(dir, fw_pdf_filename()), data = data, sel = sel,
       filters = filters, meta = meta, method_mode = method_mode,
-      method_wb_mode = method_wb_mode, waterbody_mode = waterbody_mode
+      method_wb_mode = method_wb_mode, waterbody_mode = waterbody_mode,
+      # The report's own sub-steps, mapped into the PDF's stretch of the bar.
+      progress = function(fraction, detail)
+        progress(starts[["pdf"]] + fraction * steps[["pdf"]] / sum(steps), detail)
     )
     files <- c(files, fw_pdf_filename())
   }
   if ("records" %in% parts) {
+    step("records", "progress_records")
     fw_write_records_html(file.path(dir, fw_records_filename()), data, export,
                           filters, meta)
     files <- c(files, fw_records_filename())
@@ -519,8 +539,10 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
   # make the reader unpack an archive to read two paragraphs.
   if (length(files) == 1) {
     file.copy(file.path(dir, files), path, overwrite = TRUE)
+    progress(1, fw_t("plan", "progress_done"))
     return(invisible(path))
   }
+  step("zip", "progress_zip")
 
   # WRITE TO A NAME ENDING IN .zip, THEN MOVE IT. The zip binary appends ".zip"
   # to an output name that has no extension, and a downloadHandler's temp file
@@ -541,5 +563,6 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
   }
   file.copy(archive, path, overwrite = TRUE)
   unlink(archive)
+  progress(1, fw_t("plan", "progress_done"))
   invisible(path)
 }

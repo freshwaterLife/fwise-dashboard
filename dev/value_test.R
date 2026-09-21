@@ -1036,6 +1036,28 @@ for (mode in c("count", "share")) {
      all_ok)
 }
 
+# THE SEGMENTS CARRY LABELS IN BOTH MODES (client, 21 Sept 2026: the 100% view
+# had none). Recomputed from the attempts: the count, or round(100 * n / bar
+# total) with a %, and blank only under the share floor.
+for (mode in c("count", "share")) {
+  tr_l <- plotly::plotly_build(fw_chart_waterbody(all_sel, mode))$x$data
+  all_ok <- TRUE; n_shown <- 0
+  for (t in tr_l) {
+    for (i in seq_along(t$y)) {
+      lab <- label_name(t$y[i])
+      n <- sum(wb_named == lab & wb_out == t$name)
+      share <- 100 * n / sum(wb_named == lab)
+      want <- if (share < FW_CHART$label_min_share) "" else
+        if (mode == "share") paste0(round(share), "%") else as.character(n)
+      if (!identical(as.character(t$text[i]), want)) all_ok <- FALSE
+      if (nzchar(want)) n_shown <- n_shown + 1
+    }
+  }
+  ok(paste0("category ", mode, ": segment labels match the recomputed values"),
+     all_ok)
+  ok(paste0("category ", mode, ": some segments are labelled"), n_shown > 0)
+}
+
 # Methods within each kind of water.
 wbt <- stats::setNames(all_sel$waterbody_type, as.character(all_sel$attempt_id))
 mw <- me; mw$wb <- wbt[mw$attempt_id]; mw <- mw[!is.na(mw$wb), ]

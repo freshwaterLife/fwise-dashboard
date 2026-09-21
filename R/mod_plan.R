@@ -694,20 +694,27 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # filename is a function evaluated at click time, so it can read the
     # checkboxes and name a .zip or the single file as appropriate.
     #
-    # THE PDF TAKES A FEW SECONDS - Quarto renders it on the server - and the
-    # browser shows its own download progress while it does. Nothing here
-    # needs a spinner of its own.
+    # A PROGRESS BAR WHILE IT IS BUILT (client, 21 Sept 2026). The PDF takes
+    # several seconds - Quarto renders it on the server - and the browser shows
+    # nothing until the first byte arrives, so the click looked ignored.
+    # withProgress rather than anything drawn in the modal: Shiny sends its
+    # progress messages straight away, while ordinary output updates wait for
+    # a flush that does not happen until the download is done. The bar wears
+    # the FWISE badge (.shiny-notification in _components.scss).
     output$download <- downloadHandler(
       filename = function() fw_bundle_filename(input$download_parts),
       content = function(file) {
         r <- report()
-        fw_write_bundle(
-          path = file, parts = input$download_parts, data = data,
-          sel = r$sel, export = r$export, filters = r$filters, meta = meta,
-          method_mode = input$method_mode %||% "count",
-          method_wb_mode = input$method_wb_mode %||% "count",
-          waterbody_mode = input$waterbody_mode %||% "count"
-        )
+        withProgress(message = fw_t("plan", "progress_title"), value = 0, {
+          fw_write_bundle(
+            path = file, parts = input$download_parts, data = data,
+            sel = r$sel, export = r$export, filters = r$filters, meta = meta,
+            method_mode = input$method_mode %||% "count",
+            method_wb_mode = input$method_wb_mode %||% "count",
+            waterbody_mode = input$waterbody_mode %||% "count",
+            progress = function(value, detail) setProgress(value, detail = detail)
+          )
+        })
       }
     )
 

@@ -390,6 +390,23 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("and it is the real text",
      grepl("HOW FWISE WAS COMPILED", readLines(output$download, n = 1)), TRUE)
 
+  # THE PROGRESS BAR (client, 21 Sept 2026). Every step reports, the bar never
+  # goes backwards, it ends at 1, and every step has words from the copy deck.
+  for (parts in list(character(0), c("xlsx", "csv", "records"))) {
+    seen <- list()
+    fw_write_bundle(tempfile(), parts, d, report()$sel, report()$export,
+                    report()$filters, m,
+                    progress = function(v, detail) seen[[length(seen) + 1]] <<- list(v, detail))
+    vals <- vapply(seen, `[[`, numeric(1), 1)
+    lbl <- paste0("progress (", paste(c("txt", parts), collapse = "+"), "): ")
+    ok(paste0(lbl, "one report per step plus the finish"),
+       length(vals), length(parts) + 1L + (length(parts) > 0) + 1L)
+    ok(paste0(lbl, "never goes backwards"), all(diff(vals) >= 0))
+    ok(paste0(lbl, "starts at 0 and ends at 1"), c(vals[1], utils::tail(vals, 1)), c(0, 1))
+    ok(paste0(lbl, "every step is worded"),
+       all(nzchar(vapply(seen, `[[`, "", 2))))
+  }
+
   # ---- The workbook -------------------------------------------------------
   session$setInputs(download_parts = "xlsx")
   book <- tempfile(fileext = ".zip")

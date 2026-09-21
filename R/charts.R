@@ -788,6 +788,7 @@ fw_chart_category <- function(d, limit = NA_integer_,
   if (is.null(cd)) return(NULL)
   d <- cd$d
   order_lv <- cd$order_lv
+  font <- fw_plot_font()
 
   p <- plotly::plot_ly(height = fw_chart_height("category", length(order_lv)))
   for (o in FW_OUTCOME_LEVELS) {
@@ -799,6 +800,14 @@ fw_chart_category <- function(d, limit = NA_integer_,
       marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
                     line = list(color = FW_COLOURS$surface,
                                 width = FW_CHART$separator_outcome)),
+      # The value inside the segment, following the mode, as fw_chart_method()
+      # does and for the same reasons. This chart had none in either mode until
+      # the client caught its 100% view with no numbers on it (21 Sept 2026).
+      text = ~ifelse(share < FW_CHART$label_min_share, "",
+                     if (mode == "share") paste0(round(share), "%") else as.character(n)),
+      textposition = "inside",
+      insidetextfont = list(color = unname(FW_OUTCOME_LABEL_INK[[o]]),
+                            family = font$family, size = font$size),
       # ITS OWN COPY OF THE COUNT, not %{x}. The hover used to read the drawn
       # value, which is right up until the bar is a 100% stack and the reader is
       # told "Successful: 33.33333". Same fix, and the same reasoning, as
@@ -821,6 +830,9 @@ fw_chart_category <- function(d, limit = NA_integer_,
                   filename = paste0(filename, "-", mode)) |>
     plotly::layout(
       barmode = "stack",
+      # The 1rem floor: a segment too narrow for it shows no number rather
+      # than a shrunken one. The hover still has it.
+      uniformtext = list(minsize = FW_TYPE$floor_px, mode = "hide"),
       xaxis = modifyList(x_axis, fw_axis_lines(axis_key)),
       yaxis = modifyList(list(title = "", automargin = TRUE), fw_axis_lines(axis_key))
     )
@@ -833,8 +845,9 @@ fw_chart_category <- function(d, limit = NA_integer_,
 #' regime is one filter away in the sidebar.
 #'
 #' @param mode "count" for attempts, "share" for the outcome mix in each kind of
-#'   water as a 100% bar. The bar labels keep their counts in both modes, so the
-#'   evidence behind a share is never off the chart.
+#'   water as a 100% bar. The segments carry counts or percentages to match;
+#'   the bar labels keep their totals in both modes, so the evidence behind a
+#'   share is never off the chart.
 fw_chart_waterbody <- function(sel, mode = c("count", "share")) {
   mode <- match.arg(mode)
   fw_chart_category(fw_waterbody_rows(sel), limit = FW_TOP_N,

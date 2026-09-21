@@ -38,12 +38,7 @@ FW_HTML_MIME <- c(
 )
 
 #' Base64 for embedding, on ONE line
-#'
-#' THE LINE BREAKS HAVE TO GO. jsonlite::base64_enc() wraps at 76 characters,
-#' which is correct for MIME and wrong for a data URI: CSS will not parse a
-#' newline inside url(), so an inlined stylesheet keeps its rules and silently
-#' loses every font. HTML attributes tolerate the wrapping, which is what makes
-#' this a bug that hides.
+#
 fw_html_base64 <- function(path) {
   gsub("[\r\n]", "", jsonlite::base64_enc(readBin(path, "raw", file.size(path))))
 }
@@ -78,15 +73,7 @@ fw_records_css <- function(dir = "www/scss") {
 }
 
 # ---- A card --------------------------------------------------------------------
-#
-# STRINGS, NOT htmltools TAGS. A selection of the whole database is 914 cards
-# of 55 fields each; built as a tag tree and rendered, that took minutes. The
-# cards are assembled as escaped strings instead, with the copy they need read
-# once per file (fw_record_copy()) rather than once per field - fw_t() merges
-# the whole copy deck on every call. Every value still goes through
-# htmltools::htmlEscape(), so nothing a record says can become markup.
 
-#' The copy a card needs, read once
 fw_record_copy <- function() {
   list(labels = fw_t("export", "record_labels"),
        groups = fw_t("export", "record_groups"),
@@ -102,10 +89,6 @@ fw_record_outcome <- function(outcome, none) {
          htmlEscape(if (is.na(outcome)) none else outcome), "</span>")
 }
 
-#' One field's value, as the card shows it
-#'
-#' A blank is "Not noted", set apart in the muted face. The reference link is a
-#' link and an address is a mailto; everything else is escaped text.
 fw_record_value <- function(field, value, none) {
   if (length(value) != 1 || is.na(value) || !nzchar(trimws(as.character(value)))) {
     return(paste0('<span class="fw-rec-none">', htmlEscape(none), "</span>"))

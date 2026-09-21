@@ -20,9 +20,9 @@
 // ---- The page ----------------------------------------------------------------
 
 // Every page: the tinted ground (no white - see R/brand.R), and a footer with
-// the logos the site's own footer carries - Weird Fishes Advisory, then the
-// four collaborators - above the page count. The FWISE mark is on the
-// letterhead, once, where the site puts it first.
+// the logos the site's own footer carries - the FWISE mark first (client,
+// 21 Sept 2026: on every page, not only the letterhead), then Weird Fishes
+// Advisory and the four collaborators - beside the page count.
 #let fw-footer = context {
   line(length: 100%, stroke: 0.5pt + fw-border)
   v(2mm)
@@ -30,10 +30,12 @@
     columns: (1fr, auto),
     align: (left + horizon, right + horizon),
     column-gutter: 6mm,
+    // Fractional spacing: the logos spread to fill their column and close up
+    // rather than run into the page count.
     stack(
       dir: ltr,
-      spacing: 5mm,
-      ..fw-logos.map(p => image(p, height: fw-logo-h)),
+      spacing: 1fr,
+      ..(fw-logo-mark, ..fw-logos).map(p => image(p, height: fw-logo-h)),
     ),
     text(size: fw-credit, fill: fw-ink-muted)[
       #fw-page-label #counter(page).display() #fw-of-label #counter(page).final().first()

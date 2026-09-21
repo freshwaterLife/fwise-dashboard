@@ -2317,6 +2317,68 @@
   to { transform: rotate(360deg); }
 }
 
+// THE DOWNLOAD'S PROGRESS BAR, as the app's own loader rather than Shiny's
+// grey box (client, 21 Sept 2026). withProgress() in the Plan page's download
+// handler draws it; this gives it the surface, the teal bar and the spinning
+// badge the busy spinner uses. Scoped with :has() to the PROGRESS notification
+// only, so the contribution form's error notice keeps Shiny's error colours.
+// Shiny sets its message and detail at 90% and 80%: both go back to the floor.
+#shiny-notification-panel {
+  width: 24rem;
+  max-width: calc(100% - #{2 * $fw-space-2});
+  padding: $fw-space-2;
+}
+
+.shiny-notification:has(.shiny-progress-notification) {
+  display: flex;
+  align-items: center;
+  gap: $fw-space-2;
+  margin: 0;
+  padding: $fw-space-2 $fw-space-3;
+  background: $fw-surface;
+  color: $fw-ink;
+  border: 1px solid $fw-border;
+  border-radius: $fw-radius-card;
+  box-shadow: $fw-shadow-raised;
+  opacity: 1;
+  font-family: $fw-font-body;
+
+  &::before {
+    content: "";
+    flex: none;
+    width: 2.5rem;
+    height: 2.5rem;
+    background: var(--fw-badge-url) center / contain no-repeat;
+    animation: fw-spin 1.4s linear infinite;
+  }
+
+  .shiny-notification-content { flex: 1; min-width: 0; }
+
+  .progress {
+    height: 6px;
+    margin-block: $fw-space-1;
+    border-radius: 3px;
+    background: $fw-teal-wash;
+  }
+
+  .progress-bar {
+    background: $fw-brand-teal;
+    transition: width $fw-motion-base $fw-easing;
+  }
+
+  .progress-text .progress-message {
+    display: block;
+    font-size: $fw-size-min;
+    font-weight: $fw-weight-bold;
+  }
+
+  .progress-text .progress-detail {
+    display: block;
+    font-size: $fw-size-min;
+    color: $fw-ink-muted;
+  }
+}
+
 // ---- Scrolling form --------------------------------------------------------
 
 // The progress bar on contribution form. Sticky, under the navbar - the offsets

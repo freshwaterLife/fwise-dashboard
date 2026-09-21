@@ -206,12 +206,11 @@ fw_gg_method <- function(data, sel, mode = "count") {
 fw_gg_waterbody <- function(sel, mode = "count") {
   cd <- fw_category_data(fw_waterbody_rows(sel), FW_TOP_N, mode)
   if (is.null(cd)) return(NULL)
-  # The page's kind-of-water chart prints no numerals in its segments; the
-  # count is in the bar's label either way. The twin does the same.
+  # Numerals in the segments, count or %, as the page's chart now prints them.
   fw_gg_stack(cd$d, cd$order_lv, "outcome", FW_OUTCOME_LEVELS,
               FW_OUTCOME_COLOURS, FW_OUTCOME_LABEL_INK, mode,
               fw_t("charts", if (mode == "share") "x_share" else "x_attempts"),
-              numerals = FALSE, axis_key = "waterbody")
+              axis_key = "waterbody")
 }
 
 #' Methods used in each kind of water, stacked by method

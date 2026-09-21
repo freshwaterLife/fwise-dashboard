@@ -128,7 +128,9 @@ fw_pdf_tokens <- function(logos) {
     pt("fw-credit", fw_rem_pt(FW_TYPE$size_credit)),
     sprintf("#let fw-leading = %sem", format(FW_PRINT$leading)),
     sprintf("#let fw-margin = %s", fw_typ_mm(FW_PDF$page_margin_mm)),
-    "#let fw-logo-h = 9mm",
+    # 8mm, not 9: seven logos and the page count share one line since the
+    # FWISE mark joined the footer (21 Sept 2026), and at 9mm they overran it.
+    "#let fw-logo-h = 8mm",
     paste0("#let fw-logo-mark = ", fw_typ_str(logos[["mark"]])),
     paste0("#let fw-logos = ", fw_typ_array(fw_typ_str(logos[names(logos) != "mark"]))),
     paste0("#let fw-doc-title = ", fw_typ_str(fw_t("plan", "report_title"))),
@@ -454,7 +456,10 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
       fw_typ_block(fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note"),
                    fw_typ_table(fw_pdf_contacts_table(people),
                                 num = fw_t("plan", "col_contact_n"),
-                                widths = c("1fr", "1.4fr", "0.9fr", "auto", "1.5fr")))
+                                # The address the widest (client, 21 Sept
+                                # 2026): it is the column a reader acts on,
+                                # and it has no spaces to break at.
+                                widths = c("0.9fr", "1.2fr", "0.8fr", "auto", "2.2fr")))
     },
 
     # Last, and never optional.
@@ -477,9 +482,13 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
 #'   toggle is showing, so the document matches the screen
 #' @param keep a directory to copy the render directory into, for debugging
 #'   and the tests. NULL removes it.
+#' @param progress called as progress(fraction, detail) as the report is built,
+#'   fraction running 0 to 1 across this report alone. fw_write_bundle() maps
+#'   it onto its own bar; the default does nothing, so tests need no Shiny.
 fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = NULL,
                                 method_mode = "count", method_wb_mode = "count",
-                                waterbody_mode = "count", keep = NULL) {
+                                waterbody_mode = "count", keep = NULL,
+                                progress = function(fraction, detail) NULL) {
   quarto <- fw_quarto_path()
   if (!nzchar(quarto)) {
     stop("The PDF report needs the Quarto CLI, which is not installed here.",
@@ -504,6 +513,7 @@ fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = 
   file.copy(logo_src, file.path(dir, logos))
   writeLines(fw_pdf_tokens(logos), file.path(dir, "fwise-tokens.typ"), useBytes = TRUE)
 
+  progress(0, fw_t("plan", "progress_charts"))
   body <- fw_pdf_body(dir, data, sel, filters, meta, method_mode = method_mode,
                       method_wb_mode = method_wb_mode, waterbody_mode = waterbody_mode)
 
@@ -528,6 +538,8 @@ fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = 
   )
   writeLines(enc2utf8(qmd), file.path(dir, "report.qmd"), useBytes = TRUE)
 
+  # The charts and the map take about a third of the time; Quarto the rest.
+  progress(0.35, fw_t("plan", "progress_pdf"))
   log <- suppressWarnings(system2(
     quarto, c("render", shQuote(file.path(dir, "report.qmd")), "--quiet"),
     stdout = TRUE, stderr = TRUE, timeout = FW_PDF$timeout_s

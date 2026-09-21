@@ -594,8 +594,19 @@ FW_COPY <- list(
     r_contacts_all  = "Browse every contact in FWISE",
     col_contact_name = "Name",
     col_contact_org  = "Organisation",
-    col_contact_n    = "Attempts here",
-    col_contact_email = "Get in touch"
+    col_contact_n    = "# Attempts",
+    col_contact_email = "Get in touch",
+    # The download's progress bar (fw_write_bundle() names each step as it
+    # starts it; the PDF report adds its own two).
+    progress_title   = "Preparing your download",
+    progress_txt     = "Writing the methods and caveats",
+    progress_xlsx    = "Building the spreadsheet",
+    progress_csv     = "Writing the CSV",
+    progress_charts  = "Drawing the charts and map",
+    progress_pdf     = "Typesetting the PDF report",
+    progress_records = "Writing the attempts file",
+    progress_zip     = "Packing the zip",
+    progress_done    = "Starting the download"
   ),
 
   # ---- About -----------------------------------------------------------------
