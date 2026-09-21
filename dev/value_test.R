@@ -1148,67 +1148,96 @@ fills <- toupper(unique(unlist(lapply(wbk$styleObjects, function(s) s$style$fill
 ok("workbook: header fill is the teal text token",
    any(grepl(toupper(sub("^#", "", FW_COLOURS$teal_text)), fills)))
 
-html <- tempfile(fileext = ".html")
-fw_write_html_report(html, d, sel1, export, f1, m)
-doc <- fw_html_read_text(html)
-tables <- regmatches(doc, gregexpr('(?s)<table class="fw-table">.*?</table>', doc, perl = TRUE))[[1]]
-# THE ATTEMPTS TABLE IS NOT IN THE DOCUMENT ANY MORE. It used to be asserted
-# here as "one row per selected attempt"; the client removed it from the page
-# and this file followed, so the assertion is now that it is absent. Written
-# against the CONTACTS heading as the thing that should still be there, so a
-# report that renders no tables at all fails rather than passes.
-# Named by what each remaining table is FOR, so this says which survive rather
-# than only how many.
+# ---- The PDF report's static twins ---------------------------------------
 #
-# MATCHED ON HEADER CELLS ONLY. Matching anywhere in the table finds "Invasive
-# species" in the FILTERS table, where it is the name of a filter the reader
-# set rather than a column of attempts - which is exactly the false positive
-# that made the first version of the absence test below fail.
-headings <- function(t) gsub("<[^>]*>", "",
-                             regmatches(t, gregexpr("<th[^>]*>[^<]*</th>", t))[[1]])
-has_table <- function(heading) any(vapply(tables, function(t)
-  heading %in% headings(t), logical(1)))
-ok("report: the contacts table is still there",
-   has_table(fw_t("plan", "col_contact_name")))
-ok("report: the attempts-by-country table is still there",
-   has_table(fw_t("export", "col_country")))
-# THE ROW-PER-ATTEMPT TABLE IS GONE. Asserted on a literal rather than a copy
-# key, because the keys it used were deleted with it - and an absence test that
-# depends on the absent thing still existing is how dev/value_test.R broke once
-# already (see the success-count assertion further up).
-ok("report: the row-per-attempt table is gone",
-   !has_table("Site") && !has_table("Invasive species"))
-# It is only acceptable to drop it because every row still leaves the building
-# in the CSV below, which the next assertion is what pins.
-# EVERY RECORD MUST STILL LEAVE THE BUILDING. Dropping the table from the
-# document is only acceptable because the CSV below carries the same rows -
-# that is asserted a few lines down, and the two belong together.
-payload <- function(id) {
-  one <- regmatches(doc, regexpr(paste0('<script id="', id, '".*?</script>'), doc, perl = TRUE))
-  jsonlite::base64_dec(sub("</script>$", "", sub("^<script[^>]*>", "", one)))
+# THE SAME NUMBERS AS THE PAGE. Each ggplot twin in R/charts_static.R is drawn
+# from the counting function its plotly original uses; this recomputes each
+# total in base R and checks the page's traces and the PDF's drawn bars
+# against it, in both modes, for the whole database and for one method's slice.
+gg_total <- function(p) {
+  if (is.null(p)) return(0)
+  ld <- ggplot2::layer_data(p, 1)
+  sum(ld$xmax - ld$xmin)
 }
-csv_path <- tempfile(fileext = ".csv"); writeBin(payload("fw-file-csv"), csv_path)
-ok("report: the csv inside matches the selection",
-   nrow(utils::read.csv(csv_path, check.names = FALSE, encoding = "UTF-8")), nrow(sel1))
-# The no-method caption under the method chart, present with the base-R count
-# when there is one and absent when there is none.
-n_nm <- sum(!as.character(sel1$attempt_id) %in% as.character(am$attempt_id))
-ok(sprintf("report: the no-method caption is %s (%d)",
-           if (n_nm > 0) "present" else "absent", n_nm),
-   grepl(fw_fill(fw_t("plan", "r_method_missing"), n = fw_fmt_num(n_nm)), doc, fixed = TRUE),
-   n_nm > 0)
-# The waterbody chart's own mode reaches the document independently.
-html2 <- tempfile(fileext = ".html")
-fw_write_html_report(html2, d, sel1, export, f1, m, method_mode = "count", method_wb_mode = "share")
-doc2 <- fw_html_read_text(html2)
-ok("report: the waterbody chart follows its own mode",
-   grepl(fw_t("charts", "x_share_uses"), doc2, fixed = TRUE) &&
-     !grepl(fw_t("charts", "x_share"), doc2, fixed = TRUE))
-styles <- regmatches(doc, gregexpr("(?s)<style[^>]*>.*?</style>", doc, perl = TRUE))[[1]]
-ours <- styles[grepl(".fw-container", styles, fixed = TRUE) | grepl(".fw-report{", styles, fixed = TRUE)]
-ok("report: both of our stylesheets are inlined", length(ours), 2L)
-ok("report: our stylesheets carry no pure white",
-   !any(grepl("#fff\\b|#ffffff", ours, ignore.case = TRUE)))
+pl_total <- function(p) {
+  if (is.null(p)) return(0)
+  b <- plotly::plotly_build(p)$x$data
+  sum(unlist(lapply(b, function(t) if (identical(t$type, "bar")) t$x else NULL)))
+}
+pairs_of <- function(s) {
+  am_s <- am[as.character(am$attempt_id) %in% as.character(s$attempt_id), ]
+  unique(paste(am_s$attempt_id, am_s$method_id))
+}
+for (nm in c("all", "slice")) {
+  s <- if (nm == "all") all_sel else sel1
+  n_pairs <- length(pairs_of(s))
+  wb_ids <- as.character(s$attempt_id[!is.na(s$waterbody_type)])
+  n_pairs_wb <- length(pairs_of(s[as.character(s$attempt_id) %in% wb_ids, ]))
+  n_wb <- sum(!is.na(s$waterbody_type))
+  ok(sprintf("pdf twin (%s): methods, page = recount", nm),
+     pl_total(fw_chart_method(d, s, "count")), n_pairs)
+  ok(sprintf("pdf twin (%s): methods, pdf = recount", nm),
+     gg_total(fw_gg_method(d, s, "count")), n_pairs)
+  ok(sprintf("pdf twin (%s): kind of water, page = pdf = recount", nm),
+     c(pl_total(fw_chart_waterbody(s, "count")), gg_total(fw_gg_waterbody(s, "count"))),
+     c(n_wb, n_wb))
+  ok(sprintf("pdf twin (%s): methods by water, page = pdf = recount", nm),
+     c(pl_total(fw_chart_method_waterbody(d, s, "count")),
+       gg_total(fw_gg_method_waterbody(d, s, "count"))),
+     c(n_pairs_wb, n_pairs_wb))
+  # In share mode every bar is 100, so the drawn total is 100 per bar.
+  md <- fw_method_data(d, s, "share")
+  if (!is.null(md)) {
+    ok(sprintf("pdf twin (%s): share bars each reach 100", nm),
+       gg_total(fw_gg_method(d, s, "share")), 100 * length(md$order_lv))
+  }
+  # One dot per single-method attempt with a duration, the page's caption count.
+  dur <- fw_gg_duration(d, s)
+  if (!is.null(dur)) {
+    ok(sprintf("pdf twin (%s): one duration dot per counted attempt", nm),
+       nrow(ggplot2::layer_data(dur, 3)), nrow(fw_duration_sel(d, s)))
+  }
+  # One dot per located attempt on the map.
+  mp <- fw_gg_map(d, s)
+  ok(sprintf("pdf twin (%s): one map dot per located attempt", nm),
+     nrow(ggplot2::layer_data(mp$plot, 2)),
+     sum(!is.na(s$latitude) & !is.na(s$longitude)))
+}
+# THE PDF FOLLOWS THE READER'S TOGGLES, each chart on its own: the axis title
+# is the one the page shows in that mode.
+ok("pdf twin: the methods chart follows its mode",
+   c(fw_gg_method(d, sel1, "count")$labels$x, fw_gg_method(d, sel1, "share")$labels$x),
+   c(fw_t("charts", "x_attempts"), fw_t("charts", "x_share")))
+ok("pdf twin: the methods-by-water chart follows its own",
+   fw_gg_method_waterbody(d, sel1, "share")$labels$x, fw_t("charts", "x_share_uses"))
+
+# ---- The PDF's size estimate ----------------------------------------------
+#
+# THE WARNING IS ONLY AS GOOD AS THE ESTIMATE. Rendered for real on three
+# selections - the whole database, one country, one attempt - and the estimate
+# must land within 30% of each file, or the picker warns about the wrong ones.
+if (!fw_pdf_available()) {
+  cat("  *** PDF SIZE ASSERTIONS SKIPPED: quarto not found (set QUARTO_PATH) ***\n")
+} else {
+  one_country <- names(sort(table(all_sel$country), decreasing = TRUE))[2]
+  cases <- list(world = all_sel,
+                country = all_sel[all_sel$country %in% one_country, ],
+                single = all_sel[1, ])
+  for (nm in names(cases)) {
+    s <- cases[[nm]]
+    out <- tempfile(fileext = ".pdf")
+    fw_write_pdf_report(out, d, s, filters = base, meta = m)
+    est <- fw_pdf_size_estimate(d, s)
+    real_mb <- file.size(out) / 1e6
+    real_pages <- fw_pdf_page_count(out)
+    cat(sprintf("    %-8s %4d attempts: %.2f MB / %d pages, estimated %.2f MB / %d pages\n",
+                nm, nrow(s), real_mb, real_pages, est$mb, est$pages))
+    ok(sprintf("pdf size (%s): estimate within 30%% of the file", nm),
+       abs(est$mb - real_mb) / real_mb <= 0.3, TRUE)
+    ok(sprintf("pdf pages (%s): estimate within 30%% of the file", nm),
+       abs(est$pages - real_pages) / real_pages <= 0.3, TRUE)
+  }
+}
 
 ct <- fw_report_country_table(all_sel)
 n_c <- length(unique(all_sel$country))

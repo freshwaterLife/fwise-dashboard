@@ -49,6 +49,13 @@ message("FWISE startup: ", nrow(FW_DATA$attempt), " attempts, ",
         ", mode ", fw_data_mode(),
         if (fw_data_mode() == "api") paste0(" (", FW_DATA_REPO, "@", FW_DATA_REF, ")") else "")
 
+# THE PDF REPORT NEEDS QUARTO (1.4 or later, for Typst), and this line is where
+# a deployment says whether it has it. Without it the Plan page's download
+# picker drops the PDF and says why; every other download is unaffected.
+message("FWISE startup: quarto ",
+        if (fw_pdf_available()) paste0(fw_quarto_version(), " at ", fw_quarto_path())
+        else "NOT FOUND - the PDF report is unavailable")
+
 # ---- UI ----------------------------------------------------------------------
 
 ui <- page_navbar(

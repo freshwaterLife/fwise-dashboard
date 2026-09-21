@@ -344,25 +344,43 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
                 logical(1))), FALSE)
   unzip_names <- function(p) utils::unzip(p, list = TRUE)$Name
 
-  session$setInputs(download_parts = c("xlsx", "html"))
+  # WHAT A READER CAN TICK (client, 21 Sept 2026): the spreadsheet, the CSV,
+  # the PDF report and the attempts file. The interactive HTML report is gone.
+  ok("the four parts, in order", FW_BUNDLE_PARTS, c("xlsx", "csv", "pdf", "records"))
+  ok("the old html part is not recognised", fw_bundle_parts("html"), character(0))
+  picker <- as.character(fw_plan_download_ui(session$ns, pdf = TRUE))
+  ok("the picker offers all four",
+     all(vapply(c('value="xlsx"', 'value="csv"', 'value="pdf"', 'value="records"'),
+                grepl, logical(1), x = picker, fixed = TRUE)), TRUE)
+  ok("and ticks the spreadsheet and the PDF",
+     lengths(regmatches(picker, gregexpr('checked="checked"', picker, fixed = TRUE))), 2L)
+  # NO PDF BOX WHERE NO PDF CAN BE MADE, and a sentence saying so instead.
+  no_pdf <- as.character(fw_plan_download_ui(session$ns, pdf = FALSE))
+  ok("without Quarto the PDF box is not drawn",
+     grepl('value="pdf"', no_pdf, fixed = TRUE), FALSE)
+  ok("and the picker says why",
+     grepl(fw_t("plan", "pdf_unavailable"), no_pdf, fixed = TRUE), TRUE)
+  local({
+    old <- Sys.getenv(c("QUARTO_PATH", "PATH"))
+    Sys.setenv(QUARTO_PATH = tempfile(), PATH = "/nonexistent")
+    on.exit(Sys.setenv(QUARTO_PATH = old[[1]], PATH = old[[2]]))
+    ok("and the bundle skips a PDF it cannot make",
+       fw_bundle_parts(c("xlsx", "pdf")), "xlsx")
+  })
+
+  session$setInputs(download_parts = c("xlsx", "records"))
   path <- output$download
   ok("the bundle downloads", file.exists(path), TRUE)
   ok("and is a zip when more than one file was asked for",
-     grepl("[.]zip$", fw_bundle_filename(c("xlsx", "html"))), TRUE)
+     grepl("[.]zip$", fw_bundle_filename(c("xlsx", "records"))), TRUE)
   inside <- unzip_names(path)
   ok("it carries the spreadsheet", any(grepl("[.]xlsx$", inside)), TRUE)
-  ok("and the report",             any(grepl("[.]html$", inside)), TRUE)
+  ok("and the attempts file",      fw_records_filename() %in% inside, TRUE)
   ok("and the methods and caveats", fw_methods_filename() %in% inside, TRUE)
 
   session$setInputs(download_parts = "csv")
   ok("a CSV-only bundle still carries the text",
      fw_methods_filename() %in% unzip_names(output$download), TRUE)
-
-  # "pdf" is not a file of its own - it resolves to the HTML report, which
-  # carries the print stylesheet. Ticking both must not produce two copies.
-  ok("pdf resolves to the report", fw_bundle_parts("pdf"), "html")
-  ok("and ticking both does not duplicate it",
-     fw_bundle_parts(c("html", "pdf")), "html")
 
   # Nothing ticked is a reasonable thing to want, not an error to refuse: it
   # downloads the methods and caveats on their own, and raw rather than zipped.
@@ -406,130 +424,91 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("no private address reaches the contacts sheet",
      any(private %in% people$contact_email), FALSE)
 
-  # ---- The HTML report ------------------------------------------------------
+  # ---- The attempts file ---------------------------------------------------
   #
-  # Nothing here needs a browser. The Word export it replaced could only be
-  # tested by faking the PNGs the browser would have posted back; this one is
-  # built entirely on the server, so the file the test reads is the file a
-  # reader gets.
-  #
-  # The assertions are about SELF-CONTAINMENT above all. A report that renders
-  # perfectly on the machine that made it and loses its charts when it is
-  # forwarded is the failure this format exists to avoid, so the test looks for
-  # anything the file would have to fetch.
-  # The report now arrives inside the bundle rather than from its own button,
-  # so it is unpacked once here and again wherever a toggle has moved.
-  report_from_bundle <- function() {
-    session$setInputs(download_parts = "html")
+  # EVERY ATTEMPT IN THE SELECTION, ONCE, IN THE SPREADSHEET'S ORDER, with every
+  # exported field labelled on every card. Read back out of the file the reader
+  # gets, not out of the function that wrote it.
+  unpack <- function(parts, pattern) {
+    session$setInputs(download_parts = parts)
     z <- tempfile(fileext = ".zip")
     file.copy(output$download, z, overwrite = TRUE)
     dir <- tempfile(); dir.create(dir)
     utils::unzip(z, exdir = dir)
-    list.files(dir, pattern = "[.]html$", full.names = TRUE)[1]
+    list.files(dir, pattern = pattern, full.names = TRUE)[1]
   }
+  rec_path <- unpack(c("csv", "records"), "[.]html$")
+  rec <- paste(readLines(rec_path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+  ids <- regmatches(rec, gregexpr('<article class="fw-rec-card" id="[^"]+"', rec))[[1]]
+  ids <- sub('^.*id="', "", sub('"$', "", ids))
+  ok("one card per attempt in the selection", length(ids), nrow(report()$sel))
+  ok("in the export's order", ids, report()$export$attempt_id)
+  cards <- strsplit(rec, '<article class="fw-rec-card"', fixed = TRUE)[[1]][-1]
+  labels <- fw_t("export", "record_labels")
+  ok("the labels cover every exported column",
+     setequal(names(labels), FW_EXPORT_COLUMNS), TRUE)
+  grouped <- unlist(lapply(fw_t("export", "record_groups"), `[[`, "fields"))
+  ok("and every column but the id sits in one group",
+     sort(grouped), sort(setdiff(FW_EXPORT_COLUMNS, "attempt_id")))
+  n_dt <- vapply(cards, function(x) lengths(regmatches(x, gregexpr("<dt>", x, fixed = TRUE))), 1L)
+  ok("every card draws every grouped field", all(n_dt == length(grouped)), TRUE)
+  ok("a blank field says Not noted",
+     grepl(paste0('<span class="fw-rec-none">', fw_t("species", "p_not_noted")), rec,
+           fixed = TRUE), TRUE)
+  ok("no private address reaches the attempts file",
+     any(vapply(private, grepl, logical(1), x = rec, fixed = TRUE)), FALSE)
+  ok("the caveats travel with it", grepl("Claimed is not the same", rec, fixed = TRUE), TRUE)
+  ok("nothing in it is fetched",
+     grepl('(src|href)="(?!data:|#|https?:|mailto:)[^"]*[.](css|js|png|jpe?g|woff2?)"',
+           rec, perl = TRUE), FALSE)
+  ok("its fonts are inlined, unwrapped",
+     grepl("url(\"data:font/woff2;base64,", rec, fixed = TRUE) &&
+       !grepl("data:[a-z/+.-]+;base64,[A-Za-z0-9+/=]*\\n", rec), TRUE)
+  ok("every logo the footer carries is in it",
+     lengths(regmatches(rec, gregexpr('src="data:image/png', rec, fixed = TRUE))),
+     2L + length(FW_LOGO$collab_files))
 
-  html <- report_from_bundle()
-  ok("html report downloads", file.exists(html), TRUE)
-
-  doc <- fw_html_read_text(html)
-  has <- function(txt) grepl(txt, doc, fixed = TRUE)
-
-  ok("the letterhead names the database", has("A world evidence base"), TRUE)
-  # STILL HERE, even though the page's own panel has gone to About. A document
-  # that leaves the building has to carry its own qualifications.
-  ok("the caveats travel with the document", has("Claimed is not the same"), TRUE)
-  ok("and so do the contacts", has("Potential relevant contacts"), TRUE)
-  ok("the cumulative chart does not", has("How the record has"), FALSE)
-  ok("the filter selection is recorded", has("What this report covers"), TRUE)
-  ok("the print rules are the PDF export", has("@media print"), TRUE)
-
-  # Every plotly figure and the leaflet map, as widget payloads rather than as
-  # pictures of them. If a chart ever stops reaching the document this is what
-  # notices - the file still builds, it just quietly loses a figure. The
-  # expected count is READ FROM THE DOCUMENT (one figure block per chart, plus
-  # the map) rather than written down, so adding a chart does not break this.
-  n_widgets <- lengths(regmatches(doc, gregexpr('data-for="htmlwidget', doc, fixed = TRUE)))
-  n_figures <- lengths(regmatches(doc, gregexpr('class="fw-report__figure"', doc, fixed = TRUE)))
-  n_maps    <- lengths(regmatches(doc, gregexpr('class="fw-report__map"', doc, fixed = TRUE)))
-  ok("every figure travels as a live widget", n_widgets, n_figures + n_maps)
-  ok("the report carries more than one figure", n_figures > 1L, TRUE)
-  ok("plotly is bundled, not linked", has("Plotly.newPlot"), TRUE)
-  ok("leaflet is bundled, not linked", has("leaflet-container"), TRUE)
-
-  # NOTHING IS FETCHED FROM DISK. Every asset reference in the file has to be a
-  # data: URI; a relative path would resolve against wherever the reader saved
-  # the file and find nothing there.
+  # ---- The PDF report -------------------------------------------------------
   #
-  # Matched on the ASSET EXTENSION rather than on "anything not absolute",
-  # because three and a half megabytes of minified plotly contains string
-  # literals that look like href= to a regular expression and are not.
-  refs <- regmatches(doc, gregexpr('(?:src|href)="[^"]*"', doc, perl = TRUE))[[1]]
-  refs <- sub('^[a-z]+="', "", sub('"$', "", refs))
-  local_refs <- grep("^(data:|#|https?:|mailto:|blob:)", refs,
-                     value = TRUE, invert = TRUE)
-  assets <- grep("[.](css|js|png|jpe?g|gif|svg|woff2?|ttf|ico)([?#].*)?$",
-                 local_refs, value = TRUE, ignore.case = TRUE)
-  ok("nothing in the file is fetched from disk", length(assets), 0L)
-  # A newline inside url() is a CSS parse error, which silently costs the file
-  # every inlined image. See fw_html_base64().
-  ok("no data URI is line-wrapped",
-     grepl("data:[a-z/+.-]+;base64,[A-Za-z0-9+/=]*\\n", doc), FALSE)
+  # NEEDS QUARTO. Without it the assertions below cannot run, and they say so
+  # loudly rather than passing quietly: set QUARTO_PATH to a Quarto 1.4+ CLI.
+  if (!fw_pdf_available()) {
+    cat("  *** PDF ASSERTIONS SKIPPED: quarto not found (set QUARTO_PATH) ***\n")
+  } else {
+    pdf_path <- unpack("pdf", "[.]pdf$")
+    ok("the PDF is in the bundle", basename(pdf_path), fw_pdf_filename())
+    head_bytes <- readBin(pdf_path, "raw", 5)
+    ok("and is a PDF", rawToChar(head_bytes), "%PDF-")
+    ok("with more than one page", fw_pdf_page_count(pdf_path) > 1L, TRUE)
 
-  # ---- The data carried inside the report ----------------------------------
-  payload <- function(id) {
-    one <- regmatches(doc, regexpr(
-      paste0('<script id="', id, '".*?</script>'), doc, perl = TRUE))
-    jsonlite::base64_dec(sub("</script>$", "", sub('^<script[^>]*>', "", one)))
+    # WHAT THE DOCUMENT SAYS is read from its Typst source, which is the text
+    # the PDF was set from - the PDF's own text streams are compressed.
+    keep <- tempfile()
+    fw_write_pdf_report(tempfile(fileext = ".pdf"), d, report()$sel, filters = report()$filters,
+                        meta = m, method_mode = "count", method_wb_mode = "share",
+                        keep = keep)
+    typ <- paste(readLines(file.path(keep, "report.typ"), warn = FALSE), collapse = "\n")
+    has <- function(txt) grepl(txt, typ, fixed = TRUE)
+    ok("the letterhead carries the title", has(fw_t("plan", "report_title")), TRUE)
+    ok("the filter selection is recorded", has(fw_t("plan", "report_selection")), TRUE)
+    ok("the caveats travel with the document", has("Claimed is not the same"), TRUE)
+    ok("and so do the contacts", has(fw_t("plan", "r_contacts")), TRUE)
+    ok("the map is drawn", file.exists(file.path(keep, "map.png")), TRUE)
+    ok("every chart is drawn",
+       all(file.exists(file.path(keep, c("methods.png", "duration.png", "waterbody.png",
+                                         "method-waterbody.png")))), TRUE)
+    ok("every logo travels",
+       all(file.exists(file.path(keep, paste0("logo-", c("mark", "wfa",
+                                                         names(FW_LOGO$collab_files)),
+                                             ".png")))), TRUE)
+    ok("no private address reaches the PDF",
+       any(vapply(private, function(e) has(gsub("([@.])", "\\1\u200b", e)) || has(e),
+                  logical(1))), FALSE)
+    ok("the no-method caption is there when it should be",
+       has(fw_fill(fw_t("plan", "r_method_missing"),
+                   n = fw_fmt_num(fw_n_no_method(d, report()$sel)))),
+       fw_n_no_method(d, report()$sel) > 0)
   }
-
-  csv_bytes <- payload("fw-file-csv")
-  csv_path <- tempfile(fileext = ".csv")
-  writeBin(csv_bytes, csv_path)
-  carried <- utils::read.csv(csv_path, check.names = FALSE, encoding = "UTF-8")
-  ok("the csv inside the report matches the selection",
-     nrow(carried), nrow(report()$sel))
-  ok("and carries every exported column",
-     identical(names(carried), FW_EXPORT_COLUMNS), TRUE)
-
-  xlsx_bytes <- payload("fw-file-xlsx")
-  xlsx_path <- tempfile(fileext = ".xlsx")
-  writeBin(xlsx_bytes, xlsx_path)
-  ok("the workbook inside the report is the workbook beside it",
-     all(c("Attempts", "Contacts", "Caveats", "Field definitions",
-           "Filters applied") %in% openxlsx::getSheetNames(xlsx_path)), TRUE)
-  ok("and it holds the same rows",
-     nrow(openxlsx::read.xlsx(xlsx_path, "Attempts")), nrow(report()$sel))
-
-  # WYSIWYG. The method chart has a share/count toggle and the document takes
-  # whichever the reader is looking at, rather than re-deciding for them.
-  session$setInputs(method_mode = "count")
-  ok("the method chart follows the reader's toggle",
-     grepl("Attempts", fw_html_read_text(report_from_bundle()), fixed = TRUE), TRUE)
-  # The waterbody chart has its OWN toggle, and the document follows each
-  # independently: share below, count above, in the same file.
-  session$setInputs(method_wb_mode = "share")
-  doc2 <- fw_html_read_text(report_from_bundle())
-  ok("the waterbody chart follows its own toggle",
-     grepl(fw_t("charts", "x_share_uses"), doc2, fixed = TRUE), TRUE)
-  ok("and the method chart above it stays on count",
-     grepl(fw_t("charts", "x_attempts"), doc2, fixed = TRUE) &&
-       !grepl(fw_t("charts", "x_share"), doc2, fixed = TRUE), TRUE)
-  # And the kind-of-water chart has a third toggle, which the document follows
-  # too. x_share is ITS axis - the check above pins that nothing else puts it
-  # in the file, so seeing it here is this chart and no other.
-  session$setInputs(waterbody_mode = "share")
-  doc3 <- fw_html_read_text(report_from_bundle())
-  ok("the kind-of-water chart follows its own toggle",
-     grepl(fw_t("charts", "x_share"), doc3, fixed = TRUE), TRUE)
-  session$setInputs(waterbody_mode = "count")
-  # The caption naming attempts with no method, recomputed in base R. Present
-  # with the right number when there are any, absent when there are none.
-  n_no_method <- sum(!report()$sel$attempt_id %in% d$attempt_method$attempt_id)
-  ok(sprintf("the no-method caption is %s (%d such attempts)",
-             if (n_no_method > 0) "present" else "absent", n_no_method),
-     grepl(fw_fill(fw_t("plan", "r_method_missing"), n = fw_fmt_num(n_no_method)),
-           doc2, fixed = TRUE),
-     n_no_method > 0)
 })
 
 cat("\n")

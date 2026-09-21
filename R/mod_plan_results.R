@@ -80,7 +80,7 @@ fw_outcome_bars_ui <- function(sel) {
 #' "Top three invasive species targeted (of 41 total)", and for the protected
 #' side "(of >12 total)" because beneficiaries are under-recorded. The number
 #' word is the tiles actually shown, so a selection with two species says "Top
-#' two". Shared by the page and the HTML report so the two cannot disagree.
+#' two". Shared by the page and the PDF report so the two cannot disagree.
 #'
 #' @return NULL when the selection has no species in that role
 fw_species_top_title <- function(data, sel, role_name, limit = FW_PLAN_SPECIES_N) {
@@ -189,7 +189,8 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
 #' dashboard's are the same map with a different selection in it.
 #'
 #' @param detail,detail_input passed to fw_add_attempt_markers(): the page
-#'   fetches each record on click, the HTML report carries them all.
+#'   fetches each record on click; "embed" carries every record inside its
+#'   marker, for a map with no server behind it.
 fw_plan_map <- function(data, sel, detail = c("embed", "lazy"), detail_input = NULL) {
   fw_leaflet() |>
     fw_add_basemaps() |>
@@ -201,14 +202,14 @@ fw_plan_map <- function(data, sel, detail = c("embed", "lazy"), detail_input = N
 # fw_plan_table() USED TO LIVE HERE - one page of the matching attempts, hand
 # built rather than DT so the page did not carry a second sorting and paging
 # model beside its own. The client removed the table from the report builder,
-# and the HTML report's copy of it went at the same time, so it had no callers
+# and the old HTML report's copy of it went at the same time, so it had no callers
 # left.
 #
 # fw_plan_pages() below is still used - the contacts block pages the same way.
 #
-# IF A RECORD-BY-RECORD SECTION COMES BACK, and the client has asked for one in
-# prose for the next round, it should not be this: a table of truncated cells is
-# what the CSV in the same bundle already does better.
+# THE RECORD-BY-RECORD READING ARRIVED as its own download (21 Sept 2026): every
+# attempt written out in full, one card after another - see R/report_records.R.
+# Not a table of truncated cells, which is what the CSV already does better.
 
 #' How many pages a selection needs
 fw_plan_pages <- function(n_rows, per_page) {
@@ -286,6 +287,6 @@ fw_plan_contacts_ui <- function(contacts, page = 1L,
 # ---- Caveats -----------------------------------------------------------------
 #
 # THE PANEL MOVED TO THE ABOUT PAGE. fw_caveats_ui() and fw_caveat_title() now
-# live in R/ui_helpers.R, because About, the HTML report and this page's
-# downloads all draw them and none of the three owns the other two. The text
+# live in R/ui_helpers.R, because About and this page's downloads both draw
+# them and neither owns the other. The text
 # itself has always come from fw_caveat_blocks() in R/export.R and still does.

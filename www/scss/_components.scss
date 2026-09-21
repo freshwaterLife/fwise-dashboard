@@ -660,7 +660,10 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  justify-content: space-between;
+  // THE BUTTON SITS ON THE RIGHT, at the client's request (21 Sept 2026). The
+  // heading in this row is visually hidden, so the button is the row's only
+  // visible item and space-between left it on the left.
+  justify-content: flex-end;
   gap: $fw-space-2;
   margin-block-end: $fw-space-3;
   padding-block: $fw-space-2;
@@ -748,6 +751,18 @@
   // up into the lead above the list. See fw_plan_download_ui().
 
   .btn { width: auto; }
+}
+
+// The large-PDF warning under the picker's boxes. A notice, not an error: the
+// reader can still take the file, so it is drawn in the interface's notice
+// wash rather than a data colour, with ink text that clears AA on it.
+.fw-plan__download-warn {
+  margin: $fw-space-2 0 0;
+  padding: $fw-space-1 $fw-space-2;
+  background: $fw-teal-wash;
+  border-inline-start: 4px solid $fw-brand-teal;
+  border-radius: $fw-radius-input;
+  color: $fw-ink;
 }
 
 // The eradication definition, pinned above the contribute form and repeated on
@@ -1863,7 +1878,7 @@
 // cannot fold is the one thing on the page that behaves differently from
 // everything around it. What carries the old intent instead is the summary line,
 // which names what is inside rather than saying "caveats" - see
-// FW_COPY$about$caveats_summary. Still NOT collapsible in the HTML report or the
+// FW_COPY$about$caveats_summary. Still NOT collapsible in the PDF report or the
 // workbook, where there is nowhere to hide it anyway.
 .fw-caveats {
   margin-block-start: $fw-space-4;
@@ -2958,7 +2973,7 @@ table.dataTable,
     > :last-child { margin-block-end: 0; }
   }
 
-  // The caveats grid is a panel in its own right elsewhere (the HTML report);
+  // The caveats grid is a panel in its own right elsewhere;
   // inside a disclosure it has already been given a card, so it drops its own.
   .fw-caveats {
     padding: 0;

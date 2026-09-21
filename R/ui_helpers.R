@@ -15,9 +15,9 @@ library(bslib)
 #' from R before a line of Sass is read. www/scss/_tokens.scss carries no
 #' literal values for that reason: there is nothing there to fall out of step.
 #'
-#' Two entry files use this: www/scss/main.scss (the app, also inlined into
-#' the HTML report) and www/scss/report.scss (the report's own frame and print
-#' rules). Both see the same tokens.
+#' Two entry files use this: www/scss/main.scss (the app) and
+#' www/scss/records.scss (the attempts download, inlined into that file by
+#' R/report_records.R). Both see the same tokens.
 #'
 #' sass hashes its input - the token list included - into its cache key, so an
 #' edit to R/brand.R is picked up on restart. cache_key_extra covers what the

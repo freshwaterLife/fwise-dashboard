@@ -429,29 +429,27 @@ fw_export_filename <- function() {
 
 # ---- The bundle --------------------------------------------------------------
 #
-# ONE DOWNLOAD, ASSEMBLED FROM WHAT THE READER TICKED. The report builder used
-# to offer a spreadsheet button and a report button; it now offers a picker and
-# one button, and the methods-and-caveats text rides along whatever else is in
-# there. See fw_plan_download_ui() in mod_plan.R.
+# ONE DOWNLOAD, ASSEMBLED FROM WHAT THE READER TICKED. The report builder offers
+# a picker and one button, and the methods-and-caveats text rides along whatever
+# else is in there. See fw_plan_download_ui() in mod_plan.R.
 #
-# The writers themselves are UNCHANGED and are not duplicated here: this decides
-# what goes in and calls fw_write_workbook(), fw_html_write_csv() and
-# fw_write_html_report() exactly as the two buttons did.
+# FOUR PARTS, at the client's request (21 Sept 2026): the spreadsheet, the CSV,
+# the PDF report and the attempts file. The interactive HTML report they
+# replace - live plotly charts and a leaflet map, printed to PDF through the
+# browser - is gone; the PDF is now a real one, made on the server.
 
-# The parts a reader can choose, and the order they are written in. "pdf" is not
-# a file of its own - it resolves to the HTML report, which carries the print
-# stylesheet and a Save as PDF button. Ticking both is therefore not an error
-# and does not produce two copies; see fw_bundle_parts().
-FW_BUNDLE_PARTS <- c("xlsx", "csv", "html", "pdf")
+# The parts a reader can choose, in the order they are written.
+FW_BUNDLE_PARTS <- c("xlsx", "csv", "pdf", "records")
 
 #' Which files a selection actually produces
 #'
-#' "pdf" and "html" are the same file, so a reader who ticks both gets one copy
-#' of it rather than a duplicate under a second name.
+#' Anything not recognised is dropped. The PDF is dropped too when this server
+#' cannot make one (no Quarto): the picker has already told the reader so, and
+#' the rest of their download should not fail with it.
 fw_bundle_parts <- function(parts = character(0)) {
   parts <- intersect(FW_BUNDLE_PARTS, parts %||% character(0))
-  if ("pdf" %in% parts) parts <- unique(c(setdiff(parts, "pdf"), "html"))
-  intersect(c("xlsx", "csv", "html"), parts)
+  if (!fw_pdf_available()) parts <- setdiff(parts, "pdf")
+  parts
 }
 
 #' What a download of this selection will be called
@@ -465,12 +463,23 @@ fw_bundle_filename <- function(parts = character(0)) {
   paste0(fw_t("export", "bundle_stem"), format(Sys.Date(), "%Y%m%d"), ".zip")
 }
 
+#' The flattened export as a CSV on disk
+#'
+#' UTF-8 with no byte-order mark. Species names carry accents and a BOM would
+#' make Excel read them correctly while breaking a good number of the data tools
+#' this CSV is actually for; the .xlsx alongside it is the answer for Excel.
+fw_write_csv <- function(export, dir) {
+  path <- file.path(dir, "fwise-attempts.csv")
+  utils::write.csv(export, path, row.names = FALSE, na = "", fileEncoding = "UTF-8")
+  path
+}
+
 #' Write the download
 #'
 #' @param path where to write - the download handler's temp file
 #' @param parts what the reader ticked. Anything not recognised is ignored.
-#' @param ... the report's own arguments, passed through to
-#'   fw_write_html_report() so the document matches the screen it came from.
+#' @param method_mode,method_wb_mode,waterbody_mode the chart toggles, passed to
+#'   fw_write_pdf_report() so the document matches the screen it came from.
 fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL,
                             method_mode = "count", method_wb_mode = "count",
                             waterbody_mode = "count") {
@@ -490,16 +499,20 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
     files <- c(files, fw_export_filename())
   }
   if ("csv" %in% parts) {
-    files <- c(files, basename(fw_html_write_csv(export, dir)))
+    files <- c(files, basename(fw_write_csv(export, dir)))
   }
-  if ("html" %in% parts) {
-    fw_write_html_report(
-      path = file.path(dir, fw_html_filename()), data = data, sel = sel,
-      export = export, filters = filters, meta = meta,
-      method_mode = method_mode, method_wb_mode = method_wb_mode,
-      waterbody_mode = waterbody_mode
+  if ("pdf" %in% parts) {
+    fw_write_pdf_report(
+      path = file.path(dir, fw_pdf_filename()), data = data, sel = sel,
+      filters = filters, meta = meta, method_mode = method_mode,
+      method_wb_mode = method_wb_mode, waterbody_mode = waterbody_mode
     )
-    files <- c(files, fw_html_filename())
+    files <- c(files, fw_pdf_filename())
+  }
+  if ("records" %in% parts) {
+    fw_write_records_html(file.path(dir, fw_records_filename()), data, export,
+                          filters, meta)
+    files <- c(files, fw_records_filename())
   }
 
   # One file arrives as itself. Zipping a lone text file to save nothing would

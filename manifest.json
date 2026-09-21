@@ -3790,133 +3790,175 @@
   },
   "files": {
     ".Rprofile": {
-      "checksum": "b5f8b0a1acf114005ee5f083ea759276"
+      "checksum": "8a10858d8c25dc0d7595823f838cfa03"
     },
     "app.R": {
-      "checksum": "7b2608177af320333cd31cbb17ac24ac"
+      "checksum": "3cc52e11887694473b10147514000278"
     },
     "HANDOVER.md": {
-      "checksum": "dc2aa33b803b4b9e495a1df751a6f7a3"
+      "checksum": "5be3f8beb060ebefa8b84d709e1933d2"
     },
     "LICENSE": {
       "checksum": "6e91ae45f5f62c5162562a7747ef8fbc"
     },
     "R/brand.R": {
-      "checksum": "e3ac23de7dce813e719cc8d0857f25a1"
+      "checksum": "ee361d3c06364255377330962fc21abc"
+    },
+    "R/charts_static.R": {
+      "checksum": "6ed18bbb9cfae69af709c6b9aa8ca12e"
     },
     "R/charts.R": {
-      "checksum": "5e786fd25315ec969938e231b8c04c57"
+      "checksum": "0dee201570cffee227788890e8f0d75b"
     },
     "R/config.R": {
-      "checksum": "c9756b4154c948d9ff1d1e0f2ead5b26"
+      "checksum": "f46eb7ad7dc6c8dd702e1329ee23aff8"
     },
     "R/copy_contribute.R": {
-      "checksum": "2436a33954433c18a7297dee2b981f4b"
+      "checksum": "9b44d8b1102d25ad65a78fff6f6653ea"
     },
     "R/copy_export.R": {
-      "checksum": "b1678179f787886da1f6c99060617661"
+      "checksum": "c4b36172ca8727cc0d2cab846bff2881"
     },
     "R/copy.R": {
-      "checksum": "30c168537eb2a9abf29cf6f850fa646c"
+      "checksum": "5b09773271e86ac3d292e0d877baa449"
     },
     "R/data_load.R": {
-      "checksum": "5a77c451bb685f8ba3d4e5ed95423aca"
+      "checksum": "56efa2368299f10465c7273f811c0888"
     },
     "R/export.R": {
-      "checksum": "705a51910308670eda5761ab36c8f069"
+      "checksum": "b04c5030eaa0eaa4da307db73c0446e7"
     },
     "R/filters.R": {
-      "checksum": "a5a4ebfbd38d6001880285c1b200b2a5"
+      "checksum": "de50149d0e746dcee50c1e8ecf4b9d3d"
     },
     "R/github.R": {
-      "checksum": "ae8a4e9f515131d1a97c9a160ed2e036"
+      "checksum": "c40609606a5ba9bc2987ee7514cf183f"
     },
     "R/maps.R": {
-      "checksum": "519f91ee658d44706ff94c51952632ba"
+      "checksum": "b6af1092941656b9a3cd78fb4517ae41"
     },
     "R/mod_about.R": {
-      "checksum": "de68725315e6be089aa44313d246acd7"
+      "checksum": "a3ef40244867f836fd3008d8cf68aea4"
     },
     "R/mod_contribute_steps.R": {
-      "checksum": "da98dbc33ee66e2647a328f86a0b0b88"
+      "checksum": "65dbaf71c66a2876d3f4c3a5f26740d0"
     },
     "R/mod_contribute_ui.R": {
-      "checksum": "84135a61539343150647f54259de63ea"
+      "checksum": "6638546ce7906eca428da6f689e7b4e3"
     },
     "R/mod_contribute.R": {
-      "checksum": "458fb62c34874d2a8ea42ad7999dbcac"
+      "checksum": "d2c5ab5c55b07752d65a461bd5c7f322"
     },
     "R/mod_explore.R": {
-      "checksum": "134d8d93d7f1e69e665b3a288ff3387a"
+      "checksum": "e1691ecc406dc4d4fb03afdb6b404262"
     },
     "R/mod_home.R": {
-      "checksum": "15c9d54a74b53b3253b2735c393ee9f8"
+      "checksum": "8ea58b1ac92b4b2416c657aa2f359720"
     },
     "R/mod_networking.R": {
-      "checksum": "401eafc2759e7c8fc702d1236be91553"
+      "checksum": "a073ebeda2dec98d8026e9e8e3315fde"
     },
     "R/mod_plan_filters.R": {
-      "checksum": "586c022dd6a0af3b457d9214b6696f03"
+      "checksum": "b9d3430de6928256151bfe9193203f9f"
     },
     "R/mod_plan_results.R": {
-      "checksum": "be78dfddf9f06b08224796f027d0c0e9"
+      "checksum": "5ff2c3f5ffceeeccbf571c40b48b07a0"
     },
     "R/mod_plan.R": {
-      "checksum": "53cf5f2c4281f1488d2be428f18aeeeb"
+      "checksum": "30355aa5c1139fc0498d0a94e6d48ada"
     },
     "R/questions_docx.R": {
-      "checksum": "2f5e735560a4f10d3dac9d4cf61dc6c9"
+      "checksum": "2aa3d1e8bf632dd5a81d740c5b9b695c"
     },
     "R/questions_text.R": {
-      "checksum": "b8f3ffc1819537f3dc0808954f71066f"
+      "checksum": "24313d14af5f4bc7984b6958cbaa220b"
     },
-    "R/report_html.R": {
-      "checksum": "8797606a59a3c6eec7ccab0436775ff3"
+    "R/report_pdf.R": {
+      "checksum": "affc96e08a549bb3eba129a9f881f3ef"
+    },
+    "R/report_records.R": {
+      "checksum": "3a6d68461270d934de00ae6324c897ac"
     },
     "R/species_images.R": {
       "checksum": "db59149782bdb84749f67060b14f0375"
     },
     "R/submit.R": {
-      "checksum": "d5cc7e8dd7e1d1309294aa445cb51f73"
+      "checksum": "52c64f4743e4fadeb948753ef8e83086"
     },
     "R/theme.R": {
-      "checksum": "77696e1673e42889e73f51b30ba96eb9"
+      "checksum": "38fc2dd8989e53a04fcd80875a97ee16"
     },
     "R/ui_helpers.R": {
-      "checksum": "52d00c996d4dd0d3e090108dab922e91"
+      "checksum": "a8bc88b9b4effecd085ae2ab17ba7574"
     },
     "README.md": {
-      "checksum": "9b25eefb2f305c480221f3236ef4ec64"
+      "checksum": "376a1f7d7120af7bf56588ac9025ef5f"
     },
     "renv.lock": {
       "checksum": "87deca0ea2d8f687119405673fe7f5b7"
     },
-    "resources/africa_fiery_redfin.png": {
-      "checksum": "b9949984167288414006c5400b20450a"
+    "resources/map-before-after/fwise_next_900dpi.png": {
+      "checksum": "31b75c5070914a6371dd6d1b61bf5831"
     },
-    "resources/africa_smallmouth_bass_greyscale.png": {
+    "resources/map-before-after/fwise_now_900dpi.png": {
+      "checksum": "e3773326fdcc6c582959b955b16f8d2c"
+    },
+    "resources/report/fonts/Ubuntu-Bold.ttf": {
+      "checksum": "d0fc30856a541539009e73c787a68bc1"
+    },
+    "resources/report/fonts/Ubuntu-Medium.ttf": {
+      "checksum": "335cc443917aa5c0bebfa28a64e8ad97"
+    },
+    "resources/report/fonts/Ubuntu-Regular.ttf": {
+      "checksum": "b3488e8486d2b4e3a0666997f91c7ed9"
+    },
+    "resources/report/fonts/UbuntuMono-Regular.ttf": {
+      "checksum": "9383f4b0bc1d264a5a7e094eb1ed0c0b"
+    },
+    "resources/report/fonts/UFL.txt": {
+      "checksum": "325a1a9029112a2405e743c7f816427b"
+    },
+    "resources/report/ne_110m_countries.rds": {
+      "checksum": "76203a9b0e0505f0b20cf14f80e8f05b"
+    },
+    "resources/report/page.typ": {
+      "checksum": "8769888bbd01f9c75c35d6cb9e501587"
+    },
+    "resources/report/typst-show.typ": {
+      "checksum": "92eec3046ca3f5fe0aaae46d7be80b7d"
+    },
+    "resources/report/typst-template.typ": {
+      "checksum": "4b0c42aedccd256d78ae80991775f6d1"
+    },
+    "resources/success-pic/africa_fiery_redfin.png": {
+      "checksum": "85bab7c6e2c45c8a143fb97509db5536"
+    },
+    "resources/success-pic/africa_smallmouth_bass_greyscale.png": {
       "checksum": "862b42907d77e7a851a71c51b24dd779"
     },
-    "resources/eu_pearl_mussel.png": {
-      "checksum": "9f583454262e8f290ed0b77a261b5121"
+    "resources/success-pic/as-little-grebe.png": {
+      "checksum": "80f0846be65f63568cdd78fb2e5b69fa"
     },
-    "resources/eu_salmon_fluke_greyscale.png": {
+    "resources/success-pic/eu_pearl_mussel.png": {
+      "checksum": "e918d5aeab79ccc20d7ad7c896a5e4e5"
+    },
+    "resources/success-pic/eu_salmon_fluke_greyscale.png": {
       "checksum": "5da3148756ac3e44b414e48125c942ba"
     },
-    "resources/la_rainbow_trout_greyscale.png": {
+    "resources/success-pic/la_rainbow_trout_greyscale.png": {
       "checksum": "0d13d16dd46b8424edf568c655ebc7b4"
     },
-    "resources/la_valchetta_frog.png": {
-      "checksum": "dfe878f12016918ba7adca9dc0248b63"
+    "resources/success-pic/la_valchetta_frog.png": {
+      "checksum": "a612f478cbf03a6783ec5ff3432e1047"
     },
-    "resources/na_apache_trout.png": {
-      "checksum": "f5ad8b0e6b9aea4a14870560098251ee"
+    "resources/success-pic/na_apache_trout.png": {
+      "checksum": "255a5e770214d449382d84532d213bac"
     },
-    "resources/oc_common_carp_greyscale.png": {
+    "resources/success-pic/oc_common_carp_greyscale.png": {
       "checksum": "de10f9ca3e0609bd50ddc240649a3fc6"
     },
-    "resources/oc_golden_galaxias.png": {
-      "checksum": "4d9c772fbdb51b334149cf29958b98d8"
+    "resources/success-pic/oc_golden_galaxias.png": {
+      "checksum": "9cdb655d931653285ac8e94b3fc95266"
     },
     "www/fonts/ubuntu-400.woff2": {
       "checksum": "6e27639876db7e5665251406484519c5"
@@ -3933,29 +3975,107 @@
     "www/fonts/ubuntu-mono-700.woff2": {
       "checksum": "69efcdd9a54cdd4f0c106fde21be1461"
     },
+    "www/img/collab/FRESHWATER_LIFE-400.png": {
+      "checksum": "c003dcebcfd7918247e317bc3589da24"
+    },
+    "www/img/collab/FRESHWATER_LIFE.png": {
+      "checksum": "836ba6b40aed6248df3572fde03f6a50"
+    },
+    "www/img/collab/ISSG_SSC_IUCN-400.png": {
+      "checksum": "2c8b32a3b7953db91229fda09c0f9c03"
+    },
+    "www/img/collab/ISSG_SSC_IUCN.png": {
+      "checksum": "153ecc0c021311e4d065c2d3183e921f"
+    },
+    "www/img/collab/UCSC-400.png": {
+      "checksum": "11f474f3cf348f0d10b163fa2b7cc2b1"
+    },
+    "www/img/collab/UCSC.png": {
+      "checksum": "5272341243373c7358f0035bf3ec5cfb"
+    },
+    "www/img/collab/UCSD_SCRIPPS-400.png": {
+      "checksum": "496bc8f408154139d1c2ef050fb71aa9"
+    },
+    "www/img/collab/UCSD_SCRIPPS.png": {
+      "checksum": "082e97757a107e652116f801b5d3e5b8"
+    },
     "www/img/favicon.svg": {
       "checksum": "b327b0df7af79b185ca65633ed085595"
     },
-    "www/img/FWISE-LOGO-ALL-6.png": {
-      "checksum": "36c3f28b315deff9a23eef6ac86bce29"
+    "www/img/FWISE-BADGE-256.png": {
+      "checksum": "5a48b2e1d19758855bbd1a564fc38a89"
+    },
+    "www/img/FWISE-BADGE.png": {
+      "checksum": "4c6fc9f24b7e3b2aa854611029f9316a"
+    },
+    "www/img/FWISE-SIMPLE-1200.png": {
+      "checksum": "d64136ed3262cf01dd7ace538df93f52"
+    },
+    "www/img/FWISE-SIMPLE-600.png": {
+      "checksum": "efe2323a416b9a0703f069126180b47c"
+    },
+    "www/img/FWISE-SIMPLE.png": {
+      "checksum": "bab1ef2c0d15842eb49666b04e5109f7"
+    },
+    "www/img/home/map-next.png": {
+      "checksum": "f0b7fc4a9eae43bacab666b42375ae71"
+    },
+    "www/img/home/map-now.png": {
+      "checksum": "06f7baacdd5598141a702d72e3bceeb4"
+    },
+    "www/img/home/success/africa_fiery_redfin.png": {
+      "checksum": "0a398ed3ca997b9e1cfd48973062d919"
+    },
+    "www/img/home/success/africa-fiery-redfin-named.png": {
+      "checksum": "1478c3806171f030140f7f5836290488"
+    },
+    "www/img/home/success/as_little_grebe.png": {
+      "checksum": "0c7f5761f6b93f33a02cccd108b43881"
+    },
+    "www/img/home/success/as-little-grebe-named.png": {
+      "checksum": "7a4c779ca03cf4cfe5296ad15de1210d"
+    },
+    "www/img/home/success/eu_pearl_mussel.png": {
+      "checksum": "7bef3ea79321043beba80bb2030606c6"
+    },
+    "www/img/home/success/eu-pearl-mussel-named.png": {
+      "checksum": "dbd6a180de2f4d5af787e9c0fe720990"
+    },
+    "www/img/home/success/la_valchetta_frog.png": {
+      "checksum": "d75f9e27f263c129b8adb2a4ec8d14b7"
+    },
+    "www/img/home/success/la-valchetta-frog-named.png": {
+      "checksum": "74ec6fe51279c1594253705ab0a76d7f"
+    },
+    "www/img/home/success/na_apache_trout.png": {
+      "checksum": "f2d70ed71434a4f0cef51350479e50ed"
+    },
+    "www/img/home/success/na-apache-trout-named.png": {
+      "checksum": "b21731aac132ba9e5fb77680c64f0d51"
+    },
+    "www/img/home/success/oc_golden_galaxias.png": {
+      "checksum": "b15deb75519465367b330723e5f6c492"
+    },
+    "www/img/home/success/oc-golden-galaxias-named.png": {
+      "checksum": "6209703c3584cfe665d427f541c9c434"
+    },
+    "www/img/wfa-logo-rect-dark-320.png": {
+      "checksum": "2dd99471a350fd49e08a2cded9508d27"
     },
     "www/img/wfa-logo-rect-dark.png": {
       "checksum": "84a5e18a213a7cd3a2a482b8ddaede38"
     },
     "www/scss/_components.scss": {
-      "checksum": "a0b36e8225e556154d6e9c7778d11d5e"
-    },
-    "www/scss/_report_frame.scss": {
-      "checksum": "afabcba69abe3f8ae645dc849f0cfbf8"
+      "checksum": "edeb50969b5ea9bf2405dd79b265495d"
     },
     "www/scss/_tokens.scss": {
-      "checksum": "288b76f51a925dd7005adeaf3548be37"
+      "checksum": "6c9d792a32e0ddd2e672b070cbb99912"
     },
     "www/scss/main.scss": {
-      "checksum": "5fc4e900f18ab9b9520f3c057aa9da1a"
+      "checksum": "388261f8d8ee5c4fe8d6acc590ae40b8"
     },
-    "www/scss/report.scss": {
-      "checksum": "17692c174f16c1d1e186a31c45a7b5c7"
+    "www/scss/records.scss": {
+      "checksum": "3829d8b161f9f8301e148e5fc2c765b7"
     }
   },
   "users": null

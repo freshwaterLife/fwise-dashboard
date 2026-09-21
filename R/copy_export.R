@@ -214,10 +214,116 @@ FW_COPY_EXPORT <- list(
     # The heading that separates the two dictionaries on the definitions sheet.
     dict_group = "{sheet} sheet",
 
-    # ---- The HTML report's own tables ------------------------------------------
+    # ---- The PDF report's own tables -------------------------------------------
     col_country     = "Country",
     col_attempts    = "Attempts",
-    other_countries = "Other countries ({n})"
+    other_countries = "Other countries ({n})",
+
+    # ---- The attempts file (.html) ---------------------------------------------
+    # Every matching attempt written out in full, one card after another. See
+    # R/report_records.R. The labels are the reader's names for the columns of
+    # FW_EXPORT_COLUMNS - one per column, in the same order, and the tests check
+    # it covers every column and nothing else, as they do `dictionary` above.
+    records_filename = "fwise-attempts_{date}.html",
+    records_title    = "Every attempt in this selection",
+    records_subtitle = "{n} attempts, generated from the FWISE database on {date}",
+    records_lead = paste(
+      "Each matching attempt in full, in the same order as the spreadsheet: by",
+      "country, then site, then start year. A blank field says Not noted."
+    ),
+    records_filter_label = "Find an attempt",
+    records_filter_hint  = "Type a site, country, species or id",
+    records_contents     = "Contents",
+    records_selection    = "What this selection covers",
+    records_showing      = "Showing {n} of {total}",
+    records_top          = "Back to the contents",
+    records_open_link    = "Open the reference",
+
+    # The sections of a card, and which columns sit in each, in reading order:
+    # where, what water, what animals, when, how, the chemical detail, what
+    # happened, the source and who to ask.
+    record_groups = list(
+      list(heading = "Where", fields = c(
+        "site_name", "country", "region", "continent", "iso3", "latitude", "longitude")),
+      list(heading = "The water", fields = c(
+        "waterbody_type", "water_regime", "area_treated", "area_unit", "area_notes",
+        "depth_m", "depth_notes", "volume_m3", "volume_notes", "max_flow_m3s",
+        "water_temp_c", "water_temp_notes")),
+      list(heading = "Species", fields = c(
+        "invasive_species", "invasive_taxa", "beneficiary_species", "beneficiary_taxa")),
+      list(heading = "When and why", fields = c(
+        "invasion_year", "start_year", "end_year", "duration_days", "driver")),
+      list(heading = "How", fields = c(
+        "methods", "method_classes", "method_notes", "method_description",
+        "labour_person_days", "cost_estimate", "cost_notes")),
+      list(heading = "Chemical detail", fields = c(
+        "target_ingredient_basis", "toxin_conc_target_mg_l", "conc_target_notes",
+        "toxin_conc_measured_mg_l", "conc_measured_notes",
+        "neutralising_agent", "neutralising_notes")),
+      list(heading = "Outcome", fields = c(
+        "outcome", "verification_method", "verification_notes")),
+      list(heading = "Source", fields = c("reference", "reference_link", "source")),
+      list(heading = "Contacts", fields = c(
+        "primary_contact_name", "primary_contact_org", "primary_contact_email",
+        "secondary_contact_name", "secondary_contact_org", "secondary_contact_email"))
+    ),
+    record_labels = c(
+      attempt_id          = "FWISE id",
+      site_name           = "Site",
+      country             = "Country",
+      region              = "Region",
+      continent           = "Continent",
+      iso3                = "Country code",
+      latitude            = "Latitude",
+      longitude           = "Longitude",
+      waterbody_type      = "Kind of water",
+      water_regime        = "Still or flowing",
+      area_treated        = "Area or length treated",
+      area_unit           = "Unit",
+      area_notes          = "Notes on size",
+      depth_m             = "Depth (m)",
+      depth_notes         = "Notes on depth",
+      volume_m3           = "Volume (m³)",
+      volume_notes        = "Notes on volume",
+      max_flow_m3s        = "Maximum flow (m³/s)",
+      water_temp_c        = "Water temperature (°C)",
+      water_temp_notes    = "Notes on temperature",
+      invasive_species    = "Invasive species",
+      invasive_taxa       = "Kind of invasive animal",
+      beneficiary_species = "Species protected",
+      beneficiary_taxa    = "Kind of animal protected",
+      invasion_year       = "Year of invasion",
+      start_year          = "Start year",
+      end_year            = "End year",
+      duration_days       = "Duration (days)",
+      driver              = "Reason",
+      methods             = "Methods",
+      method_classes      = "Kind of method",
+      method_notes        = "Notes on methods",
+      method_description  = "What was done",
+      labour_person_days  = "Effort (person-days)",
+      cost_estimate       = "Cost",
+      cost_notes          = "Notes on cost",
+      target_ingredient_basis  = "Target concentration basis",
+      toxin_conc_target_mg_l   = "Target concentration (mg/L)",
+      conc_target_notes        = "Notes on target concentration",
+      toxin_conc_measured_mg_l = "Measured concentration (mg/L)",
+      conc_measured_notes      = "Notes on measured concentration",
+      neutralising_agent  = "Neutralizing agent",
+      neutralising_notes  = "Notes on neutralizing",
+      outcome             = "Outcome",
+      verification_method = "Verified by",
+      verification_notes  = "Notes on verification",
+      reference           = "Reference",
+      reference_link      = "Reference link",
+      source              = "Record source",
+      primary_contact_name    = "Contact",
+      primary_contact_org     = "Organization",
+      primary_contact_email   = "Email",
+      secondary_contact_name  = "Second contact",
+      secondary_contact_org   = "Their organization",
+      secondary_contact_email = "Their email"
+    )
   ),
 
   # ---- The question-list downloads --------------------------------------------

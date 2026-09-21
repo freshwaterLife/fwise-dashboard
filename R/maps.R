@@ -165,7 +165,7 @@ FW_POPUP_SEP <- "|"
 #' one that hangs.
 #'
 #' THIS IS THE RECORD, WHEREVER IT IS SHOWN. The map's markers, the map's detail
-#' panel and the HTML report all read from this frame, so a record cannot say
+#' panel all read from this frame, so a record cannot say
 #' one thing in one place and another elsewhere. The three attempts with no
 #' coordinates are here too; fw_map_points() is the located subset.
 fw_attempt_records <- function(data, sel) {
@@ -1303,8 +1303,8 @@ fw_cluster_options <- function() {
 #' Attempt markers, coloured and labelled by outcome
 #'
 #' TWO WAYS TO CARRY THE RECORD, and the page and the report need different
-#' ones. "embed" puts every record inside its marker, which is what a saved
-#' HTML report needs because there is no server to ask once the file is on
+#' ones. "embed" puts every record inside its marker, which is what a map
+#' saved to a file needs because there is no server to ask once it is on
 #' someone's desk. "lazy" sends only the hover card - about a sixth of the
 #' bytes - and fetches the record on click through fw_map_detail_server(),
 #' which is what the page needs because a 900-marker build was shipping six

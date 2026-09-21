@@ -534,6 +534,27 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # download still happens; this only closes the box behind it.
     observeEvent(input$download_taken, removeModal())
 
+    # ---- The PDF size warning -----------------------------------------------
+    #
+    # BEFORE THE DOWNLOAD, NOT AFTER IT. The client asked to be warned when the
+    # PDF would be very large, and a warning that arrives with the file has
+    # arrived too late to act on. So the size is ESTIMATED from the selection -
+    # what grows a PDF is the contacts table and the species photographs, both
+    # of which are known before anything is drawn - and said under the boxes
+    # while the PDF is ticked. See fw_pdf_size_estimate() in R/report_pdf.R.
+    #
+    # Once per build, not once per tick: the estimate reads the selection only.
+    pdf_estimate <- reactive(fw_pdf_size_estimate(data, results()$sel))
+    output$download_warn <- renderUI({
+      if (!"pdf" %in% (input$download_parts %||% character(0))) return(NULL)
+      est <- pdf_estimate()
+      if (est$mb < FW_PDF$warn_mb && est$pages < FW_PDF$warn_pages) return(NULL)
+      p(class = "fw-plan__download-warn", role = "status",
+        icon("triangle-exclamation"), " ",
+        fw_fill(fw_t("plan", "pdf_warn"), mb = sprintf("%.1f", est$mb),
+                pages = fw_fmt_num(est$pages)))
+    })
+
     # ---- The map: drawn once, markers swapped -------------------------------
     #
     # THE SAME PATTERN AS THE EXPLORE PAGE, and the reasoning is at its copy in
@@ -672,6 +693,10 @@ mod_plan_server <- function(id, data, meta = NULL) {
     #
     # filename is a function evaluated at click time, so it can read the
     # checkboxes and name a .zip or the single file as appropriate.
+    #
+    # THE PDF TAKES A FEW SECONDS - Quarto renders it on the server - and the
+    # browser shows its own download progress while it does. Nothing here
+    # needs a spinner of its own.
     output$download <- downloadHandler(
       filename = function() fw_bundle_filename(input$download_parts),
       content = function(file) {
@@ -736,16 +761,20 @@ fw_n_no_method <- function(data, sel) {
 #'
 #' Ids here must not collide with anything in FW_FILTERS - inputs and outputs
 #' share one DOM id space on this page.
-fw_plan_download_ui <- function(ns) {
+fw_plan_download_ui <- function(ns, pdf = fw_pdf_available()) {
   part <- function(id, label, note) {
     list(id = id, label = label, note = note)
   }
   parts <- list(
     part("xlsx", fw_t("plan", "download_xlsx"), fw_t("plan", "download_xlsx_note")),
     part("csv",  fw_t("plan", "download_csv"),  fw_t("plan", "download_csv_note")),
-    part("html", fw_t("plan", "download_html"), fw_t("plan", "download_html_note")),
-    part("pdf",  fw_t("plan", "download_pdf"),  fw_t("plan", "download_pdf_note"))
+    part("pdf",  fw_t("plan", "download_pdf"),  fw_t("plan", "download_pdf_note")),
+    part("records", fw_t("plan", "download_records"), fw_t("plan", "download_records_note"))
   )
+  # NO PDF CHECKBOX WHERE NO PDF CAN BE MADE. A box that could be ticked and
+  # then quietly produce nothing is worse than a sentence saying why it is not
+  # there; the sentence is drawn in its place below.
+  if (!pdf) parts <- Filter(function(p) p$id != "pdf", parts)
 
   div(
     class = "fw-plan__download",
@@ -779,8 +808,14 @@ fw_plan_download_ui <- function(ns) {
                     span(class = "fw-download-picker__note", p$note))
           }),
           choiceValues = vapply(parts, function(p) p$id, character(1)),
-          selected = c("xlsx", "html")
+          selected = if (pdf) c("xlsx", "pdf") else "xlsx"
         ),
+        if (!pdf) p(class = "fw-plan__note", fw_t("plan", "pdf_unavailable")),
+        # THE SIZE WARNING, drawn by the server from the reader's selection and
+        # their ticks - see output$download_warn in mod_plan_server(). Inside
+        # the fieldset, under the boxes, so it is read with the choice it is
+        # about and before the Download button.
+        uiOutput(ns("download_warn"))
       ),
       # THE onclick IS WHAT CLOSES THE MODAL. A downloadButton is an ordinary
       # link the browser follows on its own, so Shiny never sees the click and

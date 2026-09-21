@@ -203,10 +203,8 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
     # plotly writes no DPI tag into the PNG, so a layout program opens it at
     # 96 DPI - several times too big - and it is scaled down to place.
     #
-    # This travels into the downloaded HTML report too - the report embeds these
-    # same widgets (see fw_html_figure() in R/report_html.R) - so its charts
-    # become saveable as well. The print block in _report_frame.scss takes the
-    # bar off the page, which matters more now that it is always on screen.
+    # The PDF report does not use these widgets: its figures are static ggplot
+    # twins drawn from the same counting functions (R/charts_static.R).
     plotly::config(
       responsive = TRUE,
       displaylogo = FALSE,
@@ -236,7 +234,7 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
 #' draw, and renderPlotly(NULL) leaves a blank space under the block's heading -
 #' which reads as a chart that failed to load. Shiny's validation message lands
 #' in the output's own slot, so this needs no second output and no second id.
-#' The HTML report does not use it: fw_html_figure() skips a NULL widget,
+#' The PDF report does not use it: fw_typ_figure() skips a NULL chart,
 #' heading and all.
 fw_chart_or_empty <- function(p) {
   shiny::validate(shiny::need(!is.null(p), fw_t("charts", "empty")))
@@ -384,7 +382,14 @@ fw_chart_cumulative <- function(sel) {
 #' one with five hundred. Absolute counts first, share on request.
 #'
 #' @param mode "count" for absolute stacked, "share" for 100% stacked
-fw_chart_method <- function(data, sel, mode = c("count", "share")) {
+#'
+#' THE NUMBERS AND THE DRAWING ARE SEPARATE. fw_method_data() is what both the
+#' page's plotly chart and the PDF's static twin (fw_gg_method() in
+#' R/charts_static.R) draw from, so the two cannot count differently.
+#'
+#' @return list(d = one row per method and outcome, order_lv = the bar labels
+#'   bottom to top, mode), or NULL when nothing in the selection has a method
+fw_method_data <- function(data, sel, mode = c("count", "share")) {
   mode <- match.arg(mode)
   me <- data$attempt_method |>
     filter(attempt_id %in% sel$attempt_id) |>
@@ -416,11 +421,20 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
            value = if (mode == "share") share else n,
            method_label = paste0(method_name, "  (", total, ")"))
 
-  order_lv <- paste0(totals$method_name, "  (", totals$total, ")")
+  list(d = d, order_lv = paste0(totals$method_name, "  (", totals$total, ")"),
+       mode = mode)
+}
+
+fw_chart_method <- function(data, sel, mode = c("count", "share")) {
+  mode <- match.arg(mode)
+  md <- fw_method_data(data, sel, mode)
+  if (is.null(md)) return(NULL)
+  d <- md$d
+  order_lv <- md$order_lv
   # Grows with the number of methods, so eight methods are not crushed into the
   # space two would use.
   font <- fw_plot_font()
-  p <- plotly::plot_ly(height = fw_chart_height("method", nrow(totals)))
+  p <- plotly::plot_ly(height = fw_chart_height("method", length(order_lv)))
   for (o in FW_OUTCOME_LEVELS) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
@@ -584,7 +598,14 @@ fw_duration_swarm <- function(days, row) {
   out
 }
 
-fw_chart_duration <- function(data, sel) {
+#' The rows the duration chart draws, one per dot, with its row and offset
+#'
+#' Shared by the plotly chart and the PDF's static twin, so the swarm is the
+#' same picture in both. See fw_method_data() for why this is split out.
+#'
+#' @return list(d = one row per attempt with row and y_dot, order_lv = the row
+#'   labels bottom to top), or NULL when fewer than two dots would be drawn
+fw_duration_data <- function(data, sel) {
   sel <- fw_duration_sel(data, sel)
   if (!nrow(sel)) return(NULL)
   d <- data$attempt_method |>
@@ -606,12 +627,21 @@ fw_chart_duration <- function(data, sel) {
   order_lv <- paste0(totals$method_name, "  (", totals$n, ")")
   # A NUMERIC ROW PER METHOD, not a category axis: a category can only be hit
   # dead centre, and the dots need to sit either side of it. The names come
-  # back as the y axis's tick text below.
+  # back as the y axis's tick text in fw_chart_duration().
   d <- d |> arrange(method_label, duration_days, attempt_id)
   d$row <- match(d$method_label, order_lv)
   d$y_dot <- d$row + fw_duration_swarm(d$duration_days, d$row)
 
-  p <- plotly::plot_ly(height = fw_chart_height("duration", nrow(totals)))
+  list(d = d, order_lv = order_lv)
+}
+
+fw_chart_duration <- function(data, sel) {
+  dd <- fw_duration_data(data, sel)
+  if (is.null(dd)) return(NULL)
+  d <- dd$d
+  order_lv <- dd$order_lv
+
+  p <- plotly::plot_ly(height = fw_chart_height("duration", length(order_lv)))
   p <- plotly::add_trace(
     p, data = d, type = "box", orientation = "h",
     x = ~duration_days, y = ~row, width = 2 * FW_CHART$duration_swarm$spread,
@@ -717,9 +747,10 @@ fw_chart_duration <- function(data, sel) {
 #'   of thing, how did it go" - the same question, and the same arithmetic, as
 #'   the mode on fw_chart_method(). It is not each category's share of the
 #'   selection.
-fw_chart_category <- function(d, limit = NA_integer_,
-                              filename = "fwise-categories", axis_key = "",
-                              mode = c("count", "share")) {
+#'
+#' fw_category_data() is the counting half, shared with the PDF's static twin
+#' (fw_gg_category() in R/charts_static.R); fw_chart_category() draws it.
+fw_category_data <- function(d, limit = NA_integer_, mode = c("count", "share")) {
   mode <- match.arg(mode)
   if (!nrow(d)) return(NULL)
   d$outcome <- as.character(fw_outcome_factor(d$outcome))
@@ -746,7 +777,19 @@ fw_chart_category <- function(d, limit = NA_integer_,
            label = paste0(category, "  (", total, ")"))
   order_lv <- paste0(totals$category, "  (", totals$total, ")")
 
-  p <- plotly::plot_ly(height = fw_chart_height("category", nrow(totals)))
+  list(d = d, order_lv = order_lv)
+}
+
+fw_chart_category <- function(d, limit = NA_integer_,
+                              filename = "fwise-categories", axis_key = "",
+                              mode = c("count", "share")) {
+  mode <- match.arg(mode)
+  cd <- fw_category_data(d, limit, mode)
+  if (is.null(cd)) return(NULL)
+  d <- cd$d
+  order_lv <- cd$order_lv
+
+  p <- plotly::plot_ly(height = fw_chart_height("category", length(order_lv)))
   for (o in FW_OUTCOME_LEVELS) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
@@ -794,11 +837,16 @@ fw_chart_category <- function(d, limit = NA_integer_,
 #'   evidence behind a share is never off the chart.
 fw_chart_waterbody <- function(sel, mode = c("count", "share")) {
   mode <- match.arg(mode)
-  d <- sel |>
+  fw_chart_category(fw_waterbody_rows(sel), limit = FW_TOP_N,
+                    filename = "fwise-waterbody-types",
+                    axis_key = "waterbody", mode = mode)
+}
+
+#' The kind-of-water chart's input: one row per attempt with a waterbody
+fw_waterbody_rows <- function(sel) {
+  sel |>
     filter(!is.na(waterbody_type)) |>
     transmute(category = waterbody_type, outcome)
-  fw_chart_category(d, limit = FW_TOP_N, filename = "fwise-waterbody-types",
-                    axis_key = "waterbody", mode = mode)
 }
 
 #' One row per (attempt, species) for a role, labelled and with its outcome
@@ -878,7 +926,10 @@ fw_species_top_n <- function(data, sel, role_name, limit = FW_TOP_N) {
 #' use of rotenone.
 #'
 #' @param mode "count" for absolute stacked, "share" for 100% stacked
-fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
+#'
+#' fw_method_waterbody_data() is the counting half, shared with the PDF's
+#' static twin; fw_chart_method_waterbody() draws it.
+fw_method_waterbody_data <- function(data, sel, mode = c("count", "share")) {
   mode <- match.arg(mode)
   d <- data$attempt_method |>
     filter(attempt_id %in% sel$attempt_id) |>
@@ -916,8 +967,19 @@ fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
   # in whatever order the selection happened to produce.
   method_ids <- intersect(names(FW_METHOD_COLOURS), unique(dd$method_id))
 
+  list(d = dd, order_lv = order_lv, method_ids = method_ids)
+}
+
+fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
+  mode <- match.arg(mode)
+  md <- fw_method_waterbody_data(data, sel, mode)
+  if (is.null(md)) return(NULL)
+  dd <- md$d
+  order_lv <- md$order_lv
+  method_ids <- md$method_ids
+
   font <- fw_plot_font()
-  p <- plotly::plot_ly(height = fw_chart_height("method_waterbody", nrow(totals)))
+  p <- plotly::plot_ly(height = fw_chart_height("method_waterbody", length(order_lv)))
   for (m in method_ids) {
     seg <- dd[dd$method_id == m, ]
     if (!nrow(seg)) next

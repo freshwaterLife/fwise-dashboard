@@ -3,7 +3,8 @@
 # motion and breakpoints, for the whole application: the Shiny UI, the Bootstrap
 # theme (R/theme.R), every plotly chart (R/charts.R), the maps (R/maps.R), the
 # workbook export (R/export.R), the Word question list (R/questions_docx.R) and
-# the standalone HTML report (R/report_html.R).
+# the PDF report (R/report_pdf.R, R/charts_static.R) and the attempts download
+# (R/report_records.R).
 #
 # HOW IT REACHES THE STYLESHEET. www/scss/_tokens.scss contains NO literal
 # values. fw_sass_variables() below flattens everything here into Sass variables
@@ -168,6 +169,25 @@ FW_TYPE <- list(
   leading_heading = 1.15,
 
   measure = "68ch"             # opt-in prose width, .fw-measure
+)
+
+# ---- Print -------------------------------------------------------------------
+
+# THE PDF REPORT'S TYPE, in points. A printed page has no rem, so the floor is
+# carried across by the CSS definition of the units: 1rem is 16px and 16px is
+# 12pt, so FW_TYPE$size_min (1.05rem) is 12.6pt on paper. Body text and the
+# charts' own labels sit ON that floor - the client's rule does not relax
+# because the page is printed - and the headings step up from it. The charts
+# are drawn at their printed size, so a label set at `floor` in ggplot prints
+# at `floor`.
+fw_rem_pt <- function(rem) 12 * as.numeric(sub("rem$", "", rem))
+FW_PRINT <- list(
+  floor   = fw_rem_pt(FW_TYPE$size_min),
+  title   = 24,
+  h2      = 17,
+  h3      = 14,
+  stat    = 20,     # the five numbers in the summary strip
+  leading = 0.62    # Typst's gap between lines, in em
 )
 
 # ---- Space -------------------------------------------------------------------

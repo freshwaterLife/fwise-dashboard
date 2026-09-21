@@ -266,7 +266,20 @@ FW_TOP_N <- 10L
 FW_LOGO <- list(
   mark_web   = "img/FWISE-SIMPLE.png",
   mark_file  = "www/img/FWISE-SIMPLE-1200.png",
-  badge_web  = "img/FWISE-BADGE-256.png"
+  badge_web  = "img/FWISE-BADGE-256.png",
+  # THE REST OF THE FOOTER'S LOGOS, as files, for the two documents a reader
+  # takes away (the PDF report and the attempts .html). The client asked for
+  # every logo the site carries to travel with the report, collaborators
+  # included. The -400 files are sips -Z copies of the originals beside them,
+  # which are not to be edited; the footer itself still serves the originals.
+  # Named, and in the footer's order, because the documents print them in it.
+  wfa_file   = "www/img/wfa-logo-rect-dark-320.png",
+  collab_files = c(
+    fwl     = "www/img/collab/FRESHWATER_LIFE-400.png",
+    ucsc    = "www/img/collab/UCSC-400.png",
+    scripps = "www/img/collab/UCSD_SCRIPPS-400.png",
+    issg    = "www/img/collab/ISSG_SSC_IUCN-400.png"
+  )
 )
 
 # The Welcome page's pictures. WEB COPIES of the client's originals in
@@ -333,9 +346,49 @@ FW_HOME_ORDER <- c("north_america", "latin_america", "africa",
 # without a sentence to keep in step with it.
 FW_PLAN_SPECIES_N <- 3L
 
-# The country table in the HTML report. Longer than FW_TOP_N because a printed
+# The country table in the PDF report. Longer than FW_TOP_N because a printed
 # list is scanned rather than read off a bar.
 FW_REPORT_COUNTRY_ROWS <- 15L
+
+# THE PDF REPORT. Rendered by Quarto (Typst engine) on the server - see the
+# header of R/report_pdf.R.
+#
+# THE WARNING. The client asked for one when the PDF would be very large, and
+# measured, "large" here is mostly LONG: the whole database comes to about
+# 2 MB but 25 pages, 19 of them the contacts table. So the picker warns when
+# the estimate reaches `warn_pages` OR `warn_mb`, whichever comes first -
+# a size cap alone would never fire on this database.
+#
+# THE ESTIMATE is fw_pdf_size_estimate(), whose coefficients below were fitted
+# to real renders on 21 Sept 2026: the whole database (237 contacts, 911 map
+# dots, 5 photographs: 2.00 MB, 25 pages), Norway (2, 200, 6: 1.29 MB, 7) and
+# a single attempt (2, 1, 4: 0.78 MB, 6). dev/value_test.R re-renders those
+# three and fails if the estimate drifts more than 30% from either figure.
+#
+# `timeout_s` is how long a render may take before it is abandoned with an
+# error, rather than leaving the reader waiting on a download that will not
+# come. `image_timeout_s` is the same for each species photograph fetched from
+# Wikimedia; one that does not arrive in time prints as the page's placeholder.
+FW_PDF <- list(
+  warn_mb = 5,
+  warn_pages = 20,
+  timeout_s = 120,
+  image_timeout_s = 8,
+  # bytes: the fixed part (fonts, logos, charts), then per species photograph,
+  # per map dot (the map's PNG grows with its dots, up to about 300 of them,
+  # after which they overlap and add nothing), and per contact row.
+  est_base = 460000,
+  est_per_image = 80000,
+  est_per_point = 1750,
+  est_point_cap = 300,
+  est_per_contact = 2600,
+  # Pages: the fixed ones, then the contacts table at this many rows a page.
+  est_pages_base = 6,
+  est_contacts_per_page = 13,
+  # A4, in mm. The width is what every figure is drawn to.
+  page_margin_mm = 18,
+  text_width_mm = 174
+)
 
 # Page sizes offered under paged tables. The first element is the default.
 #

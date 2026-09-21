@@ -458,54 +458,42 @@ FW_COPY <- list(
     ),
     download_csv = "Attempt data, plain text (.csv)",
     download_csv_note = "The same rows as the spreadsheet, for a data tool rather than Excel.",
-    download_html = "Interactive report (.html)",
-    download_html_note = paste(
-      "Self-contained report on FWISE letterhead, with the charts, the map and",
-      "the contacts. Every plot stays interactive. Opens in any browser."
-    ),
-    download_pdf = "Formatted PDF",
+    download_pdf = "Report (.pdf)",
     download_pdf_note = paste(
-      "The report above, ready to print: open it and choose Save as PDF. It",
-      "arrives as the same .html file, so ticking both adds nothing."
+      "This report on FWISE letterhead, ready to print or send: the summary,",
+      "species, map, charts, contacts and caveats."
+    ),
+    download_records = "Every attempt in full (.html)",
+    download_records_note = paste(
+      "One scrollable page with each matching attempt written out in full,",
+      "one after another. Opens in any browser, with no connection needed."
+    ),
+    # Shown under the PDF's checkbox when the estimate reaches FW_PDF$warn_pages
+    # or FW_PDF$warn_mb.
+    pdf_warn = paste(
+      "This selection makes a long PDF - about {pages} pages and {mb} MB,",
+      "most of it the contacts table. It can take up to a minute to build.",
+      "Narrowing the filters makes it shorter."
+    ),
+    # Shown in place of the PDF's checkbox where the server cannot make one.
+    pdf_unavailable = paste(
+      "The PDF report is not available on this server at the moment. The",
+      "other downloads are unaffected."
     ),
     download_txt = "Methods and caveats (.txt)",
     download_txt_note = "is always included, whatever else you choose.",
 
-    # ---- Inside the report ---------------------------------------------------
-    html_print = "Save as PDF",
-    html_csv   = "Download the data (CSV)",
-    html_xlsx  = "Download the data (Excel)",
-    html_txt   = "Methods and caveats (text)",
-    html_print_hint = paste(
-      "Save as PDF opens the browser's print dialogue - choose Save as PDF as",
-      "the destination. These buttons do not appear in the printed copy."
-    ),
-    # Said once, at the top, because a file that travels by email has to explain
-    # itself to whoever it reaches.
-    html_about = c(
-      paste("This file is self-contained. The charts, the tables and the data",
-            "inside work with no internet connection."),
-      paste("The map is the exception: the tiles require connection to Carto's",
-            "servers. The other elements work offline."),
-      paste("The data is inside this file. The download buttons above give you",
-            "every field of every matching attempt, including the values this",
-            "page shortens, and the methods and caveats as plain text."),
-      "Read the caveats at the end before quoting any figure from this report."
-    ),
-    html_map_note = paste(
-      "The map is interactive - drag, zoom, and select a marker for the record.",
-      "Its background needs an internet connection; the markers do not."
+    # ---- Inside the PDF ------------------------------------------------------
+    pdf_page = "Page",
+    pdf_map_note = paste(
+      "Each dot is one attempt, at its recorded coordinates, coloured by its",
+      "outcome. Stacked dots are attempts at the same site."
     ),
 
     report_title    = "Eradication attempt planning report",
     report_subtitle = "Generated from the FWISE database on {date}",
     report_selection = "What this report covers",
     report_where     = "Attempts by country",
-    report_where_note = paste(
-      "The map above plots each attempt at its own coordinates. This is what",
-      "the map is read for on paper, and it is what is left when the tiles",
-      "cannot load."
-    ),
     report_footer = paste(
       "FWISE, the Freshwater Invasive Species Eradication database. Data",
       "released under CC BY-NC 4.0. Read the caveats above before quoting any",
