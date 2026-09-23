@@ -739,9 +739,14 @@ fw_client_script <- function() {
 #'
 #' THE NOTE IS A POPUP NOW, at the client's request (21 Sept 2026): every chart
 #' and map note sits in an (i) next to its title rather than as a line of text
-#' under it. `note_as = "text"` keeps the old visible line, for the one block
-#' whose note has to be read rather than asked for - the contacts table, where
-#' it says the people listed are not expecting to be contacted.
+#' under it. `note_as = "text"` keeps the old visible line.
+#'
+#' NOTHING ASKS FOR "text" ANY MORE. The contacts table was the one exception -
+#' its note says the people listed are not expecting to be contacted, which was
+#' judged too important to hide behind an icon - and the client moved it into
+#' the (i) with the rest on 23 Sept 2026. The branch is kept because the reason
+#' for it has not gone away: if a note ever has to be read rather than asked
+#' for, this is where it goes.
 #'
 #' Was fw_plan_block() in mod_plan.R. It lives here because the dashboard draws
 #' summary graphics of its own now, and two pages laying out a titled block in

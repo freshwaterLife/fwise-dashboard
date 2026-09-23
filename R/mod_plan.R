@@ -119,8 +119,12 @@ fw_plan_results_ui <- function(ns) {
     ),
 
     fw_block(
+      # THE NOTE IS AN (i) HERE TOO (client, 23 Sept 2026). It was the one
+      # block held back as visible text, on the grounds that "they are not
+      # expecting to hear from you" has to be read rather than asked for. The
+      # client has since asked for it in the popup with every other note, so
+      # nothing on the results page carries a note as a paragraph any more.
       fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note"),
-      note_as = "text",
       tagList(
         div(
           class = "fw-table-toolbar",

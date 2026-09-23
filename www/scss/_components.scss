@@ -158,8 +158,14 @@
   // breathe by taking the padding down, and when even that does not fit, the
   // bar becomes a hamburger rather than a second row - see fw-navbar--menu
   // below and fw_client_script() in R/ui_helpers.R.
-  --bs-navbar-nav-link-padding-x: clamp(0.25rem, 0.6vw, 0.6rem);
-  --bs-nav-link-padding-x: clamp(0.25rem, 0.6vw, 0.6rem);
+  //
+  // OPENED BACK UP A STEP (client, 23 Sept 2026): the items were too tight
+  // against each other. The clamp is what keeps that safe - the extra room is
+  // given on a wide window and handed back as the window narrows - and when
+  // even the low end does not fit, the bar still becomes a hamburger rather
+  // than a second row, so the only cost is that it does so slightly sooner.
+  --bs-navbar-nav-link-padding-x: clamp(0.35rem, 0.75vw, 0.8rem);
+  --bs-nav-link-padding-x: clamp(0.35rem, 0.75vw, 0.8rem);
 
   // LIGHT, BECAUSE OF THE LOGO. The FWISE lockup's wordmark is indigo, so the
   // bar it sits in has to be light; the indigo goes into the page-title band
@@ -245,6 +251,12 @@
   .navbar-nav .nav-link {
     color: $fw-ink;
     font-weight: $fw-weight-medium;
+    // Vertical room to go with the horizontal (client, 23 Sept 2026). Bootstrap's
+    // own --bs-nav-link-padding-y is 0.5rem, which drew the hover rectangle
+    // tight to the cap height. Set here rather than as the variable because
+    // nothing overrides it: the eight-class fallback selector that forced the
+    // padding-x variables above only sets padding-left and padding-right.
+    padding-block: 0.75rem;
     // A rounded rectangle, not a pill. The hover state marks which item the
     // pointer is over; it should not read as a button sitting in the bar.
     border-radius: $fw-radius-input;
@@ -609,7 +621,10 @@
   &__block {
     margin-block-start: $fw-space-4;
 
-    h3 { margin-block: 0 $fw-space-1; }
+    // A STEP MORE AIR UNDER THE TITLE (client, 23 Sept 2026). At $fw-space-1
+    // the heading, the count/share switch and the plot read as one crowded
+    // stack; the title has to separate from the controls it introduces.
+    h3 { margin-block: 0 $fw-space-2; }
   }
 
   // THE NOTE IS AN (i) BESIDE THE TITLE, not a line under it (client, 21 Sept
@@ -1639,7 +1654,15 @@
 // which is why three selectors are needed to catch whichever class Shiny
 // happens to put on it. See fw_mode_toggle() in R/mod_plan.R.
 .fw-segmented {
-  margin-block-end: $fw-space-2;
+  // A STEP MORE AIR ABOVE THE PLOT (client, 23 Sept 2026), to match the step
+  // added under the block title. This is the gap between the count/share
+  // buttons and the chart they redraw.
+  //
+  // IT SETS THE HEIGHT OF THE CONTROLS ROW on the Explore page, where the two
+  // charts are subgrids sharing three rows (see .fw-explore-charts). The
+  // cumulative chart's empty controls cell takes the same height from the
+  // subgrid, so both plots still start on the same line.
+  margin-block-end: $fw-space-3;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2880,9 +2903,21 @@
 
   &--networking { align-items: start; }
 
-  // Clear sits in the grid as its last cell. Top-aligned rows would leave it
-  // level with the labels, so it drops to the inputs' line instead.
-  &__clear { align-self: end; }
+  // CLEAR SITS ON THE INPUTS' LINE, NOT AT THE FOOT OF THE ROW (client,
+  // 23 Sept 2026). It used to be `align-self: end`, which aligns to the end of
+  // the GRID ROW - and the row is as tall as its tallest cell, which is the
+  // species stack once the "Species was" scope appears under it. So the button
+  // sank a whole field below the controls it clears.
+  //
+  // Top-aligned instead, offset by exactly the height of one label row, which
+  // puts its top edge level with the top of every input beside it. The offset
+  // is derived from the tokens rather than measured: the label is set at
+  // $fw-size-caption on the body leading, and .fw-field__label-row adds the
+  // same 0.35rem it sets there. If either changes, this follows.
+  &__clear {
+    align-self: start;
+    padding-block-start: calc(#{$fw-size-caption} * #{$fw-leading-body} + 0.35rem);
+  }
 }
 
 // A TABLE GETS ITS OWN SURFACE. Transparent on the page ground, a table reads
