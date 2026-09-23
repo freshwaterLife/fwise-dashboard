@@ -37,6 +37,14 @@ FW_COPY <- list(
     github_label  = "Source code on GitHub",
     github_url    = "https://github.com/freshwaterLife/fwise-dashboard", 
     licence       = "Data released under CC BY-NC 4.0 - non-commercial data. Code released under the MIT license.",
+    # THE ADDRESS IS NOT IN THE MARKUP, in two halves that JavaScript joins at
+    # click time - the same speed bump the Networking directory uses, and for
+    # the same reason. See fw_contact_action() in mod_networking.R and
+    # fw_footer_contact() in ui_helpers.R.
+    contact_label  = "Contact FWISE",
+    contact_aria   = "Show the FWISE contact address",
+    contact_user   = "fwise",
+    contact_domain = "fwlife.org",
     logo_alt_fwise = "FWISE, the Freshwater Invasive Species Eradication database",
     logo_alt_wfa   = "Weird Fishes Advisory",
     # The collaborators names.
@@ -87,11 +95,22 @@ FW_COPY <- list(
     y_cumulative  = "Attempts to date",
     x_attempts    = "Attempts",
     x_share       = "Share of attempts (%)",
-    x_share_uses  = "Share of uses (%)",
-    x_times_used  = "Times used",
-    x_duration    = "Days from start to finish  \u2190 days   \u00b7   years \u2192",
+    # NO X AXIS TITLE ON THE DURATION CHART (client, 23 Sept 2026). The named
+    # ticks below say what the axis is; a title under them said it twice.
     # Named ticks on the log axis, in step with FW_CHART$duration_ticks.
     duration_ticks = c("1 day", "1 week", "1 month", "1 year", "5 years", "10 years"),
+    # THE TERMINAL TICK, at the longest attempt in the selection, so the axis
+    # labels reach the last dot rather than stopping at the fixed tick below it
+    # (client, 23 Sept 2026). {n} is a whole number of the unit named. Which
+    # unit is chosen, and when a fixed tick is dropped to make room, is
+    # fw_duration_ticks() in charts.R.
+    duration_max_days   = "{n} days",
+    duration_max_months = "{n} months",
+    duration_max_years  = "{n} years",
+    # Under the scale bar on the PDF report's map. It NAMES THE LATITUDE the
+    # bar is correct at, because the map is unprojected longitude/latitude and
+    # a bar drawn on one cannot be right everywhere - see fw_gg_scale_bar().
+    scale_bar     = "{km} km at {lat}",
     other         = "Other",
     hover_days    = " days",
     hover_of      = " of ",
@@ -101,6 +120,16 @@ FW_COPY <- list(
 
   # ---- Maps ----------------------------------------------------------------------
   maps = list(
+    # ONE TITLE AND ONE (i) FOR EVERY MAP IN THE APP (client, 23 Sept 2026).
+    # The dashboard's map and the report builder's both read these, so the two
+    # cannot drift apart. The PDF's static map is a different picture with a
+    # different caption - see plan$pdf_map_note.
+    title = "Where attempts happened",
+    note = paste(
+      "Each marker is one eradication attempt, coloured and labelled by",
+      "outcome. Hover for a summary, select for the full record. Toggle",
+      "between layers for hydrological, topographic, and satellite imagery."
+    ),
     # The basemap switcher. Named so it reads as a question the reader might
     # ask rather than as a list of vendors.
     basemap_plain     = "Plain",
@@ -113,10 +142,11 @@ FW_COPY <- list(
     # years to one decimal place from there. See fw_popup_duration().
     day_one   = "day",
     day_many  = "days",
-    # Under both interactive maps. Worded by the client.
+    # Under both interactive maps. Worded by the client. Set below the type
+    # floor - see $fw-size-fine in _tokens.scss.
     mercator_note = paste(
-      "Leaflet requires the use of Mercator - when non-Mercator layers are",
-      "available, this will be updated to Equal Earth."
+      "Leaflet currently requires the use of Mercator. This map will be",
+      "updated to Equal Earth when it becomes available."
     ),
     # The accessible name of a group of markers. The count is drawn inside the
     # circle, so this is what says what the number means - to a screen reader,
@@ -206,6 +236,26 @@ FW_COPY <- list(
       " to ",
       later = "opportunities (yellow)",
       "."
+    ),
+
+    # ---- The footnote ----
+    # The last thing on the page, above the footer, spanning its full width and
+    # set below the type floor (client, 23 Sept 2026 - see $fw-size-fine in
+    # _tokens.scss). HTML, not markdown: the two citations are live links and
+    # fw_emphasis() does not make links. Rendered by fw_home_footnote().
+    footnote = paste0(
+      "An article in Nature (<a href=\"",
+      "https://doi.org/10.1038/s41586-024-08375-z\" target=\"_blank\" ",
+      "rel=\"noopener noreferrer\">10.1038/s41586-024-08375-z</a>) found ",
+      "that invasive species have contributed to 55% of freshwater ",
+      "extinctions, second only to dams. Dam removal is scaling fast; ",
+      "freshwater eradications are next. A meta-analysis in Science (<a ",
+      "href=\"https://doi.org/10.1126/science.adj6598\" target=\"_blank\" ",
+      "rel=\"noopener noreferrer\">10.1126/science.adj6598</a>) found that ",
+      "managing invasive species has the “largest impact of [all ",
+      "possible] conservation action”. Eradication is the most ",
+      "effective form of invasive species management: cheaper and more ",
+      "enduring than long-term control."
     )
   ),
 
@@ -227,8 +277,9 @@ FW_COPY <- list(
     db_invasive    = "invasive species targeted",
     db_beneficiary = "species recorded as protected",
     db_beneficiary_tip = paste(
-      "Species protected by the attempt, as recorded by the person",
-      "reporting it. It is recorded less consistently than the species targeted and is likely not a complete record."
+      "Species protected by a SUCCESSFUL eradication, as recorded by the",
+      "person reporting it. It is recorded less consistently than the species",
+      "targeted and is likely not a complete record."
     ),
     in_review = "in review",
     in_review_tip = paste(
@@ -238,7 +289,6 @@ FW_COPY <- list(
 
     # ---- The filters ---------------------------------------------------------
     f_heading = "Narrow the list",
-    f_note = "Filters are off by default. Everything below follows them as you change them.",
 
     # ---- The summary graphics ------------------------------------------------
 
@@ -248,17 +298,9 @@ FW_COPY <- list(
       "method is counted once under each of them, so the bars add up to more",
       "than the number of attempts. Hover a segment for its count."
     ),
-    cumulative = "Eradication attempts over time",
-    cumulative_note = paste(
-      "Attempts counted from the year each one began, adding up over time and",
-      "split by the outcome of the attempt. Attempts with no start year are not on this chart."
-    ),
+    cumulative = "Eradication attempts over time"
 
-    # ---- The map -------------------------------------------------------------
-    map = "Where these attempts happened",
-    map_note = paste(
-      "Each marker is one eradication attempt, coloured and labelled by outcome. Hover for a summary, select for the full record. Toggle between layers for hydrological, topographic, and satellite imagery."
-    )
+    # NO map / map_note HERE EITHER - see maps$title and maps$note.
   ),
 
   # ---- Species and map popups ------------------------------------------------
@@ -294,8 +336,8 @@ FW_COPY <- list(
     p_reference    = "Reference",
     p_read_source  = "Read the source",
     p_download_hint = paste(
-      "Download the data for more details on water volume and flow rates or",
-      "chemical concentrations."
+      "Download the data for more details (e.g., water volume and flow rates",
+      "or chemical concentrations)."
     ),
     more_hint      = "Select for the full record",
     fig_prev       = "Previous species",
@@ -348,20 +390,18 @@ FW_COPY <- list(
     # ---- The tips -------------------------------------------------------------
     #
 
-    tip_continent = paste(
-      "Choose a continent to filter for."
-    ),
+    # NO tip_continent AND NO tip_waterbody (client, 23 Sept 2026). Both
+    # tooltips only restated their label, so the (i) has gone from those two
+    # filters; FW_FILTERS carries tip = NULL for them and fw_field() draws no
+    # button when there is nothing to say.
     tip_country = paste(
       "Country of the eradication attempt(s). Only countries with attempts",
       "recorded in FWISE are listed. If yours is not here, filter by continent",
       "instead - that will show you the closest evidence there is."
     ),
     tip_regime = paste(
-      "Still water (Lentic) is lakes, ponds and reservoirs, etc; flowing water (Lotic)",
-      "is rivers and streams, etc."
-    ),
-    tip_waterbody = paste(
-      "The specific kind of water body rather than the still/flowing split."
+      "Still water is lakes, ponds and reservoirs, etc; flowing water is",
+      "rivers and streams, etc."
     ),
     tip_taxa = paste(
       "The broad group the invasive species belongs to - fish, crayfish, plant etc."
@@ -452,8 +492,9 @@ FW_COPY <- list(
       "Every field of every matching attempt, with the field definitions, the",
       "contacts, the filters you applied and the caveats on their own sheets."
     ),
-    download_csv = "Attempt data, plain text (.csv)",
-    download_csv_note = "The same rows as the spreadsheet, for a data tool rather than Excel.",
+    # NO .csv (client, 23 Sept 2026): it was the spreadsheet's rows a second
+    # time, and the picker now offers the three documents that differ from one
+    # another. The order here is the order of FW_BUNDLE_PARTS in export.R.
     download_pdf = "Report (.pdf)",
     download_pdf_note = paste(
       "This report on FWISE letterhead, ready to print or send: the summary,",
@@ -489,6 +530,17 @@ FW_COPY <- list(
     report_title    = "Eradication attempt planning report",
     report_subtitle = "Generated from the FWISE database on {date}",
     report_selection = "What this report covers",
+    # Under the filters table (client, 23 Sept 2026): what the report is for,
+    # and what it deliberately is not.
+    report_selection_note = paste(
+      "This report provides you with technical and ecological evidence to plan",
+      "your own eradication, based on the specific situation you filtered for.",
+      "Of course, planning an eradication from start to finish requires much",
+      "more information and strategy (such as: regulation; funding; Free,",
+      "prior and informed consent - FPIC; etc.). The table below contains",
+      "contact information of who you could reach out to learn more and move",
+      "forward."
+    ),
     report_where     = "Attempts by country",
     report_footer = paste(
       "FWISE, the Freshwater Invasive Species Eradication database. Data",
@@ -505,21 +557,31 @@ FW_COPY <- list(
 
     # ---- Results -------------------------------------------------------------
     r_heading    = "What the matching attempts show",
-    r_attempts   = "attempts",
-    r_countries  = "countries",
-    r_species    = "invasive species",
+    # EACH LABEL IS A PAIR, singular and plural, and fw_plural() picks between
+    # them against the figure above it (client, 23 Sept 2026: one country was
+    # labelled "countries"). "year range" has no singular - it is a range
+    # whatever it spans - so it stays a single string.
+    r_attempts_one  = "attempt",
+    r_attempts      = "attempts",
+    r_countries_one = "country",
+    r_countries     = "countries",
+    r_species_one   = "invasive species",
+    r_species       = "invasive species",
     # Shown after a ">" on the figure: beneficiaries are under-recorded, so the
-    # count is a floor rather than a total. See db_beneficiary_tip.
+    # count is a floor rather than a total. See db_beneficiary_tip. The figure
+    # counts only species protected by SUCCESSFUL attempts (client, 23 Sept
+    # 2026) - see fw_plan_summary().
+    r_beneficiaries_one = "species protected",
     r_beneficiaries = "species protected",
     r_years      = "year range",
     r_outcomes   = "Outcomes",
     r_outcome_note = paste(
       "All four states are shown. Failure is as important to know about as success."
     ),
-    r_map        = "Where these attempts happened",
-    r_map_note   = paste(
-      "Each marker is labelled with its outcome as well as coloured by it."
-    ),
+    # NO r_map / r_map_note HERE. Every map in the app carries the same
+    # heading and the same (i) (client, 23 Sept 2026), so both live in the
+    # `maps` block as maps$title and maps$note. Reword them there and both
+    # maps follow.
     r_map_missing = "{n} of these attempts have no coordinates and are not on the map.",
 
     r_waterbody  = "What kind of water",
@@ -541,14 +603,7 @@ FW_COPY <- list(
     r_method_mode  = "Show",
     r_method_share = "Share of attempts",
     r_method_count = "Number of attempts",
-    r_method_missing = "{n} of these attempts have no method recorded and are not in the two method charts.",
-
-    r_method_wb  = "Methods used by waterbody",
-    r_method_wb_note = paste(
-      "The methods used in each kind of waterbody, counted once per attempt."
-    ),
-    r_method_wb_share = "Share of uses",
-    r_method_wb_count = "Number of uses",
+    r_method_missing = "{n} of these attempts have no method recorded and are not on the method chart.",
 
     # ---- The species tiles ----------------------------------------------------
 
@@ -597,7 +652,6 @@ FW_COPY <- list(
     progress_title   = "Preparing your download",
     progress_txt     = "Writing the methods and caveats",
     progress_xlsx    = "Building the spreadsheet",
-    progress_csv     = "Writing the CSV",
     progress_charts  = "Drawing the charts and map",
     progress_pdf     = "Typesetting the PDF report",
     progress_records = "Writing the attempts file",
@@ -694,28 +748,80 @@ FW_COPY <- list(
       )
     ),
 
-    # [PLACEHOLDER] AWAITING THE CLIENT'S LIST. Each entry is a name, a URL and
-    # one line saying what it holds that FWISE does not - the last of those is
-    # the point of the panel, because a bare list of links does not tell anyone
-    # which one to follow.
+    # ---- Methods glossary ----------------------------------------------------
+    # ONE ENTRY PER METHOD THE DATA ACTUALLY RECORDS, and the `term` strings
+    # match the values in attempts.csv$methods exactly - Rotenone, Netting /
+    # Trapping, Electrofishing, Antimycin-A, Draining, Other chemical, Other
+    # mechanical - so a reader who meets a method on a chart finds it here
+    # under the same name. If a new method is added to the vocabulary, add it
+    # here too; dev/value_test.R checks the two lists against each other.
+    glossary_heading = "Methods glossary",
+    glossary_summary = "What each eradication method on the charts means",
+    glossary_items = list(
+      list(term = "Rotenone", body = paste(
+        "A naturally occurring chemical compound found in the roots of",
+        "bean-family plants that has been used by Indigenous people for",
+        "millennia as a fish toxicant. It works by blocking respiration in",
+        "their gills, and has no effect on air-breathing animals like mammals",
+        "(including humans).")),
+      list(term = "Netting / Trapping", body = paste(
+        "Any type of net or trap used to capture invasive fish.")),
+      list(term = "Electrofishing", body = paste(
+        "Using a controlled current to shock and stun invasive fish so they",
+        "can be captured with a dip net.")),
+      list(term = "Antimycin-A", body = paste(
+        "A naturally occurring bacterium that is used as a fish toxicant. It",
+        "is grown through fermentation.")),
+      list(term = "Draining", body = paste(
+        "Removing water from the entire lake or stream so that no invasive",
+        "fish survive.")),
+      # [PLACEHOLDER] AWAITING AN EXAMPLE OR TWO FROM THE CLIENT (23 Sept
+      # 2026), marked the same way about$method_paper and export$methods are.
+      list(term = "Other chemical methods", body = paste(
+        "[PLACEHOLDER] An example or two of the other chemical methods",
+        "recorded under this heading.")),
+      list(term = "Other mechanical methods", body = paste(
+        "[PLACEHOLDER] An example or two of the other mechanical methods",
+        "recorded under this heading."))
+    ),
+
+    # ---- Related databases ---------------------------------------------------
+    # The client's list (23 Sept 2026). Names and URLs only: these are
+    # well-known resources and the client did not want a line of our own
+    # characterising each one, so fw_about_related() draws the note only when
+    # an entry carries one.
     related_heading = "Related databases",
     related_summary = "Where to look for what FWISE does not hold",
     related = paste(
-      "[PLACEHOLDER] Other databases worth knowing about if FWISE does not have",
-      "what you need."
+      "Other databases worth knowing about if FWISE does not have what you",
+      "need."
     ),
     related_items = list(
-      list(name = "[PLACEHOLDER] Database one", url = "#",
-           note = "What it holds that FWISE does not."),
-      list(name = "[PLACEHOLDER] Database two", url = "#",
-           note = "What it holds that FWISE does not."),
-      list(name = "[PLACEHOLDER] Database three", url = "#",
-           note = "What it holds that FWISE does not.")
+      list(name = "Global Invasive Species Database (GISD)",
+           url = "https://www.iucngisd.org/gisd/"),
+      list(name = "Global Register of Introduced and Invasive Species (GRIIS)",
+           url = "https://griis.org"),
+      list(name = "Global Fish Invasions Database (GFID)",
+           url = "https://zenodo.org/records/22694143"),
+      list(name = "SHOAL 1000 fishes",
+           url = "https://shoalconservation.org/1000-fishes/"),
+      list(name = paste("One-quarter of freshwater fauna threatened with",
+                        "extinction"),
+           url = "https://www.iucnredlist.org/resources/data-repository"),
+      list(name = "Global Lakes and Wetlands Database (GLWD)",
+           url = "https://www.hydrosheds.org/products/glwd"),
+      list(name = "Database of Island Invasive Species Eradications (DIISE)",
+           url = "https://diise.islandconservation.org"),
+      list(name = paste("95 freshwater-relevant online data systems for",
+                        "biodiversity"),
+           url = paste0("https://docs.google.com/spreadsheets/d/",
+                        "1CAo6m2HnFET4IdoSORcy4OIYrtG2SAS3Ijj75j7FUMQ/edit",
+                        "?gid=1303723149#gid=1303723149"))
     ),
 
-    # ---- Other information ---------------------------------------------------
+    # ---- More on the solution ------------------------------------------------
 
-    other_heading = "Other information",
+    other_heading = "More on the solution",
     other_summary = "Species photographs, licence and links",
     images_heading = "Species photographs",
     licence_heading = "Licence",
@@ -728,7 +834,6 @@ FW_COPY <- list(
     # its own at the foot of the page and is deliberately NOT one of the panels
     # above: a reader who has found something wrong should not have to open
     # anything to say so.
-    fb_heading = "Tell us what is wrong",
     fb_body = paste(
       "If a record is wrong, a species is misnamed, or something on this site",
       "does not work, we would rather hear it than not. There are no accounts",
@@ -745,7 +850,7 @@ FW_COPY <- list(
     fb_empty = "Write your message first, then select Open this in your email.",
     fb_sent = "Your email program should now be open with the message ready.",
     fb_subject = "FWISE feedback",
-    feedback_email = "hello@example.org" # [PLACEHOLDER] awaiting the real address
+    feedback_email = "fwise@fwlife.org"
   ),
 
   # ---- Contacts --------------------------------------------------------------
@@ -768,7 +873,11 @@ FW_COPY <- list(
       "the FWISE team and we will try to point you to someone who can help."
     ),
     outro_action = "Email the FWISE team",
-    outro_email  = "hello@example.org", 
+    # IN TWO HALVES, joined in the browser - see the footer's contact_user /
+    # contact_domain and the note at fw_footer_contact(). The single-string
+    # outro_email that was here served the whole address in the markup.
+    outro_user   = "fwise",
+    outro_domain = "fwlife.org",
 
     filter_continent = "Continent",
     filter_country   = "Country",

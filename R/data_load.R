@@ -555,10 +555,20 @@ fw_species_label <- function(species) {
 #' A contact attached to attempts in more than one country belongs to all of
 #' them, so country and continent are list columns rather than single values.
 #'
-#' REDACTION: where email_public is FALSE the address is replaced with NA here,
-#' before the data reaches any session. The Networking page reads only from this
-#' function, so a redacted address never enters the browser and cannot be
-#' recovered from anything served to it.
+#' REDACTION: a contact whose email_public is FALSE is DROPPED here, name and
+#' all, before the data reaches any session. The Networking page and the report
+#' builder's contacts block both read only from this function, so a private
+#' contact never enters the browser and cannot be recovered from anything served
+#' to it.
+#'
+#' THE NAME GOES WITH THE ADDRESS (client, 23 Sept 2026). This used to blank the
+#' address and keep the row, which left the directory listing people by name and
+#' organisation with an empty action beside them - identifying them publicly
+#' while implying they had something to hide. Someone who did not agree to be
+#' contacted here is not listed here.
+#'
+#' The attempts themselves are untouched: every record still travels in full,
+#' and an attempt whose only contact is private simply has nobody to write to.
 fw_contacts_summary <- function(data) {
   # Both contact slots on an attempt count towards that contact's totals.
   links <- bind_rows(
@@ -580,14 +590,16 @@ fw_contacts_summary <- function(data) {
     )
 
   data$contact |>
+    # THE REDACTION ITSELF. Do not move this downstream, and do not soften it
+    # into a blanked column: the row must not exist, or the name is still here
+    # for anything that later decides to read it.
+    filter(email_public) |>
     left_join(derived, by = "contact_id") |>
     mutate(
       attempt_count = coalesce(attempt_count, 0L),
       countries  = map(countries,  ~ if (is.null(.x)) character(0) else .x),
       continents = map(continents, ~ if (is.null(.x)) character(0) else .x),
       attempt_ids = map(attempt_ids, ~ if (is.null(.x)) character(0) else .x),
-      # The redaction itself. Do not move this downstream.
-      contact_email = if_else(email_public, contact_email, NA_character_),
       country_label   = map_chr(countries,  ~ paste(.x, collapse = ", ")),
       continent_label = map_chr(continents, ~ paste(.x, collapse = ", "))
     ) |>

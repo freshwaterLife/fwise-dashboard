@@ -41,10 +41,23 @@
 // THE FLOOR, which is $fw-size-min and is currently 1.05rem. It is a VALUE
 // THAT MOVES - it has been 1rem and is now a step above that - so never write
 // the number: no text that stays on the page may be set below $fw-size-min, and
-// the way to honour that is to use the token. $fw-size-popup is the one
-// exemption, for transient overlays (the (i) popovers and the map card) only.
-// If the thing you are sizing does not disappear when the user clicks
-// elsewhere, it is the wrong token.
+// the way to honour that is to use the token.
+//
+// TWO TOKENS ARE EXEMPT FROM IT, and both are client instructions:
+//
+//   $fw-size-popup  transient overlays only - the (i) popovers and the map
+//                   hover card. If the thing you are sizing does not disappear
+//                   when the user clicks elsewhere, it is the wrong token.
+//
+//   $fw-size-fine   small print that qualifies the page without competing with
+//                   it (client, 23 Sept 2026). THREE CALLERS, and the list is
+//                   the whole permission: .fw-home-footnote, .fw-map-note, and
+//                   the report's filters table on paper (fw-small, set from
+//                   FW_TYPE$size_fine in R/report_pdf.R). Do not reach for it
+//                   for a fourth thing - ask whether the floor has moved.
+//
+// Everything else on the page, including every caption and note NOT named
+// above, holds the floor.
 //
 // $fw-size-min IS NOT THE SAME VALUE AS $fw-size-caption and the two are not
 // interchangeable: $fw-size-caption for subtitles, notes and small print that

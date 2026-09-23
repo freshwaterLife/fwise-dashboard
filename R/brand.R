@@ -141,6 +141,21 @@ FW_TYPE <- list(
   size_min     = "1.05rem",    # THE FLOOR. Not a step on the scale; do not lower.
   size_popup   = "0.9rem",     # THE ONE EXEMPTION: transient overlays only
 
+  # THE THIRD EXEMPTION, and like the other two it is a client instruction
+  # rather than a drift (23 Sept 2026): "smaller than 1rem", for small print
+  # that qualifies the page without competing with it. THREE PLACES ONLY -
+  # the Welcome page's evidence footnote, the Mercator note under both maps,
+  # and, on paper, the report's "What this report covers" table (fw-small in
+  # fw_pdf_tokens()).
+  #
+  # 0.95rem, not the 0.8rem the credits take: this is running prose a reader
+  # is expected to read through, where a credit is a line they glance at.
+  #
+  # THE FLOOR STILL STANDS FOR EVERYTHING ELSE. If a fourth caller wants this,
+  # that is the point at which to ask the client whether the floor has moved
+  # rather than to add it here.
+  size_fine    = "0.95rem",    # footnotes and map notes. See $fw-size-fine.
+
   # THE SECOND EXEMPTION, and a client instruction rather than a drift. A
   # photograph's credit line is an obligation under the licence - it has to be
   # present and legible - but in the dashboard's attempts table it sits under
@@ -181,6 +196,26 @@ FW_TYPE <- list(
 # are drawn at their printed size, so a label set at `floor` in ggplot prints
 # at `floor`.
 fw_rem_pt <- function(rem) 12 * as.numeric(sub("rem$", "", rem))
+# THE PRINTED MAP'S OWN COLOURS, and the one place in the app where water and
+# land are drawn as themselves rather than as surface tones (client, 23 Sept
+# 2026). Everywhere else the map is a ground for data - light land, slightly
+# darker sea, both from the neutral palette - because colour there belongs to
+# the outcome dots. On paper the client asked for it to read as a map.
+#
+# MUTED ON PURPOSE. These sit under the four Wong outcome colours, which are
+# the data, and a saturated green would compete with the dots sitting on it.
+# Both are well below the outcome palette in chroma; check with
+# dev/check_contrast.R if either is changed.
+#
+# `frame` is the figure's border, its ticks and the scale bar: one dark grey,
+# stated once, so the three read as parts of the same edge.
+FW_MAP_PRINT <- list(
+  land    = "#dbe6d4",   # pale green
+  water   = "#cfe0ea",   # pale blue - the sea, and every lake
+  outline = "#9aa89a",   # coastlines and lake edges
+  frame   = "#4a4f53"    # the border, the ticks and the scale bar
+)
+
 FW_PRINT <- list(
   floor   = fw_rem_pt(FW_TYPE$size_min),
   title   = 24,

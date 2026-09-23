@@ -218,16 +218,19 @@ fw_attempt_records <- function(data, sel) {
       .groups = "drop"
     )
 
-  # EMAIL PASSES THROUGH THE email_public GATE AND NOTHING ELSE. Same expression
-  # as fw_export_frame(); see the note above fw_map_detail_html() for why an
-  # address is shown here at all.
+  # THE WHOLE CONTACT PASSES THROUGH THE email_public GATE, name included
+  # (client, 23 Sept 2026). Same rule as fw_export_frame() and
+  # fw_contacts_summary(); see the note above fw_map_detail_html() for why an
+  # address is shown here at all. A private contact leaves the record's
+  # Contacts row empty, which draws as "Not noted" - the attempt is still
+  # there in full, there is simply nobody named to write to about it.
   contacts <- data$contact |>
     dplyr::transmute(
       contact_id,
-      contact_name,
+      contact_name  = dplyr::if_else(email_public, contact_name, NA_character_),
       contact_email = dplyr::if_else(email_public, contact_email,
                                      NA_character_),
-      organisation
+      organisation  = dplyr::if_else(email_public, organisation, NA_character_)
     )
 
   out <- pts |>
@@ -353,6 +356,38 @@ fw_popup_duration <- function(days) {
         fw_t("maps", "year_many"))
 }
 
+#' The treated size, with its unit
+#'
+#' ONE FORMATTER FOR BOTH CARDS. The hover card gained this field on 23 Sept
+#' 2026, beside the kind of water; the detail panel has always had it, and the
+#' two printed the same number differently for a week. The unit comes off the
+#' row (`area_unit`: hectares for still water, kilometres for flowing), so a
+#' figure never appears without one.
+#'
+#' NA when nothing is recorded, which fw_popup_row() shows as "Not noted" and
+#' which fw_popup_waterbody() treats as "no size to add".
+fw_popup_area <- function(row) {
+  if (length(row$area_treated) != 1 || is.na(row$area_treated)) {
+    return(NA_character_)
+  }
+  paste(format(row$area_treated, big.mark = ",", trim = TRUE),
+        row$area_unit %|na|% "")
+}
+
+#' The kind of water, with the treated size after it
+#'
+#' "Lake (120 ha)", or just "Lake" where no size was recorded (client, 23 Sept
+#' 2026). One row rather than two: the size is a property of the water body
+#' being described, and on a hover card meant to be read at a glance it earns
+#' its place beside it rather than on a line of its own.
+fw_popup_waterbody <- function(row) {
+  kind <- row$waterbody_type
+  area <- fw_popup_area(row)
+  if (is.na(area)) return(kind)
+  if (length(kind) != 1 || is.na(kind) || !nzchar(kind)) return(area)
+  paste0(kind, " (", area, ")")
+}
+
 #' The hover card: enough to decide whether to open the record
 #'
 #' PHOTOGRAPHS, AND THIS IS A REVERSAL. The card carried none, on the
@@ -397,11 +432,16 @@ fw_map_hover_html <- function(row, thumbs = NULL, thumb_ref = FALSE) {
     # The id is how a click asks the server for the rest of the record when
     # the detail is not embedded. See fw_add_attempt_markers().
     '<div class="fw-popup" data-fw-id="', esc(row$attempt_id), '">',
-    # THE FIELDS, IN THE CLIENT'S ORDER (21 Sept 2026), every one always
+    # THE FIELDS, IN THE CLIENT'S ORDER (23 Sept 2026), every one always
     # drawn: Location and Country unlabelled, then Targeted, Protected,
-    # Outcome, Years, Duration, Method(s) and Kind of water. A field with
+    # Outcome, Years, Duration, Kind of water and Method(s). A field with
     # nothing in it says "Not noted" - see fw_popup_row(). The photographs sit
     # between the place and the rows, as they did.
+    #
+    # KIND OF WATER MOVED ABOVE METHOD(S) and picked up the treated size in
+    # the same round - see fw_popup_waterbody(). The setting is what a reader
+    # is matching against their own site, so it comes before what was done
+    # about it.
     '<h3 class="fw-popup__title">',
     esc(row$site_name %|na|% fw_t("species", "p_not_noted")),
     "</h3>",
@@ -414,9 +454,9 @@ fw_map_hover_html <- function(row, thumbs = NULL, thumb_ref = FALSE) {
     fw_popup_row(fw_t("species", "p_began"),
                  fw_popup_years(row$start_year, row$end_year)),
     fw_popup_row(fw_t("species", "p_duration"), fw_popup_duration(row$duration_days)),
+    fw_popup_row(fw_t("species", "p_waterbody"), fw_popup_waterbody(row)),
     fw_popup_row(fw_t("species", "p_methods"), fw_popup_list(row$method_names),
                  html = TRUE),
-    fw_popup_row(fw_t("species", "p_waterbody"), row$waterbody_type),
     # A BUTTON, NOT A LINE OF QUIET TEXT. It read as a caption and the client
     # reported readers not realising the card opened into anything.
     #
@@ -626,10 +666,7 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
     if (!is.na(org) && nzchar(org)) paste0(who, ", ", esc(org)) else who
   }
 
-  area <- if (!is.na(row$area_treated)) {
-    paste(format(row$area_treated, big.mark = ",", trim = TRUE),
-          row$area_unit %|na|% "")
-  } else NA_character_
+  area <- fw_popup_area(row)
 
   # CONTACTS AS A LIST, primary then secondary, replacing the separate
   # "Recorded by" and "Also recorded by" rows.

@@ -49,11 +49,17 @@ fw_plan_results_ui <- function(ns) {
                    class = "btn btn-primary fw-plan__download-open",
                    icon = icon("download"))
     ),
+    # THE ORDER BELOW IS THE CLIENT'S (23 Sept 2026) and is not arbitrary: the
+    # counts, then who is involved, then where, then what happened, then what
+    # it happened in, then what was done, then how long it took. Setting and
+    # outcome before method, so a reader meets the evidence base before the
+    # techniques. The PDF report follows the same sequence - see fw_pdf_body()
+    # in R/report_pdf.R - with one exception noted there.
     uiOutput(ns("summary")),
     uiOutput(ns("species")),
 
     fw_block(
-      fw_t("plan", "r_map"), fw_t("plan", "r_map_note"),
+      fw_t("maps", "title"), fw_t("maps", "note"),
       tagList(
         fw_map_output(ns("map")),
         fw_map_note(),
@@ -65,6 +71,23 @@ fw_plan_results_ui <- function(ns) {
       fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
       uiOutput(ns("outcome_bars"))
     ),
+
+    # ---- What kind of water -----------------------------------------------
+
+    fw_block(
+      fw_t("plan", "r_waterbody"), fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
+      tagList(
+        # Its own toggle, like the method chart. The denominator here is
+        # the kind of water's own attempts, so share answers "in a lake, how
+        # often did it work" - and the count stays in the bar's label either
+        # way, so a share off four attempts still shows it is off four.
+        fw_mode_toggle(ns("waterbody_mode"),
+                       fw_t("plan", "r_waterbody_count"),
+                       fw_t("plan", "r_waterbody_share")),
+        plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
+      )
+    ),
+
     fw_block(
       fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
       tagList(
@@ -81,6 +104,11 @@ fw_plan_results_ui <- function(ns) {
 
     # ---- How long ---------------------------------------------------------
     #
+    # THERE WAS A METHODS-BY-WATERBODY CHART AFTER THIS ONE and the client
+    # deleted it outright (23 Sept 2026), along with its data half, its ggplot
+    # twin in the PDF, its copy, its palettes and its toggle. It asked a
+    # crossed question that neither axis answered well, and the two charts
+    # above it already carry both halves.
 
     fw_block(
       fw_t("plan", "r_duration"), fw_t("plan", "r_duration_note"),
@@ -89,34 +117,6 @@ fw_plan_results_ui <- function(ns) {
         uiOutput(ns("duration_missing"))
       )
     ),
-
-    # ---- What kind of water -----------------------------------------------
-
-    fw_block(
-      fw_t("plan", "r_waterbody"), fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
-      tagList(
-        # Its own toggle, like the two method charts. The denominator here is
-        # the kind of water's own attempts, so share answers "in a lake, how
-        # often did it work" - and the count stays in the bar's label either
-        # way, so a share off four attempts still shows it is off four.
-        fw_mode_toggle(ns("waterbody_mode"),
-                       fw_t("plan", "r_waterbody_count"),
-                       fw_t("plan", "r_waterbody_share")),
-        plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
-      )
-    ),
-
-
-    fw_block(
-      fw_t("plan", "r_method_wb"), fw_t("plan", "r_method_wb_note"),
-      tagList(
-        fw_mode_toggle(ns("method_wb_mode"),
-                       fw_t("plan", "r_method_wb_count"),
-                       fw_t("plan", "r_method_wb_share")),
-        plotly::plotlyOutput(ns("chart_method_waterbody"), height = "auto")
-      )
-    ),
-
 
     fw_block(
       fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note"),
@@ -299,7 +299,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
     # COUNT LEADS ON EVERY BUILD. toggle for %.
     observeEvent(input$build, {
-      for (id in c("method_mode", "method_wb_mode", "waterbody_mode")) {
+      for (id in c("method_mode", "waterbody_mode")) {
         if (!identical(input[[id]] %||% "count", "count")) {
           updateRadioButtons(session, id, selected = "count")
         }
@@ -384,12 +384,6 @@ mod_plan_server <- function(id, data, meta = NULL) {
     })
     # Its own toggle, same reason: it redraws the same numbers a different way
     # and does not change the selection.
-    output$chart_method_waterbody <- plotly::renderPlotly({
-      fw_chart_or_empty(
-        fw_chart_method_waterbody(data, results()$sel,
-                                  mode = input$method_wb_mode %||% "count"))
-    })
-    # Same again: the toggle redraws the same numbers, it does not reselect.
     output$chart_waterbody <- plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_waterbody(results()$sel,
                                            mode = input$waterbody_mode %||% "count")))
@@ -465,7 +459,6 @@ mod_plan_server <- function(id, data, meta = NULL) {
             path = file, parts = input$download_parts, data = data,
             sel = r$sel, export = r$export, filters = r$filters, meta = meta,
             method_mode = input$method_mode %||% "count",
-            method_wb_mode = input$method_wb_mode %||% "count",
             waterbody_mode = input$waterbody_mode %||% "count",
             progress = function(value, detail) setProgress(value, detail = detail)
           )
@@ -509,11 +502,14 @@ fw_plan_download_ui <- function(ns, pdf = fw_pdf_available()) {
   part <- function(id, label, note) {
     list(id = id, label = label, note = note)
   }
+  # THE READING ORDER, NOT THE FILE-SIZE ORDER (client, 23 Sept 2026): the
+  # finished report first, then every record in full, then the raw spreadsheet
+  # last. It matches FW_BUNDLE_PARTS in R/export.R, which is the order the
+  # files are written and named in; keep the two in step.
   parts <- list(
-    part("xlsx", fw_t("plan", "download_xlsx"), fw_t("plan", "download_xlsx_note")),
-    part("csv",  fw_t("plan", "download_csv"),  fw_t("plan", "download_csv_note")),
     part("pdf",  fw_t("plan", "download_pdf"),  fw_t("plan", "download_pdf_note")),
-    part("records", fw_t("plan", "download_records"), fw_t("plan", "download_records_note"))
+    part("records", fw_t("plan", "download_records"), fw_t("plan", "download_records_note")),
+    part("xlsx", fw_t("plan", "download_xlsx"), fw_t("plan", "download_xlsx_note"))
   )
   # NO PDF CHECKBOX WHERE NO PDF CAN BE MADE. Only tickable is quarto is present - it is in
   # Posit - sometimes not locally if working locally. 

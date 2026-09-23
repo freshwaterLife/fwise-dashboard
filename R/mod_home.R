@@ -32,7 +32,8 @@ mod_home_ui <- function(id, stats) {
                   fw_home_tile(key, fw_t("home", "stories", key), FW_HOME_IMG$stories[[key]])
                 })),
             fw_home_compare(ns("map_reveal"))
-          )
+          ),
+          fw_home_footnote()
         )
       ),
       # THE LETTERED PLATE, not the tile's drawing. The card is where the
@@ -58,6 +59,19 @@ mod_home_server <- function(id, data) {
 # ---- Pieces ------------------------------------------------------------------
 
 fw_home_card_id <- function(key) paste0("fw-home-story-", key)
+
+#' The evidence footnote, the last thing on the page above the footer
+#'
+#' RAW HTML, and deliberately not markdown through fw_emphasis(): the two
+#' citations are live links and fw_emphasis() only makes <strong>. The copy is
+#' ours, in R/copy.R, so there is no untrusted input here to escape.
+#'
+#' It spans the full container rather than sitting in the species/map grid, and
+#' it is the one place in the app set below the type floor - see
+#' .fw-home-footnote and $fw-size-fine in _components.scss.
+fw_home_footnote <- function() {
+  p(class = "fw-home-footnote", HTML(fw_t("home", "footnote")))
+}
 
 #' A picture, or the placeholder box when the client has not supplied one
 fw_home_art <- function(src, alt) {
@@ -109,10 +123,14 @@ fw_home_card <- function(key, s, img) {
     ),
     div(
       class = "fw-home-card__body",
+      # NO FIGCAPTION (client, 23 Sept 2026). The plate a card shows is the
+      # hand-lettered one - FW_HOME_IMG$stories_named - which already carries
+      # the common name and the binomial in the artwork, so a caption under it
+      # printed the name a second time. The name is still announced: it is in
+      # the tile button's label and in this figure's alt text.
       tags$figure(
         class = "fw-story__figure",
-        div(class = "fw-story__art", fw_home_art(img, sp$alt)),
-        tags$figcaption(sp$name)
+        div(class = "fw-story__art", fw_home_art(img, sp$alt))
       ),
       div(
         class = "fw-home-card__text",

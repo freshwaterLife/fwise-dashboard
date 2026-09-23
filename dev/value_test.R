@@ -82,8 +82,17 @@ ok("summary: attempts",  ps$attempts,  nrow(sel1))
 ok("summary: countries", ps$countries, length(unique(sel1$country)))
 ok("summary: species",   ps$species,
    length(unique(asp$species_id[asp$role == "invasive" & asp$attempt_id %in% sel1$attempt_id])))
-ok("summary: species protected", ps$beneficiaries,
-   length(unique(asp$species_id[asp$role == "beneficiary" & asp$attempt_id %in% sel1$attempt_id])))
+# SUCCESSFUL ATTEMPTS ONLY (client, 23 Sept 2026). A species on an attempt
+# that failed was not protected by it, so the strip's figure narrows to the
+# ones that worked - the same rule fw_headline_stats()$protected has always
+# applied on the Welcome page.
+won1 <- sel1$attempt_id[sel1$outcome %in% "Successful"]
+ok("summary: species protected counts successful attempts only", ps$beneficiaries,
+   length(unique(asp$species_id[asp$role == "beneficiary" & asp$attempt_id %in% won1])))
+ok("summary: and that is fewer than every attempt would give",
+   ps$beneficiaries <=
+     length(unique(asp$species_id[asp$role == "beneficiary" &
+                                    asp$attempt_id %in% sel1$attempt_id])))
 ok("summary: no methods count any more", is.null(ps$methods))
 ok("summary: the strip shows protected as a floor",
    grepl(paste0("&gt;", fw_fmt_num(ps$beneficiaries)), as.character(fw_plan_summary_ui(ps)), fixed = TRUE))
@@ -132,16 +141,26 @@ try(testServer(mod_about_server, args = list(data = d, meta = m), {
 }), silent = TRUE)
 ok("about: the page renders", !is.na(about_html) && nchar(about_html) > 1000)
 # Every heading on the page, whether it is an always-visible section or the
-# summary of one of the five disclosures. Add a section, add it here.
+# summary of one of the six disclosures. Add a section, add it here.
 ok("about: every section heading is present",
-   all(vapply(c("database", "signup", "cite", "caveats", "method",
+   all(vapply(c("database", "signup", "cite", "caveats", "method", "glossary",
                 "related", "other", "images", "licence", "links"),
               function(k) grepl(fw_t("about", paste0(k, "_heading")), about_html, fixed = TRUE),
               logical(1))))
 # The panels are click-to-open, and a <details> that lost its <summary> is a
 # block of prose nobody can close.
-ok("about: the five panels are disclosures",
-   lengths(regmatches(about_html, gregexpr("fw-disclosure__summary", about_html)))[[1]], 5L)
+ok("about: the six panels are disclosures",
+   lengths(regmatches(about_html, gregexpr("fw-disclosure__summary", about_html)))[[1]], 6L)
+
+# THE GLOSSARY NAMES THE METHODS THE DATA ACTUALLY HOLDS (client, 23 Sept
+# 2026). A term that does not match a value in attempts.csv$methods sends a
+# reader looking for something the charts never say.
+glossary_terms <- vapply(fw_t("about", "glossary_items"), function(it) it$term, "")
+ok("about: every method in the data has a glossary entry",
+   all(d$method$method_name %in% sub(" methods$", "", glossary_terms)))
+ok("about: and every glossary entry is drawn",
+   all(vapply(glossary_terms, function(t) grepl(t, about_html, fixed = TRUE),
+              logical(1))))
 # The preamble moved to Contribute only. If it comes back here, the page opens
 # on scope rules again.
 ok("about: no eradication preamble",
@@ -273,10 +292,20 @@ ben_rows <- unique(data.frame(
 
 # The database panel. Never filtered, so these are the whole-table counts.
 ok("explore db: beneficiary species", s$beneficiaries, length(unique(ben_rows$species_id)))
+won_all <- a$attempt_id[a$outcome %in% "Successful"]
+ok("explore db: protected counts only successful attempts", s$protected,
+   length(unique(ben_rows$species_id[ben_rows$attempt_id %in% as.character(won_all)])))
+ok("explore db: and that is fewer than every beneficiary recorded",
+   s$protected < s$beneficiaries)
 ok("explore db: latest year", s$latest_year, max(a$start_year, na.rm = TRUE))
 db <- strip(fw_explore_db_panel(s, 7L))
 for (v in list(c("attempts", nrow(a)), c("countries", length(unique(a$country))),
-               c("invasive", s$species), c("beneficiaries", s$beneficiaries),
+               c("invasive", s$species),
+               # SUCCESSFUL ATTEMPTS ONLY (client, 23 Sept 2026): the tile
+               # shows s$protected, not s$beneficiaries. The two differ, and
+               # the assertion below checks they still do - otherwise this
+               # would pass against either.
+               c("protected", s$protected),
                c("in review", 7L))) {
   ok(paste("explore db: panel names the", v[1], "count"),
      grepl(fw_fmt_num(as.integer(v[2])), db, fixed = TRUE))
@@ -408,11 +437,15 @@ if (nrow(no_ben)) {
      grepl(fw_popup_thumb_unrecorded(),
            fw_record_detail_html(nb, d$species), fixed = TRUE))
 }
-# THE CARD'S FIELDS, IN THE CLIENT'S ORDER (21 Sept 2026), EVERY ONE DRAWN.
-# Location and country unlabelled, then nine labelled rows. Recorded by is
+# THE CARD'S FIELDS, IN THE CLIENT'S ORDER (23 Sept 2026), EVERY ONE DRAWN.
+# Location and country unlabelled, then the labelled rows. Recorded by is
 # gone from the card. A blank field says "Not noted".
+#
+# KIND OF WATER NOW SITS ABOVE METHOD(S) - the setting a reader is matching
+# their own site against comes before what was done about it - and carries the
+# treated size in brackets. Both are asserted below.
 hover_keys <- c("p_targeted", "p_protected", "p_outcome", "p_began",
-                "p_duration", "p_methods", "p_waterbody")
+                "p_duration", "p_waterbody", "p_methods")
 key_pos <- function(html, key) regexpr(paste0('fw-popup__key">', fw_t("species", key), "<"),
                                        html, fixed = TRUE)
 ok("hover: every card has every field, in order",
@@ -424,8 +457,26 @@ ok("hover: every card names its country, unlabelled",
    all(grepl('class="fw-popup__place', cards, fixed = TRUE)))
 ok("hover: no card carries a Recorded by row",
    any(grepl("Recorded by", cards, fixed = TRUE)), FALSE)
+# THE KIND OF WATER CARRIES THE TREATED SIZE, in brackets after it.
+sized <- map_pts[!is.na(map_pts$area_treated) & !is.na(map_pts$waterbody_type), ]
+if (nrow(sized)) {
+  sz <- sized[1, ]
+  ok("hover: kind of water carries the size and its unit",
+     grepl(paste0(sz$waterbody_type, " (", fw_popup_area(sz), ")"),
+           fw_map_hover_html(sz), fixed = TRUE))
+  ok("hover: and the size is the same string the record panel prints",
+     grepl(fw_popup_area(sz), fw_record_detail_html(sz, d$species), fixed = TRUE))
+}
+# No size recorded: the kind of water stands alone, with no empty brackets.
+nosize <- map_pts[is.na(map_pts$area_treated) & !is.na(map_pts$waterbody_type), ]
+if (nrow(nosize)) {
+  ok("hover: no size recorded leaves the kind of water bare",
+     fw_popup_waterbody(nosize[1, ]), nosize$waterbody_type[1])
+}
+
 blank_row <- map_pts[1, ]
-blank_row$waterbody_type <- NA; blank_row$method_names <- NA
+blank_row$waterbody_type <- NA; blank_row$area_treated <- NA
+blank_row$method_names <- NA
 blank_row$duration_days <- NA; blank_row$start_year <- NA
 blank_row$inv_list <- NA; blank_row$country <- NA
 blank_card <- fw_map_hover_html(blank_row)
@@ -828,10 +879,6 @@ ok("method: and there is at least one to check",
 tr_count <- traces(fw_chart_method(d, all_sel, "count"))
 ok("method: count mode labels stay counts",
    all(grepl("^[0-9]+$", label_text(tr_count))))
-# The same fix, the same bug, the other chart.
-ok("method by waterbody: share mode labels are percentages too",
-   all(grepl("%$", label_text(traces(fw_chart_method_waterbody(d, all_sel, "share"))))))
-
 # THE TWO "OTHER" METHODS SIT AT THE BOTTOM whatever their counts. plotly draws
 # the first category at the bottom, so they must come FIRST in the level order.
 # Asserted on the ids in FW_METHOD_OTHER rather than the display names, which is
@@ -926,8 +973,22 @@ ok("duration: and that range is in log10, close around the data",
 # THE TICKS ARE THE THIRD SPACE: data units, logged by plotly itself. Wrapping
 # them in log10() bunches them into the left tenth of the axis and loses "1 day"
 # entirely, because log10(0) is -Inf.
+dur_days <- fw_duration_sel(d, all_sel)$duration_days
 ok("duration: the tick values are day counts, not log10 of them",
-   identical(dur_x$tickvals, FW_CHART$duration_ticks))
+   identical(dur_x$tickvals, fw_duration_ticks(dur_days)$vals))
+# THE AXIS REACHES THE LAST DOT (client, 23 Sept 2026). The fixed breaks stop
+# at ten years, so a longer selection used to draw dots past the final label.
+ok("duration: the last tick is the longest attempt drawn",
+   dur_x$tickvals[length(dur_x$tickvals)], max(dur_days))
+ok("duration: and every tick is labelled",
+   length(dur_x$tickvals), length(dur_x$ticktext))
+# No fixed break is left sitting past the data, where it would label empty
+# axis, and none is left crowding the terminal tick.
+ok("duration: no tick sits beyond the data", all(dur_x$tickvals <= max(dur_days)))
+ok("duration: no two ticks overprint",
+   all(diff(log10(dur_x$tickvals)) >= FW_CHART$duration_tick_gap))
+# NO AXIS TITLE (client, 23 Sept 2026): the named ticks say what it measures.
+ok("duration: the x axis carries no title", dur_x$title, "")
 # THE UNIT BREAKS, which is what replaced the bands. They are the axis's own
 # gridlines rather than shapes, so they land on tickvals and nowhere else - one
 # dotted vertical on a day, a week, a month, a year, five years and ten.
@@ -954,7 +1015,6 @@ all_charts <- list(
   methods = fw_chart_method(d, all_sel, "count"),
   duration = fw_chart_duration(d, all_sel),
   waterbody = fw_chart_waterbody(all_sel, "count"),
-  method_waterbody = fw_chart_method_waterbody(d, all_sel, "count"),
   cumulative = fw_chart_cumulative(all_sel)
 )
 for (nm in names(all_charts)) {
@@ -1064,34 +1124,6 @@ for (mode in c("count", "share")) {
   ok(paste0("category ", mode, ": some segments are labelled"), n_shown > 0)
 }
 
-# Methods within each kind of water.
-wbt <- stats::setNames(all_sel$waterbody_type, as.character(all_sel$attempt_id))
-mw <- me; mw$wb <- wbt[mw$attempt_id]; mw <- mw[!is.na(mw$wb), ]
-wb_totals <- sort(table(mw$wb), decreasing = TRUE)
-if (length(wb_totals) > FW_TOP_N) {
-  mw$wb[!mw$wb %in% names(wb_totals)[seq_len(FW_TOP_N)]] <- fw_t("charts", "other")
-}
-tr <- traces(fw_chart_method_waterbody(d, all_sel, "count"))
-ok("method x water: every segment counts (attempt, method) once",
-   all(unlist(lapply(tr, function(t) vapply(seq_along(t$y), function(i)
-     sum(mw$wb == label_name(t$y[i]) & mw$method == t$name) == t$x[i], logical(1))))))
-tr_share <- traces(fw_chart_method_waterbody(d, all_sel, "share"))
-sums <- tapply(unlist(lapply(tr_share, `[[`, "x")),
-               unlist(lapply(tr_share, function(t) as.character(t$y))), sum)
-ok("method x water: shares sum to 100 per kind of water", all(abs(sums - 100) < 1e-9))
-for (mode in c("count", "share")) {
-  tr <- traces(fw_chart_method_waterbody(d, all_sel, mode))
-  all_ok <- TRUE; hidden_ok <- TRUE; n_hidden <- 0L
-  for (t in tr) for (i in seq_along(t$y)) {
-    want <- hover_want(t, i, mw, mw$wb, mw$method)
-    if (t$customdata[i] != want) all_ok <- FALSE
-    if (t$text[i] == "") { n_hidden <- n_hidden + 1L; if (t$customdata[i] != want) hidden_ok <- FALSE }
-    if (grepl("%{text}", t$hovertemplate[1], fixed = TRUE)) all_ok <- FALSE
-  }
-  ok(sprintf("method x water (%s): every hover reads 'n of total'", mode), all_ok)
-  ok(sprintf("method x water (%s): the %d hidden-label segments still hover a count", mode, n_hidden),
-     hidden_ok && n_hidden > 0L)
-}
 # The caption under the method chart: attempts with no method row at all.
 ok("method: the no-method caption count",
    fw_n_no_method(d, all_sel),
@@ -1197,8 +1229,6 @@ pairs_of <- function(s) {
 for (nm in c("all", "slice")) {
   s <- if (nm == "all") all_sel else sel1
   n_pairs <- length(pairs_of(s))
-  wb_ids <- as.character(s$attempt_id[!is.na(s$waterbody_type)])
-  n_pairs_wb <- length(pairs_of(s[as.character(s$attempt_id) %in% wb_ids, ]))
   n_wb <- sum(!is.na(s$waterbody_type))
   ok(sprintf("pdf twin (%s): methods, page = recount", nm),
      pl_total(fw_chart_method(d, s, "count")), n_pairs)
@@ -1207,10 +1237,6 @@ for (nm in c("all", "slice")) {
   ok(sprintf("pdf twin (%s): kind of water, page = pdf = recount", nm),
      c(pl_total(fw_chart_waterbody(s, "count")), gg_total(fw_gg_waterbody(s, "count"))),
      c(n_wb, n_wb))
-  ok(sprintf("pdf twin (%s): methods by water, page = pdf = recount", nm),
-     c(pl_total(fw_chart_method_waterbody(d, s, "count")),
-       gg_total(fw_gg_method_waterbody(d, s, "count"))),
-     c(n_pairs_wb, n_pairs_wb))
   # In share mode every bar is 100, so the drawn total is 100 per bar.
   md <- fw_method_data(d, s, "share")
   if (!is.null(md)) {
@@ -1224,9 +1250,19 @@ for (nm in c("all", "slice")) {
        nrow(ggplot2::layer_data(dur, 3)), nrow(fw_duration_sel(d, s)))
   }
   # One dot per located attempt on the map.
+  #
+  # FOUND BY ITS DATA, NOT BY INDEX. The map gained an ocean layer and a lakes
+  # layer on 23 Sept 2026 and the points moved from index 2 to index 4, which
+  # this read as "176 dots" - the country count - and passed nothing. Every
+  # layer here is a geom_sf, so the geom cannot tell them apart; the points
+  # are the only layer whose data carries an outcome.
   mp <- fw_gg_map(d, s)
+  pt_layer <- which(vapply(mp$plot$layers,
+                           function(l) "outcome" %in% names(l$data), logical(1)))
+  ok(sprintf("pdf twin (%s): the map has exactly one point layer", nm),
+     length(pt_layer), 1L)
   ok(sprintf("pdf twin (%s): one map dot per located attempt", nm),
-     nrow(ggplot2::layer_data(mp$plot, 2)),
+     nrow(ggplot2::layer_data(mp$plot, pt_layer)),
      sum(!is.na(s$latitude) & !is.na(s$longitude)))
 }
 # THE PDF FOLLOWS THE READER'S TOGGLES, each chart on its own: the axis title
@@ -1234,8 +1270,6 @@ for (nm in c("all", "slice")) {
 ok("pdf twin: the methods chart follows its mode",
    c(fw_gg_method(d, sel1, "count")$labels$x, fw_gg_method(d, sel1, "share")$labels$x),
    c(fw_t("charts", "x_attempts"), fw_t("charts", "x_share")))
-ok("pdf twin: the methods-by-water chart follows its own",
-   fw_gg_method_waterbody(d, sel1, "share")$labels$x, fw_t("charts", "x_share_uses"))
 
 # ---- The PDF's size estimate ----------------------------------------------
 #
@@ -1489,16 +1523,29 @@ ok("welcome: the reveal starts fully on current work",
 cat("\n-- design values --\n")
 
 rem <- function(x) as.numeric(sub("rem$", "", x))
-# THE TWO EXEMPTIONS ARE NAMED, so a third cannot be added by accident: a new
-# size_* token under 1rem fails this until someone writes it down here and says
-# why. size_popup is for transient overlays; size_credit is the photo credits in
-# the dashboard's attempts table. Both are recorded at FW_TYPE in R/brand.R.
-FW_TYPE_FLOOR_EXEMPT <- c("size_popup", "size_credit")
+# THE THREE EXEMPTIONS ARE NAMED, so a fourth cannot be added by accident: a
+# new size_* token under 1rem fails this until someone writes it down here and
+# says why. size_popup is for transient overlays; size_credit is the photo
+# credits in the dashboard's attempts table; size_fine is the Welcome page's
+# evidence footnote, the Mercator note under both maps, and the report's
+# filters table on paper (client, 23 Sept 2026). All three are recorded at
+# FW_TYPE in R/brand.R and in the floor note in www/scss/_tokens.scss.
+FW_TYPE_FLOOR_EXEMPT <- c("size_popup", "size_credit", "size_fine")
 sizes <- FW_TYPE[grepl("^size_", names(FW_TYPE)) &
                    !names(FW_TYPE) %in% FW_TYPE_FLOOR_EXEMPT]
 ok("type: nothing on the page is under the 1rem floor", all(vapply(sizes, rem, numeric(1)) >= 1))
-ok("type: the floor's exemptions are the two that are written down",
-   sum(vapply(FW_TYPE[grepl("^size_", names(FW_TYPE))], rem, numeric(1)) < 1), 2L)
+ok("type: the floor's exemptions are the three that are written down",
+   sum(vapply(FW_TYPE[grepl("^size_", names(FW_TYPE))], rem, numeric(1)) < 1), 3L)
+# AND THE EXEMPTION HAS EXACTLY THE CALLERS IT IS WRITTEN DOWN FOR. $fw-size-fine
+# is the one token that may go under the floor on a page that stays put, so the
+# stylesheet is checked for who actually uses it.
+scss <- paste(vapply(list.files("www/scss", pattern = "[.]scss$", full.names = TRUE),
+                     function(f) paste(readLines(f, warn = FALSE), collapse = "\n"),
+                     character(1)), collapse = "\n")
+# DECLARATIONS, not mentions: the token is named several times in the comments
+# that explain it, and those are not callers.
+fine_users <- length(gregexpr("font-size:\\s*\\$fw-size-fine", scss)[[1]])
+ok("type: the fine size has the two page callers it is permitted", fine_users, 2L)
 ok("type: the plotly floor is the rem floor in pixels", FW_TYPE$floor_px, 16L)
 vars <- fw_sass_variables()
 ok("tokens: no empty Sass variable", !any(vapply(vars, function(v) is.null(v) || is.na(v) || !nzchar(v), logical(1))))
@@ -1506,6 +1553,12 @@ ok("tokens: no white surface",
    !any(tolower(unlist(FW_COLOURS)) %in% c("#fff", "#ffffff")))
 ok("charts: duration tick labels match the tick values",
    length(fw_t("charts", "duration_ticks")), length(FW_CHART$duration_ticks))
+# THE PRINTED MAP'S OWN COLOURS. Four, all named, none of them white - the
+# report's page is a tint and a white lake would read as a hole in it.
+ok("map print: every colour is a hex value",
+   all(grepl("^#[0-9a-fA-F]{6}$", unlist(FW_MAP_PRINT))))
+ok("map print: none of them is white",
+   !any(tolower(unlist(FW_MAP_PRINT)) %in% c("#fff", "#ffffff")))
 
 cat("\n")
 if (failures > 0L) stop(failures, " value assertion(s) failed", call. = FALSE)

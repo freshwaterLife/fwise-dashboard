@@ -363,6 +363,40 @@
     + .fw-footer__built-by { margin-block-start: $fw-space-1; }
   }
 
+  // THE ADDRESS IS NOT HERE UNTIL IT IS ASKED FOR - the button assembles it in
+  // JavaScript and writes it into __contact-out, which is empty until then.
+  // See fw_footer_contact() in R/ui_helpers.R.
+  &__contact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: $fw-space-2;
+    margin-block-start: $fw-space-2;
+    font-size: $fw-size-credit;
+  }
+
+  &__contact-btn {
+    // A button that reads as a link: it reveals text in place rather than
+    // going anywhere, so it should not look like a call to action.
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: $fw-teal-text;
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:hover { text-decoration: none; }
+    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
+  }
+
+  &__contact-out {
+    color: $fw-ink-muted;
+    // The address has no spaces, so it needs somewhere to break on a phone.
+    overflow-wrap: anywhere;
+  }
+
   &__meta {
     background: $fw-brand-indigo;
     color: $fw-on-indigo-muted;
@@ -1594,19 +1628,49 @@
 // supporting :has() applied BOTH and filled the label and the span. The sibling
 // selector alone is sufficient here and works everywhere, because the span is
 // always the input's next sibling.
+// "SHOW" SITS ON THE BUTTONS' OWN LINE (client, 23 Sept 2026), to the left of
+// them, rather than stacked above. The whole control is one flex row: the
+// label first, the options group after it, both centred on each other. It
+// wraps on a narrow screen, at which point the label goes back to its own
+// line - which is the stacked layout again, where there is no room for the
+// other.
+//
+// THE LABEL IS SHINY'S, not markup of ours - radioButtons(label =) emits it,
+// which is why three selectors are needed to catch whichever class Shiny
+// happens to put on it. See fw_mode_toggle() in R/mod_plan.R.
 .fw-segmented {
   margin-block-end: $fw-space-2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $fw-space-2;
 
   .form-label,
   .control-label,
   .shiny-input-container > label {
-    display: block;
+    // NOT display:block any more - that is what forced the line break.
+    display: inline-block;
+    flex: 0 0 auto;
     font-size: $fw-size-caption;
     font-weight: $fw-weight-bold;
     color: $fw-ink-muted;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    margin-block-end: $fw-space-1;
+    // The row's gap carries the spacing now, in both directions.
+    margin-block-end: 0;
+  }
+
+  // Shiny wraps the whole control in .shiny-input-container, so the label and
+  // the options group are inside THAT rather than direct children of
+  // .fw-segmented. It has to become a flex row too, or the row above only
+  // ever has one item in it.
+  .shiny-input-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $fw-space-2;
+    width: auto;
+    margin-block-end: 0;
   }
 
   // The group is now just a row with a gap in it. No border, no overflow
@@ -3076,6 +3140,26 @@ table.dataTable,
   }
 }
 
+// The methods glossary on the About page. A real <dl>: the term and its
+// definition are a pair, and the indent is what shows which body belongs to
+// which term without relying on the bold alone.
+.fw-glossary {
+  margin: 0;
+
+  &__term {
+    font-weight: $fw-weight-bold;
+    color: $fw-ink;
+  }
+
+  &__body {
+    margin: $fw-space-1 0 0;
+    padding-inline-start: 0;
+    color: $fw-ink-muted;
+
+    + .fw-glossary__term { margin-block-start: $fw-space-3; }
+  }
+}
+
 // ---- plotly's modebar -------------------------------------------------------
 
 // NOTHING HERE, deliberately (Sept 2026). The PNG button is plotly's own, as
@@ -3353,7 +3437,11 @@ table.dataTable,
 // beside it; on a wide, tall screen the two-thirds column is the limit. The
 // caption is not held to the map's width, so it stays on one line.
 .fw-compare-wrap {
-  --fw-home-chrome: 26.5rem;
+  // 26.5rem became 32rem when the evidence footnote landed under the map
+  // (client, 23 Sept 2026) - four or five lines of fine print at the container
+  // width. This is the one number to tune if anything above or below the map
+  // on this page changes again.
+  --fw-home-chrome: 32rem;
   margin: 0;
 
   .fw-compare {
@@ -3363,8 +3451,38 @@ table.dataTable,
   }
 }
 
+// THE EVIDENCE FOOTNOTE, the last thing on the Welcome page above the footer.
+// Full container width rather than the species/map grid, so it reads as a
+// note on the page rather than on either picture beside it.
+//
+// AT $fw-size-fine, below the floor, which is a client instruction rather than
+// a drift - see the floor note in _tokens.scss. The links stay at the same
+// size and keep their underline: a citation that cannot be seen to be a link
+// is not a citation.
+.fw-home-footnote {
+  margin-block: $fw-space-4 0;
+  font-size: $fw-size-fine;
+  color: $fw-ink-muted;
+  line-height: 1.5;
+  text-wrap: pretty;
+
+  a {
+    color: $fw-teal-text;
+    text-decoration: underline;
+
+    &:hover { text-decoration: none; }
+  }
+}
+
 // Under the Explore and Plan maps: why they are in Mercator. fw_map_note().
-.fw-map-note { margin-block: $fw-space-1 0; }
+// UNDER BOTH INTERACTIVE MAPS, at the fine size (client, 23 Sept 2026): it is
+// a standing qualification about the projection, not something the reader is
+// meant to stop and read. One of the three callers $fw-size-fine permits -
+// see the floor note in _tokens.scss.
+.fw-map-note {
+  margin-block: $fw-space-1 0;
+  font-size: $fw-size-fine;
+}
 
 .fw-compare__caption {
   margin-block-start: $fw-space-1;

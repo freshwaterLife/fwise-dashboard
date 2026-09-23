@@ -23,24 +23,25 @@
 // the logos the site's own footer carries - the FWISE mark first (client,
 // 21 Sept 2026: on every page, not only the letterhead), then Weird Fishes
 // Advisory and the four collaborators - beside the page count.
+// TWO ROWS, NOT ONE COLUMN EACH (client, 23 Sept 2026: bigger logos). The
+// logos and the page count used to share a line, which capped the logo height
+// at 8mm - any taller and they ran into the count. The count now sits under
+// them on its own line, so the logos have the full text width and fw-logo-h
+// is free to be the size the client asked for.
 #let fw-footer = context {
   line(length: 100%, stroke: 0.5pt + fw-border)
   v(2mm)
-  grid(
-    columns: (1fr, auto),
-    align: (left + horizon, right + horizon),
-    column-gutter: 6mm,
-    // Fractional spacing: the logos spread to fill their column and close up
-    // rather than run into the page count.
-    stack(
-      dir: ltr,
-      spacing: 1fr,
-      ..(fw-logo-mark, ..fw-logos).map(p => image(p, height: fw-logo-h)),
-    ),
-    text(size: fw-credit, fill: fw-ink-muted)[
-      #fw-page-label #counter(page).display() #fw-of-label #counter(page).final().first()
-    ],
+  // Fractional spacing: the logos spread to fill the width and close up
+  // rather than bunching at the left.
+  stack(
+    dir: ltr,
+    spacing: 1fr,
+    ..(fw-logo-mark, ..fw-logos).map(p => image(p, height: fw-logo-h)),
   )
+  v(1.5mm)
+  align(right, text(size: fw-credit, fill: fw-ink-muted)[
+    #fw-page-label #counter(page).display() #fw-of-label #counter(page).final().first()
+  ])
 }
 
 #let fwise-report(doc) = {
@@ -48,7 +49,10 @@
   set page(
     paper: "a4",
     fill: fw-page-fill,
-    margin: (x: fw-margin, top: fw-margin, bottom: fw-margin + 16mm),
+    // The bottom margin reserves the footer. It grew with the footer when the
+    // logos went to 11mm on a line of their own (23 Sept 2026); too small a
+    // value here and the last block of a page prints over the logos.
+    margin: (x: fw-margin, top: fw-margin, bottom: fw-margin + 24mm),
     footer: fw-footer,
     footer-descent: 5mm,
   )
@@ -73,10 +77,19 @@
 
 // ---- The letterhead ----------------------------------------------------------
 
+// fw-mark-h, not the footer's fw-logo-h: the mark is the masthead of the
+// document and the client asked for it bigger than the row of credits at the
+// foot of every page (23 Sept 2026). Both come from fw_pdf_tokens().
+//
+// THE v(2.5mm) UNDER THE TITLE is the client's "little more space between the
+// title and subtext". The level-1 show rule already puts 3mm below the
+// heading block; this is on top of that, because at the title size 3mm read
+// as the subtitle being part of the heading.
 #let fw-letterhead(title: "", subtitle: "") = {
-  image(fw-logo-mark, height: 20mm)
+  image(fw-logo-mark, height: fw-mark-h)
   v(7mm)
   heading(level: 1)[#title]
+  v(2.5mm)
   text(fill: fw-ink-muted)[#subtitle]
   v(3mm)
   line(length: 100%, stroke: 2pt + fw-teal)
@@ -185,9 +198,13 @@
 // The app's table style: a sunken header row that repeats on every page the
 // table runs onto, hairlines between rows, and figures right-aligned in the
 // mono face so they compare down a column.
-#let fw-table(headers, rows, num: (), widths: auto) = {
+// `size` sets the whole table's text. Only the report's "What this report
+// covers" table passes one (fw-small); every other table inherits the
+// document size, which is the print floor.
+#let fw-table(headers, rows, num: (), widths: auto, size: none) = {
   let n = headers.len()
   let cols = if widths == auto { (auto,) * (n - 1) + (1fr,) } else { widths }
+  set text(size: size) if size != none
   table(
     columns: cols,
     inset: (x: 2.5mm, y: 2mm),

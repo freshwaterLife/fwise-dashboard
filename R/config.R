@@ -56,8 +56,8 @@ FW_NOTES_SEP <- " | "
 
 # THE METHOD VOCABULARY. Seven values, fixed by the paper, so they live in code
 # rather than in a table that would only ever hold these rows. attempts.csv
-# stores the NAME; the id exists so FW_METHOD_COLOURS below can key on something
-# a renamed method cannot silently re-colour, and `class` drives the conditional
+# stores the NAME; the id exists so anything keying on a method keys on
+# something a rename cannot silently move, and `class` drives the conditional
 # chemical-detail section on the contribute form.
 #
 # A method that arrives from a submission and is not listed here is still
@@ -164,66 +164,18 @@ FW_OUTCOME_LABEL_INK <- c(
   "Unknown"    = FW_COLOURS$ink
 )
 
-# Methods, for the one chart that segments by method rather than by outcome.
+# FW_METHOD_COLOURS AND FW_METHOD_LABEL_INK USED TO SIT HERE: a seven-step
+# categorical palette keyed by method_id, and the ink each fill could carry a
+# number in. They existed for one chart, the methods-by-waterbody stack, which
+# the client deleted on 23 Sept 2026 - it was the only figure in the app that
+# ever encoded method as colour. Every other chart segments by OUTCOME, and
+# FW_OUTCOME_COLOURS above is the palette for that.
 #
-# SEVEN DISTINCT HUES. This was a single-hue sequential ramp - dark to light
-# teal, ordered by how often each method appears. THE CLIENT REJECTED IT, and
-# they were right: method is a nominal category, not a magnitude, and a ramp
-# tells a reader the segments are ordered when they are not. Measured, the old
-# ramp failed outright - its worst adjacent pair came to dE 9.0 against a floor
-# of 15 under normal vision, so neighbouring segments genuinely were not
-# separable.
+# dev/check_palette.R lost its method sections with them. Two of those pairs
+# had never passed, and both faults were properties of that chart alone.
 #
-# WHERE THESE VALUES COME FROM. Paul Tol's "muted" qualitative palette, which is
-# designed for colour-vision deficiency, with each hue then stepped into the
-# usable lightness band (OKLCH L 0.43-0.77) and lifted over the chroma floor
-# (C >= 0.10) so that none of them reads as grey or vanishes against white. Tol's
-# teal slot is deliberately NOT used: the brand teal is interface chrome and
-# must never encode data.
-#
-# THE ORDER IS LOAD-BEARING, TWICE OVER. It is still frequency order, so the
-# stack reads most-used first. It is ALSO the order that maximises separation
-# between segments that physically touch: of all 5040 arrangements of these
-# seven colours, this one gives the best worst-adjacent-pair distance. Reordering
-# the entries re-colours the chart AND degrades it. Measured on this order:
-#
-#   adjacent pairs   worst dE 12.5 CVD / 23.0 normal   (floors 8 and 15)  PASS
-#   all pairs        worst dE  2.7 CVD / 12.4 normal                      fails
-#
-# The all-pairs figure is expected and is not a defect to fix by re-picking
-# colours: seven categories cannot be made pairwise-distinct at that floor by
-# any palette. It only bites where two NON-neighbouring segments end up touching,
-# which needs an intervening method to be absent from that waterbody. The white
-# separator line and the in-segment counts in fw_chart_method_waterbody() are
-# what carry that case, which is why both are mandatory rather than decoration.
-#
-# Keyed by method_id because those are fixed (ME01-ME07 in FW_METHODS above) and
-# a renamed method must not silently re-colour the chart.
-#
-# Re-check with dev/check_palette.R after touching any value or the order.
-FW_METHOD_COLOURS <- c(
-  "ME07" = "#007da4",   # Rotenone            - blue
-  "ME04" = "#a58a22",   # Netting / Trapping  - sand
-  "ME02" = "#8e2a72",   # Draining            - wine
-  "ME03" = "#3f9b3f",   # Electrofishing      - green
-  "ME01" = "#8c4a1f",   # Antimycin-A         - brown
-  "ME05" = "#534bb4",   # Other chemical      - indigo
-  "ME06" = "#cf5f6f"    # Other mechanical    - rose
-)
-
-# The count that sits inside each segment, per method. Four of the seven fills
-# are dark enough to take white; three are not, and white on the sand slot came
-# to 3.36:1 - under the floor for text that the reader is expected to read a
-# NUMBER off. Every pair below is >= 4.5:1 against its own fill.
-FW_METHOD_LABEL_INK <- c(
-  "ME07" = FW_COLOURS$surface,
-  "ME04" = FW_COLOURS$ink,
-  "ME02" = FW_COLOURS$surface,
-  "ME03" = FW_COLOURS$ink,
-  "ME01" = FW_COLOURS$surface,
-  "ME05" = FW_COLOURS$surface,
-  "ME06" = FW_COLOURS$ink
-)
+# Bring them back only with a chart that needs method-as-colour, and re-run
+# dev/check_palette.R against it before shipping.
 
 # ---- Constants ---------------------------------------------------------------
 
@@ -382,9 +334,15 @@ FW_PDF <- list(
   est_per_point = 1750,
   est_point_cap = 300,
   est_per_contact = 2600,
-  # Pages: the fixed ones, then the contacts table at this many rows a page.
-  est_pages_base = 6,
-  est_contacts_per_page = 13,
+  # How many contacts the report prints. SIX, at the client's request (23 Sept
+  # 2026): the busiest handful to write to, not a directory - the whole
+  # directory is the Networking page, and the spreadsheet in the same download
+  # carries a contact on every row.
+  contacts_n = 6,
+  # Pages. Fixed now that the contacts table is capped at contacts_n: it was
+  # the one block whose length ran with the selection, and a broad filter used
+  # to push the report past twenty pages on that table alone.
+  est_pages_base = 7,
   # A4, in mm. The width is what every figure is drawn to.
   page_margin_mm = 18,
   text_width_mm = 174
@@ -474,8 +432,7 @@ FW_CHART <- list(
     donut            = 300,
     method           = c(min = 250, per_row = 46, pad = 110),
     duration         = c(min = 270, per_row = 54, pad = 124),
-    category         = c(min = 240, per_row = 34, pad = 120),
-    method_waterbody = c(min = 240, per_row = 40, pad = 120)
+    category         = c(min = 240, per_row = 34, pad = 120)
   ),
   # A count is printed inside a segment only when the segment holds at least
   # this share of its bar, in percent; narrower than that and the hover carries
@@ -517,13 +474,22 @@ FW_CHART <- list(
   legend_entry_px = 42,
   # The rule between stacked segments, in px. 0 for the outcome charts: the
   # four Wong colours separate on their own and the rule read as aggressive.
-  # The method chart keeps a hairline, because its adjacent-segment case under
-  # colour-vision deficiency relies on one (see FW_METHOD_COLOURS above).
+  #
+  # separator_method WENT WITH THE METHODS-BY-WATERBODY CHART (client, 23 Sept
+  # 2026). It was the hairline between two adjacent method fills, and that was
+  # the only chart that ever stacked method against method.
   separator_outcome = 0,
-  separator_method  = 0.5,
-  # The named ticks on the duration chart's log axis, in days. The labels are
-  # fw_t("charts", "duration_ticks") and must stay the same length.
+  # The FIXED named ticks on the duration chart's log axis, in days. The labels
+  # are fw_t("charts", "duration_ticks") and must stay the same length.
+  #
+  # NOT THE WHOLE SET ANY MORE: fw_duration_ticks() drops the ones past the
+  # selection's longest attempt and adds a seventh at that attempt, so the axis
+  # labels reach the last dot. These are the breaks below it.
   duration_ticks = c(1, 7, 30, 365, 1825, 3650),
+  # How close a fixed tick may come to that terminal one before it gives way,
+  # in log10 days. 0.08 is about a fifth of the gap between two of the breaks
+  # above, which is enough room for two labels not to overprint.
+  duration_tick_gap = 0.08,
   # The weight of the dotted unit-break gridlines on that axis, in px. See the
   # xaxis comment in fw_chart_duration() for why a dotted line needs this much.
   duration_grid = 2,

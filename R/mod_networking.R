@@ -94,12 +94,20 @@ mod_networking_ui <- function(id) {
             p(fw_t("networking", "outro")),
             tags$a(
               class = "btn btn-primary",
-              # Built at click time rather than served as a mailto, for the same
-              # scraping reason as the contact rows below.
+              # SPLIT ACROSS TWO ATTRIBUTES and joined at click time, the same
+              # way fw_contact_action() below handles every contact's address.
+              #
+              # IT USED TO BE THE WHOLE STRING in this onclick, which was
+              # harmless only while it was a [PLACEHOLDER]: the moment the real
+              # FWISE address landed here (23 Sept 2026) the one address the
+              # site most wants to protect was the one address served in full
+              # in the markup. Do not put it back together here.
               href = "#",
-              onclick = sprintf(
-                "window.location.href='mail'+'to:'+%s; return false;",
-                jsonlite_quote(fw_t("networking", "outro_email"))
+              `data-u` = fw_t("networking", "outro_user"),
+              `data-d` = fw_t("networking", "outro_domain"),
+              onclick = paste0(
+                "window.location.href='mail'+'to:'+this.dataset.u",
+                "+String.fromCharCode(64)+this.dataset.d; return false;"
               ),
               fw_t("networking", "outro_action")
             )

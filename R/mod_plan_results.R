@@ -17,6 +17,16 @@ fw_plan_summary <- function(data, sel) {
   ids <- sel$attempt_id
   sp <- data$attempt_species |> filter(attempt_id %in% ids)
 
+  # SPECIES PROTECTED COUNTS SUCCESSFUL ATTEMPTS ONLY (client, 23 Sept 2026),
+  # which is what fw_headline_stats()$protected has always done for the Welcome
+  # page. A species on an attempt that failed was not protected by it, so it is
+  # not counted here - and this is the only figure in the strip that narrows to
+  # one outcome, which is why it is computed from its own id set rather than
+  # from `sp`.
+  won <- sel$attempt_id[sel$outcome %in% "Successful"]
+  protected <- n_distinct(sp$species_id[sp$role == "beneficiary" &
+                                          sp$attempt_id %in% won])
+
   years <- sel$start_year[!is.na(sel$start_year)]
   list(
     attempts  = nrow(sel),
@@ -24,7 +34,7 @@ fw_plan_summary <- function(data, sel) {
     species   = n_distinct(sp$species_id[sp$role == "invasive"]),
     # Species protected, in place of the methods count (client, 21 Sept 2026).
     # Shown as a floor (">X"): beneficiaries are under-recorded.
-    beneficiaries = n_distinct(sp$species_id[sp$role == "beneficiary"]),
+    beneficiaries = protected,
     year_span = if (length(years)) paste0(min(years), "-", max(years))
                 else fw_t("common", "empty_value")
   )
@@ -36,12 +46,19 @@ fw_plan_summary_ui <- function(s) {
     span(class = "fw-summary-strip__value", value),
     span(class = "fw-summary-strip__label", label)
   )
+  # EVERY LABEL INFLECTS WITH ITS FIGURE (client, 23 Sept 2026: one country was
+  # labelled "countries"). Two of the four do not change form in English, and
+  # they still go through fw_plural() so that adding a form later is a copy
+  # edit rather than a code change. "Year range" is a range whatever it spans.
+  lab <- function(n, key) fw_plural(n, fw_t("plan", paste0(key, "_one")),
+                                    fw_t("plan", key))
   div(
     class = "fw-summary-strip", role = "status",
-    item(fw_fmt_num(s$attempts),  fw_t("plan", "r_attempts")),
-    item(fw_fmt_num(s$countries), fw_t("plan", "r_countries")),
-    item(fw_fmt_num(s$species),   fw_t("plan", "r_species")),
-    item(paste0(">", fw_fmt_num(s$beneficiaries)), fw_t("plan", "r_beneficiaries")),
+    item(fw_fmt_num(s$attempts),  lab(s$attempts, "r_attempts")),
+    item(fw_fmt_num(s$countries), lab(s$countries, "r_countries")),
+    item(fw_fmt_num(s$species),   lab(s$species, "r_species")),
+    item(paste0(">", fw_fmt_num(s$beneficiaries)),
+         lab(s$beneficiaries, "r_beneficiaries")),
     item(s$year_span,             fw_t("plan", "r_years"))
   )
 }

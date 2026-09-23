@@ -98,7 +98,10 @@ FW_FILTERS <- list(
     bridge = "species", role = "beneficiary", match = "family",
     when = list(input = "taxa_beneficiary", value = "Fish")
   ),
-  waterbody = list(copy = "waterbody", kind = "multi", tip = "tip_waterbody",
+  # NO TIP (client, 23 Sept 2026). Its tooltip only restated the label, and
+  # fw_filter_tip() returns NULL for a filter without one, which fw_field()
+  # draws as no (i) button at all. Same for `continent` below.
+  waterbody = list(copy = "waterbody", kind = "multi",
                    column = "waterbody_type"),
   country   = list(copy = "country",   kind = "multi", tip = "tip_country",
                    column = "country"),
@@ -111,7 +114,7 @@ FW_FILTERS <- list(
                    column = "water_regime", labels = "fw_regime_label"),
   outcome   = list(copy = "outcome",   kind = "multi", tip = "tip_outcome",
                    column = "outcome"),
-  continent = list(copy = "continent", kind = "multi", tip = "tip_continent",
+  continent = list(copy = "continent", kind = "multi",
                    column = "continent"),
   # kind = "size" rather than "range": two sliders in one cell, each in its own
   # unit, plus the include-unrecorded checkbox. The engine branches on this in
@@ -417,6 +420,13 @@ fw_filter_state <- function(input, ids = fw_filter_ids(), ch = NULL) {
     out$year_from <- input$years[1]
     out$year_to <- input$years[2]
     out$include_no_year <- isTRUE(input$include_no_year)
+    # THE SLIDER'S OWN ENDS, carried alongside the reader's, so anything
+    # summarising this selection can tell "1934 to 2025 because I chose it"
+    # from "1934 to 2025 because I did not touch the slider". The size filter
+    # has kept its equivalent (size_full_*) for the same reason since it had
+    # one; the years row had no way to make that distinction until the PDF's
+    # filters table started hiding untouched filters (client, 23 Sept 2026).
+    if (!is.null(ch)) out$year_full <- c(ch$year_min, ch$year_max)
   }
   out$.ids <- ids
   out
@@ -677,6 +687,11 @@ fw_filter_summary <- function(f) {
   if ("years" %in% ids) {
     rows[[length(rows) + 1L]] <- list(
       setting = fw_filter_label("years"),
+      # A slider left at its ends is not a filter - see the size block above.
+      # NA rather than FALSE when year_full is absent, so a caller that cannot
+      # tell errs towards printing the row.
+      untouched = length(f$year_full) == 2 &&
+        isTRUE(all.equal(c(f$year_from, f$year_to), as.numeric(f$year_full))),
       value = paste0(f$year_from %||% fw_t("export", "range_missing"),
                      fw_t("export", "range_sep"),
                      f$year_to %||% fw_t("export", "range_missing"))

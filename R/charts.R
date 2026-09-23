@@ -391,6 +391,61 @@ fw_duration_range <- function(days) {
   c(lx[1] - pad, lx[2] + pad)
 }
 
+#' The named ticks for a selection, reaching as far as its longest attempt
+#'
+#' THE AXIS HAS TO LABEL THE LAST DOT (client, 23 Sept 2026). The six fixed
+#' breaks in FW_CHART$duration_ticks stop at ten years, so a selection holding a
+#' twenty-seven-year attempt drew dots well past the final label and left the
+#' reader with nothing to measure them against. A seventh tick is added at the
+#' longest duration in the selection, named in whichever unit reads plainly at
+#' that length.
+#'
+#' A FIXED TICK TOO CLOSE TO IT IS DROPPED. "10 years" and "11 years" a few
+#' pixels apart overprint each other and say nothing the second does not, so a
+#' fixed tick within FW_CHART$duration_tick_gap of the terminal one (in log10
+#' space, the space the axis is actually spaced in) gives way to it. The
+#' terminal tick always wins, because it is the one carrying new information.
+#'
+#' Ticks past the maximum are dropped outright - they would sit in the padding
+#' beyond the data, labelling empty axis.
+#'
+#' @param days every duration in the selection, all > 0
+#' @return list(vals = tick positions in DAYS, text = their labels). Days, not
+#'   log10: plotly logs tickvals itself. See the long note at the call site.
+fw_duration_ticks <- function(days) {
+  mx <- max(days)
+  vals <- FW_CHART$duration_ticks
+  text <- fw_t("charts", "duration_ticks")
+
+  keep <- vals <= mx
+  vals <- vals[keep]
+  text <- text[keep]
+
+  # The longest attempt already sits on a named break - nothing to add.
+  if (length(vals) && isTRUE(all.equal(vals[length(vals)], mx))) {
+    return(list(vals = vals, text = text))
+  }
+
+  # Name it in the largest unit that leaves a whole number above one, so a
+  # nine-month attempt is "9 months" rather than "0.7 years".
+  label <- if (mx >= 365) {
+    fw_fill(fw_t("charts", "duration_max_years"), n = round(mx / 365))
+  } else if (mx >= 30) {
+    fw_fill(fw_t("charts", "duration_max_months"), n = round(mx / 30))
+  } else {
+    fw_fill(fw_t("charts", "duration_max_days"), n = round(mx))
+  }
+
+  crowded <- length(vals) > 0 &&
+    (log10(mx) - log10(vals[length(vals)])) < FW_CHART$duration_tick_gap
+  if (crowded) {
+    vals <- vals[-length(vals)]
+    text <- text[-length(text)]
+  }
+
+  list(vals = c(vals, mx), text = c(text, label))
+}
+
 #' Vertical offsets that spread the duration chart's dots across their row
 #'
 #' A BEESWARM, CHEAPLY. Every dot used to sit on its method's centre line, so
@@ -463,6 +518,8 @@ fw_chart_duration <- function(data, sel) {
   d <- dd$d
   order_lv <- dd$order_lv
 
+  ticks <- fw_duration_ticks(d$duration_days)
+
   p <- plotly::plot_ly(height = fw_chart_height("duration", length(order_lv)))
   p <- plotly::add_trace(
     p, data = d, type = "box", orientation = "h",
@@ -497,8 +554,14 @@ fw_chart_duration <- function(data, sel) {
                   filename = "fwise-duration") |>
     plotly::layout(
       boxmode = "group",
+      # ROOM FOR THE TERMINAL TICK'S LABEL, which sits at the longest attempt
+      # in the selection and so at the right-hand end of the axis. The shared
+      # style leaves 8px there, which "20 years" centred on that tick overruns.
+      margin = list(l = 8, r = 44, t = fw_legend_margin(FW_OUTCOME_LEVELS), b = 52),
       xaxis = list(
-        title = fw_t("charts", "x_duration"),
+        # NO TITLE (client, 23 Sept 2026). The named ticks below say what the
+        # axis measures, and the title under them said it a second time.
+        title = "",
         type = "log", zeroline = FALSE,
         # A DOTTED LINE ON EACH UNIT BREAK, ON A PLAIN GROUND, and that is the
         # client's instruction. This chart used to carry alternating tinted
@@ -536,8 +599,11 @@ fw_chart_duration <- function(data, sel) {
         # "1 day" disappears entirely because log10(0) is -Inf. The gridlines
         # ride on these values, so getting them wrong loses the unit breaks too.
         tickmode = "array",
-        tickvals = FW_CHART$duration_ticks,
-        ticktext = fw_t("charts", "duration_ticks")
+        # THE SELECTION'S OWN TICKS, not the fixed six: the last one lands on
+        # the longest attempt drawn, so no dot sits past the final label. See
+        # fw_duration_ticks() - and note it returns DAYS, per the note above.
+        tickvals = ticks$vals,
+        ticktext = ticks$text
       ),
       # NO HORIZONTAL RULES. "Plain background" means the vertical unit breaks
       # and nothing else; a y gridline here would be a line through the middle
@@ -550,7 +616,7 @@ fw_chart_duration <- function(data, sel) {
     )
 }
 
-# ---- Waterbody, driver and species -------------------------------------------
+# ---- Waterbody and species ---------------------------------------------------
 
 #' A horizontal bar of counts by category, stacked by outcome
 #'
@@ -561,7 +627,7 @@ fw_chart_duration <- function(data, sel) {
 #' @param d      a frame with `category` and `outcome`
 #' @param limit  keep the top n categories and gather the rest into "Other"
 #' @param filename what a PNG export is called. Each caller passes its own,
-#'   because this one builder draws waterbodies, drivers and species. The mode
+#'   because this one builder draws waterbodies and species. The mode
 #'   is appended to it, so the two views do not export over each other.
 #' @param mode "count" for absolute stacked, "share" for 100% stacked. The
 #'   denominator is the CATEGORY's own total, so share answers "within this kind
@@ -733,141 +799,4 @@ fw_species_top_n <- function(data, sel, role_name, limit = FW_TOP_N) {
       for (o in FW_OUTCOME_LEVELS) if (is.null(x[[o]])) x[[o]] <- 0L
       x
     })()
-}
-
-# ---- Methods against waterbody -----------------------------------------------
-
-#' Which methods get used in which kind of water
-#'
-#' THE ONE CHART SEGMENTED BY METHOD RATHER THAN OUTCOME. It answers a question
-#' the outcome charts cannot: standing at a lake, what have people actually
-#' reached for? "How the methods compare" says how each method fared overall,
-#' which is not the same thing - draining a pond and draining a river are one
-#' method and two different propositions.
-#'
-#' Colour comes from FW_METHOD_COLOURS: seven distinct hues, because method is a
-#' nominal category and the ramp that used to be here implied an order the data
-#' does not have. See the long note in config.R for what was measured and why
-#' the order of that vector must not be changed casually.
-#'
-#' THE COUNTS INSIDE THE SEGMENTS ARE NOT DECORATION. Seven categories is past
-#' the point where colour alone can separate every possible pair, so the number
-#' in the segment and the white rule between segments are the second and third
-#' encodings. Do not remove either to tidy the chart up.
-#'
-#' Counted once per (attempt, method): an attempt using rotenone twice is one
-#' use of rotenone.
-#'
-#' @param mode "count" for absolute stacked, "share" for 100% stacked
-#'
-#' fw_method_waterbody_data() is the counting half, shared with the PDF's
-#' static twin; fw_chart_method_waterbody() draws it.
-fw_method_waterbody_data <- function(data, sel, mode = c("count", "share")) {
-  mode <- match.arg(mode)
-  d <- data$attempt_method |>
-    filter(attempt_id %in% sel$attempt_id) |>
-    distinct(attempt_id, method_id) |>
-    left_join(select(data$method, method_id, method_name), by = "method_id") |>
-    left_join(select(sel, attempt_id, waterbody_type), by = "attempt_id") |>
-    filter(!is.na(waterbody_type), !is.na(method_name))
-  if (!nrow(d)) return(NULL)
-
-  # Same contract as fw_chart_category(): keep the top ten kinds of water and
-  # gather the rest into a real bar rather than dropping them, so the reader can
-  # see how much of the picture the named ones cover.
-  other <- fw_t("charts", "other")
-  wb <- d |> count(waterbody_type, name = "total") |> arrange(desc(total))
-  if (nrow(wb) > FW_TOP_N) {
-    keep <- wb$waterbody_type[seq_len(FW_TOP_N)]
-    d$waterbody_type <- ifelse(d$waterbody_type %in% keep, d$waterbody_type,
-                               other)
-  }
-
-  totals <- d |>
-    count(waterbody_type, name = "total") |>
-    mutate(is_other = waterbody_type == other) |>
-    arrange(desc(is_other), total)
-
-  dd <- d |>
-    count(waterbody_type, method_id, method_name, name = "n") |>
-    left_join(select(totals, waterbody_type, total), by = "waterbody_type") |>
-    mutate(share = 100 * n / total,
-           value = if (mode == "share") share else n,
-           label = paste0(waterbody_type, "  (", total, ")"))
-  order_lv <- paste0(totals$waterbody_type, "  (", totals$total, ")")
-
-  # Methods are added in ramp order, so the key reads dark to light rather than
-  # in whatever order the selection happened to produce.
-  method_ids <- intersect(names(FW_METHOD_COLOURS), unique(dd$method_id))
-
-  list(d = dd, order_lv = order_lv, method_ids = method_ids)
-}
-
-fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
-  mode <- match.arg(mode)
-  md <- fw_method_waterbody_data(data, sel, mode)
-  if (is.null(md)) return(NULL)
-  dd <- md$d
-  order_lv <- md$order_lv
-  method_ids <- md$method_ids
-
-  font <- fw_plot_font()
-  p <- plotly::plot_ly(height = fw_chart_height("method_waterbody", length(order_lv)))
-  for (m in method_ids) {
-    seg <- dd[dd$method_id == m, ]
-    if (!nrow(seg)) next
-    p <- plotly::add_trace(
-      p, data = seg, type = "bar", orientation = "h",
-      y = ~factor(label, levels = order_lv), x = ~value,
-      name = seg$method_name[1],
-      marker = list(color = unname(FW_METHOD_COLOURS[[m]]),
-                    # A hairline, kept on purpose: it is the separator that
-                    # keeps two segments readable as two when their fills are
-                    # the closest pair in the palette. See FW_CHART in config.R.
-                    line = list(color = FW_COLOURS$surface,
-                                width = FW_CHART$separator_method)),
-      # The threshold is on SHARE, so the label only appears where the segment
-      # is actually wide enough to hold it, whichever mode the chart is in - but
-      # the NUMBER follows the mode, the same fix as fw_chart_method(). Printing
-      # a count inside a 100% stacked bar contradicts the axis above it.
-      text = ~ifelse(share < FW_CHART$label_min_share, "",
-                     if (mode == "share") paste0(round(share), "%") else as.character(n)),
-      textposition = "inside",
-      # PER METHOD, not white throughout. Three of the seven fills are light
-      # enough that white numerals on them fall under 4.5:1. See
-      # FW_METHOD_LABEL_INK in config.R.
-      insidetextfont = list(color = unname(FW_METHOD_LABEL_INK[[m]]),
-                            family = font$family, size = font$size),
-      # Own copy of the count, not %{text}: see fw_chart_method().
-      hovertemplate = paste0("%{y}<br>", seg$method_name[1],
-                             ": %{customdata}<extra></extra>"),
-      customdata = ~paste0(n, fw_t("charts", "hover_of"), total)
-    )
-  }
-
-  x_axis <- if (mode == "share") {
-    list(title = fw_t("charts", "x_share_uses"), range = c(0, 100),
-         ticksuffix = "%", zeroline = FALSE, gridcolor = FW_COLOURS$border)
-  } else {
-    list(title = fw_t("charts", "x_times_used"), zeroline = FALSE,
-         gridcolor = FW_COLOURS$border)
-  }
-
-  # The key carries seven method names, which is the chart that made the old
-  # fixed top margin overlap the bars. Names in trace order, so the reserved
-  # space matches the key that is actually drawn.
-  legend_labels <- vapply(method_ids,
-                          function(m) dd$method_name[dd$method_id == m][1],
-                          character(1))
-  fw_plotly_style(p, legend_labels = unname(legend_labels),
-                  filename = paste0("fwise-method-waterbody-", mode)) |>
-    plotly::layout(
-      barmode = "stack",
-      # The same 1rem floor. mode = "hide" drops a label rather than
-      # shrinking it, so a segment too narrow for the floor shows no number
-      # instead of an unreadable one - the hover still has it.
-      uniformtext = list(minsize = FW_TYPE$floor_px, mode = "hide"),
-      xaxis = x_axis,
-      yaxis = list(title = "", automargin = TRUE)
-    )
 }

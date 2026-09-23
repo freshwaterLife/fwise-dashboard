@@ -79,11 +79,13 @@ mod_about_server <- function(id, data, meta = NULL) {
 
         # ---- The depth, behind disclosures --------------------------------
         #
-        # ORDER IS THE CLIENT'S. The citation first, because it was the last
-        # thing on the always-visible summary before the client asked for it to
-        # fold; then caveats, because they qualify everything else on the page;
-        # related databases after the methods because that panel sends the
-        # reader away; other information last, as the page's small print.
+        # ORDER IS THE CLIENT'S (23 Sept 2026), and it runs from the thing a
+        # reader most often arrives wanting to the thing they read last: how to
+        # cite it, how it was made, what to be careful of, what the methods on
+        # the charts mean, where else to look, and the page's small print.
+        #
+        # SIX PANELS. dev/value_test.R counts them - add one here and update
+        # the count there.
         div(
           class = "fw-about__panels",
 
@@ -95,13 +97,6 @@ mod_about_server <- function(id, data, meta = NULL) {
           ),
 
           fw_disclosure(
-            fw_t("about", "caveats_heading"),
-            note = fw_t("about", "caveats_summary"),
-            p(class = "fw-lead", fw_t("about", "caveats_lead")),
-            fw_caveats_ui(data, heading = FALSE)
-          ),
-
-          fw_disclosure(
             fw_t("about", "method_heading"),
             note = fw_t("about", "method_summary"),
             para("method"), para("method2"), para("method3"),
@@ -109,6 +104,19 @@ mod_about_server <- function(id, data, meta = NULL) {
             # writing. A vector, so it takes however many paragraphs arrive.
             tags$h3(fw_t("about", "method_paper_heading")),
             lapply(fw_t("about", "method_paper"), function(x) p(x))
+          ),
+
+          fw_disclosure(
+            fw_t("about", "caveats_heading"),
+            note = fw_t("about", "caveats_summary"),
+            p(class = "fw-lead", fw_t("about", "caveats_lead")),
+            fw_caveats_ui(data, heading = FALSE)
+          ),
+
+          fw_disclosure(
+            fw_t("about", "glossary_heading"),
+            note = fw_t("about", "glossary_summary"),
+            fw_about_glossary()
           ),
 
           fw_disclosure(
@@ -205,8 +213,10 @@ fw_about_citations <- function(meta, s) {
 
 #' Where to look for what FWISE does not hold
 #'
-#' Each entry carries a line saying what is behind it. That line is the point of
-#' the panel: a list of database names tells nobody which one to follow.
+#' THE NOTE IS OPTIONAL. Entries used to carry a line saying what was behind
+#' each one; the client's own list (23 Sept 2026) is eight well-known resources
+#' by name and URL, with no characterisation of ours attached. An entry that
+#' does carry a `note` still draws it, so a future list can mix the two.
 fw_about_related <- function() {
   items <- fw_t("about", "related_items")
   tags$ul(
@@ -215,7 +225,29 @@ fw_about_related <- function() {
       tags$li(
         tags$a(href = it$url, target = "_blank", rel = "noopener noreferrer",
                it$name),
-        tags$span(class = "fw-linklist__note", it$note)
+        if (!is.null(it$note)) tags$span(class = "fw-linklist__note", it$note)
+      )
+    })
+  )
+}
+
+#' What each method on the charts actually means
+#'
+#' A DESCRIPTION LIST, because that is what it is: a term and its definition,
+#' which <dl> says to a screen reader and a <ul> of bolded run-ons does not.
+#'
+#' THE TERMS MATCH THE DATA. Every `term` in about$glossary_items is a value
+#' that appears in attempts.csv$methods, so a reader who meets "Antimycin-A" on
+#' the method chart finds it here spelled the same way. dev/value_test.R checks
+#' the two lists against each other.
+fw_about_glossary <- function() {
+  items <- fw_t("about", "glossary_items")
+  tags$dl(
+    class = "fw-glossary",
+    lapply(items, function(it) {
+      tagList(
+        tags$dt(class = "fw-glossary__term", it$term),
+        tags$dd(class = "fw-glossary__body", it$body)
       )
     })
   )
@@ -225,7 +257,10 @@ fw_about_related <- function() {
 fw_feedback_panel <- function(ns) {
   div(
     class = "fw-feedback",
-    tags$h2(class = "fw-visually-hidden", fw_t("about", "fb_heading")),
+    # NO HIDDEN HEADING (client, 23 Sept 2026). fb_heading - "Tell us what is
+    # wrong" - was visually hidden and announced to a screen reader only, so
+    # deleting it costs sighted readers nothing and removes a line nobody
+    # could see. The body paragraph opens the panel now.
     p(fw_t("about", "fb_body")),
     div(
       class = "fw-field",

@@ -126,11 +126,21 @@ fw_pdf_tokens <- function(logos) {
     # The credit line under a photograph is the type scale's own exemption from
     # the floor (FW_TYPE$size_credit), and so is the page count beside the logos.
     pt("fw-credit", fw_rem_pt(FW_TYPE$size_credit)),
+    # THE ONE SIZE BELOW THE PRINT FLOOR, and the paper twin of $fw-size-fine
+    # on the page. It sets the "What this report covers" table and nothing
+    # else (client, 23 Sept 2026). Everything a reader READS stays at
+    # fw-floor; this is a table they scan to check what they asked for.
+    pt("fw-small", fw_rem_pt(FW_TYPE$size_fine)),
     sprintf("#let fw-leading = %sem", format(FW_PRINT$leading)),
     sprintf("#let fw-margin = %s", fw_typ_mm(FW_PDF$page_margin_mm)),
-    # 8mm, not 9: seven logos and the page count share one line since the
-    # FWISE mark joined the footer (21 Sept 2026), and at 9mm they overran it.
-    "#let fw-logo-h = 8mm",
+    # BIGGER LOGOS (client, 23 Sept 2026), which needed the footer rebuilt:
+    # at 8mm the six logos and the page count shared one line and there was no
+    # room to grow. The logos now have the line to themselves with the page
+    # count under them - see fw-footer in typst-template.typ - so 11mm fits.
+    "#let fw-logo-h = 11mm",
+    # The FWISE mark on the letterhead, which the client asked to be bigger
+    # still: it is the masthead of the document, not one logo among seven.
+    "#let fw-mark-h = 30mm",
     paste0("#let fw-logo-mark = ", fw_typ_str(logos[["mark"]])),
     paste0("#let fw-logos = ", fw_typ_array(fw_typ_str(logos[names(logos) != "mark"]))),
     paste0("#let fw-doc-title = ", fw_typ_str(fw_t("plan", "report_title"))),
@@ -172,7 +182,12 @@ fw_report_country_table <- function(sel, limit = FW_REPORT_COUNTRY_ROWS) {
 #'
 #' @param num names of the columns set right-aligned in the mono face
 #' @param widths Typst column widths, or NULL to let the template choose
-fw_typ_table <- function(df, num = character(0), widths = NULL) {
+#' @param size a Typst length token to set the table's text at, or NULL for the
+#'   document's own size. The only caller that passes one is the report's
+#'   "What this report covers" table (client, 23 Sept 2026) - see fw-small in
+#'   fw_pdf_tokens(). It is the one table a reader scans rather than reads, and
+#'   the only text in the document set below the print floor.
+fw_typ_table <- function(df, num = character(0), widths = NULL, size = NULL) {
   if (is.null(df) || !nrow(df)) return(NULL)
   rows <- vapply(seq_len(nrow(df)), function(i) {
     fw_typ_array(fw_typ_str(vapply(df[i, , drop = FALSE], as.character, "")))
@@ -183,6 +198,7 @@ fw_typ_table <- function(df, num = character(0), widths = NULL) {
     fw_typ_array(rows),
     ", num: ", fw_typ_array(as.character(num_idx)),
     if (!is.null(widths)) paste0(", widths: ", fw_typ_array(widths)) else "",
+    if (!is.null(size)) paste0(", size: ", size) else "",
     ")"
   )
 }
@@ -210,11 +226,17 @@ fw_typ_figure <- function(plot, dir, name, height_mm) {
 #' The summary strip
 fw_typ_stats <- function(s) {
   item <- function(value, label) fw_typ_array(fw_typ_str(c(value, label)))
+  # THE SAME INFLECTION THE PAGE APPLIES (client, 23 Sept 2026: one country was
+  # labelled "countries"). This strip and fw_plan_summary_ui() print the same
+  # five figures, so they take their labels the same way.
+  lab <- function(n, key) fw_plural(n, fw_t("plan", paste0(key, "_one")),
+                                    fw_t("plan", key))
   paste0("#fw-stats(", fw_typ_array(c(
-    item(fw_fmt_num(s$attempts),  fw_t("plan", "r_attempts")),
-    item(fw_fmt_num(s$countries), fw_t("plan", "r_countries")),
-    item(fw_fmt_num(s$species),   fw_t("plan", "r_species")),
-    item(paste0(">", fw_fmt_num(s$beneficiaries)), fw_t("plan", "r_beneficiaries")),
+    item(fw_fmt_num(s$attempts),  lab(s$attempts, "r_attempts")),
+    item(fw_fmt_num(s$countries), lab(s$countries, "r_countries")),
+    item(fw_fmt_num(s$species),   lab(s$species, "r_species")),
+    item(paste0(">", fw_fmt_num(s$beneficiaries)),
+         lab(s$beneficiaries, "r_beneficiaries")),
     item(s$year_span,             fw_t("plan", "r_years"))
   )), ")")
 }
@@ -327,7 +349,13 @@ fw_typ_species <- function(data, sel, role_name, dir) {
 #' address of anyone who asked not to be listed. The address is printed plainly
 #' here - there is no click to assemble it at - which is the same thing the
 #' spreadsheet in the same download does.
-fw_pdf_contacts_table <- function(people) {
+fw_pdf_contacts_table <- function(people, limit = FW_PDF$contacts_n) {
+  # THE SIX BUSIEST, not everybody (client, 23 Sept 2026). people arrives
+  # ordered by attempt_count descending from fw_plan_contacts(), so this is
+  # the top of that list. It also makes the document a predictable length -
+  # the contacts table was what turned a six-page report into a twenty-page
+  # one, and fw_pdf_size_estimate() no longer has to guess at it.
+  people <- utils::head(people, limit)
   data.frame(
     a = people$contact_name,
     b = ifelse(is.na(people$organisation), fw_t("networking", "no_organisation"),
@@ -352,8 +380,7 @@ fw_pdf_contacts_table <- function(people) {
 #'
 #' @return the Typst body as one string
 fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
-                        method_mode = "count", method_wb_mode = "count",
-                        waterbody_mode = "count") {
+                        method_mode = "count", waterbody_mode = "count") {
   s <- fw_plan_summary(data, sel)
   n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
   n_no_method <- fw_n_no_method(data, sel)
@@ -385,12 +412,6 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
     if (!is.null(cd)) fw_typ_figure(fw_gg_waterbody(sel, waterbody_mode), dir,
                                     "waterbody.png", fw_gg_height("category", n_rows(cd$order_lv)))
   })
-  method_wb_fig <- local({
-    md <- fw_method_waterbody_data(data, sel, method_wb_mode)
-    if (!is.null(md)) fw_typ_figure(fw_gg_method_waterbody(data, sel, method_wb_mode), dir,
-                                    "method-waterbody.png",
-                                    fw_gg_height("method_waterbody", n_rows(md$order_lv)) + 8)
-  })
 
   people <- fw_plan_contacts(data, sel)
   caveats <- fw_caveat_blocks(data)
@@ -401,16 +422,36 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
 
     # What was asked, before anything that came back.
     fw_typ_block(fw_t("plan", "report_selection"), NULL,
-                 fw_typ_table(fw_filters_sheet(filters, nrow(sel), nrow(data$attempt), meta),
-                              widths = c("auto", "1fr"))),
+                 c(
+                   # APPLIED FILTERS ONLY, AND SET SMALL (client, 23 Sept
+                   # 2026). The workbook's copy of this sheet still lists
+                   # every filter with "All" beside the untouched ones,
+                   # because there it is a record of the settings panel; here
+                   # seventeen rows of mostly "All" pushed the reader's actual
+                   # selection off the top of page one.
+                   fw_typ_table(fw_filters_sheet(filters, nrow(sel),
+                                                 nrow(data$attempt), meta,
+                                                 applied_only = TRUE),
+                                widths = c("auto", "1fr"), size = "fw-small"),
+                   # What the report is for, and what it deliberately is not.
+                   paste0("#v(3mm)\n#text(fill: fw-ink-muted)[#",
+                          fw_typ_str(fw_t("plan", "report_selection_note")), "]")
+                 )),
 
     fw_typ_block(fw_t("plan", "r_heading"), NULL, fw_typ_stats(s)),
+
+    # WHAT HAPPENED, THEN WHO IT HAPPENED TO (client, 23 Sept 2026). The
+    # outcome bars used to sit two blocks below the species plates, so the
+    # first thing a reader met after the counts was seven photographs. They
+    # are the summary the rest of the document qualifies, so they lead.
+    fw_typ_block(fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
+                 fw_typ_outcome_bars(sel)),
 
     species_block("invasive"),
     species_block("beneficiary"),
 
     if (!is.null(map_fig)) {
-      fw_typ_block(fw_t("plan", "r_map"), fw_t("plan", "pdf_map_note"), c(
+      fw_typ_block(fw_t("maps", "title"), fw_t("plan", "pdf_map_note"), c(
         map_fig,
         if (n_no_coords > 0) fw_typ_caption(fw_fill(fw_t("plan", "r_map_missing"),
                                                    n = fw_fmt_num(n_no_coords)))
@@ -421,8 +462,11 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
                               num = fw_t("export", "col_attempts"),
                               widths = c("1fr", "auto"))),
 
-    fw_typ_block(fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
-                 fw_typ_outcome_bars(sel)),
+    if (!is.null(waterbody_fig)) {
+      fw_typ_block(fw_t("plan", "r_waterbody"),
+                   fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
+                   waterbody_fig)
+    },
 
     if (!is.null(method_fig)) {
       fw_typ_block(fw_t("plan", "r_method"), fw_t("plan", "r_method_note"), c(
@@ -439,18 +483,8 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
       ))
     },
 
-    if (!is.null(waterbody_fig)) {
-      fw_typ_block(fw_t("plan", "r_waterbody"),
-                   fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
-                   waterbody_fig)
-    },
-
-    if (!is.null(method_wb_fig)) {
-      fw_typ_block(fw_t("plan", "r_method_wb"), fw_t("plan", "r_method_wb_note"),
-                   method_wb_fig)
-    },
-
-    # Every contact, no pager: a document is read, not clicked through.
+    # The six busiest contacts (client, 23 Sept 2026) - see
+    # fw_pdf_contacts_table(). No pager: a document is read, not clicked through.
     if (nrow(people)) {
       fw_typ_block(fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note"),
                    fw_typ_table(fw_pdf_contacts_table(people),
@@ -477,15 +511,15 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
 #' Write the PDF report
 #'
 #' @param path where to write. The download handler's temp file.
-#' @param method_mode,method_wb_mode,waterbody_mode whichever mode each chart's
-#'   toggle is showing, so the document matches the screen
+#' @param method_mode,waterbody_mode whichever mode each chart's toggle is
+#'   showing, so the document matches the screen
 #' @param keep a directory to copy the render directory into, for debugging
 #'   and the tests. NULL removes it.
 #' @param progress called as progress(fraction, detail) as the report is built,
 #'   fraction running 0 to 1 across this report alone. fw_write_bundle() maps
 #'   it onto its own bar; the default does nothing, so tests need no Shiny.
 fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = NULL,
-                                method_mode = "count", method_wb_mode = "count",
+                                method_mode = "count",
                                 waterbody_mode = "count", keep = NULL,
                                 progress = function(fraction, detail) NULL) {
   quarto <- fw_quarto_path()
@@ -514,7 +548,7 @@ fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = 
 
   progress(0, fw_t("plan", "progress_charts"))
   body <- fw_pdf_body(dir, data, sel, filters, meta, method_mode = method_mode,
-                      method_wb_mode = method_wb_mode, waterbody_mode = waterbody_mode)
+                      waterbody_mode = waterbody_mode)
 
   qmd <- c(
     "---",
@@ -580,7 +614,8 @@ fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = 
 #'
 #' @return list(mb, pages)
 fw_pdf_size_estimate <- function(data, sel) {
-  n_contacts <- nrow(fw_plan_contacts(data, sel))
+  # Capped the same way the table is - see fw_pdf_contacts_table().
+  n_contacts <- min(nrow(fw_plan_contacts(data, sel)), FW_PDF$contacts_n)
   n_images <- sum(vapply(c("invasive", "beneficiary"), function(r) {
     top <- fw_species_top_n(data, sel, r, FW_PLAN_SPECIES_N)
     sum(vapply(top$species_id, function(id)
@@ -590,8 +625,7 @@ fw_pdf_size_estimate <- function(data, sel) {
   bytes <- FW_PDF$est_base + n_images * FW_PDF$est_per_image +
     min(n_points, FW_PDF$est_point_cap) * FW_PDF$est_per_point +
     n_contacts * FW_PDF$est_per_contact
-  pages <- FW_PDF$est_pages_base + ceiling(n_contacts / FW_PDF$est_contacts_per_page)
-  list(mb = bytes / 1e6, pages = as.integer(pages))
+  list(mb = bytes / 1e6, pages = as.integer(FW_PDF$est_pages_base))
 }
 
 #' How many pages a PDF has, read from its page tree

@@ -331,8 +331,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # THE FIGURES ARE IN THE SKELETON, and nothing that renders HTML for the
   # results carries an output of its own - that nesting was the bug.
   ok("every figure is a static output",
-     all(vapply(c("plan-map", "plan-methods", "plan-duration", "plan-chart_waterbody",
-                  "plan-chart_method_waterbody"),
+     all(vapply(c("plan-map", "plan-methods", "plan-duration", "plan-chart_waterbody"),
                 function(id) grepl(sprintf('id="%s"', id), head_html, fixed = TRUE),
                 logical(1))))
   ok("no output nested in a results renderUI",
@@ -344,14 +343,24 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
                 logical(1))), FALSE)
   unzip_names <- function(p) utils::unzip(p, list = TRUE)$Name
 
-  # WHAT A READER CAN TICK (client, 21 Sept 2026): the spreadsheet, the CSV,
-  # the PDF report and the attempts file. The interactive HTML report is gone.
-  ok("the four parts, in order", FW_BUNDLE_PARTS, c("xlsx", "csv", "pdf", "records"))
+  # WHAT A READER CAN TICK (client, 23 Sept 2026): the PDF report, the attempts
+  # file and the spreadsheet, in that order. The CSV went in the same round -
+  # it was the spreadsheet's rows a second time - and the interactive HTML
+  # report before it.
+  ok("the three parts, in order", FW_BUNDLE_PARTS, c("pdf", "records", "xlsx"))
   ok("the old html part is not recognised", fw_bundle_parts("html"), character(0))
+  ok("and the csv is not recognised either", fw_bundle_parts("csv"), character(0))
   picker <- as.character(fw_plan_download_ui(session$ns, pdf = TRUE))
-  ok("the picker offers all four",
-     all(vapply(c('value="xlsx"', 'value="csv"', 'value="pdf"', 'value="records"'),
+  ok("the picker offers all three",
+     all(vapply(c('value="pdf"', 'value="records"', 'value="xlsx"'),
                 grepl, logical(1), x = picker, fixed = TRUE)), TRUE)
+  ok("and no longer offers the csv",
+     grepl('value="csv"', picker, fixed = TRUE), FALSE)
+  ok("the picker lists them in FW_BUNDLE_PARTS order",
+     order(vapply(FW_BUNDLE_PARTS,
+                  function(v) regexpr(paste0('value="', v, '"'), picker, fixed = TRUE),
+                  integer(1))),
+     seq_along(FW_BUNDLE_PARTS))
   ok("and ticks the spreadsheet and the PDF",
      lengths(regmatches(picker, gregexpr('checked="checked"', picker, fixed = TRUE))), 2L)
   # NO PDF BOX WHERE NO PDF CAN BE MADE, and a sentence saying so instead.
@@ -378,21 +387,27 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("and the attempts file",      fw_records_filename() %in% inside, TRUE)
   ok("and the methods and caveats", fw_methods_filename() %in% inside, TRUE)
 
+  # AN UNRECOGNISED PART IS DROPPED, NOT REFUSED. "csv" was a real part until
+  # 23 Sept 2026, so a stale bookmark or a re-sent form can still name it; it
+  # is filtered out by fw_bundle_parts() and the reader gets the text alone,
+  # the same as ticking nothing.
   session$setInputs(download_parts = "csv")
-  ok("a CSV-only bundle still carries the text",
-     fw_methods_filename() %in% unzip_names(output$download), TRUE)
+  ok("a bundle asking for the retired csv falls back to the text",
+     fw_bundle_filename("csv"), fw_methods_filename())
+  ok("and it is the real text",
+     grepl("HOW FWISE WAS COMPILED", readLines(output$download, n = 1)), TRUE)
 
   # Nothing ticked is a reasonable thing to want, not an error to refuse: it
   # downloads the methods and caveats on their own, and raw rather than zipped.
   session$setInputs(download_parts = character(0))
   ok("nothing ticked downloads the text alone",
      fw_bundle_filename(character(0)), fw_methods_filename())
-  ok("and it is the real text",
+  ok("and that is the real text too",
      grepl("HOW FWISE WAS COMPILED", readLines(output$download, n = 1)), TRUE)
 
   # THE PROGRESS BAR (client, 21 Sept 2026). Every step reports, the bar never
   # goes backwards, it ends at 1, and every step has words from the copy deck.
-  for (parts in list(character(0), c("xlsx", "csv", "records"))) {
+  for (parts in list(character(0), c("xlsx", "records"))) {
     seen <- list()
     fw_write_bundle(tempfile(), parts, d, report()$sel, report()$export,
                     report()$filters, m,
@@ -445,7 +460,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     utils::unzip(z, exdir = dir)
     list.files(dir, pattern = pattern, full.names = TRUE)[1]
   }
-  rec_path <- unpack(c("csv", "records"), "[.]html$")
+  rec_path <- unpack(c("xlsx", "records"), "[.]html$")
   rec <- paste(readLines(rec_path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
   ids <- regmatches(rec, gregexpr('<article class="fw-rec-card" id="[^"]+"', rec))[[1]]
   ids <- sub('^.*id="', "", sub('"$', "", ids))
@@ -493,8 +508,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     # the PDF was set from - the PDF's own text streams are compressed.
     keep <- tempfile()
     fw_write_pdf_report(tempfile(fileext = ".pdf"), d, report()$sel, filters = report()$filters,
-                        meta = m, method_mode = "count", method_wb_mode = "share",
-                        keep = keep)
+                        meta = m, method_mode = "count", keep = keep)
     typ <- paste(readLines(file.path(keep, "report.typ"), warn = FALSE), collapse = "\n")
     has <- function(txt) grepl(txt, typ, fixed = TRUE)
     ok("the letterhead carries the title", has(fw_t("plan", "report_title")), TRUE)
@@ -503,8 +517,26 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     ok("and so do the contacts", has(fw_t("plan", "r_contacts")), TRUE)
     ok("the map is drawn", file.exists(file.path(keep, "map.png")), TRUE)
     ok("every chart is drawn",
-       all(file.exists(file.path(keep, c("methods.png", "duration.png", "waterbody.png",
-                                         "method-waterbody.png")))), TRUE)
+       all(file.exists(file.path(keep, c("methods.png", "duration.png",
+                                         "waterbody.png")))), TRUE)
+    # AND THE DELETED ONE IS NOT (client, 23 Sept 2026).
+    ok("the methods-by-water chart is gone",
+       file.exists(file.path(keep, "method-waterbody.png")), FALSE)
+    # WHAT THIS REPORT COVERS lists only the filters the reader actually set,
+    # and carries the note saying what the report is and is not for.
+    ok("the filters table explains itself",
+       has(fw_t("plan", "report_selection_note")), TRUE)
+    ok("and is set below the print floor", has("size: fw-small"), TRUE)
+    ok("no untouched filter is listed as All",
+       grepl(paste0('"', fw_t("export", "filter_all"), '"'), typ, fixed = TRUE), FALSE)
+    # THE OUTCOME BARS LEAD, above the species plates.
+    ok("the outcomes come before the species plates",
+       regexpr("#fw-outcome-bars", typ, fixed = TRUE) <
+         regexpr("#fw-species-tiles", typ, fixed = TRUE), TRUE)
+    # SIX CONTACTS AT MOST, however broad the selection.
+    ok("at most six contacts are printed",
+       nrow(fw_pdf_contacts_table(fw_plan_contacts(d, report()$sel))) <= FW_PDF$contacts_n,
+       TRUE)
     ok("every logo travels",
        all(file.exists(file.path(keep, paste0("logo-", c("mark", "wfa",
                                                          names(FW_LOGO$collab_files)),

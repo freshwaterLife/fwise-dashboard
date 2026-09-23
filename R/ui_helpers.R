@@ -136,6 +136,24 @@ fw_fmt_num <- function(x) {
   format(x, big.mark = ",", trim = TRUE, scientific = FALSE)
 }
 
+#' Pick the singular or the plural label for a figure
+#'
+#' A selection of one country was labelled "countries" (client, 23 Sept 2026).
+#' Exactly one takes the singular; everything else, zero included, takes the
+#' plural - "0 countries" is right and "0 country" is not.
+#'
+#' The caller supplies both words rather than this guessing from the plural,
+#' because several of the labels it is used on do not inflect at all ("invasive
+#' species", "species protected") and a rule that strips an "s" would break
+#' them.
+#'
+#' @param n the figure the label sits under
+#' @param one,many the two forms, both from the copy deck
+fw_plural <- function(n, one, many) {
+  if (is.null(n) || length(n) == 0 || is.na(n)) return(many)
+  if (n == 1) one else many
+}
+
 #' 1st, 2nd, 3rd, 4th. Used in the submission confirmation.
 fw_ordinal <- function(n) {
   if (is.na(n)) return("")
@@ -380,6 +398,49 @@ fw_brand <- function() {
 #'   somewhere, not a call to action. Omitted entirely when there are none, so
 #'   the footer never says "0 records in review", which reads as a broken pipe
 #'   rather than an empty queue.
+#' The footer's "Contact FWISE" button
+#'
+#' THE ADDRESS IS NOT IN THE SERVED MARKUP. It is split into a local part and a
+#' domain on two data attributes and joined in JavaScript when the button is
+#' pressed, which is the same speed bump fw_contact_action() applies to every
+#' address in the Networking directory. It is not security - anyone who runs or
+#' reads the page's JavaScript recovers it - it just means a scraper reading the
+#' HTML does not harvest it in one pass.
+#'
+#' PRESSING IT REVEALS THE ADDRESS RATHER THAN JUMPING STRAIGHT TO A MAIL
+#' CLIENT. A reader on a machine with no mail client configured gets nothing at
+#' all from a bare mailto:, so the assembled address is written into the page as
+#' a real mailto link they can read, copy, or follow.
+fw_footer_contact <- function() {
+  div(
+    class = "fw-footer__contact",
+    tags$button(
+      type = "button",
+      class = "fw-footer__contact-btn",
+      `data-u` = fw_t("footer", "contact_user"),
+      `data-d` = fw_t("footer", "contact_domain"),
+      `aria-label` = fw_t("footer", "contact_aria"),
+      `aria-controls` = "fw-footer-contact-out",
+      onclick = paste0(
+        "var a=this.dataset.u+String.fromCharCode(64)+this.dataset.d,",
+        "o=document.getElementById('fw-footer-contact-out');",
+        "o.innerHTML='';",
+        "var l=document.createElement('a');",
+        "l.href='mail'+'to:'+a; l.textContent=a;",
+        "o.appendChild(l); this.hidden=true; l.focus(); return false;"
+      ),
+      fw_t("footer", "contact_label")
+    ),
+    # Filled by the button above. aria-live so the revealed address is
+    # announced rather than appearing silently.
+    tags$span(
+      id = "fw-footer-contact-out",
+      class = "fw-footer__contact-out",
+      `aria-live` = "polite"
+    )
+  )
+}
+
 fw_footer <- function(last_updated, in_review = 0L) {
   logo <- function(href, src, alt) {
     tags$a(
@@ -422,9 +483,13 @@ fw_footer <- function(last_updated, in_review = 0L) {
           ),
           div(
             class = "fw-footer__credits",
-            p(class = "fw-footer__built-by", fw_t("app", "built_by")),
+            # FWISE FIRST, WEIRD FISHES UNDERNEATH (client, 23 Sept 2026). The
+            # database is the thing being credited; the tool that draws it is
+            # the second sentence, not the first.
             p(class = "fw-footer__built-by", fw_t("app", "data_by")),
-            p(class = "fw-footer__built-by", fw_t("app", "illustrated_by"))
+            p(class = "fw-footer__built-by", fw_t("app", "built_by")),
+            p(class = "fw-footer__built-by", fw_t("app", "illustrated_by")),
+            fw_footer_contact()
           ),
           div(
             class = "fw-footer__logos",

@@ -5,7 +5,7 @@
 #
 # TWINS, NOT A SECOND IMPLEMENTATION OF THE NUMBERS. Each chart here draws from
 # the same counting function its plotly original does - fw_method_data(),
-# fw_category_data(), fw_method_waterbody_data(), fw_duration_data(), all in
+# fw_category_data(), fw_duration_data(), all in
 # R/charts.R - so the PDF and the page cannot disagree about a single bar.
 # Only the drawing is written twice, because plotly cannot be rendered to a
 # static image on this deployment (that needs kaleido, which needs Python).
@@ -203,20 +203,6 @@ fw_gg_waterbody <- function(sel, mode = "count") {
               fw_t("charts", if (mode == "share") "x_share" else "x_attempts"))
 }
 
-#' Methods used in each kind of water, stacked by method
-fw_gg_method_waterbody <- function(data, sel, mode = "count") {
-  md <- fw_method_waterbody_data(data, sel, mode)
-  if (is.null(md)) return(NULL)
-  names_by_id <- vapply(md$method_ids,
-                        function(m) md$d$method_name[md$d$method_id == m][1],
-                        character(1))
-  fw_gg_stack(md$d, md$order_lv, "method_id", md$method_ids,
-              FW_METHOD_COLOURS[md$method_ids], FW_METHOD_LABEL_INK, mode,
-              fw_t("charts", if (mode == "share") "x_share_uses" else "x_times_used"),
-              key_labels = unname(names_by_id)) +
-    guides(fill = guide_legend(nrow = 2, byrow = TRUE))
-}
-
 #' How long attempts took, by method, on a log axis
 #'
 #' The page's chart point for point: the same beeswarm offsets
@@ -230,10 +216,13 @@ fw_gg_duration <- function(data, sel) {
   lim <- 10^fw_duration_range(d$duration_days)
   spread <- FW_CHART$duration_swarm$spread
 
-  # Only the unit breaks inside this selection's range get a line; the axis
-  # still names them all, and ggplot drops the labels that fall outside.
-  breaks <- FW_CHART$duration_ticks[FW_CHART$duration_ticks >= lim[1] &
-                                      FW_CHART$duration_ticks <= lim[2]]
+  # THE SAME TICKS THE PAGE'S CHART DRAWS, terminal one included, so the
+  # printed picture and the screen agree on where the axis stops - see
+  # fw_duration_ticks() in charts.R.
+  ticks <- fw_duration_ticks(d$duration_days)
+  # Only the breaks inside this selection's range get a line; the axis still
+  # names them all, and ggplot drops the labels that fall outside.
+  breaks <- ticks$vals[ticks$vals >= lim[1] & ticks$vals <= lim[2]]
 
   ggplot(d) +
     geom_vline(xintercept = breaks, colour = FW_COLOURS$ink,
@@ -247,16 +236,23 @@ fw_gg_duration <- function(data, sel) {
                colour = FW_COLOURS$surface, alpha = FW_CHART$point$opacity) +
     scale_fill_manual(values = FW_OUTCOME_COLOURS, breaks = FW_OUTCOME_LEVELS,
                       drop = TRUE) +
-    scale_x_log10(limits = lim, breaks = FW_CHART$duration_ticks,
-                  labels = fw_gg_stagger(fw_t("charts", "duration_ticks")),
+    scale_x_log10(limits = lim, breaks = ticks$vals,
+                  labels = fw_gg_stagger(ticks$text),
                   expand = expansion(0)) +
     scale_y_continuous(breaks = seq_along(dd$order_lv), labels = dd$order_lv,
                        limits = c(0.5, length(dd$order_lv) + 0.5),
                        expand = expansion(0)) +
-    labs(x = fw_t("charts", "x_duration"), y = NULL) +
+    # NO AXIS TITLE, as on the page (client, 23 Sept 2026).
+    labs(x = NULL, y = NULL) +
     fw_gg_theme() +
     theme(panel.grid.major.x = element_blank(),
-          panel.grid.major.y = element_blank()) +
+          panel.grid.major.y = element_blank(),
+          # ROOM FOR THE TERMINAL TICK'S LABEL. It sits at the longest attempt
+          # in the selection, which is at the right-hand end of the data, and
+          # "20 years" centred on it runs off the panel and is clipped by the
+          # default 6pt margin. Half a label's width, taken from the theme's
+          # own text size.
+          plot.margin = margin(2, FW_PRINT$floor * 2.2, 2, 2)) +
     guides(fill = guide_legend(override.aes = list(size = 3.2, alpha = 1)))
 }
 
@@ -277,29 +273,111 @@ fw_gg_stagger <- function(labels) {
 #'
 #' Natural Earth 1:110m, bundled by dev/build_report_basemap.R. Read once per
 #' process.
-fw_gg_world <- local({
-  world <- NULL
-  function(path = file.path("resources", "report", "ne_110m_countries.rds")) {
+#'
+#' THREE LAYERS since 23 Sept 2026: list(world, ocean, lakes). The lakes are
+#' the reason - see the note in the builder about why a blue panel background
+#' is not the same thing as blue water on a freshwater map.
+fw_gg_basemap <- local({
+  layers <- NULL
+  function(path = file.path("resources", "report", "ne_110m_basemap.rds")) {
     # sf's namespace FIRST. readRDS() does not load the package a class
     # belongs to, and subsetting an sf object before sf is loaded falls through
     # to the data.frame method, which loses the geometry column's attribute.
-    if (is.null(world)) {
+    if (is.null(layers)) {
       loadNamespace("sf")
-      world <<- readRDS(path)
+      layers <<- readRDS(path)
     }
-    world
+    layers
   }
 })
 
+#' Axis labels as degrees with a hemisphere letter
+#'
+#' "40°N", "20°W", and a bare "0" at the equator and the prime meridian, where
+#' a hemisphere letter would be wrong rather than merely redundant. ggplot
+#' hands the breaks in as a numeric vector and may include NA for a break it
+#' has dropped, which has to come back as NA or the axis silently shifts.
+#'
+#' @param pos,neg the letters for the positive and negative sides
+fw_gg_degrees <- function(pos, neg) {
+  function(x) {
+    ifelse(is.na(x), NA_character_,
+           ifelse(x == 0, "0",
+                  paste0(abs(round(x)), "\u00b0", ifelse(x > 0, pos, neg))))
+  }
+}
+
+#' A scale bar sized to the frame, correct at its own stated latitude
+#'
+#' ONE LATITUDE ONLY, AND IT SAYS WHICH. On an unprojected longitude/latitude
+#' plot the scale changes with latitude - a degree of longitude is about 111km
+#' at the equator and 78km at 45 degrees - so a single bar cannot be right
+#' everywhere on the sheet. It is computed at the middle of what is framed and
+#' labelled with that latitude, which makes it a claim a reader can check
+#' instead of a decoration that is quietly wrong at the edges.
+#'
+#' The length is the nearest round number (1, 2 or 5 x a power of ten) under a
+#' fifth of the frame's width, so the bar is a figure worth reading rather than
+#' whatever a fifth of the frame happens to come to.
+#'
+#' @param xl,yl the longitude and latitude limits the map is drawn to
+#' @return a list of ggplot layers, to be added to the plot
+fw_gg_scale_bar <- function(xl, yl) {
+  mid_lat <- mean(yl)
+  km_per_deg <- 111.32 * cos(mid_lat * pi / 180)
+  if (!is.finite(km_per_deg) || km_per_deg <= 0) return(NULL)
+
+  target_km <- diff(xl) * km_per_deg / 5
+  if (!is.finite(target_km) || target_km <= 0) return(NULL)
+  pow <- 10^floor(log10(target_km))
+  km <- c(1, 2, 5, 10) * pow
+  km <- max(km[km <= target_km], pow)
+
+  deg <- km / km_per_deg
+  # Bottom left, inset by a twentieth of each span so the bar is inside the
+  # frame rather than on it.
+  x0 <- xl[1] + diff(xl) * 0.05
+  y0 <- yl[1] + diff(yl) * 0.07
+  label <- fw_fill(fw_t("charts", "scale_bar"),
+                   km = format(km, big.mark = ",", trim = TRUE),
+                   lat = paste0(abs(round(mid_lat)), "\u00b0",
+                                if (mid_lat >= 0) "N" else "S"))
+
+  list(
+    # A white keyline under the bar so it reads over the sea as well as land.
+    annotate("segment", x = x0, xend = x0 + deg, y = y0, yend = y0,
+             colour = FW_COLOURS$surface, linewidth = 1.6, lineend = "butt"),
+    annotate("segment", x = x0, xend = x0 + deg, y = y0, yend = y0,
+             colour = FW_MAP_PRINT$frame, linewidth = 0.7, lineend = "butt"),
+    annotate("text", x = x0, y = y0 + diff(yl) * 0.025, label = label,
+             # annotate() sizes text in MM, not the pt that element_text()
+             # takes; .pt is ggplot's own conversion between the two.
+             hjust = 0, vjust = 0, size = FW_PRINT$floor / ggplot2::.pt,
+             colour = FW_MAP_PRINT$frame)
+  )
+}
+
 #' Where the attempts in a selection happened, as a static map
 #'
-#' The page's map without the tiles: light land on a slightly darker sea, as
-#' the Carto basemap draws it, with one dot per located attempt in its outcome
-#' colour. A selection that spans most of the world is drawn whole; a regional
-#' one is drawn close in, framed to its points. Both on plain longitude and
-#' latitude, which is the projection the source outlines are cut for - an
-#' Equal Earth reprojection drew stray lines where Natural Earth's polygons
-#' meet the antimeridian.
+#' The page's map without the tiles: green land, blue water, one dot per
+#' located attempt in its outcome colour. A selection that spans most of the
+#' world is drawn whole; a regional one is drawn close in, framed to its
+#' points. Both on plain longitude and latitude, which is the projection the
+#' source outlines are cut for - an Equal Earth reprojection drew stray lines
+#' where Natural Earth's polygons meet the antimeridian.
+#'
+#' COLOUR IS THE CLIENT'S (23 Sept 2026), and it is the one picture in the app
+#' that departs from the brand palette: everywhere else water and land are
+#' surface tones, because the map is a ground for data rather than a subject.
+#' On paper the client wanted it read as a map, so FW_MAP_PRINT in R/brand.R
+#' carries its own green, blue and frame grey.
+#'
+#' GRATICULE LABELS AND A SCALE BAR, also the client's. The scale bar is
+#' correct at ONE latitude only, because this is an unprojected lon/lat plot -
+#' a degree of longitude is 111km at the equator and 78km at 45 degrees. It is
+#' computed at the middle of whatever is framed and labelled with that
+#' latitude, so it is a statement a reader can check rather than a claim about
+#' the whole sheet.
 #'
 #' @return list(plot, height_mm), or NULL when no attempt has coordinates
 fw_gg_map <- function(data, sel) {
@@ -310,7 +388,8 @@ fw_gg_map <- function(data, sel) {
   # The rarer outcomes last, so a Failed dot is not buried under forty
   # Successful ones at the same site.
   pts <- pts[order(-table(pts$outcome)[as.character(pts$outcome)]), ]
-  world <- fw_gg_world()
+  base_layers <- fw_gg_basemap()
+  world <- base_layers$world
   world <- world[!world$iso3 %in% "ATA", ]
   width <- FW_PDF$text_width_mm
 
@@ -319,8 +398,14 @@ fw_gg_map <- function(data, sel) {
 
   pts_sf <- sf::st_as_sf(pts, coords = c("longitude", "latitude"), crs = 4326)
   base <- ggplot() +
-    geom_sf(data = world, fill = FW_COLOURS$surface, colour = FW_COLOURS$border,
-            linewidth = 0.2) +
+    # Ocean first and full-bleed, then land over it, then the lakes punched
+    # back through the land. Order is the whole trick: a lake drawn before the
+    # country it sits in disappears under it.
+    geom_sf(data = base_layers$ocean, fill = FW_MAP_PRINT$water, colour = NA) +
+    geom_sf(data = world, fill = FW_MAP_PRINT$land,
+            colour = FW_MAP_PRINT$outline, linewidth = 0.2) +
+    geom_sf(data = base_layers$lakes, fill = FW_MAP_PRINT$water,
+            colour = FW_MAP_PRINT$outline, linewidth = 0.1) +
     geom_sf(data = pts_sf, aes(fill = outcome), shape = 21, size = 2.2,
             stroke = 0.3, colour = FW_COLOURS$surface, alpha = 0.9) +
     scale_fill_manual(values = FW_OUTCOME_COLOURS, breaks = FW_OUTCOME_LEVELS,
@@ -328,17 +413,30 @@ fw_gg_map <- function(data, sel) {
     guides(fill = guide_legend(override.aes = list(size = 3.2, alpha = 1))) +
     fw_gg_theme() +
     theme(
-      panel.background = element_rect(fill = FW_COLOURS$page, colour = NA),
+      # The ocean layer is the sea now, so the panel only shows where the
+      # frame runs past the data - it takes the same blue so no seam shows.
+      panel.background = element_rect(fill = FW_MAP_PRINT$water, colour = NA),
+      # A DARK GREY FRAME (client): the map is a figure with an edge, not a
+      # shape floating on the page.
+      panel.border = element_rect(fill = NA, colour = FW_MAP_PRINT$frame,
+                                  linewidth = 0.6),
+      # Ticks and their labels come back. The graticule stays off - lines
+      # across the sea competed with the dots.
       panel.grid.major = element_blank(),
-      axis.text = element_blank(), axis.title = element_blank(),
-      axis.ticks = element_blank(), axis.line = element_blank()
-    )
+      axis.title = element_blank(),
+      axis.text = element_text(size = FW_PRINT$floor, colour = FW_COLOURS$ink_muted),
+      axis.ticks = element_line(colour = FW_MAP_PRINT$frame, linewidth = 0.4),
+      axis.line = element_blank()
+    ) +
+    scale_x_continuous(labels = fw_gg_degrees("E", "W")) +
+    scale_y_continuous(labels = fw_gg_degrees("N", "S"))
 
   if (global) {
     # The inhabited world, not the whole globe: Antarctica has no freshwater
     # eradications to show and would take a fifth of the frame to say so.
-    plot <- base + coord_sf(xlim = c(-180, 180), ylim = c(-56, 84),
-                            expand = FALSE)
+    xl <- c(-180, 180); yl <- c(-56, 84)
+    plot <- base + fw_gg_scale_bar(xl, yl) +
+      coord_sf(xlim = xl, ylim = yl, expand = FALSE)
     return(list(plot = plot, height_mm = round(width * 0.47)))
   }
 
@@ -356,6 +454,7 @@ fw_gg_map <- function(data, sel) {
     grow <- (0.4 * diff(xl) * cos(mean(yl) * pi / 180) - diff(yl)) / 2
     yl <- c(max(-85, yl[1] - grow), min(85, yl[2] + grow)); aspect <- 0.4
   }
+  base <- base + fw_gg_scale_bar(xl, yl)
   plot <- base + coord_sf(xlim = xl, ylim = yl, expand = FALSE)
   list(plot = plot, height_mm = round(width * aspect) + 14)
 }

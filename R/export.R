@@ -38,7 +38,7 @@ FW_EXPORT_COLUMNS <- c(
   "depth_m", "depth_notes", "volume_m3", "volume_notes", "max_flow_m3s",
   "water_temp_c", "water_temp_notes",
   "invasive_species", "invasive_taxa",
-  "invasion_year", "start_year", "end_year", "duration_days", "driver",
+  "invasion_year", "start_year", "end_year", "duration_days", "reason",
   "beneficiary_species", "beneficiary_taxa",
   "methods", "method_classes", "method_notes", "method_description",
   "labour_person_days", "cost_estimate", "cost_notes",
@@ -107,8 +107,19 @@ fw_export_frame <- function(data, attempt_ids = NULL) {
 
   # Contacts are joined by id twice, once per slot. Redaction is applied here
   # and asserted afterwards - see fw_assert_export_safe().
+  #
+  # THE NAME GOES WITH THE ADDRESS (client, 23 Sept 2026). A contact who did
+  # not agree to their address being published has not agreed to being named
+  # either, so a private contact exports as a blank name, a blank organisation
+  # and a blank address rather than as a named person we decline to put an
+  # address beside. The attempt's own row still travels in full; only who to
+  # ask about it is withheld.
   contacts <- data$contact |>
-    mutate(contact_email = if_else(email_public, contact_email, NA_character_)) |>
+    mutate(
+      contact_name  = if_else(email_public, contact_name,  NA_character_),
+      organisation  = if_else(email_public, organisation,  NA_character_),
+      contact_email = if_else(email_public, contact_email, NA_character_)
+    ) |>
     select(contact_id, contact_name, organisation, contact_email)
   slot <- function(id_col, prefix) {
     m <- match(a[[id_col]], contacts$contact_id)
@@ -126,7 +137,7 @@ fw_export_frame <- function(data, attempt_ids = NULL) {
       waterbody_type, water_regime, area_treated, area_unit, area_notes,
       depth_m, depth_notes, volume_m3, volume_notes, max_flow_m3s,
       water_temp_c, water_temp_notes,
-      invasion_year, start_year, end_year, duration_days, driver,
+      invasion_year, start_year, end_year, duration_days, reason = driver,
       method_description, labour_person_days, cost_estimate, cost_notes,
       target_ingredient_basis, toxin_conc_target_mg_l, conc_target_notes,
       toxin_conc_measured_mg_l, conc_measured_notes,
@@ -163,24 +174,38 @@ fw_export_frame <- function(data, attempt_ids = NULL) {
   out
 }
 
-#' Refuse to export an address the contact asked to keep private
+#' Refuse to export the name or address of a contact who asked to stay private
 #'
 #' The redaction happens above, in fw_export_frame(). This is the control that
 #' makes it a control rather than something we remembered to do: "we applied the
 #' filter" is not a guarantee, and an export is the one place a mistake travels
 #' outside the building and cannot be recalled.
+#'
+#' BOTH FIELDS, since 23 Sept 2026. The flag used to gate the address alone, so
+#' a private contact still went out named; the client's rule is that no
+#' personally identifying detail of theirs appears anywhere in the app or its
+#' downloads. A name is identifying on its own, so it is checked here too.
 fw_assert_export_safe <- function(x, data) {
-  private <- data$contact$contact_email[!data$contact$email_public]
-  private <- private[!is.na(private) & nzchar(private)]
-  if (length(private) == 0) return(invisible(TRUE))
+  hidden <- !data$contact$email_public
+  clean <- function(v) v[!is.na(v) & nzchar(v)]
 
-  cols <- grep("_email$", names(x), value = TRUE)
-  leaked <- unique(unlist(lapply(cols, function(c) intersect(x[[c]], private))))
-  if (length(leaked) > 0) {
-    stop("Refusing to export: ", length(leaked),
-         " address(es) belonging to contacts who asked not to be listed.",
-         call. = FALSE)
+  check <- function(values, pattern, what) {
+    values <- clean(values)
+    if (length(values) == 0) return(invisible(TRUE))
+    cols <- grep(pattern, names(x), value = TRUE)
+    leaked <- unique(unlist(lapply(cols, function(c) intersect(x[[c]], values))))
+    if (length(leaked) > 0) {
+      stop("Refusing to export: ", length(leaked), " ", what,
+           " belonging to contacts who asked not to be listed.", call. = FALSE)
+    }
+    invisible(TRUE)
   }
+
+  check(data$contact$contact_email[hidden], "_email$", "address(es)")
+  # _contact_name$, not _name$: site_name is also a name column, and a site
+  # that happened to share a string with a private contact would halt every
+  # download rather than protect anybody.
+  check(data$contact$contact_name[hidden], "_contact_name$", "name(s)")
   invisible(TRUE)
 }
 
@@ -299,7 +324,15 @@ fw_text_sheet <- function(lines, heading) {
 #' draws the controls, so a filter cannot be offered on the page and then be
 #' missing from the spreadsheet that is supposed to record what was selected.
 #' Only the provenance rows above them are written out by hand.
-fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL) {
+#' @param applied_only drop the filters the reader left alone. FALSE for the
+#'   workbook, where the sheet is a record of the whole settings panel and a row
+#'   reading "All" is a fact about the extract worth keeping. TRUE for the PDF
+#'   report (client, 23 Sept 2026), where seventeen rows of mostly "All" pushed
+#'   the reader's actual selection off the top of the page. The rule is the one
+#'   the report builder's on-screen summary already applies - see
+#'   output$filters_summary in mod_plan.R.
+fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL,
+                             applied_only = FALSE) {
   provenance <- list(
     list(setting = fw_t("export", "generated_at"),
          value = format(Sys.time(), "%Y-%m-%d %H:%M:%S", tz = "UTC")),
@@ -310,7 +343,19 @@ fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL) {
     list(setting = fw_t("export", "release"),
          value = meta$release %||% fw_t("export", "release_unknown"))
   )
-  rows <- c(provenance, fw_filter_summary(filters))
+  set <- fw_filter_summary(filters)
+  if (applied_only) {
+    # "All" is an untouched multi-select; "Yes" is an include-the-unrecorded
+    # switch left at its default. Both mean the reader did not narrow on that
+    # field. The provenance rows above are never dropped.
+    skip <- c(fw_t("export", "filter_all"), fw_t("export", "filter_yes"))
+    set <- Filter(function(r) {
+      if (isTRUE(r$untouched)) return(FALSE)
+      !identical(as.character(r$value), skip[1]) &&
+        !identical(as.character(r$value), skip[2])
+    }, set)
+  }
+  rows <- c(provenance, set)
 
   out <- data.frame(
     vapply(rows, function(r) r$setting, character(1)),
@@ -365,13 +410,19 @@ fw_export_filename <- function() {
 # a picker and one button, and the methods-and-caveats text rides along whatever
 # else is in there. See fw_plan_download_ui() in mod_plan.R.
 #
-# FOUR PARTS, at the client's request (21 Sept 2026): the spreadsheet, the CSV,
-# the PDF report and the attempts file. The interactive HTML report they
-# replace - live plotly charts and a leaflet map, printed to PDF through the
-# browser - is gone; the PDF is now a real one, made on the server.
+# THREE PARTS, at the client's request (23 Sept 2026): the PDF report, the
+# attempts file and the spreadsheet. The interactive HTML report they replace -
+# live plotly charts and a leaflet map, printed to PDF through the browser - is
+# gone; the PDF is now a real one, made on the server.
+#
+# THE CSV WENT WITH THAT ROUND. It was the .xlsx's rows a second time in a
+# plainer wrapper, and offering the same data twice made the picker read as
+# four decisions when it is three. A reader who wants delimited text opens the
+# workbook and saves it as one.
 
-# The parts a reader can choose, in the order they are written.
-FW_BUNDLE_PARTS <- c("xlsx", "csv", "pdf", "records")
+# The parts a reader can choose, in the order they are written. The download
+# picker lists them in this order too - see fw_plan_download_ui() in mod_plan.R.
+FW_BUNDLE_PARTS <- c("pdf", "records", "xlsx")
 
 #' Which files a selection actually produces
 #'
@@ -395,28 +446,17 @@ fw_bundle_filename <- function(parts = character(0)) {
   paste0(fw_t("export", "bundle_stem"), format(Sys.Date(), "%Y%m%d"), ".zip")
 }
 
-#' The flattened export as a CSV on disk
-#'
-#' UTF-8 with no byte-order mark. Species names carry accents and a BOM would
-#' make Excel read them correctly while breaking a good number of the data tools
-#' this CSV is actually for; the .xlsx alongside it is the answer for Excel.
-fw_write_csv <- function(export, dir) {
-  path <- file.path(dir, "fwise-attempts.csv")
-  utils::write.csv(export, path, row.names = FALSE, na = "", fileEncoding = "UTF-8")
-  path
-}
-
 #' Write the download
 #'
 #' @param path where to write - the download handler's temp file
 #' @param parts what the reader ticked. Anything not recognised is ignored.
-#' @param method_mode,method_wb_mode,waterbody_mode the chart toggles, passed to
+#' @param method_mode,waterbody_mode the chart toggles, passed to
 #'   fw_write_pdf_report() so the document matches the screen it came from.
 #' @param progress called as progress(value, detail) before each step, value
 #'   running 0 to 1 across the whole bundle. The handler passes Shiny's
 #'   setProgress(); the default does nothing, so the tests need no session.
 fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL,
-                            method_mode = "count", method_wb_mode = "count",
+                            method_mode = "count",
                             waterbody_mode = "count",
                             progress = function(value, detail) NULL) {
   parts <- fw_bundle_parts(parts)
@@ -424,7 +464,7 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
   # THE BAR IS WEIGHTED BY WHAT TAKES THE TIME, not by the number of steps: the
   # PDF (Quarto on the server) is most of any bundle that has one, and a bar
   # that spent a sixth of itself on a text file would stall at the end.
-  steps <- c(txt = 1, xlsx = 2, csv = 1, pdf = 12, records = 3, zip = 1)
+  steps <- c(txt = 1, xlsx = 2, pdf = 12, records = 3, zip = 1)
   steps <- steps[c("txt", parts, if (length(parts)) "zip")]
   ends <- cumsum(steps) / sum(steps)
   starts <- stats::setNames(c(0, utils::head(ends, -1)), names(steps))
@@ -439,21 +479,17 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
   writeLines(fw_methods_caveats_text(data), txt, useBytes = TRUE)
   files <- fw_methods_filename()
 
-  if ("xlsx" %in% parts) {
-    step("xlsx", "progress_xlsx")
-    fw_write_workbook(file.path(dir, fw_export_filename()), data, export,
-                      filters, meta)
-    files <- c(files, fw_export_filename())
-  }
-  if ("csv" %in% parts) {
-    step("csv", "progress_csv")
-    files <-c(files, basename(fw_write_csv(export, dir)))
-  }
+  # THE WRITE ORDER IS FW_BUNDLE_PARTS' ORDER, and that is load-bearing rather
+  # than tidy. fw_bundle_parts() above has already sorted `parts` into the
+  # canonical order, and the weighted bar computes each step's start from that
+  # same sequence - so a block written out of sequence reports a fraction it
+  # has already passed and the progress bar jumps backwards. If a part moves in
+  # FW_BUNDLE_PARTS, move its block here to match.
   if ("pdf" %in% parts) {
     fw_write_pdf_report(
       path = file.path(dir, fw_pdf_filename()), data = data, sel = sel,
       filters = filters, meta = meta, method_mode = method_mode,
-      method_wb_mode = method_wb_mode, waterbody_mode = waterbody_mode,
+      waterbody_mode = waterbody_mode,
       # The report's own sub-steps, mapped into the PDF's stretch of the bar.
       progress = function(fraction, detail)
         progress(starts[["pdf"]] + fraction * steps[["pdf"]] / sum(steps), detail)
@@ -467,6 +503,12 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
     files <- c(files, fw_records_filename())
   }
 
+  if ("xlsx" %in% parts) {
+    step("xlsx", "progress_xlsx")
+    fw_write_workbook(file.path(dir, fw_export_filename()), data, export,
+                      filters, meta)
+    files <- c(files, fw_export_filename())
+  }
   # One file arrives as itself. Zipping a lone text file to save nothing would
   # make the reader unpack an archive to read two paragraphs.
   if (length(files) == 1) {

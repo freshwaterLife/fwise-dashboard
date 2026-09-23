@@ -141,7 +141,7 @@ FW_COPY_EXPORT <- list(
       latitude            = "Decimal degrees, WGS 84. Positive north.",
       longitude           = "Decimal degrees, WGS 84. Positive east.",
       waterbody_type      = "The kind of waterbody treated, e.g. Lake, Pond, Stream.",
-      water_regime        = "Lentic (still water) or Lotic (flowing water).",
+      water_regime        = "Whether the water is still or flowing.",
       area_treated        = "Size of the treated area. NOT COMPARABLE ACROSS UNITS - read area_unit.",
       area_unit           = "ha (hectares, an area) or km (kilometers, a length). Do not combine the two.",
       area_notes          = "Free text qualifying the size figure.",
@@ -158,7 +158,7 @@ FW_COPY_EXPORT <- list(
       start_year          = "Year the eradication attempt began.",
       end_year            = "Year the attempt ended. Blank where the attempt is ongoing.",
       duration_days       = "Estimated total duration of the intervention, days.",
-      driver              = "The main reason the eradication was carried out.",
+      reason              = "The main reason the eradication was carried out.",
       beneficiary_species = "Species the eradication was intended to help. Semicolon-delimited. Under-reported - see the caveats.",
       beneficiary_taxa    = "Broad group of each beneficiary. Semicolon-delimited.",
       methods             = "Methods used, semicolon-delimited. An unordered set, not a ranking.",
@@ -227,7 +227,7 @@ FW_COPY_EXPORT <- list(
       list(heading = "Species", fields = c(
         "invasive_species", "invasive_taxa", "beneficiary_species", "beneficiary_taxa")),
       list(heading = "When and why", fields = c(
-        "invasion_year", "start_year", "end_year", "duration_days", "driver")),
+        "invasion_year", "start_year", "end_year", "duration_days", "reason")),
       list(heading = "How", fields = c(
         "methods", "method_classes", "method_notes", "method_description",
         "labour_person_days", "cost_estimate", "cost_notes")),
@@ -271,7 +271,7 @@ FW_COPY_EXPORT <- list(
       start_year          = "Start year",
       end_year            = "End year",
       duration_days       = "Duration (days)",
-      driver              = "Reason",
+      reason              = "Reason",
       methods             = "Methods",
       method_classes      = "Kind of method",
       method_notes        = "Notes on methods",

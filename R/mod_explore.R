@@ -29,11 +29,16 @@ mod_explore_ui <- function(id, choices) {
           fw_explore_filter_bar(ns, choices, ids),
           uiOutput(ns("summary")),
 
+          # A TITLED BLOCK LIKE EVERY OTHER, since 23 Sept 2026: the map's
+          # note used to be a paragraph above it and is now the (i) beside a
+          # heading, which is the rule the rest of the app already followed.
+          # The Mercator note stays a visible line under the map - it is a
+          # statement about the picture the reader is looking at, not an
+          # explanation they have to ask for.
           div(
             class = "fw-explore-block",
-            p(class = "fw-explore-block__note", fw_t("explore", "map_note")),
-            fw_map_output(ns("map")),
-            fw_map_note()
+            fw_block(fw_t("maps", "title"), fw_t("maps", "note"),
+                     tagList(fw_map_output(ns("map")), fw_map_note()))
           ),
 
           div(
@@ -43,7 +48,7 @@ mod_explore_ui <- function(id, choices) {
             # a subgrid of the same three rows (see .fw-explore-charts), so an
             # empty row here is what keeps the two plots level side by side.
             fw_block(fw_t("explore", "cumulative"),
-                     fw_t("explore", "cumulative_note"),
+                     NULL,
                      tagList(
                        div(class = "fw-explore-charts__controls"),
                        plotly::plotlyOutput(ns("cumulative"), height = "auto")
@@ -193,7 +198,12 @@ fw_explore_db_panel <- function(s, in_review = 0L) {
       fw_kpi_stat(fw_fmt_num(s$attempts), fw_t("explore", "db_attempts")),
       fw_kpi_stat(fw_fmt_num(s$countries), fw_t("explore", "db_countries")),
       fw_kpi_stat(fw_fmt_num(s$species), fw_t("explore", "db_invasive")),
-      fw_kpi_stat(fw_fmt_num(s$beneficiaries), fw_t("explore", "db_beneficiary"),
+      # SUCCESSFUL ATTEMPTS ONLY (client, 23 Sept 2026). s$protected is the
+      # count of beneficiary species on attempts that succeeded; s$beneficiaries
+      # counts them on every attempt, successful or not, and a species whose
+      # eradication failed has not been protected by it. The Welcome page has
+      # always used s$protected - this is the rest of the app catching up.
+      fw_kpi_stat(fw_fmt_num(s$protected), fw_t("explore", "db_beneficiary"),
                   tooltip = fw_t("explore", "db_beneficiary_tip")),
       # THE SUCCESS COUNT USED TO SIT HERE and is gone at the client's request.
       # It was the one figure in the strip that was an OUTCOME rather than a
