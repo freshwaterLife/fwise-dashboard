@@ -19,6 +19,13 @@
 # the rule the map's record card follows (client, 21 Sept 2026) - so two cards
 # can be compared line for line.
 #
+# WITH ONE EXCEPTION, THE CHEMICAL DETAIL (client, 23 Sept 2026). An attempt
+# that used no chemical method has nothing to say about target concentrations
+# or neutralising agents, and seven "Not noted" lines under a heading about
+# chemicals is not a comparison, it is noise. The section is cut from that card
+# alone - see fw_record_group_drop(), which also refuses to cut it when any of
+# those fields actually holds a value, so the rule above can never lose data.
+#
 # SELF-CONTAINED. The stylesheet, the fonts and the logos are inlined; there is
 # no script beyond the few lines of the find box, and no network request. No
 # photographs: they would make the file grow with the selection, and the PDF
@@ -89,8 +96,37 @@ fw_record_outcome <- function(outcome, none) {
          htmlEscape(if (is.na(outcome)) none else outcome), "</span>")
 }
 
+#' Whether a field of a record is empty, and so prints as "Not noted"
+#'
+#' Its own predicate because two things now ask the question: the renderer
+#' below, and fw_record_group_drop(), which may not cut a section holding a
+#' value. Two spellings of "empty" would be two answers.
+fw_record_blank <- function(value) {
+  length(value) != 1 || is.na(value) || !nzchar(trimws(as.character(value)))
+}
+
+#' Whether this card should leave a group out altogether
+#'
+#' ONLY THE CHEMICAL DETAIL, and only on an attempt whose methods carry no
+#' chemical class - see the note at the head of this file. `method_classes` is
+#' the export frame's collapsed list of the classes of the methods recorded on
+#' the attempt ("chemical; mechanical"), and an attempt with no method row at
+#' all leaves it NA, which counts as not chemical.
+#'
+#' AND ONLY WHEN THE SECTION IS EMPTY. A handful of records carry a
+#' concentration or a neutralising agent against a method the database has
+#' classed as mechanical. Cutting on the class alone would drop a recorded
+#' value out of the attempts file while the spreadsheet in the same download
+#' still carried it, which is a worse fault than the noise this fixes.
+fw_record_group_drop <- function(g, row) {
+  if (!identical(g$id, "chemical")) return(FALSE)
+  classes <- strsplit(as.character(row$method_classes), FW_MULTI_SEP, fixed = TRUE)[[1]]
+  if ("chemical" %in% classes) return(FALSE)
+  all(vapply(g$fields, function(f) fw_record_blank(row[[f]]), logical(1)))
+}
+
 fw_record_value <- function(field, value, none) {
-  if (length(value) != 1 || is.na(value) || !nzchar(trimws(as.character(value)))) {
+  if (fw_record_blank(value)) {
     return(paste0('<span class="fw-rec-none">', htmlEscape(none), "</span>"))
   }
   v <- htmlEscape(as.character(value), attribute = TRUE)
@@ -125,7 +161,10 @@ fw_record_card <- function(row, copy = fw_record_copy()) {
   place <- c(row$region, row$country)
   place <- paste(place[!is.na(place) & nzchar(place)], collapse = ", ")
   title <- if (is.na(row$site_name) || !nzchar(row$site_name)) copy$none else row$site_name
-  groups <- vapply(copy$groups, function(g) {
+  # Filtered before the headings are built, so a dropped section takes its <h3>
+  # with it rather than leaving an empty <dl> under one.
+  shown <- Filter(function(g) !fw_record_group_drop(g, row), copy$groups)
+  groups <- vapply(shown, function(g) {
     fields <- vapply(g$fields, function(f) {
       paste0("<dt>", esc(copy$labels[[f]]), "</dt><dd>",
              fw_record_value(f, row[[f]], copy$none), "</dd>")

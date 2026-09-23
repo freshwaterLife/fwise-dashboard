@@ -152,18 +152,46 @@ fw_gg_stack <- function(d, order_lv, fill, levels, colours, inks, mode, x_title,
   d$text[seg_mm < text_mm] <- ""
   d$ink <- unname(inks[as.character(d$fill)])
 
+  # THE GRID GOES OVER THE BARS, and it has to be a geom to do it: ggplot draws
+  # panel.grid under every layer, exactly as plotly draws gridlines under every
+  # trace, so in share mode each line was painted over end to end by a bar that
+  # spans the full 0 to 100. That is what the client saw as "no vertical lines
+  # for each %" (23 Sept 2026). The page's fix is fw_bar_x_axis()'s
+  # layer = "above traces"; this is the printed twin of it - the theme's own x
+  # grid is blanked and the same hairlines are drawn after geom_col() instead.
+  #
+  # In count mode the theme's grid still reads, because the bars stop short of
+  # the right-hand edge, so only the rule at zero is added - the second thing
+  # the client asked to see tried.
+  grid <- if (mode == "share") {
+    geom_vline(xintercept = seq(0, 100, FW_CHART$share_dtick),
+               colour = FW_COLOURS$border, linewidth = FW_CHART$bar_grid * 0.3)
+  } else {
+    geom_vline(xintercept = 0, colour = FW_COLOURS$border,
+               linewidth = FW_CHART$bar_grid * 0.3)
+  }
+
   p <- ggplot(d, aes(x = value, y = label, fill = fill, group = fill)) +
     geom_col(width = 0.72, position = position_stack(reverse = TRUE),
              colour = FW_COLOURS$surface, linewidth = 0.15) +
+    grid +
     scale_fill_manual(values = colours, breaks = levels, labels = key_labels,
                       drop = TRUE) +
     labs(x = x_title, y = NULL) +
     fw_gg_theme()
 
+  # A list, not two objects joined with `+`: ggplot2 takes a list of components
+  # but refuses to add one ggproto to another outside a plot.
   p <- p + if (mode == "share") {
-    scale_x_continuous(limits = c(0, 100.001), breaks = seq(0, 100, 25),
-                       labels = function(x) paste0(x, "%"),
-                       expand = expansion(mult = c(0, 0.01)))
+    # THE SAME BREAKS THE PAGE LABELS. They were 25 here while plotly chose 20
+    # on screen, which was invisible until the rules were drawn at them - a
+    # printed figure and its twin marked at different percentages is exactly
+    # the drift FW_CHART exists to stop.
+    list(scale_x_continuous(limits = c(0, 100.001),
+                            breaks = seq(0, 100, FW_CHART$share_dtick),
+                            labels = function(x) paste0(x, "%"),
+                            expand = expansion(mult = c(0, 0.01))),
+         theme(panel.grid.major.x = element_blank()))
   } else {
     scale_x_continuous(expand = expansion(mult = c(0, 0.03)))
   }

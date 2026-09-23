@@ -231,7 +231,13 @@ FW_COPY_EXPORT <- list(
       list(heading = "How", fields = c(
         "methods", "method_classes", "method_notes", "method_description",
         "labour_person_days", "cost_estimate", "cost_notes")),
-      list(heading = "Chemical detail", fields = c(
+      # THE ONE GROUP A CARD CAN DROP, and the only one carrying an id.
+      # fw_record_card() reads it to cut this section from an attempt with no
+      # chemical method (client, 23 Sept 2026: seven "Not noted" lines about
+      # neutralising agents under a netting attempt are noise). An id rather
+      # than a match on the heading, so rewording the heading cannot silently
+      # turn the rule off. See fw_record_group_drop() in report_records.R.
+      list(id = "chemical", heading = "Chemical detail", fields = c(
         "target_ingredient_basis", "toxin_conc_target_mg_l", "conc_target_notes",
         "toxin_conc_measured_mg_l", "conc_measured_notes",
         "neutralising_agent", "neutralising_notes")),

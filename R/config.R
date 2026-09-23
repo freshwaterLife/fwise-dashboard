@@ -479,6 +479,16 @@ FW_CHART <- list(
   # 2026). It was the hairline between two adjacent method fills, and that was
   # the only chart that ever stacked method against method.
   separator_outcome = 0,
+  # The weight of the vertical rules on the stacked bar charts, in px. A
+  # hairline: unlike the duration chart's dotted breaks below, these are solid
+  # and are drawn OVER the bars (fw_bar_rules() in charts.R), so they need no
+  # extra weight to be seen and would read as stripes if they had any.
+  bar_grid = 1,
+  # How far apart the success-rate axis's ticks sit, in percentage points. Set
+  # rather than left to plotly, because the rules over the bars are drawn at
+  # these same values and a rule that missed its label would be worse than no
+  # rule at all. 20 is what plotly chose for 0-100 anyway.
+  share_dtick = 20,
   # The FIXED named ticks on the duration chart's log axis, in days. The labels
   # are fw_t("charts", "duration_ticks") and must stay the same length.
   #

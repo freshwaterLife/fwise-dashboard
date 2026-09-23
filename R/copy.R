@@ -44,7 +44,7 @@ FW_COPY <- list(
     contact_label  = "Contact FWISE",
     contact_aria   = "Show the FWISE contact address",
     contact_user   = "fwise",
-    contact_domain = "fwlife.org",
+    contact_domain = "fwise.org",
     logo_alt_fwise = "FWISE, the Freshwater Invasive Species Eradication database",
     logo_alt_wfa   = "Weird Fishes Advisory",
     # The collaborators names.
@@ -94,7 +94,12 @@ FW_COPY <- list(
     x_year        = "Year the attempt began",
     y_cumulative  = "Attempts to date",
     x_attempts    = "Attempts",
-    x_share       = "Share of attempts (%)",
+    # SUCCESS RATE, NOT "SHARE OF ATTEMPTS" (client, 23 Sept 2026). The
+    # toggles beside these charts read "Success rate", so the axis has to say
+    # the same thing; two names for one view is how a reader ends up thinking
+    # they are looking at two different quantities. The bar is still the full
+    # outcome mix - see the note at the head of charts.R.
+    x_share       = "Success rate (%)",
     # NO X AXIS TITLE ON THE DURATION CHART (client, 23 Sept 2026). The named
     # ticks below say what the axis is; a title under them said it twice.
     # Named ticks on the log axis, in step with FW_CHART$duration_ticks.
@@ -114,6 +119,12 @@ FW_COPY <- list(
     other         = "Other",
     hover_days    = " days",
     hover_of      = " of ",
+    # APPENDED TO THE HOVER IN SHARE MODE ONLY (client, 23 Sept 2026): the
+    # hover read "3 of 9" in both modes, so the success-rate view answered a
+    # hover with a count and never with the percentage its bar is drawn in.
+    # The count stays in front of it - a share that hides how much evidence
+    # is behind it is the fault this whole pair of fragments exists to avoid.
+    hover_share   = " ({pct}%)",
     # Shown in a chart's own slot when the selection gives it nothing to draw.
     empty         = "Nothing to draw for this selection."
   ),
@@ -593,7 +604,7 @@ FW_COPY <- list(
     # charts agree on their denominator by coincidence - both count attempts -
     # and sharing one key would tie the wording of two blocks together for a
     # reason that is not about either of them.
-    r_waterbody_share = "Share of attempts",
+    r_waterbody_share = "Success rate",
     r_waterbody_count = "Number of attempts",
 
     r_method     = "Outcomes of methods within selection",
@@ -601,7 +612,7 @@ FW_COPY <- list(
       "Outcomes within each method, with the number of attempts beside it."
     ),
     r_method_mode  = "Show",
-    r_method_share = "Share of attempts",
+    r_method_share = "Success rate",
     r_method_count = "Number of attempts",
     r_method_missing = "{n} of these attempts have no method recorded and are not on the method chart.",
 

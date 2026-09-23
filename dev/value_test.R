@@ -834,23 +834,32 @@ ok("method: in-bar count hidden exactly under the share floor", hidden_ok)
 # the share floor, so the narrow segments - the ones a reader hovers to find
 # out about - said "Unknown:  of 567". The count and the total are recomputed
 # here and the hover string has to carry both, hidden label or not.
+# AND IN SHARE MODE IT CARRIES THE PERCENTAGE TOO (client, 23 Sept 2026): the
+# success-rate view answered a hover with a count and never with the % its bar
+# is drawn in. The count still leads. Recomputed here from the raw rows, so the
+# assertion cannot be satisfied by the chart reading its own drawn value.
 hover_of <- fw_t("charts", "hover_of")
-hover_want <- function(t, i, rows, group, name_of) {
+hover_share <- fw_t("charts", "hover_share")
+hover_want <- function(t, i, rows, group, name_of, mode = "count") {
   mname <- label_name(t$y[i])
-  paste0(sum(group == mname & name_of == t$name), hover_of, sum(group == mname))
+  n <- sum(group == mname & name_of == t$name)
+  total <- sum(group == mname)
+  paste0(n, hover_of, total,
+         if (mode == "share") fw_fill(hover_share, pct = round(100 * n / total)) else "")
 }
 for (mode in c("count", "share")) {
   tr <- traces(fw_chart_method(d, all_sel, mode))
   all_ok <- TRUE; hidden_ok <- TRUE; n_hidden <- 0L
   for (t in tr) for (i in seq_along(t$y)) {
-    want <- hover_want(t, i, me, me$method, me$outcome)
+    want <- hover_want(t, i, me, me$method, me$outcome, mode)
     if (t$customdata[i] != want) all_ok <- FALSE
     if (t$text[i] == "") { n_hidden <- n_hidden + 1L; if (t$customdata[i] != want) hidden_ok <- FALSE }
     # plotly_build() repeats the template per point; one is enough to read.
     if (!grepl("%{customdata}", t$hovertemplate[1], fixed = TRUE) ||
         grepl("%{text}", t$hovertemplate[1], fixed = TRUE)) all_ok <- FALSE
   }
-  ok(sprintf("method (%s): every hover reads 'n of total'", mode), all_ok)
+  ok(sprintf("method (%s): every hover reads its own count, and its %% in share mode",
+             mode), all_ok)
   ok(sprintf("method (%s): the %d hidden-label segments still hover a count", mode, n_hidden),
      hidden_ok && n_hidden > 0L)
 }
@@ -879,6 +888,44 @@ ok("method: and there is at least one to check",
 tr_count <- traces(fw_chart_method(d, all_sel, "count"))
 ok("method: count mode labels stay counts",
    all(grepl("^[0-9]+$", label_text(tr_count))))
+
+# THE VERTICAL RULES ARE DRAWN OVER THE BARS (client, 23 Sept 2026: "add light
+# grey vertical lines for each %"). They have to be SHAPES: plotly draws every
+# gridline under every trace, and a 100% stack spans the whole axis, so the
+# share view's grid was painted over end to end and showed only in the gaps
+# between rows. xaxis.layer = "above traces" does not fix it - by plotly's own
+# definition it lifts the axis line and the labels and leaves the grid where it
+# was. What is pinned here is that the shapes exist, that they sit above the
+# data, and that every one of them lands on a tick the axis labels.
+bar_layout <- function(p) plotly::plotly_build(p)$x$layout
+for (mode in c("count", "share")) {
+  for (nm in c("method", "waterbody")) {
+    lay <- bar_layout(if (nm == "method") fw_chart_method(d, all_sel, mode)
+                      else fw_chart_waterbody(all_sel, mode))
+    want_at <- if (mode == "share") seq(0, 100, FW_CHART$share_dtick) else 0
+    ok(sprintf("%s (%s): one rule per labelled break", nm, mode),
+       length(lay$shapes), length(want_at))
+    ok(sprintf("%s (%s): each rule is at a break the axis names", nm, mode),
+       vapply(lay$shapes, function(s) s$x0, numeric(1)), want_at)
+    ok(sprintf("%s (%s): and drawn above the bars, full height", nm, mode),
+       all(vapply(lay$shapes, function(s)
+         identical(s$layer, "above") && identical(s$yref, "paper") &&
+           identical(s$line$color, FW_COLOURS$border), logical(1))))
+    # THE AXIS DRAWS NO GRID OF ITS OWN IN SHARE MODE, or every rule would have
+    # a half-hidden twin under the bars. The count view keeps its gridlines:
+    # its bars stop short of the right-hand edge, so they read there, and only
+    # the rule at zero needed adding.
+    ok(sprintf("%s (%s): the axis grid is off exactly in share mode", nm, mode),
+       identical(lay$xaxis$showgrid, FALSE), mode == "share")
+    if (mode == "share") {
+      ok(sprintf("%s: the share axis states its own tick spacing", nm),
+         lay$xaxis$dtick, FW_CHART$share_dtick)
+    } else {
+      ok(sprintf("%s: the count grid is the interface hairline grey", nm),
+         lay$xaxis$gridcolor, FW_COLOURS$border)
+    }
+  }
+}
 # THE TWO "OTHER" METHODS SIT AT THE BOTTOM whatever their counts. plotly draws
 # the first category at the bottom, so they must come FIRST in the level order.
 # Asserted on the ids in FW_METHOD_OTHER rather than the display names, which is
@@ -942,8 +989,20 @@ ok("duration: identical durations are drawn apart, not on top of each other",
    })
 ok("duration: the dots carry no hover",
    all(vapply(pts, function(t) all(t$hoverinfo == "skip"), logical(1))))
-ok("duration: the rows are labelled on the axis in order of size",
-   label_n(dur_rows), sort(label_n(dur_rows)))
+# THE ROW ORDER IS THE BAR CHARTS' RULE (client, 23 Sept 2026): ordered by the
+# label's own n, with the two "Other" methods pinned to the bottom whatever
+# their counts. Asserted here the way the method chart's order is asserted
+# above - on the ids in FW_METHOD_OTHER, not on the display names, which is the
+# whole reason that constant is held as ids. dur_rows is bottom to top.
+dur_other <- d$method$method_name[match(FW_METHOD_OTHER, d$method$method_id)]
+dur_other <- dur_other[!is.na(dur_other)]
+dur_is_other <- vapply(dur_rows, function(l) label_name(l) %in% dur_other, logical(1))
+ok("duration: the Other methods are pinned to the bottom of the order",
+   all(which(dur_is_other) <= sum(dur_is_other)))
+ok("duration: and every other row is still ordered by how many durations it has",
+   label_n(dur_rows[!dur_is_other]), sort(label_n(dur_rows[!dur_is_other])))
+ok("duration: the pinning is doing something in this selection",
+   sum(dur_is_other) > 0L)
 # A single-method attempt contributes exactly one (attempt, method) row, so the
 # points and the attempts drawn are the same number. That is the whole point of
 # the filter: every point on this chart is a duration of the method it sits on.
@@ -1083,9 +1142,11 @@ wb_sums <- tapply(unlist(lapply(tr_wb_share, `[[`, "x")),
                   unlist(lapply(tr_wb_share, function(t) as.character(t$y))), sum)
 ok("category: shares sum to 100 per kind of water", all(abs(wb_sums - 100) < 1e-9))
 
-# THE HOVER CARRIES THE RAW COUNT IN BOTH MODES. It used to read the drawn
-# value, so share mode would have offered "Successful: 33.33333" - and a reader
-# who never switches back to counts would never see how many attempts that is.
+# THE HOVER CARRIES THE RAW COUNT IN BOTH MODES, AND THE % IN SHARE MODE. It
+# used to read the drawn value, so share mode would have offered "Successful:
+# 33.33333"; then it read only the count, so the success-rate view never
+# answered with the percentage its own bar is drawn in (client, 23 Sept 2026).
+# Both numbers are recomputed here from the attempts.
 for (mode in c("count", "share")) {
   tr_h <- plotly::plotly_build(fw_chart_waterbody(all_sel, mode))$x$data
   all_ok <- TRUE
@@ -1094,11 +1155,16 @@ for (mode in c("count", "share")) {
     for (i in seq_along(t$y)) {
       lab <- label_name(t$y[i])
       n <- sum(wb_named == lab & wb_out == t$name)
-      want <- paste0(n, fw_t("charts", "hover_of"), sum(wb_named == lab))
+      total <- sum(wb_named == lab)
+      want <- paste0(n, fw_t("charts", "hover_of"), total,
+                     if (mode == "share")
+                       fw_fill(fw_t("charts", "hover_share"),
+                               pct = round(100 * n / total)) else "")
       if (!identical(as.character(t$customdata[i]), want)) all_ok <- FALSE
     }
   }
-  ok(paste0("category ", mode, ": hover is the count out of the bar's total"),
+  ok(paste0("category ", mode, ": hover is the count out of the bar's total",
+            if (mode == "share") ", with its %" else ""),
      all_ok)
 }
 

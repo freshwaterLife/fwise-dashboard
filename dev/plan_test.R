@@ -474,7 +474,51 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("and every column but the id sits in one group",
      sort(grouped), sort(setdiff(FW_EXPORT_COLUMNS, "attempt_id")))
   n_dt <- vapply(cards, function(x) lengths(regmatches(x, gregexpr("<dt>", x, fixed = TRUE))), 1L)
-  ok("every card draws every grouped field", all(n_dt == length(grouped)), TRUE)
+  # EVERY GROUPED FIELD, MINUS THE CHEMICAL DETAIL WHERE THAT SECTION IS CUT
+  # (client, 23 Sept 2026). The expected count per card is recomputed from the
+  # export rows through the same predicate the writer uses, so the file and the
+  # rule cannot drift; what is asserted independently is that both kinds of card
+  # are in this file at all, and that the headings went with the fields.
+  chem <- Filter(function(g) identical(g$id, "chemical"),
+                 fw_t("export", "record_groups"))[[1]]
+  exp_rows <- report()$export
+  cut <- vapply(seq_len(nrow(exp_rows)),
+                function(i) fw_record_group_drop(chem, as.list(exp_rows[i, ])),
+                logical(1))
+  # all(), not the two vectors: ok() prints a line per element, and this one is
+  # as long as the selection.
+  ok("every card draws every grouped field it keeps",
+     all(unname(n_dt) ==
+           ifelse(cut, length(grouped) - length(chem$fields), length(grouped))),
+     TRUE)
+  ok("some cards here have the chemical section cut", sum(cut) > 0)
+  ok("and some keep it, or the rule is untested", sum(!cut) > 0)
+  ok("a cut card loses the heading with the fields",
+     sum(vapply(cards, function(x)
+       grepl(paste0("<h3>", chem$heading, "</h3>"), x, fixed = TRUE), logical(1))),
+     sum(!cut))
+  # THE GUARD ON THE CUT: an attempt with no chemical method but a recorded
+  # concentration keeps the section, because the spreadsheet in the same
+  # download still carries that value and the two must not disagree. Asserted
+  # over the WHOLE database rather than this selection - there are only a
+  # handful of such attempts and a country filter can easily hold none, which
+  # would leave the guard passing without ever being exercised.
+  all_rows <- fw_export_frame(d)
+  all_no_chem <- !vapply(strsplit(as.character(all_rows$method_classes), FW_MULTI_SEP,
+                                  fixed = TRUE),
+                         function(x) "chemical" %in% x, logical(1))
+  all_has_data <- vapply(seq_len(nrow(all_rows)), function(i)
+    any(!vapply(chem$fields, function(f) fw_record_blank(all_rows[[f]][i]), logical(1))),
+    logical(1))
+  all_cut <- vapply(seq_len(nrow(all_rows)),
+                    function(i) fw_record_group_drop(chem, as.list(all_rows[i, ])),
+                    logical(1))
+  ok("no attempt with chemical data ever loses the section",
+     any(all_cut & all_has_data), FALSE)
+  ok("and some attempt with no chemical method is kept by that guard",
+     sum(all_no_chem & all_has_data) > 0)
+  ok("the cut is exactly no-chemical-method and no chemical data",
+     identical(all_cut, unname(all_no_chem & !all_has_data)), TRUE)
   ok("a blank field says Not noted",
      grepl(paste0('<span class="fw-rec-none">', fw_t("species", "p_not_noted")), rec,
            fixed = TRUE), TRUE)

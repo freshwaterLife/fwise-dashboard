@@ -92,8 +92,10 @@ fw_plan_results_ui <- function(ns) {
       fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
       tagList(
         # One chart, two questions. "Count" answers how much evidence stands
-        # behind a method; "share" answers how often it worked. Count leads,
-        # so nobody reads a share off three attempts as a success rate.
+        # behind a method; "Success rate" answers how often it worked. Count
+        # still leads, which is what stops three attempts being read as a rate:
+        # the mode is named for the question it answers, and the bar's label
+        # carries the total in both modes so the n is never off the chart.
         fw_mode_toggle(ns("method_mode"),
                        fw_t("plan", "r_method_count"),
                        fw_t("plan", "r_method_share")),
