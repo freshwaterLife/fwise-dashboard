@@ -124,7 +124,7 @@ ok("footer: the FWISE logo goes to The solution, in the same tab",
 blocks <- fw_caveat_blocks(d)
 bodies <- vapply(blocks, `[[`, character(1), "body")
 ok("caveats: the client's placeholder is the whole of it",
-   bodies, "ANABELL TO PROVIDE CAVEATS FOR FWISE")
+   bodies, "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]")
 ok("caveats: the placeholder block carries no heading",
    vapply(blocks, function(b) fw_caveat_title(b$heading), ""), "")
 ok("caveats: flat vector is body only while there is no heading",
@@ -147,7 +147,7 @@ ok("closing section: methods block leads",
 ok("closing section: the caveats follow it", length(closing), length(blocks) + 1L)
 ok("closing section: the workbook text carries both",
    all(c(toupper(fw_t("export", "methods_heading")),
-         "ANABELL TO PROVIDE CAVEATS FOR FWISE") %in% fw_methods_caveats_text(d)))
+         "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]") %in% fw_methods_caveats_text(d)))
 
 # The About page renders end to end. Its section keys are built with paste0(),
 # which dev/check_literals.R cannot see, so a missing key only shows up here.

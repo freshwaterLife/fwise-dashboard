@@ -120,7 +120,9 @@ fw_plan_filters_ui <- function(ns, ch) {
     `aria-labelledby` = ns("filters_heading"),
     h2(id = ns("filters_heading"), class = "fw-plan-filters__heading fw-visually-hidden",
        fw_t("plan", "f_heading")),
-    p(class = "fw-plan-filters__lead", fw_t("plan", "f_lead")),
+    # NO LEAD PARAGRAPH HERE (client, 24 Sept 2026). It said "All fields are
+    # optional. Fields default to 'All'." - the green callout above this card
+    # already says it, and says more. See the note on plan$f_heading in copy.R.
 
     # COLLAPSIBLE, AND ONLY AFTER A BUILD. A native <details> rather than a
     # scripted panel: it opens and closes without JavaScript, it is a disclosure

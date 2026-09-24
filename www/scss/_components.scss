@@ -665,61 +665,67 @@
 
 }
 
-// THE RESULTS HEADING, WITH THE DOWNLOAD BESIDE IT.
+// THE DOWNLOAD, FLOATING OVER THE RESULTS.
 //
-// The download used to be the last block on the page, under two tables. The
-// client's objection was that a reader had no way of knowing any of this was
-// exportable until they had scrolled past all of it, so it now sits level with
-// the heading that opens the results.
+// Three positions in three rounds, and each move had the same reason behind it:
+// the download is the point of this page and the results are a long scroll.
+// It began as the last block under two tables, where a reader had no way of
+// knowing any of this was exportable until they had scrolled past all of it.
+// It moved level with the results heading, which told them - but the heading
+// scrolls away, so by the duration chart they were several screens past the
+// button. It was then stickied to the top of the window, which kept it
+// reachable at the cost of a full-width bar with a hairline under it, taking a
+// line of the page for one button.
 //
-// WRAPS RATHER THAN SHRINKS. On a narrow screen the button drops under the
-// heading at full width; squeezing a call to action into the corner of a phone
-// screen is how it stops being one.
-// SPACE UNDER IT, because the teal summary strip starts immediately below and
-// the button was sitting flush on the top of it - a primary button touching a
-// filled panel reads as part of the panel's chrome. The gap belongs here
-// rather than on .fw-summary-strip: the dashboard draws the same strip directly
-// under its filter bar and does not want it there.
-// STICKY, at the client's request, and the reason is the one that moved it up
-// here in the first place. Putting it level with the heading told a reader the
-// results were exportable; it did not keep the button reachable, and the
-// results are a long scroll - by the duration chart the reader is several
-// screens past it and has to go back up to act on what they have just read.
+// SO IT IS OUT OF THE FLOW ENTIRELY (client, 24 Sept 2026): a fixed element in
+// the bottom corner, present from the moment a build matches something and
+// gone again when it does not. The row it lived in takes no height now - the
+// summary strip is the first thing under the filters - and the button is in
+// the same place whatever the reader has scrolled to.
 //
-// At the top of the window, now the navbar scrolls away. z-index 1010 clears Leaflet's panes (400-800) AND its control corners
-// (1000, where the legend lives), which matters because the map is the second
-// block down, and stays under the navbar's 1030 and the download modal's own
-// layer. See fw-sticky-under-navbar.
+// FIXED, NOT STICKY. Sticky needs a box in the flow to stick within, which is
+// the line this was asked to stop occupying. Nothing between here and <body>
+// sets a transform, filter or perspective, so the viewport is the containing
+// block; if one is ever added to .fw-plan__results or a parent, this pins to
+// that ancestor instead and the button will drift with the page.
 //
-// THE GROUND AND THE HAIRLINE ARE WHAT MAKE IT READABLE. The row is transparent
-// while it sits in the flow; pinned over scrolling charts it needs a ground of
-// its own, and $fw-page is the ground it sits on rather than $fw-surface, which
-// would read as a card that had come loose.
+// z-index 1020 clears Leaflet's panes (400-800) and its control corners (1000,
+// where the outcome legend lives) and sits under the navbar at 1030, the map
+// card at 1200 and the record panel at 1400 - all three are things a reader
+// opened deliberately and none of them should have a button sitting on top.
+// Bootstrap's modal is higher again, so the picker covers its own opener.
 //
-// NO NEGATIVE MARGINS, and that is not an omission. The obvious move is to
-// bleed the background out through the container's padding the way the record
-// panel's previous/next bar did - but .fw-container has no padding to bleed
-// into. It is width: min(95%, 100% - 3rem) centred, so a -1.5rem inline margin
-// reaches past the viewport on any screen narrow enough for the 95% to bind
-// (below about 960px) and puts a horizontal scrollbar on the page. Everything
-// this row has to cover is inside the same container and therefore no wider
-// than it is, so a background at the container's own width covers all of it.
+// THE SHADOW IS DOING THE SEPARATING. A floating control has charts, bars and
+// map tiles passing under it and no ground of its own, so it carries
+// $fw-shadow-raised - the same lift as the map card, which is the other thing
+// in this app that sits over the page rather than in it.
 .fw-plan__results-head {
-  @include fw-sticky-under-navbar;
+  position: fixed;
+  z-index: 1020;
+  // The gutter it keeps off both edges. env() so a phone's home indicator and
+  // a rounded corner do not clip it; the fallback is the plain space.
+  inset-block-end: calc(#{$fw-space-3} + env(safe-area-inset-bottom, 0px));
+  inset-inline-end: calc(#{$fw-space-3} + env(safe-area-inset-right, 0px));
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  // THE BUTTON SITS ON THE RIGHT, at the client's request (21 Sept 2026). The
-  // heading in this row is visually hidden, so the button is the row's only
-  // visible item and space-between left it on the left.
-  justify-content: flex-end;
+  align-items: center;
   gap: $fw-space-2;
-  margin-block-end: $fw-space-3;
-  padding-block: $fw-space-2;
-  background: $fw-page;
-  border-bottom: $fw-hairline;
+  // It is a button, not a bar: it must never span the page, and on a narrow
+  // screen it must not reach across it either.
+  max-width: calc(100vw - #{$fw-space-4});
 
   h2 { margin-block-end: 0; }
+
+  // THE BUTTON ITSELF READS AS A FLOATING CONTROL. Rounded rather than the
+  // card radius every button in the flow uses, because nothing else on the
+  // page is shaped like this and the reader has to recognise it as the one
+  // thing that stays put.
+  .fw-plan__download-open {
+    border-radius: $fw-radius-round;
+    box-shadow: $fw-shadow-raised;
+    // A comfortable touch target, and the label stays on one line.
+    padding-inline: $fw-space-3;
+    white-space: nowrap;
+  }
 }
 
 // The picker inside its overlay. No heading of its own - the modal title says
@@ -2568,8 +2574,9 @@
 // ---- Scrolling form --------------------------------------------------------
 
 // The progress bar on contribution form. Sticky, under the navbar - the offsets
-// are $fw-sticky-under-navbar's, shared with the report builder's results
-// heading so the two cannot drift apart when the navbar's height moves.
+// are $fw-sticky-under-navbar's. It was shared with the report builder's
+// results heading until that became a floating button; it is the only caller
+// now, and the mixin still owns the offsets because they are the navbar's.
 .fw-progress-rail {
   @include fw-sticky-under-navbar;
   background: $fw-surface;
@@ -2978,8 +2985,9 @@
 // .fw-popup-detail__nav AND __navbtn USED TO LIVE HERE - previous and next at
 // the foot of the record panel, stickied to the bottom of the scrollport so
 // stepping on did not mean scrolling to the end of the record first. The client
-// removed the buttons (see fw_record_detail_html() in R/maps.R); the sticky
-// bleed-through technique they used is now on .fw-plan__results-head.
+// removed the buttons (see fw_record_detail_html() in R/maps.R). The sticky
+// bleed-through technique they used went to .fw-plan__results-head and left
+// again with it - that row floats now and has no ground to bleed.
 
 .fw-filters {
   display: grid;

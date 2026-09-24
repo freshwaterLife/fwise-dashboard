@@ -34,7 +34,7 @@ base$include_no_size <- TRUE
 cat("\n-- the copy deck --\n")
 # [PLACEHOLDER] What the caveats say while the client writes the real ones.
 # When they land, these assertions should name a phrase from their text instead.
-PLACEHOLDER_CAVEAT <- "ANABELL TO PROVIDE CAVEATS FOR FWISE"
+PLACEHOLDER_CAVEAT <- "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]"
 
 ok("no section is defined in two copy files",
    anyDuplicated(names(fw_copy_all())), 0L)
@@ -453,7 +453,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
                "Methods and caveats"))
   ok("and the last tab carries the methods and the client's caveats",
      all(c(toupper(fw_t("export", "methods_heading")),
-           "ANABELL TO PROVIDE CAVEATS FOR FWISE") %in%
+           "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]") %in%
            openxlsx::read.xlsx(path, "Methods and caveats")[[1]]), TRUE)
   ok("data sheet matches the selection",
      nrow(openxlsx::read.xlsx(path, "Attempts")), nrow(report()$sel))

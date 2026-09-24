@@ -38,16 +38,24 @@ mod_plan_ui <- function(id) {
 
 fw_plan_results_ui <- function(ns) {
   tagList(
-    # THE DOWNLOAD SITS AT THE TOP, beside the heading. It used to be the
-    # last thing on the page, below two tables, and the client's objection
-    # was that a reader had no way of knowing any of this was exportable
-    # until they had scrolled past all of it. Exporting is the point of this
-    # page, so it is the first thing the results say.
+    # THE DOWNLOAD FLOATS OVER THE RESULTS (client, 24 Sept 2026). It used to
+    # be the last thing on the page, below two tables, and the client's
+    # objection was that a reader had no way of knowing any of this was
+    # exportable until they had scrolled past all of it. It then sat in a
+    # sticky row of its own at the top of the results, which cost a line of
+    # the page for one button; it is now fixed in the bottom corner instead,
+    # out of the flow entirely. See .fw-plan__results-head in
+    # _components.scss - the row is still the element, it just has no height.
+    #
+    # IT STAYS FIRST IN THE DOM even though it is drawn last on the screen, so
+    # the results open on the thing this page is for rather than ending on it
+    # - dev/plan_test.R asserts that order.
     #
     # IT DOES NOT NEED DISABLING BEFORE A BUILD. This whole skeleton is hidden
     # until a build has matched something, so the button cannot be seen until
     # there is a report behind it - which is the same guarantee, without a
-    # disabled control sitting on the page inviting a click.
+    # disabled control sitting on the page inviting a click. It is why the
+    # floating button appears on the build and not before it.
     div(
       class = "fw-plan__results-head",
       h2(class = "fw-visually-hidden", fw_t("plan", "r_heading")),

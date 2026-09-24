@@ -490,9 +490,10 @@ FW_COPY <- list(
     # the filters behave. One string per paragraph - fw_emphasis() takes the
     # ** pairs and mod_plan_ui() draws one <p> each.
     #
-    # It repeats plan$description above it and plan$f_lead inside the filter
-    # card. The client asked for all three to stay (24 Sept 2026): this card is
-    # the one a reader arriving cold actually reads.
+    # It repeats plan$description above it, and it is now the ONLY place the
+    # "all fields are optional" sentence is made - the filter card's own lead
+    # came out later the same day (24 Sept 2026), so do not remove the third
+    # paragraph below without putting that sentence somewhere else.
     callout = c(
       paste(
         "Recreate your situation or interest by adjusting the filters below and",
@@ -597,10 +598,12 @@ FW_COPY <- list(
     ),
 
     # ---- Filters -------------------------------------------------------------
+    # NO LEAD LINE UNDER THE HEADING (client, 24 Sept 2026). f_lead stood here
+    # reading "All fields are optional. Fields default to 'All'." and was the
+    # third copy of that sentence on the page - the green callout above the
+    # filters says it, with the part about multiple selections that this one
+    # did not have. The client removed the one inside the filter card.
     f_heading   = "Describe your situation",
-    f_lead = paste(
-      "All fields are optional. Fields default to 'All'."
-    ),
     built_announce = "Report built. {n} attempts match your description.",
 
     # ---- Results -------------------------------------------------------------

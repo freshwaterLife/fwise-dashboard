@@ -490,9 +490,10 @@ unfoldable text, and it comes from the same function in both places, so the two
 cannot say different things.
 
 **The caveats themselves are a placeholder** (client, 24 September 2026). Five
-blocks we had written came out and `ANABELL TO PROVIDE CAVEATS FOR FWISE` went
-in, so the FWISE team writes what it thinks the database needs without our
-wording in front of it. Grep `[PLACEHOLDER]` in `R/copy_export.R`. The
+blocks we had written came out and one headingless block reading
+`[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]` went in, so the FWISE
+team writes what it thinks the database needs without our wording in front of
+it. Grep `[PLACEHOLDER]` in `R/copy_export.R`. The
 structure is untouched: add blocks back as `list(heading =, body =)` and the
 About panel, the workbook sheet, the PDF and the records HTML all reflow.
 
@@ -517,12 +518,21 @@ outside the building and cannot be recalled.
 
 ### The downloads
 
-One **Download this report** button, at the right of the results, opens a
+One **Download this report** button, floating in the bottom-right corner from
+the moment a build matches something (client, 24 September 2026), opens a
 picker with three parts (client, 23 September 2026): the **PDF report**,
 **every attempt in full** (`.html`) and the spreadsheet (`.xlsx`). More than
 one arrive as a zip; **one arrives as itself**. The interactive HTML report
 that used to sit here - live plotly charts and a leaflet map, printed to PDF
 through the browser - was replaced by the PDF, and the CSV went with it.
+
+The button has moved three times and always for the same reason: the results
+are a long scroll and the download is what the page is for. It was the last
+block under two tables, then a sticky row at the top of the results, and it is
+now out of the flow altogether - so it costs no line of the page and is in the
+same place whatever the reader has scrolled to. It is still first in the DOM,
+which `dev/plan_test.R` asserts. See `.fw-plan__results-head` in
+`www/scss/_components.scss` for the stacking it has to respect.
 
 **Nothing travels uninvited** (client, 24 September 2026). A methods-and-
 caveats `.txt` used to go into every download whatever was ticked, which meant

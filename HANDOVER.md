@@ -70,6 +70,8 @@ All in `R/copy.R` unless stated. Search the file for `[PLACEHOLDER]` to find the
 | `contribute$consent$terms_link_label` / `terms_url` | Full terms of data use |
 | `contribute$confirm$followup` | "within X working days" |
 | `R/data_load.R` `fw_country_burden()` | Placeholder choropleth source |
+| `R/copy_export.R` `export$methods` | How FWISE was compiled - the account of how records were gathered, screened and entered. Prints in the workbook's last sheet, the PDF's last section and the records HTML's last section |
+| `R/copy_export.R` `export$caveats` | The caveats, which Anabell is writing. One headingless block now; add more as `list(heading =, body =)` and all four surfaces reflow |
 
 The question list is no longer a file anyone maintains. `R/questions_text.R`
 walks the same section builders the form renders and writes the download as plain

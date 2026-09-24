@@ -64,17 +64,11 @@ FW_COPY_EXPORT <- list(
     # plausible-sounding method statement is worse than an obvious gap, because
     # nobody will know to replace it. Grep for [PLACEHOLDER] when the real text
     # arrives; the same marker is on fw_country_burden() in R/data_load.R.
-    methods = c(
-      "[PLACEHOLDER - awaiting the methods statement from the FWISE team.]",
-      paste(
-        "This section will describe how the records in FWISE were gathered,",
-        "screened and entered: the literature and reporting searched, the",
-        "criteria an attempt had to meet to be included, how conflicting",
-        "sources were resolved, and what was done about records that were",
-        "incomplete. Until it does, treat the caveats below as the whole of",
-        "what can be said about how this data came to exist."
-      )
-    ),
+    # ONE LINE, NOT TWO (client, 24 Sept 2026). A second paragraph stood here
+    # describing what the statement would cover once it arrived; the client cut
+    # it from the PDF, and it is cut from all three exports because this is the
+    # one place they read it from. The marker alone is the gap now.
+    methods = "[PLACEHOLDER - awaiting the methods statement from the FWISE team.]",
 
     # ---- The caveats ----------------------------------------------------------
     # [PLACEHOLDER] THE CLIENT IS WRITING THESE (24 Sept 2026). Five blocks
@@ -93,7 +87,7 @@ FW_COPY_EXPORT <- list(
     # {no_start} {pct_start} {no_end} {pct_end}; fw_caveat_blocks() in
     # R/export.R computes them from the data, so a caveat cannot go stale.
     caveats = list(
-      list(heading = NULL, body = "ANABELL TO PROVIDE CAVEATS FOR FWISE")
+      list(heading = NULL, body = "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]")
     ),
 
     # ---- The data dictionary ---------------------------------------------------
