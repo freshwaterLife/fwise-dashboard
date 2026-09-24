@@ -32,6 +32,10 @@ base$include_no_year <- TRUE
 base$include_no_size <- TRUE
 
 cat("\n-- the copy deck --\n")
+# [PLACEHOLDER] What the caveats say while the client writes the real ones.
+# When they land, these assertions should name a phrase from their text instead.
+PLACEHOLDER_CAVEAT <- "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]"
+
 ok("no section is defined in two copy files",
    anyDuplicated(names(fw_copy_all())), 0L)
 
@@ -67,16 +71,22 @@ ok("absent year bounds do not empty the result",
 # able to pre-select, and method is the thing they came here to learn.
 ok("outcome is not a report-builder filter", "outcome" %in% plan_ids, FALSE)
 ok("method is not a report-builder filter",  "method" %in% plan_ids, FALSE)
-ok("and those are the only two dropped",
-   sort(setdiff(fw_filter_ids(), plan_ids)), c("method", "outcome"))
+# The fish family pair came back on 24 Sept 2026 (client), shown only while
+# Fish is picked - see fw_filter_when_panel() in R/filters.R.
+ok("and those two are all that is dropped",
+   sort(setdiff(fw_filter_ids(), plan_ids)), sort(c("method", "outcome")))
+ok("the fish family pair is a report-builder filter",
+   all(c("family", "family_beneficiary") %in% plan_ids), TRUE)
 # Outcome is now filterable NOWHERE. It used to be the dashboard's alone; the
 # client's decision is that it is an answer on both pages. It stays visible in
 # every chart, the map and the table - it is just never used to narrow.
 ok("the dashboard does not offer outcome either",
    "outcome" %in% FW_EXPLORE_FILTERS, FALSE)
-ok("the dashboard's four filters are place and animal",
+# Still vs flowing joined them on 21 Sept 2026 (client).
+ok("the dashboard's filters are place, water regime, animal and fish family",
    sort(FW_EXPLORE_FILTERS),
-   sort(c("continent", "country", "taxa", "taxa_beneficiary")))
+   sort(c("continent", "country", "regime", "taxa", "taxa_beneficiary",
+          "family", "family_beneficiary")))
 
 cat("\n-- the size filter --\n")
 # TWO UNITS THAT MUST NOT MIX. Hectares for still water, kilometres for flowing,
@@ -157,10 +167,10 @@ ok("so a stale bound left on the hidden slider changes nothing",
 # a hidden control - the alternative is judging them against bounds the reader
 # cannot see. It goes away on its own as the client's cleaning lands; until then
 # this test says how many rows it applies to, so a change in that number is
-# noticed.
+# noticed. It went away in the 23 Sept 2026 export: none are left.
 mismatch <- sum(d$attempt$water_regime == "Lentic" &
                   d$attempt$area_unit == "km", na.rm = TRUE)
-ok("the regime/unit mismatch is still the 6 that were measured", mismatch, 6L)
+ok("no still-water attempt is measured in kilometres", mismatch, 0L)
 tight <- modifyList(state, list(size_ha = c(fw_size_log(1), fw_size_log(2))))
 ok("a narrow hectare bound does not touch the mismatched kilometre rows",
    sum(fw_filter_apply(d, tight)$area_unit == "km" &
@@ -249,8 +259,8 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # describe the whole database rather than the selection, and under a freshly
   # built result they read as qualifications of that selection alone. They still
   # travel inside every download - asserted further down.
-  ok("caveats do NOT sit beside the results", grepl("laimed is not the same", h), FALSE)
-  ok("the contacts block does", grepl("Potential relevant contacts", h), TRUE)
+  ok("caveats do NOT sit beside the results", grepl(PLACEHOLDER_CAVEAT, h, fixed = TRUE), FALSE)
+  ok("the contacts block does", grepl(fw_t("plan", "r_contacts"), h, fixed = TRUE), TRUE)
   ok("the cumulative chart has left this page",
      grepl("How the record has", h), FALSE)
   ok("export matches the selection",
@@ -278,7 +288,8 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     ok(paste0(cc, ": method chart redrawn"),
        identical(chart_x(output$methods), expect_x(fw_chart_method(d, s, mode = "count"))))
     ok(paste0(cc, ": waterbody chart redrawn"),
-       identical(chart_x(output$chart_waterbody), expect_x(fw_chart_waterbody(s))))
+       identical(chart_x(output$chart_waterbody),
+                 expect_x(fw_chart_waterbody(s, mode = "count"))))
     ok(paste0(cc, ": duration chart redrawn"),
        identical(chart_x(output$duration), expect_x(fw_chart_duration(d, s))))
     ok(paste0(cc, ": summary counts the new selection"),
@@ -292,13 +303,13 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
      grepl("No attempts match those filters", h), TRUE)
   ok("and names a filter to relax", grepl("Try relaxing one of these first", h), TRUE)
   ok("the zero state does not carry caveats either",
-     grepl("laimed is not the same", h), FALSE)
+     grepl(PLACEHOLDER_CAVEAT, h, fixed = TRUE), FALSE)
 
   # ---- The download -------------------------------------------------------
   #
-  # ONE HANDLER AND A PICKER. The methods-and-caveats text is NOT one of the
-  # choices: it travels whatever else is ticked, which is the whole reason the
-  # panel could move off the page without the qualifications going with it.
+  # ONE HANDLER AND A PICKER. The methods-and-caveats text used to travel
+  # whatever else was ticked; it is gone (client, 24 Sept 2026) and each
+  # document carries the section itself, so one tick downloads one file.
   session$setInputs(taxa = character(0), build = input$build + 1)
   ok("back from zero to results", output$state, "results")
 
@@ -327,8 +338,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # THE FIGURES ARE IN THE SKELETON, and nothing that renders HTML for the
   # results carries an output of its own - that nesting was the bug.
   ok("every figure is a static output",
-     all(vapply(c("plan-map", "plan-methods", "plan-duration", "plan-chart_waterbody",
-                  "plan-chart_method_waterbody"),
+     all(vapply(c("plan-map", "plan-methods", "plan-duration", "plan-chart_waterbody"),
                 function(id) grepl(sprintf('id="%s"', id), head_html, fixed = TRUE),
                 logical(1))))
   ok("no output nested in a results renderUI",
@@ -340,184 +350,328 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
                 logical(1))), FALSE)
   unzip_names <- function(p) utils::unzip(p, list = TRUE)$Name
 
-  session$setInputs(download_parts = c("xlsx", "html"))
+  # WHAT A READER CAN TICK (client, 23 Sept 2026): the PDF report, the attempts
+  # file and the spreadsheet, in that order. The CSV went in the same round -
+  # it was the spreadsheet's rows a second time - and the interactive HTML
+  # report before it.
+  ok("the three parts, in order", FW_BUNDLE_PARTS, c("pdf", "records", "xlsx"))
+  # A RETIRED PART IS DROPPED AND THE SELECTION FALLS TO THE SPREADSHEET. It
+  # used to be dropped to nothing, which was safe while the methods text made
+  # every download non-empty; with that gone, an empty selection has no file to
+  # name, so fw_bundle_parts() has a floor - see the note there.
+  ok("the old html part is not recognised", fw_bundle_parts("html"), "xlsx")
+  ok("and the csv is not recognised either", fw_bundle_parts("csv"), "xlsx")
+  picker <- as.character(fw_plan_download_ui(session$ns, pdf = TRUE))
+  ok("the picker offers all three",
+     all(vapply(c('value="pdf"', 'value="records"', 'value="xlsx"'),
+                grepl, logical(1), x = picker, fixed = TRUE)), TRUE)
+  ok("and no longer offers the csv",
+     grepl('value="csv"', picker, fixed = TRUE), FALSE)
+  ok("the picker lists them in FW_BUNDLE_PARTS order",
+     order(vapply(FW_BUNDLE_PARTS,
+                  function(v) regexpr(paste0('value="', v, '"'), picker, fixed = TRUE),
+                  integer(1))),
+     seq_along(FW_BUNDLE_PARTS))
+  ok("and ticks the spreadsheet and the PDF",
+     lengths(regmatches(picker, gregexpr('checked="checked"', picker, fixed = TRUE))), 2L)
+  # NO PDF BOX WHERE NO PDF CAN BE MADE, and a sentence saying so instead.
+  no_pdf <- as.character(fw_plan_download_ui(session$ns, pdf = FALSE))
+  ok("without Quarto the PDF box is not drawn",
+     grepl('value="pdf"', no_pdf, fixed = TRUE), FALSE)
+  ok("and the picker says why",
+     grepl(fw_t("plan", "pdf_unavailable"), no_pdf, fixed = TRUE), TRUE)
+  local({
+    old <- Sys.getenv(c("QUARTO_PATH", "PATH"))
+    Sys.setenv(QUARTO_PATH = tempfile(), PATH = "/nonexistent")
+    on.exit(Sys.setenv(QUARTO_PATH = old[[1]], PATH = old[[2]]))
+    ok("and the bundle skips a PDF it cannot make",
+       fw_bundle_parts(c("xlsx", "pdf")), "xlsx")
+  })
+
+  session$setInputs(download_parts = c("xlsx", "records"))
   path <- output$download
   ok("the bundle downloads", file.exists(path), TRUE)
   ok("and is a zip when more than one file was asked for",
-     grepl("[.]zip$", fw_bundle_filename(c("xlsx", "html"))), TRUE)
+     grepl("[.]zip$", fw_bundle_filename(c("xlsx", "records"))), TRUE)
   inside <- unzip_names(path)
   ok("it carries the spreadsheet", any(grepl("[.]xlsx$", inside)), TRUE)
-  ok("and the report",             any(grepl("[.]html$", inside)), TRUE)
-  ok("and the methods and caveats", fw_methods_filename() %in% inside, TRUE)
+  ok("and the attempts file",      fw_records_filename() %in% inside, TRUE)
+  # THE MANDATORY .txt IS GONE (client, 24 Sept 2026) and the zip holds exactly
+  # what was ticked. It used to carry a methods-and-caveats file whatever else
+  # was in there; each document closes on that section itself now.
+  ok("and nothing else",
+     sort(inside), sort(c(fw_export_filename(), fw_records_filename())))
 
+  # ONE TICK, ONE FILE, NOT A ZIP OF ONE. This is the change the client asked
+  # for: the travelling text file made every download a zip of two things, so
+  # ticking the report handed back an archive to unpack.
+  session$setInputs(download_parts = "records")
+  ok("one thing ticked downloads that one thing",
+     fw_bundle_filename("records"), fw_records_filename())
+  ok("and it is not a zip",
+     grepl("^<!DOCTYPE html", readLines(output$download, n = 1)), TRUE)
+
+  # AN UNRECOGNISED PART IS DROPPED, NOT REFUSED. "csv" was a real part until
+  # 23 Sept 2026, so a stale bookmark or a re-sent form can still name it. With
+  # nothing left to write, fw_bundle_parts() falls to the spreadsheet rather
+  # than naming a file it cannot produce - the picker's own Download button is
+  # disabled long before a reader could get here (fw_download_guard()).
   session$setInputs(download_parts = "csv")
-  ok("a CSV-only bundle still carries the text",
-     fw_methods_filename() %in% unzip_names(output$download), TRUE)
+  ok("a bundle asking for the retired csv falls back to the spreadsheet",
+     fw_bundle_filename("csv"), fw_export_filename())
 
-  # "pdf" is not a file of its own - it resolves to the HTML report, which
-  # carries the print stylesheet. Ticking both must not produce two copies.
-  ok("pdf resolves to the report", fw_bundle_parts("pdf"), "html")
-  ok("and ticking both does not duplicate it",
-     fw_bundle_parts(c("html", "pdf")), "html")
-
-  # Nothing ticked is a reasonable thing to want, not an error to refuse: it
-  # downloads the methods and caveats on their own, and raw rather than zipped.
   session$setInputs(download_parts = character(0))
-  ok("nothing ticked downloads the text alone",
-     fw_bundle_filename(character(0)), fw_methods_filename())
-  ok("and it is the real text",
-     grepl("HOW FWISE WAS COMPILED", readLines(output$download, n = 1)), TRUE)
+  ok("and so does one asking for nothing at all",
+     fw_bundle_filename(character(0)), fw_export_filename())
+
+  # THE PROGRESS BAR (client, 21 Sept 2026). Every step reports, the bar never
+  # goes backwards, it ends at 1, and every step has words from the copy deck.
+  # The zip step exists only where there is more than one file to pack, so a
+  # single-part bundle reports its own step and the finish and nothing else.
+  for (parts in list("xlsx", c("xlsx", "records"))) {
+    seen <- list()
+    fw_write_bundle(tempfile(), parts, d, report()$sel, report()$export,
+                    report()$filters, m,
+                    progress = function(v, detail) seen[[length(seen) + 1]] <<- list(v, detail))
+    vals <- vapply(seen, `[[`, numeric(1), 1)
+    lbl <- paste0("progress (", paste(parts, collapse = "+"), "): ")
+    ok(paste0(lbl, "one report per step plus the finish"),
+       length(vals), length(parts) + (length(parts) > 1) + 1L)
+    ok(paste0(lbl, "never goes backwards"), all(diff(vals) >= 0))
+    ok(paste0(lbl, "starts at 0 and ends at 1"), c(vals[1], utils::tail(vals, 1)), c(0, 1))
+    ok(paste0(lbl, "every step is worded"),
+       all(nzchar(vapply(seen, `[[`, "", 2))))
+  }
 
   # ---- The workbook -------------------------------------------------------
+  # Ticked on its own, so the download IS the .xlsx - no archive to open.
   session$setInputs(download_parts = "xlsx")
-  book <- tempfile(fileext = ".zip")
-  file.copy(output$download, book, overwrite = TRUE)
-  xl <- tempfile(); dir.create(xl)
-  utils::unzip(book, exdir = xl)
-  path <- list.files(xl, pattern = "[.]xlsx$", full.names = TRUE)[1]
+  path <- tempfile(fileext = ".xlsx")
+  file.copy(output$download, path, overwrite = TRUE)
   sheets <- openxlsx::getSheetNames(path)
-  ok("all five sheets present",
-     all(c("Attempts", "Contacts", "Caveats", "Field definitions",
-           "Filters applied") %in% sheets), TRUE)
+  # METHODS AND CAVEATS IS THE LAST TAB (client, 24 Sept 2026), where the PDF
+  # and the records HTML also close. Still no contacts sheet.
+  ok("all four sheets present, in order, and no contacts sheet",
+     sheets, c("Attempts", "Field definitions", "Filters applied",
+               fw_t("export", "sheets")$caveats))
+  ok("and the last tab carries the methods, the client's caveats and the citation",
+     all(c(toupper(fw_t("export", "methods_heading")),
+           "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]",
+           toupper(fw_t("export", "citation_heading")),
+           fw_citation_text(m, nrow(d$attempt))) %in%
+           openxlsx::read.xlsx(path, fw_t("export", "sheets")$caveats)[[1]]), TRUE)
   ok("data sheet matches the selection",
      nrow(openxlsx::read.xlsx(path, "Attempts")), nrow(report()$sel))
   ok("field definitions cover every exported column",
      all(names(openxlsx::read.xlsx(path, "Attempts")) %in%
            openxlsx::read.xlsx(path, "Field definitions")$Field), TRUE)
-  ok("and the contacts sheet's columns too",
-     all(names(openxlsx::read.xlsx(path, "Contacts")) %in%
-           openxlsx::read.xlsx(path, "Field definitions")$Field), TRUE)
-
-  # ONE ROW PER PERSON, and the count is the count in front of the reader.
-  people <- openxlsx::read.xlsx(path, "Contacts")
-  ok("contacts sheet is one row per person",
-     anyDuplicated(people$contact_id), 0L)
-  ok("and counts attempts within the extract only",
-     all(people$attempts_in_extract <= nrow(report()$sel)), TRUE)
 
   # THE CONTROL, not the intention. An address belonging to a contact who asked
   # not to be listed must not be anywhere in the workbook.
-  private <- d$contact$contact_email[!d$contact$email_public]
+  private <- d$contact$contact_email[!d$contact$contact_public]
   private <- private[!is.na(private) & nzchar(private)]
-  ok("no private address reaches the contacts sheet",
-     any(private %in% people$contact_email), FALSE)
+  rows <- openxlsx::read.xlsx(path, "Attempts")
+  ok("no private address reaches the attempts sheet",
+     any(private %in% c(rows$primary_contact_email, rows$secondary_contact_email)),
+     FALSE)
 
-  # ---- The HTML report ------------------------------------------------------
+  # ---- The attempts file ---------------------------------------------------
   #
-  # Nothing here needs a browser. The Word export it replaced could only be
-  # tested by faking the PNGs the browser would have posted back; this one is
-  # built entirely on the server, so the file the test reads is the file a
-  # reader gets.
-  #
-  # The assertions are about SELF-CONTAINMENT above all. A report that renders
-  # perfectly on the machine that made it and loses its charts when it is
-  # forwarded is the failure this format exists to avoid, so the test looks for
-  # anything the file would have to fetch.
-  # The report now arrives inside the bundle rather than from its own button,
-  # so it is unpacked once here and again wherever a toggle has moved.
-  report_from_bundle <- function() {
-    session$setInputs(download_parts = "html")
+  # EVERY ATTEMPT IN THE SELECTION, ONCE, IN THE SPREADSHEET'S ORDER, with every
+  # exported field labelled on every card. Read back out of the file the reader
+  # gets, not out of the function that wrote it.
+  # ONE PART DOWNLOADS AS ITSELF, more than one as a zip (client, 24 Sept
+  # 2026). fw_bundle_filename() draws that line and this follows it, so the
+  # assertions below read the same file the reader would get either way.
+  unpack <- function(parts, pattern) {
+    session$setInputs(download_parts = parts)
+    name <- fw_bundle_filename(parts)
+    if (!grepl("[.]zip$", name)) {
+      out <- file.path(tempfile("fw-one-"), name)
+      dir.create(dirname(out))
+      file.copy(output$download, out, overwrite = TRUE)
+      return(out)
+    }
     z <- tempfile(fileext = ".zip")
     file.copy(output$download, z, overwrite = TRUE)
     dir <- tempfile(); dir.create(dir)
     utils::unzip(z, exdir = dir)
-    list.files(dir, pattern = "[.]html$", full.names = TRUE)[1]
+    list.files(dir, pattern = pattern, full.names = TRUE)[1]
   }
+  rec_path <- unpack(c("xlsx", "records"), "[.]html$")
+  rec <- paste(readLines(rec_path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+  ids <- regmatches(rec, gregexpr('<article class="fw-rec-card" id="[^"]+"', rec))[[1]]
+  ids <- sub('^.*id="', "", sub('"$', "", ids))
+  ok("one card per attempt in the selection", length(ids), nrow(report()$sel))
+  ok("in the export's order", ids, report()$export$attempt_id)
+  # STILL WATER / FLOWING WATER, never the stored Lentic / Lotic (client,
+  # 24 Sept 2026) - the words the filters and the form already use.
+  ok("water regime reads in plain English",
+     grepl("<dd>(Lentic|Lotic)</dd>", rec), FALSE)
+  ok("and the plain words are there",
+     any(vapply(FW_REGIME_LABELS, function(l) grepl(paste0("<dd>", l, "</dd>"), rec, fixed = TRUE),
+                logical(1))), TRUE)
+  ok("the records close on the citation",
+     grepl(fw_t("export", "citation_heading"), rec, fixed = TRUE), TRUE)
+  cards <- strsplit(rec, '<article class="fw-rec-card"', fixed = TRUE)[[1]][-1]
+  labels <- fw_t("export", "record_labels")
+  ok("the labels cover every exported column",
+     setequal(names(labels), FW_EXPORT_COLUMNS), TRUE)
+  grouped <- unlist(lapply(fw_t("export", "record_groups"), `[[`, "fields"))
+  ok("and every column but the id sits in one group",
+     sort(grouped), sort(setdiff(FW_EXPORT_COLUMNS, "attempt_id")))
+  n_dt <- vapply(cards, function(x) lengths(regmatches(x, gregexpr("<dt>", x, fixed = TRUE))), 1L)
+  # EVERY GROUPED FIELD, MINUS THE CHEMICAL DETAIL WHERE THAT SECTION IS CUT
+  # (client, 23 Sept 2026). The expected count per card is recomputed from the
+  # export rows through the same predicate the writer uses, so the file and the
+  # rule cannot drift; what is asserted independently is that both kinds of card
+  # are in this file at all, and that the headings went with the fields.
+  chem <- Filter(function(g) identical(g$id, "chemical"),
+                 fw_t("export", "record_groups"))[[1]]
+  exp_rows <- report()$export
+  cut <- vapply(seq_len(nrow(exp_rows)),
+                function(i) fw_record_group_drop(chem, as.list(exp_rows[i, ])),
+                logical(1))
+  # AND MINUS A BLANK REGION (client, 24 Sept 2026). Region is recorded for a
+  # handful of countries only, so "Not noted" under an Australian site read as
+  # a missing Tasmania. It is the one field that vanishes rather than saying
+  # so - see FW_RECORD_OMIT_BLANK - and the expected count follows the same
+  # predicate the writer uses.
+  no_region <- vapply(exp_rows$region, fw_record_blank, logical(1))
+  ok("every card draws every grouped field it keeps",
+     all(unname(n_dt) ==
+           length(grouped) -
+           ifelse(cut, length(chem$fields), 0L) -
+           ifelse(no_region, 1L, 0L)),
+     TRUE)
+  ok("some cards in here have no region, or the rule is untested",
+     sum(no_region) > 0)
+  ok("a card with no region draws no Region row",
+     any(grepl("<dt>Region</dt>", cards[no_region], fixed = TRUE)), FALSE)
+  ok("and a card with one still does",
+     all(grepl("<dt>Region</dt>", cards[!no_region], fixed = TRUE)), TRUE)
+  ok("some cards here have the chemical section cut", sum(cut) > 0)
+  ok("and some keep it, or the rule is untested", sum(!cut) > 0)
+  ok("a cut card loses the heading with the fields",
+     sum(vapply(cards, function(x)
+       grepl(paste0("<h3>", chem$heading, "</h3>"), x, fixed = TRUE), logical(1))),
+     sum(!cut))
+  # THE GUARD ON THE CUT: an attempt with no chemical method but a recorded
+  # concentration keeps the section, because the spreadsheet in the same
+  # download still carries that value and the two must not disagree. Asserted
+  # over the WHOLE database rather than this selection - there are only a
+  # handful of such attempts and a country filter can easily hold none, which
+  # would leave the guard passing without ever being exercised.
+  all_rows <- fw_export_frame(d)
+  all_no_chem <- !vapply(strsplit(as.character(all_rows$method_classes), FW_MULTI_SEP,
+                                  fixed = TRUE),
+                         function(x) "chemical" %in% x, logical(1))
+  all_has_data <- vapply(seq_len(nrow(all_rows)), function(i)
+    any(!vapply(chem$fields, function(f) fw_record_blank(all_rows[[f]][i]), logical(1))),
+    logical(1))
+  all_cut <- vapply(seq_len(nrow(all_rows)),
+                    function(i) fw_record_group_drop(chem, as.list(all_rows[i, ])),
+                    logical(1))
+  ok("no attempt with chemical data ever loses the section",
+     any(all_cut & all_has_data), FALSE)
+  ok("and some attempt with no chemical method is kept by that guard",
+     sum(all_no_chem & all_has_data) > 0)
+  ok("the cut is exactly no-chemical-method and no chemical data",
+     identical(all_cut, unname(all_no_chem & !all_has_data)), TRUE)
+  ok("a blank field says Not noted",
+     grepl(paste0('<span class="fw-rec-none">', fw_t("species", "p_not_noted")), rec,
+           fixed = TRUE), TRUE)
+  ok("no private address reaches the attempts file",
+     any(vapply(private, grepl, logical(1), x = rec, fixed = TRUE)), FALSE)
+  ok("the caveats travel with it", grepl(PLACEHOLDER_CAVEAT, rec, fixed = TRUE), TRUE)
+  ok("and the methods statement with them",
+     grepl(fw_t("export", "methods_heading"), rec, fixed = TRUE), TRUE)
+  ok("nothing in it is fetched",
+     grepl('(src|href)="(?!data:|#|https?:|mailto:)[^"]*[.](css|js|png|jpe?g|woff2?)"',
+           rec, perl = TRUE), FALSE)
+  ok("its fonts are inlined, unwrapped",
+     grepl("url(\"data:font/woff2;base64,", rec, fixed = TRUE) &&
+       !grepl("data:[a-z/+.-]+;base64,[A-Za-z0-9+/=]*\\n", rec), TRUE)
+  ok("every logo the footer carries is in it",
+     lengths(regmatches(rec, gregexpr('src="data:image/png', rec, fixed = TRUE))),
+     2L + length(FW_LOGO$collab_files))
 
-  html <- report_from_bundle()
-  ok("html report downloads", file.exists(html), TRUE)
-
-  doc <- fw_html_read_text(html)
-  has <- function(txt) grepl(txt, doc, fixed = TRUE)
-
-  ok("the letterhead names the database", has("A world evidence base"), TRUE)
-  # STILL HERE, even though the page's own panel has gone to About. A document
-  # that leaves the building has to carry its own qualifications.
-  ok("the caveats travel with the document", has("Claimed is not the same"), TRUE)
-  ok("and so do the contacts", has("Potential relevant contacts"), TRUE)
-  ok("the cumulative chart does not", has("How the record has"), FALSE)
-  ok("the filter selection is recorded", has("What this report covers"), TRUE)
-  ok("the print rules are the PDF export", has("@media print"), TRUE)
-
-  # Every plotly figure and the leaflet map, as widget payloads rather than as
-  # pictures of them. If a chart ever stops reaching the document this is what
-  # notices - the file still builds, it just quietly loses a figure. The
-  # expected count is READ FROM THE DOCUMENT (one figure block per chart, plus
-  # the map) rather than written down, so adding a chart does not break this.
-  n_widgets <- lengths(regmatches(doc, gregexpr('data-for="htmlwidget', doc, fixed = TRUE)))
-  n_figures <- lengths(regmatches(doc, gregexpr('class="fw-report__figure"', doc, fixed = TRUE)))
-  n_maps    <- lengths(regmatches(doc, gregexpr('class="fw-report__map"', doc, fixed = TRUE)))
-  ok("every figure travels as a live widget", n_widgets, n_figures + n_maps)
-  ok("the report carries more than one figure", n_figures > 1L, TRUE)
-  ok("plotly is bundled, not linked", has("Plotly.newPlot"), TRUE)
-  ok("leaflet is bundled, not linked", has("leaflet-container"), TRUE)
-
-  # NOTHING IS FETCHED FROM DISK. Every asset reference in the file has to be a
-  # data: URI; a relative path would resolve against wherever the reader saved
-  # the file and find nothing there.
+  # ---- The PDF report -------------------------------------------------------
   #
-  # Matched on the ASSET EXTENSION rather than on "anything not absolute",
-  # because three and a half megabytes of minified plotly contains string
-  # literals that look like href= to a regular expression and are not.
-  refs <- regmatches(doc, gregexpr('(?:src|href)="[^"]*"', doc, perl = TRUE))[[1]]
-  refs <- sub('^[a-z]+="', "", sub('"$', "", refs))
-  local_refs <- grep("^(data:|#|https?:|mailto:|blob:)", refs,
-                     value = TRUE, invert = TRUE)
-  assets <- grep("[.](css|js|png|jpe?g|gif|svg|woff2?|ttf|ico)([?#].*)?$",
-                 local_refs, value = TRUE, ignore.case = TRUE)
-  ok("nothing in the file is fetched from disk", length(assets), 0L)
-  # A newline inside url() is a CSS parse error, which silently costs the file
-  # every inlined image. See fw_html_base64().
-  ok("no data URI is line-wrapped",
-     grepl("data:[a-z/+.-]+;base64,[A-Za-z0-9+/=]*\\n", doc), FALSE)
+  # NEEDS QUARTO. Without it the assertions below cannot run, and they say so
+  # loudly rather than passing quietly: set QUARTO_PATH to a Quarto 1.4+ CLI.
+  if (!fw_pdf_available()) {
+    cat("  *** PDF ASSERTIONS SKIPPED: quarto not found (set QUARTO_PATH) ***\n")
+  } else {
+    pdf_path <- unpack("pdf", "[.]pdf$")
+    ok("the PDF is in the bundle", basename(pdf_path), fw_pdf_filename())
+    head_bytes <- readBin(pdf_path, "raw", 5)
+    ok("and is a PDF", rawToChar(head_bytes), "%PDF-")
+    ok("with more than one page", fw_pdf_page_count(pdf_path) > 1L, TRUE)
 
-  # ---- The data carried inside the report ----------------------------------
-  payload <- function(id) {
-    one <- regmatches(doc, regexpr(
-      paste0('<script id="', id, '".*?</script>'), doc, perl = TRUE))
-    jsonlite::base64_dec(sub("</script>$", "", sub('^<script[^>]*>', "", one)))
+    # WHAT THE DOCUMENT SAYS is read from its Typst source, which is the text
+    # the PDF was set from - the PDF's own text streams are compressed.
+    keep <- tempfile()
+    fw_write_pdf_report(tempfile(fileext = ".pdf"), d, report()$sel, filters = report()$filters,
+                        meta = m, method_mode = "count", keep = keep)
+    typ <- paste(readLines(file.path(keep, "report.typ"), warn = FALSE), collapse = "\n")
+    has <- function(txt) grepl(txt, typ, fixed = TRUE)
+    ok("the letterhead carries the title", has(fw_t("plan", "report_title")), TRUE)
+    ok("the filter selection is recorded", has(fw_t("plan", "report_selection")), TRUE)
+    ok("the caveats travel with the document", has(PLACEHOLDER_CAVEAT), TRUE)
+    ok("and the methods statement with them",
+       has(fw_t("export", "methods_heading")), TRUE)
+    # METHODS, CAVEATS, CITATION (client, 24 Sept 2026), each titled. The
+    # headless placeholder caveat takes "Caveats" here and nowhere else.
+    ok("the caveat placeholder is titled Caveats",
+       has(paste0('("', fw_t("export", "caveats_title"), '", "', PLACEHOLDER_CAVEAT, '")')), TRUE)
+    ok("and the citation closes the section",
+       has(paste0('("', fw_t("export", "citation_heading"), '", ')), TRUE)
+    pos <- function(txt) regexpr(txt, typ, fixed = TRUE)
+    ok("in the order methods, caveats, citation",
+       pos(paste0('("', fw_t("export", "methods_heading"), '"')) <
+         pos(paste0('("', fw_t("export", "caveats_title"), '"')) &&
+         pos(paste0('("', fw_t("export", "caveats_title"), '"')) <
+         pos(paste0('("', fw_t("export", "citation_heading"), '"')), TRUE)
+    ok("the contacts carry the PDF's own note",
+       has(fw_t("plan", "report_contacts_note")), TRUE)
+    ok("the footer no longer points back at the caveats",
+       has("Read the caveats above"), FALSE)
+    ok("and so do the contacts", has(fw_t("plan", "r_contacts")), TRUE)
+    ok("the map is drawn", file.exists(file.path(keep, "map.png")), TRUE)
+    ok("every chart is drawn",
+       all(file.exists(file.path(keep, c("methods.png", "duration.png",
+                                         "waterbody.png")))), TRUE)
+    # AND THE DELETED ONE IS NOT (client, 23 Sept 2026).
+    ok("the methods-by-water chart is gone",
+       file.exists(file.path(keep, "method-waterbody.png")), FALSE)
+    # WHAT THIS REPORT COVERS lists only the filters the reader actually set,
+    # and carries the note saying what the report is and is not for.
+    ok("the filters table explains itself",
+       has(fw_t("plan", "report_selection_note")), TRUE)
+    ok("and is set below the print floor", has("size: fw-small"), TRUE)
+    ok("no untouched filter is listed as All",
+       grepl(paste0('"', fw_t("export", "filter_all"), '"'), typ, fixed = TRUE), FALSE)
+    # THE OUTCOME BARS LEAD, above the species plates.
+    ok("the outcomes come before the species plates",
+       regexpr("#fw-outcome-bars", typ, fixed = TRUE) <
+         regexpr("#fw-species-tiles", typ, fixed = TRUE), TRUE)
+    # SIX CONTACTS AT MOST, however broad the selection.
+    ok("at most six contacts are printed",
+       nrow(fw_pdf_contacts_table(fw_plan_contacts(d, report()$sel))) <= FW_PDF$contacts_n,
+       TRUE)
+    ok("every logo travels",
+       all(file.exists(file.path(keep, paste0("logo-", c("mark", "wfa",
+                                                         names(FW_LOGO$collab_files)),
+                                             ".png")))), TRUE)
+    ok("no private address reaches the PDF",
+       any(vapply(private, function(e) has(gsub("([@.])", "\\1\u200b", e)) || has(e),
+                  logical(1))), FALSE)
+    ok("the no-method caption is there when it should be",
+       has(fw_fill(fw_t("plan", "r_method_missing"),
+                   n = fw_fmt_num(fw_n_no_method(d, report()$sel)))),
+       fw_n_no_method(d, report()$sel) > 0)
   }
-
-  csv_bytes <- payload("fw-file-csv")
-  csv_path <- tempfile(fileext = ".csv")
-  writeBin(csv_bytes, csv_path)
-  carried <- utils::read.csv(csv_path, check.names = FALSE, encoding = "UTF-8")
-  ok("the csv inside the report matches the selection",
-     nrow(carried), nrow(report()$sel))
-  ok("and carries every exported column",
-     identical(names(carried), FW_EXPORT_COLUMNS), TRUE)
-
-  xlsx_bytes <- payload("fw-file-xlsx")
-  xlsx_path <- tempfile(fileext = ".xlsx")
-  writeBin(xlsx_bytes, xlsx_path)
-  ok("the workbook inside the report is the workbook beside it",
-     all(c("Attempts", "Contacts", "Caveats", "Field definitions",
-           "Filters applied") %in% openxlsx::getSheetNames(xlsx_path)), TRUE)
-  ok("and it holds the same rows",
-     nrow(openxlsx::read.xlsx(xlsx_path, "Attempts")), nrow(report()$sel))
-
-  # WYSIWYG. The method chart has a share/count toggle and the document takes
-  # whichever the reader is looking at, rather than re-deciding for them.
-  session$setInputs(method_mode = "count")
-  ok("the method chart follows the reader's toggle",
-     grepl("Attempts", fw_html_read_text(report_from_bundle()), fixed = TRUE), TRUE)
-  # The waterbody chart has its OWN toggle, and the document follows each
-  # independently: share below, count above, in the same file.
-  session$setInputs(method_wb_mode = "share")
-  doc2 <- fw_html_read_text(report_from_bundle())
-  ok("the waterbody chart follows its own toggle",
-     grepl(fw_t("charts", "x_share_uses"), doc2, fixed = TRUE), TRUE)
-  ok("and the method chart above it stays on count",
-     grepl(fw_t("charts", "x_attempts"), doc2, fixed = TRUE) &&
-       !grepl(fw_t("charts", "x_share"), doc2, fixed = TRUE), TRUE)
-  # The caption naming attempts with no method, recomputed in base R. Present
-  # with the right number when there are any, absent when there are none.
-  n_no_method <- sum(!report()$sel$attempt_id %in% d$attempt_method$attempt_id)
-  ok(sprintf("the no-method caption is %s (%d such attempts)",
-             if (n_no_method > 0) "present" else "absent", n_no_method),
-     grepl(fw_fill(fw_t("plan", "r_method_missing"), n = fw_fmt_num(n_no_method)),
-           doc2, fixed = TRUE),
-     n_no_method > 0)
 })
 
 cat("\n")

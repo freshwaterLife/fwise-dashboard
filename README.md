@@ -60,7 +60,8 @@ R -e 'shiny::runApp()'
 ```
 
 That is the whole setup. **No credentials are required, and the app makes no
-network calls in local development.** With nothing configured it reads
+network calls in local development** (a PDF download is the one exception: it
+fetches its species photographs from Wikimedia). With nothing configured it reads
 `../fwise-data/attempts.csv` and its two lookups, and writes any submissions to
 `../fwise-data/inbox/`,
 one CSV per submission — the same shape the deployment writes over the API, so
@@ -69,6 +70,11 @@ the QA loop is identical either way.
 `renv::restore()` will take a while the first time. `sf` is in the dependency
 list because `leaflet` imports it, and it needs GDAL, GEOS and PROJ present on
 the machine. On macOS: `brew install gdal geos proj`.
+
+**The PDF report needs the Quarto CLI**, 1.4 or later (for its bundled Typst):
+`brew install --cask quarto`, or point `QUARTO_PATH` at a copy. Without it the
+app runs normally and the Plan page's download picker leaves the PDF out and
+says why. The startup log's second line names the Quarto it found.
 
 ### Checking your changes
 
@@ -82,13 +88,19 @@ Rscript dev/check_palette.R   # the chart palettes: CVD separation, bands, label
 Rscript dev/check_literals.R  # no stray colours or strings; every copy key resolves
 ```
 
+`plan_test.R` and `value_test.R` render real PDFs, so they need Quarto (see
+above). Without it they print `PDF ASSERTIONS SKIPPED` rather than passing
+quietly - treat that line as a gap, not a pass.
+
 Two scripts write into `../fwise-data/` and are the only things in the project
-that touch the network. The **app itself never does.** Run them by hand and
-review the diff before committing:
+that touch the network. The **app itself never does**, with one exception: a
+PDF download fetches its species photographs from Wikimedia. Run them by hand
+and review the diff before committing:
 
 ```bash
 Rscript dev/fetch_species_images.R    # species photos from Wikimedia -> species.csv
 Rscript dev/build_iso_lookups.R       # ISO 3166-1 and -2 -> the two lookup files
+Rscript dev/build_report_basemap.R    # Natural Earth outlines -> resources/report/
 ```
 
 All of them exit non-zero on failure, so they are usable from CI.
@@ -129,19 +141,24 @@ separation in OKLab.
 │   │                           Zenodo release, so the two cannot disagree
 │   ├── questions_text.R        the offline question list, plain text
 │   ├── questions_docx.R        the same list as Word, from the SAME walker
-│   ├── report_html.R           the report builder's document output: one
-│   │                           self-contained HTML file, live charts and
-│   │                           map inside it, printable to PDF
+│   ├── report_pdf.R            the PDF report: Typst via Quarto, rendered
+│   │                           on the server from R-drawn figures
+│   ├── charts_static.R         the PDF's figures: ggplot twins of the
+│   │                           plotly charts, and the static map
+│   ├── report_records.R        the attempts download: every attempt in the
+│   │                           selection, in full, as one .html file
 │   └── mod_*.R                 one file per page. The contribute page is split
 │                               into mod_contribute.R (server logic),
 │                               mod_contribute_steps.R (section builders) and
 │                               mod_contribute_ui.R (the three page states)
 ├── www/
-│   ├── scss/                   main.scss and report.scss (the two entry files),
-│   │                           _tokens.scss (derived only), _components.scss,
-│   │                           _report_frame.scss
+│   ├── scss/                   main.scss and records.scss (the two entry
+│   │                           files), _tokens.scss (derived only),
+│   │                           _components.scss
 │   ├── fonts/                  self-hosted Ubuntu woff2
 │   └── img/                    logos and favicon
+├── resources/report/           the PDF's Typst template partials, Ubuntu
+│                               TTFs and the Natural Earth world outlines
 ├── dev/                        local scratch, gitignored except the scripts
 │                               named under "Checking your changes" below
 ├── manifest.json               what Connect Cloud actually deploys from
@@ -268,28 +285,49 @@ Two structural points that are settled and should not be generalised:
 | `fw_headline_stats()` | the five landing-page KPI figures |
 | `fw_country_burden()` | the choropleth source (currently a placeholder, see below) |
 
-### Email redaction
+### Contact redaction
 
-This matters, so it is worth being explicit. Where a contact's `email_public` is
-`FALSE`, `fw_contacts_summary()` replaces the address with `NA` **before the data
-reaches any session**. The contacts page reads only from that function, so there
-is no code path by which a redacted address can reach the browser. The page shows
-an empty cell rather than a "hidden" badge, because a badge advertises that there
-is something worth going after.
+This matters, so it is worth being explicit. Where a contact's `contact_public` is
+`FALSE`, none of their contact information (name, organisation or email) appears
+anywhere in the app or its downloads. `fw_contacts_summary()` drops the row
+**before the data reaches any session**. The Networking page and the Plan
+contacts table (on screen and in the PDF) read only from that function. The map
+card and the xlsx/csv exports blank all three fields, and `fw_assert_export_safe()`
+refuses any export that still carries them. The attempt itself is still shown in
+full. It just has nobody listed to contact. The page shows an empty cell rather
+than a "hidden" badge, because a badge advertises that there is something worth
+going after.
 
 Addresses that *are* public get a small speed bump: they are split across `data-`
 attributes and reassembled in JavaScript when the link is clicked, so a naive
 scraper reading the served HTML does not harvest them in one pass. **This is not
 security.** Anyone running the page's JavaScript can recover a public address.
-The real control is the `email_public` flag, held once per person in
+The real control is the `contact_public` flag, held once per person in
 `contacts.csv`.
 
 ---
 
 ## Updating the data
 
-**`attempts.csv` is the master.** There is no raw export to re-drop and no
-rebuild step. The client corrects a value by editing the row; a new record
+**Before launch, the data is rebuilt from the client's export.** Put the one
+export (`fwise_<date>.xlsx` or `.csv`) in `fwise-data/source/` in place of the
+old one, then:
+
+```bash
+Rscript dev/build_from_export.R      # writes attempts/species/contacts, the _ids map, metadata.json
+Rscript dev/reconcile_source.R       # proves every source column and value landed
+Rscript dev/fetch_species_images.R   # photos for any new species
+```
+
+The build carries species (with taxa, family and photo) and contacts over from
+the current lookups by exact name, or for a species by the same scientific
+name; attempts get new ids, reused if the same export is built twice. It writes
+`qa/species_to_check_<date>.csv` (species with no taxa or family, to fill in
+`species.csv`) and `qa/build_issues_<date>.csv` (what it could not place, to fix
+in the export). **Once the site is live, stop rebuilding:** ids are then
+permanent and the rest of this section applies.
+
+**After launch, `attempts.csv` is the master.** The client corrects a value by editing the row; a new record
 arrives through the contribute form and the review loop below; a new species or
 contact is a new row in its lookup, added by the fold step or by hand, whose id
 the attempt row then cites.
@@ -426,8 +464,9 @@ narrow under the controls. Citing is not. Do not make the two consistent.
 ## The report builder
 
 `R/mod_plan.R`, with filters in `mod_plan_filters.R`, rendering in
-`mod_plan_results.R`, the spreadsheet export in `export.R` and the HTML report
-in `report_html.R`.
+`mod_plan_results.R`, the spreadsheet export and the download bundle in
+`export.R`, the PDF report in `report_pdf.R` (figures in `charts_static.R`) and
+the attempts file in `report_records.R`.
 
 **The questions sit above the report, not beside it.** This page is a form
 followed by its answer. The dashboard keeps its sidebar because browsing *is*
@@ -467,10 +506,17 @@ information. Colourblind safety is a stated client requirement.
 **The caveats panel folds on the About page** and does not anywhere else. It was
 always visible and never an accordion; the client later asked for it to be one of
 the About page's click-to-open panels, so it is a `<details>` there whose summary
-names what is inside ("How success is defined, what is missing, and why there is
-no success rate") rather than saying "caveats". In every export it is still
+names what is inside rather than saying "caveats". In every export it is still
 unfoldable text, and it comes from the same function in both places, so the two
 cannot say different things.
+
+**The caveats themselves are a placeholder** (client, 24 September 2026). Five
+blocks we had written came out and one headingless block reading
+`[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]` went in, so the FWISE
+team writes what it thinks the database needs without our wording in front of
+it. Grep `[PLACEHOLDER]` in `R/copy_export.R`. The
+structure is untouched: add blocks back as `list(heading =, body =)` and the
+About panel, the workbook sheet, the PDF and the records HTML all reflow.
 
 ### The export
 
@@ -491,79 +537,85 @@ belonging to a contact who asked not to be listed. Applying the redaction is not
 the same as guaranteeing it, and an export is the one place a mistake travels
 outside the building and cannot be recalled.
 
-### The HTML report
+### The downloads
 
-`R/report_html.R`. The same report the reader is looking at, on FWISE
-letterhead, as **one self-contained `.html` file**: every stylesheet, script,
-webfont, the logo and the data itself are inlined, so nothing is fetched when
-the file is opened. Around 4 MB, nearly all of it plotly.
+One **Download this report** button, floating in the bottom-right corner from
+the moment a build matches something (client, 24 September 2026), opens a
+picker with three parts (client, 23 September 2026): the **PDF report**,
+**every attempt in full** (`.html`) and the spreadsheet (`.xlsx`). More than
+one arrive as a zip; **one arrives as itself**. The interactive HTML report
+that used to sit here - live plotly charts and a leaflet map, printed to PDF
+through the browser - was replaced by the PDF, and the CSV went with it.
 
-**This replaced a Word export.** Both produced a document with the charts in it;
-the difference is what a chart *is* in each format.
+The button has moved three times and always for the same reason: the results
+are a long scroll and the download is what the page is for. It was the last
+block under two tables, then a sticky row at the top of the results, and it is
+now out of the flow altogether - so it costs no line of the page and is in the
+same place whatever the reader has scrolled to. It is still first in the DOM,
+which `dev/plan_test.R` asserts. See `.fw-plan__results-head` in
+`www/scss/_components.scss` for the stacking it has to respect.
 
-- **No round trip to the browser.** A `.docx` can only hold a chart as a
-  picture, and rendering a plotly figure to a PNG server-side needs kaleido
-  (Python) or webshot2 (Chrome), neither of which belongs on Connect Cloud. So
-  the Word route asked the browser to photograph every figure with
-  `Plotly.toImage()`, posted the base64 PNGs back over the websocket into a
-  Shiny input, stashed them server-side and then *clicked a hidden download
-  button* on the reader's behalf. All of that is gone. This is an ordinary
-  `downloadHandler`.
-- **Vector, not a screenshot.** The figures travel as live plotly graphs. They
-  stay crisp at any zoom and at print resolution, and they keep their hover
-  readouts.
-- **The map travels.** Leaflet could never be captured — its tiles are
-  cross-origin and taint the canvas — so the Word file had a country table
-  standing in for it. Here the real map is in the document, with the country
-  table kept beside it for print and for readers with no connection.
-- **The page's own components.** The summary strip, the outcome bars, the
-  contacts table and the caveats panel are the *same functions* the page
-  renders (`fw_plan_summary_ui()`, `fw_outcome_bars_ui()`,
-  `fw_plan_contacts_ui()`, `fw_plan_caveats_ui()`), under the *same compiled
-  stylesheet*
-  (`fw_html_app_css()` runs the same `main.scss` the app serves). Nothing is
-  translated into Word table primitives, so the report cannot drift away from
-  the screen, and a component restyled in `_components.scss` is restyled in
-  every report built afterwards.
-- **No new infrastructure.** No kaleido, no Python, no webshot2, no headless
-  Chrome, no LaTeX — the same constraint that deferred PDF output in the first
-  place. No new package either: `sass`, `htmltools`, `jsonlite` and `openxlsx`
-  were all already dependencies.
+**Nothing travels uninvited** (client, 24 September 2026). A methods-and-
+caveats `.txt` used to go into every download whatever was ticked, which meant
+ticking the PDF handed back a zip of two files. It is gone, and each document
+now closes on that section itself: the workbook's last tab, the last section of
+the PDF and of the records `.html`. With nothing left that an empty selection
+could produce, the Download button is disabled until something is ticked - see
+`fw_download_guard()` in `R/mod_plan.R`.
 
-**PDF is the browser's print engine.** The report carries a **Save as PDF**
-button that calls `window.print()`. The `@media print` rules in
-`fw_html_report_css()` are the export: they drop the toolbar, force
-`print-color-adjust: exact` so the outcome bars keep their fills, repeat table
-headers across pages, keep figures and table rows from splitting, and let
-plotly's SVG scale down to the paper width. A bundled `html2pdf.js` or `jsPDF`
-was considered and rejected — both rasterise the DOM to a canvas, which throws
-away the vector output that is half the point of the file.
+### The PDF report
 
-**The data is inside the report.** Two more buttons hand back the selection as
-a UTF-8 CSV and as the full four-sheet workbook — built by `fw_write_workbook()`,
-the *same* function the spreadsheet button serves, so the copy inside the report
-and the copy downloaded beside it are identical. Both are carried as base64 in
-inert `<script type="application/base64">` elements and handed out as Blobs, which
-is the route that works from a `file://` URL and offline.
+`R/report_pdf.R`. The report the reader built, on FWISE letterhead, with every
+logo the site's footer carries (FWISE on the letterhead; Weird Fishes Advisory
+and the four collaborators in the footer of every page), static charts and a
+static map, on A4. **Rendered on the server by Quarto, with its Typst engine** -
+no LaTeX, no Chrome, no Python.
 
-**What you see is what you get.** Each of the two method charts has its own
-share/count toggle, and `input$method_mode` and `input$method_wb_mode` travel
-into the download, so the document shows whichever mode the reader is looking at
-rather than re-deciding for them. A chart that had
-too little data to draw returns `NULL` and is skipped, heading and all.
+- **R decides everything; Quarto only typesets.** The body is written in R as
+  calls to the components in `resources/report/typst-template.typ`, with every
+  piece of text passed as an escaped string literal (`fw_typ_str()`), never
+  spliced into markup. The `.qmd` Quarto renders has no R chunks, so no second
+  R process has to find this app's library.
+- **No values in the template.** Colours, sizes, logo paths and fixed wording
+  come from `fwise-tokens.typ`, written per render by `fw_pdf_tokens()` from
+  `R/brand.R`, `R/config.R` and the copy deck. `dev/check_literals.R` refuses a
+  colour typed into a `.typ` file.
+- **The figures are ggplot twins** of the page's plotly charts
+  (`R/charts_static.R`). Each is drawn from the same counting function as its
+  original - `fw_method_data()`, `fw_category_data()`,
+  `fw_method_waterbody_data()`, `fw_duration_data()` in `charts.R` - so the two
+  cannot count differently; `dev/value_test.R` checks both against a base-R
+  recount. They are drawn at their printed size, so the 1rem floor (12.6pt on
+  paper, `FW_PRINT` in `brand.R`) holds for chart labels too. Each follows the
+  reader's count/share toggle.
+- **The map** is ggplot on Natural Earth 1:110m outlines bundled in
+  `resources/report/` (built by `dev/build_report_basemap.R`), so it needs no
+  tiles and no network.
+- **The species photographs** are fetched from Wikimedia at render time, in
+  parallel, each under `FW_PDF$image_timeout_s`; one that does not arrive prints
+  as the page's placeholder. Credits and licences print under each.
+- **The size warning.** `fw_pdf_size_estimate()` predicts pages and megabytes
+  from the selection (contacts, map dots, photographs) before anything is
+  drawn, and the picker warns at `FW_PDF$warn_pages` or `FW_PDF$warn_mb`. The
+  whole database is about 25 pages and 2 MB, most of it the contacts table.
+  The coefficients were fitted to real renders and `dev/value_test.R` fails if
+  the estimate drifts more than 30% from three re-rendered cases.
 
-Two things to know before editing:
+### The attempts file
 
-- **`jsonlite::base64_enc()` wraps at 76 characters.** CSS will not parse a
-  newline inside `url()`, so a wrapped data URI keeps its rules and silently
-  loses every inlined image — leaflet's zoom and layer icons come out as empty
-  white boxes with nothing in the console. `fw_html_base64()` strips the
-  wrapping; do not go around it.
-- **Relative URLs do not survive inlining.** `leaflet.css` asks for
-  `images/marker-icon.png` and `main.css` for `../fonts/ubuntu-400.woff2`;
-  pasted into a `<style>` block those resolve against wherever the reader saved
-  the file. `fw_html_inline_css_urls()` rewrites every one of them to a data
-  URI.
+`R/report_records.R`. Every attempt in the selection, in the spreadsheet's
+order, as one card each: all 55 exported fields, labelled
+(`FW_COPY$export$record_labels`) and grouped (`record_groups`), a blank field
+saying "Not noted". A contents list with a find box sits above the cards; the
+caveats and the logos sit below. It is built from `fw_export_frame()`, so it
+carries exactly what the spreadsheet carries, with the same redaction. The
+stylesheet (`www/scss/records.scss`) and the fonts are inlined - nothing is
+fetched when it opens. Cards are assembled as escaped strings rather than a
+tag tree: 914 cards as tags took minutes, as strings about two seconds.
+
+**`jsonlite::base64_enc()` wraps at 76 characters**, and CSS will not parse a
+newline inside `url()` - an inlined font silently goes missing.
+`fw_html_base64()` strips the wrapping; do not go around it.
 
 ---
 
@@ -936,6 +988,10 @@ gitignored files that Connect Cloud cannot find, and the deploy fails.
    They are set in Connect Cloud's UI, never in a committed file.
 5. Publish. The first build takes a while because `sf` and its system
    dependencies have to be resolved.
+6. Check the second line of the log: `FWISE startup: quarto 1.x at ...`. Connect
+   Cloud provides the Quarto CLI to Shiny apps; if the line says NOT FOUND, the
+   PDF report is unavailable (the other downloads still work) and `QUARTO_PATH`
+   is the setting to point at one.
 
 Deployment credentials are held by the client and were not available when this
 was written, so the steps above have not been executed.
@@ -983,21 +1039,11 @@ The domain is registered with Namecheap and is held by the client.
   without a code change; the alternative is changing the default ground in
   `fw_add_basemaps()`. See HANDOVER.md section 5.5, which records a September
   2026 check that no longer holds.
-- **The report is around 4 MB**, nearly all of it the bundled `plotly.js`. That
-  is the price of interactive vector figures that work with the network down,
-  and it is comparable to the Word file it replaced once that file's PNGs were
-  counted. `plotly::partial_bundle()` would cut it substantially, but the
-  partial bundles are not shipped in the installed package and fetching them
-  would reintroduce a network dependency at build time.
-- **The report has no running header or page numbers.** The letterhead is a
-  block at the top of page one. `@page` margin boxes would give both, but
-  browser support for their content is uneven enough that a header which
-  renders in Chrome and vanishes in Safari is worse than none. See
-  `fw_html_report_css()`.
-- **The map inside the report needs a connection for its tiles.** The markers,
-  popups and legend are in the file; the ground underneath them is not. This is
-  stated on the face of the document, and the attempts-by-country table below
-  it is what remains when the tiles cannot load.
+- **The PDF's species photographs need the network at download time.** They
+  are Wikimedia's, fetched when the PDF is built; one that does not arrive
+  prints as the placeholder, and the rest of the report is unaffected.
+- **The PDF needs Quarto on the server.** Assumed present on Connect Cloud; the
+  startup log confirms it. Without it the PDF is left out of the picker.
 - Every remaining placeholder and open decision is listed in
   [HANDOVER.md](HANDOVER.md).
 

@@ -14,7 +14,7 @@ data layer.
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Home                | Landing page offering case studies, connections to events, and map displaying current work and opportunties.                                                                                                                                                                                                                                                                             |
 | Explore the data    | The record browser. The whole database in a panel at the top, then every attempt as a card: six live filters, a map, a sorted and paged list, and the full record on a card or marker click with previous/next through the selection. Deliberately no charts - those are the report builder's answer.                                                                                    |
-| Plan an eradication | This outputs data and a simple report for users based on filters they have applied. Idea is that users will use this to understand similar attempts that they might want to plan, or identify contacts in their area to apply to active conservation work. Users apply filters, click build, read, and can download as a spreadsheet or a self-contained HTML report that prints to PDF. |
+| Plan an eradication | This outputs data and a simple report for users based on filters they have applied. Idea is that users will use this to understand similar attempts that they might want to plan, or identify contacts in their area to apply to active conservation work. Users apply filters, click build, read, and can download a spreadsheet, a CSV, a PDF report and every matching attempt in full as one .html file. |
 | Contribute data     | One scrolling form allowing users to input data on **their** eradication attempt, whether it failed, is ongoing, or successful.                                                                                                                                                                                                                                                          |
 | Networking          | Reads and displays the contact table.                                                                                                                                                                                                                                                                                                                                                    |
 | About               | Project description, citation block, feedback box                                                                                                                                                                                                                                                                                                                                        |
@@ -70,6 +70,8 @@ All in `R/copy.R` unless stated. Search the file for `[PLACEHOLDER]` to find the
 | `contribute$consent$terms_link_label` / `terms_url` | Full terms of data use |
 | `contribute$confirm$followup` | "within X working days" |
 | `R/data_load.R` `fw_country_burden()` | Placeholder choropleth source |
+| `R/copy_export.R` `export$methods` | How FWISE was compiled - the account of how records were gathered, screened and entered. Prints in the workbook's last sheet, the PDF's last section and the records HTML's last section |
+| `R/copy_export.R` `export$caveats` | The caveats, which Anabell is writing. One headingless block now; add more as `list(heading =, body =)` and all four surfaces reflow |
 
 The question list is no longer a file anyone maintains. `R/questions_text.R`
 walks the same section builders the form renders and writes the download as plain
@@ -247,8 +249,8 @@ rendering species figures for it - 2,646 figures for 306 species. Two fixes:
 figures are rendered once per species (`fw_map_figure_cache()`), and the page
 now sends only the hover card and fetches the record when a marker is clicked
 (`detail = "lazy"` in `fw_add_attempt_markers()`, answered by
-`fw_map_detail_server()`). The HTML report still embeds every record, because a
-saved file has no server to ask.
+`fw_map_detail_server()`). `detail = "embed"` is kept for a map saved to a
+file, which has no server to ask; nothing uses it since the HTML report went.
 
 ### 5.6 The footer is two tiers, and the navbar stays light
 
@@ -331,7 +333,7 @@ lives in the row or lookup that owns it, the attempt id is minted by the form at
 submission time, and species and contact ids by `dev/qa.R fold`. Every id that
 existed before the flatten is unchanged.
 
-### 5.22 The report builder is stacked, and its Word output is photographed
+### 5.22 The report builder is stacked, and what it hands over
 
 Two changes made together, on client feedback, and they are related.
 
@@ -346,53 +348,51 @@ announces the count, because a result below the fold looks like nothing
 happening. **The dashboard keeps its sidebar** - browsing is watching the picture
 change under the controls, so there the controls have to stay in reach.
 
-**The report is one self-contained HTML file, and it replaced a Word export.**
-The constraint that deferred PDF output still holds - kaleido needs Python,
-webshot2 needs Chrome, and neither belongs on this deployment. The Word route
-worked around it by asking the browser to photograph every figure with
-`Plotly.toImage()`, posting the base64 PNGs back into a Shiny input, stashing
-them server-side and clicking a hidden download button on the reader's behalf.
+**The downloads are three parts, and what you tick is what you get.** The
+picker offers a **PDF report**, **every attempt in full** as one `.html` file,
+and the spreadsheet (client, 23 September 2026; the CSV went in that round).
+More than one arrive as a zip, one arrives as itself. A methods-and-caveats
+`.txt` used to ride along whatever else was chosen - so ticking the PDF handed
+back a zip of two files - and the client removed it on 24 September 2026; each
+document carries that section itself now, last. This all replaced a
+self-contained interactive HTML report (live plotly and leaflet, printed to PDF
+through the browser), which itself had replaced a Word export. The button sits
+at the right of the results head.
 
-**None of that is needed to put a chart in an HTML file.** The figures travel as
-live plotly widgets and the map as a live leaflet widget, so the download is an
-ordinary `downloadHandler` and the two-beat capture, the stash and the hidden
-button are all gone. Full explanation at the top of `R/report_html.R`.
+**The PDF is made on the server by Quarto, with Typst** (`R/report_pdf.R`). The
+old constraint - kaleido needs Python, webshot2 needs Chrome, neither belongs
+on Connect Cloud - still holds, and this route needs neither: the figures are
+ggplot twins of the plotly charts (`R/charts_static.R`) written to PNG in R,
+and Typst ships inside Quarto, so there is no LaTeX. Alex's call was to
+**assume Quarto is present on Connect Cloud** (Posit fixed its availability to
+Shiny apps in September 2024); the second startup log line confirms it, and
+without it the picker drops the PDF and says why. What to know:
 
-What follows from the change, all of it a gain rather than a trade:
+- **One count, two drawings.** The page's plotly charts and the PDF's ggplot
+  twins read the same `fw_*_data()` functions in `charts.R`; `value_test.R`
+  checks both against a base-R recount, in both modes.
+- **The template holds no values.** `resources/report/typst-template.typ`
+  imports `fwise-tokens.typ`, written from `brand.R`/`config.R`/the copy deck
+  per render. Text reaches Typst only as escaped string literals.
+- **The type floor holds on paper**: `FW_PRINT$floor` is `size_min` at
+  12pt per rem (12.6pt). It makes the contacts table long - 19 of the 25 pages
+  for the whole database - which is what the size warning is mostly about.
+- **The size warning** is an estimate made before the render
+  (`fw_pdf_size_estimate()`, coefficients in `FW_PDF`, fitted to real renders
+  and re-checked by `value_test.R`); it fires at 20 pages or 5 MB.
+- **The map** is drawn on bundled Natural Earth outlines, not tiles. The species
+  photographs are the only network fetch, with a timeout and a placeholder.
 
-- **The map is in the document.** It could not be captured for Word - leaflet
-  tiles are cross-origin and taint the canvas - so the Word file had a country
-  table standing in for it. The table is still there, because the map's tile
-  background needs a connection and a printed page wants a list.
-- **The figures are vector and still interactive.** Crisp at any zoom and at
-  print resolution, and they keep their hover readouts.
-- **The report is the page.** The summary strip, outcome bars, contacts table
-  and caveats panel are the same functions the page renders, under the same
-  compiled `main.scss`. There is no second implementation to drift.
-- **There is no row-per-attempt table**, in the report or on the page. The
-  client removed it from both in September 2026; the CSV and the workbook in
-  the same bundle carry every row with its full, unshortened values. A
-  record-by-record section in prose was asked for and deferred to a later
-  round - when it arrives it should not be rebuilt out of table cells.
-- **PDF is the browser's own print engine**, driven by the `@media print` rules
-  in `fw_html_report_css()` and a Save as PDF button. No PDF library is bundled;
-  `html2pdf.js` and `jsPDF` rasterise the DOM, which would throw away the vector
-  output.
-- **The data travels inside the report** - a CSV and the full four-sheet
-  workbook, the latter built by the same `fw_write_workbook()` the spreadsheet
-  button serves.
-- **What you see is what you get.** `input$method_mode` and
-  `input$method_wb_mode` travel into the download, so each method chart appears
-  in whichever mode the reader is looking at.
+**The attempts file is the record-by-record reading** that was deferred when
+the attempts table left the page (`R/report_records.R`): a card per attempt,
+every exported field labelled and grouped, "Not noted" for blanks, a contents
+list with a find box, the caveats and the logos. Built from the export frame,
+so its redaction is the spreadsheet's. Assembled as strings - as an htmltools
+tree, 914 cards took minutes.
 
-Two traps that cost real time, both now guarded in code and in `dev/plan_test.R`:
-
-- `jsonlite::base64_enc()` wraps at 76 characters. CSS will not parse a newline
-  inside `url()`, so a wrapped data URI keeps its rules and **silently loses
-  every inlined image**, with nothing in the console. `fw_html_base64()` strips
-  it.
-- Relative URLs inside a stylesheet do not survive being inlined.
-  `fw_html_inline_css_urls()` rewrites them to data URIs.
+`jsonlite::base64_enc()` wraps at 76 characters, and CSS will not parse a
+newline inside `url()`: a wrapped data URI **silently loses the inlined fonts**.
+`fw_html_base64()` strips it.
 
 ### 5.23 The content column is a proportion, not a pixel cap
 
@@ -444,7 +444,7 @@ blurs that line should be argued for rather than slipped in.
 |---|---|---|
 | Home | "is this worth doing?" | The pitch. Hero, the mismatch map, case studies. Still stubbed, still blocked on the client. |
 | Explore the data | "show me the attempts" | **The one.** Every attempt as a record you can find, place and read in full. Six live filters, a map, a paged list of cards, the record panel with previous/next. No charts. |
-| Plan an eradication | "what do attempts like mine look like?" | **The many.** Ten filters behind a build gate, the charts, the table, the spreadsheet and the HTML report. |
+| Plan an eradication | "what do attempts like mine look like?" | **The many.** Ten filters behind a build gate, the charts, the table, the spreadsheet, the PDF report and the attempts file. |
 
 Three consequences worth keeping:
 
@@ -735,4 +735,6 @@ change there.
    could be quoted on its own. Dropping it is one line in
    `fw_explore_db_panel()`.
 6. Deploy to Connect Cloud early, before the October webinars, so the `sf` system
-   dependencies and the custom domain are not a launch-day surprise.
+   dependencies and the custom domain are not a launch-day surprise. Check the
+   second startup log line names a Quarto of 1.4 or later: the PDF report was
+   built on the assumption that Connect Cloud provides one.

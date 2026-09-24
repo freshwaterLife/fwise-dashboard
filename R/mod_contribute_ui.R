@@ -42,18 +42,10 @@ fw_intro_panel <- function(ns) {
       div(class = "fw-caption", fw_t("contribute", "intro", "download_hint"))
     ),
 
-    tags$hr(),
-
-    tags$h3(fw_t("contribute", "consent", "heading")),
-    p(fw_t("contribute", "consent", "statement")),
-    checkboxInput(ns("consent_data_use"),
-                  fw_t("contribute", "consent", "agree_label"), value = FALSE),
-    p(tags$a(href = fw_t("contribute", "consent", "terms_url"),
-             fw_t("contribute", "consent", "terms_link_label"))),
-    checkboxInput(ns("email_private"),
-                  fw_t("contribute", "consent", "email_private_label"), value = FALSE),
-    div(class = "fw-field__help", fw_t("contribute", "consent", "email_private_help")),
-
+    # NO CONSENT HERE ANY MORE (24 Sept 2026). The tick box that gated Start
+    # moved to the foot of the form, beside the display permission, so a
+    # contributor agrees to what they have actually written - see
+    # fw_step_review_ui() in R/mod_contribute_steps.R.
     div(
       style = "margin-block-start:1.5rem;",
       actionButton(ns("start"), fw_t("contribute", "intro", "start_action"),
@@ -78,9 +70,25 @@ fw_preamble <- function() {
   div(
     class = "fw-preamble",
     tags$h2(class = "fw-visually-hidden", fw_t("contribute", "preamble", "heading")),
+    # THE BOLD IS IN THE COPY, not here: the client chose where the emphasis
+    # falls and the sentence now carries a live citation after it, so the whole
+    # line goes through fw_emphasis() rather than being wrapped in a <strong>.
+    #
+    # .noWS ON THE BRACKETS, the same trap fw_emphasis() documents: a tagList
+    # joins its children with newlines, and without this the line renders as
+    # "campaign ( Genovesi 2000 )".
     p(class = "fw-lead",
-      tags$strong(fw_t("contribute", "preamble", "definition")),
-      " - ",
+      fw_emphasis(fw_t("contribute", "preamble", "definition")),
+      span(.noWS = "outside", " ("),
+      tags$a(
+        href = fw_t("contribute", "preamble", "cite_url"),
+        target = "_blank", rel = "noopener noreferrer", .noWS = "outside",
+        fw_t("contribute", "preamble", "cite_short")
+      ),
+      span(.noWS = "outside", ").")),
+    # The reference the citation above resolves to. Nowhere else in the app
+    # writes it out, so a reader who wants the source has it on the page.
+    p(class = "fw-preamble__ref",
       tags$em(fw_t("contribute", "preamble", "citation"))),
     tags$h2(class = "fw-visually-hidden", fw_t("contribute", "preamble", "scope_heading")),
     tags$ul(lapply(fw_t("contribute", "preamble", "scope"),

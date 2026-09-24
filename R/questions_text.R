@@ -188,7 +188,11 @@ fw_step_items <- function(ui, ns, choices, conditional = FALSE) {
       })) > 0
       add(
         kind = "question",
-        text = if (length(label)) fw_squish(fw_tag_text(label[[1]])) else "",
+        # EVERY label, joined: fw_with_info() splits a label's last word into a
+        # second <label> for the same control, so it stays beside its (i).
+        text = if (length(label)) {
+          fw_squish(paste(vapply(label, fw_tag_text, character(1)), collapse = " "))
+        } else "",
         required = required,
         conditional = cond,
         guidance = if (length(info)) {

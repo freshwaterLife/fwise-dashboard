@@ -83,7 +83,25 @@ FW_FILTERS <- list(
     copy = "taxa", kind = "multi", tip = "tip_taxa",
     bridge = "species", role = "invasive", match = "taxa"
   ),
-  waterbody = list(copy = "waterbody", kind = "multi", tip = "tip_waterbody",
+  # FISH FAMILY, one per side, and each only while Fish is picked in its own
+  # kind-of-animal filter (`when`). Only fish carry a family in species.csv, so
+  # the question does not exist until the reader has said "fish". Hidden, it is
+  # not applied either: fw_filter_state() reads `when` and drops the value,
+  # because Shiny keeps the last value of an input the reader can no longer see.
+  family = list(
+    copy = "family", kind = "multi", tip = "tip_family",
+    bridge = "species", role = "invasive", match = "family",
+    when = list(input = "taxa", value = "Fish")
+  ),
+  family_beneficiary = list(
+    copy = "family_beneficiary", kind = "multi", tip = "tip_family_beneficiary",
+    bridge = "species", role = "beneficiary", match = "family",
+    when = list(input = "taxa_beneficiary", value = "Fish")
+  ),
+  # NO TIP (client, 23 Sept 2026). Its tooltip only restated the label, and
+  # fw_filter_tip() returns NULL for a filter without one, which fw_field()
+  # draws as no (i) button at all. Same for `continent` below.
+  waterbody = list(copy = "waterbody", kind = "multi",
                    column = "waterbody_type"),
   country   = list(copy = "country",   kind = "multi", tip = "tip_country",
                    column = "country"),
@@ -96,7 +114,7 @@ FW_FILTERS <- list(
                    column = "water_regime", labels = "fw_regime_label"),
   outcome   = list(copy = "outcome",   kind = "multi", tip = "tip_outcome",
                    column = "outcome"),
-  continent = list(copy = "continent", kind = "multi", tip = "tip_continent",
+  continent = list(copy = "continent", kind = "multi",
                    column = "continent"),
   # kind = "size" rather than "range": two sliders in one cell, each in its own
   # unit, plus the include-unrecorded checkbox. The engine branches on this in
@@ -129,10 +147,13 @@ fw_filter_ids <- function(drop = character(0)) {
 }
 
 # The controls read better grouped by what they are about than in the order the
-# zero-hints want, so the UI walks this instead of names(FW_FILTERS).
+# zero-hints want, so the UI walks this instead of names(FW_FILTERS). The
+# protected side runs kind, family, species - the same way round as the invasive
+# side, so the two read as a pair (client, Sept 2026 user testing).
 FW_FILTER_ORDER <- c("continent", "country", "regime", "waterbody",
-                     "taxa", "species", "method", "beneficiary",
-                     "taxa_beneficiary", "outcome", "size", "years")
+                     "taxa", "family", "species", "method",
+                     "taxa_beneficiary", "family_beneficiary", "beneficiary",
+                     "outcome", "size", "years")
 
 #' The order the filter PANEL draws its controls in
 #'
@@ -315,6 +336,10 @@ fw_filter_choices <- function(data) {
     sort(unique(species$taxa[species$species_id %in% bridge$species_id &
                                !is.na(species$taxa)]))
   }
+  family_for <- function(bridge) {
+    sort(unique(species$family[species$species_id %in% bridge$species_id &
+                                 !is.na(species$family)]))
+  }
 
   list(
     continent   = sort(unique(data$attempt$continent)),
@@ -328,6 +353,8 @@ fw_filter_choices <- function(data) {
     species     = by_freq(inv$species_id, sp_labels),
     beneficiary = by_freq(ben$species_id, sp_labels),
     taxa_beneficiary = taxa_for(ben),
+    family      = family_for(inv),
+    family_beneficiary = family_for(ben),
     method      = data$method$method_name[order(match(
       data$method$method_id,
       names(sort(table(data$attempt_method$method_id), decreasing = TRUE))
@@ -364,6 +391,8 @@ fw_filter_state <- function(input, ids = fw_filter_ids(), ch = NULL) {
   for (id in ids) {
     if (FW_FILTERS[[id]]$kind %in% c("range", "size")) next
     out[[id]] <- g(id)
+    when <- FW_FILTERS[[id]]$when
+    if (!is.null(when) && !when$value %in% g(when$input)) out[[id]] <- character(0)
   }
   if ("size" %in% ids) {
     # ONLY THE UNITS THE READER CAN CURRENTLY SEE, and this is the control that
@@ -391,6 +420,13 @@ fw_filter_state <- function(input, ids = fw_filter_ids(), ch = NULL) {
     out$year_from <- input$years[1]
     out$year_to <- input$years[2]
     out$include_no_year <- isTRUE(input$include_no_year)
+    # THE SLIDER'S OWN ENDS, carried alongside the reader's, so anything
+    # summarising this selection can tell "1934 to 2025 because I chose it"
+    # from "1934 to 2025 because I did not touch the slider". The size filter
+    # has kept its equivalent (size_full_*) for the same reason since it had
+    # one; the years row had no way to make that distinction until the PDF's
+    # filters table started hiding untouched filters (client, 23 Sept 2026).
+    if (!is.null(ch)) out$year_full <- c(ch$year_min, ch$year_max)
   }
   out$.ids <- ids
   out
@@ -504,6 +540,50 @@ fw_link_geo_filters <- function(input, session, data, choices) {
   invisible(list(a, b))
 }
 
+#' Draw a filter only while its `when` condition holds
+#'
+#' The fish family pair: each is shown only while its kind-of-animal filter
+#' includes Fish. conditionalPanel sets display:none, which takes the cell out
+#' of a grid rather than leaving a gap. A filter with no `when` is returned
+#' as it is. Shared by Explore and Plan (Plan gained the pair on 24 Sept 2026),
+#' so the two pages hide and show it by one rule.
+#'
+#' @param ns the calling module's namespace function
+#' @param id the filter id in FW_FILTERS
+#' @param control the already-built control for that filter
+fw_filter_when_panel <- function(ns, id, control) {
+  when <- FW_FILTERS[[id]]$when
+  if (is.null(when)) return(control)
+  shiny::conditionalPanel(
+    sprintf("(input['%s'] || []).indexOf('%s') > -1", ns(when$input), when$value),
+    control
+  )
+}
+
+#' Empty a `when` filter once its condition stops holding
+#'
+#' A fish family filter hidden by deselecting Fish is emptied as well, so it
+#' does not come back already set when Fish is picked again.
+#' fw_filter_state() already ignores it while hidden; this is about what the
+#' reader sees on the way back.
+#'
+#' @param input,session the calling module's own input and session
+#' @param ids the filter ids the page draws
+fw_filter_when_observers <- function(input, session, ids) {
+  for (fid in intersect(ids, names(Filter(function(x) !is.null(x$when), FW_FILTERS)))) {
+    local({
+      id <- fid
+      when <- FW_FILTERS[[id]]$when
+      shiny::observeEvent(input[[when$input]], ignoreNULL = FALSE, {
+        if (!when$value %in% (input[[when$input]] %||% character(0)) && length(input[[id]])) {
+          shiny::updateSelectizeInput(session, id, selected = character(0))
+        }
+      })
+    })
+  }
+  invisible(NULL)
+}
+
 # ---- Applying ----------------------------------------------------------------
 
 #' Apply the filters, returning the matching attempt rows
@@ -531,7 +611,7 @@ fw_filter_apply <- function(data, f) {
       # happened to benefit it".
       hit <- data$attempt_species |>
         filter(role == spec$role) |>
-        left_join(select(species, species_id, label, taxa), by = "species_id") |>
+        left_join(select(species, species_id, label, taxa, family), by = "species_id") |>
         filter(.data[[spec$match]] %in% vals)
     } else {
       hit <- data$attempt_method |>
@@ -651,6 +731,11 @@ fw_filter_summary <- function(f) {
   if ("years" %in% ids) {
     rows[[length(rows) + 1L]] <- list(
       setting = fw_filter_label("years"),
+      # A slider left at its ends is not a filter - see the size block above.
+      # NA rather than FALSE when year_full is absent, so a caller that cannot
+      # tell errs towards printing the row.
+      untouched = length(f$year_full) == 2 &&
+        isTRUE(all.equal(c(f$year_from, f$year_to), as.numeric(f$year_full))),
       value = paste0(f$year_from %||% fw_t("export", "range_missing"),
                      fw_t("export", "range_sep"),
                      f$year_to %||% fw_t("export", "range_missing"))

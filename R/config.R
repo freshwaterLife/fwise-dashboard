@@ -56,8 +56,8 @@ FW_NOTES_SEP <- " | "
 
 # THE METHOD VOCABULARY. Seven values, fixed by the paper, so they live in code
 # rather than in a table that would only ever hold these rows. attempts.csv
-# stores the NAME; the id exists so FW_METHOD_COLOURS below can key on something
-# a renamed method cannot silently re-colour, and `class` drives the conditional
+# stores the NAME; the id exists so anything keying on a method keys on
+# something a rename cannot silently move, and `class` drives the conditional
 # chemical-detail section on the contribute form.
 #
 # A method that arrives from a submission and is not listed here is still
@@ -164,66 +164,18 @@ FW_OUTCOME_LABEL_INK <- c(
   "Unknown"    = FW_COLOURS$ink
 )
 
-# Methods, for the one chart that segments by method rather than by outcome.
+# FW_METHOD_COLOURS AND FW_METHOD_LABEL_INK USED TO SIT HERE: a seven-step
+# categorical palette keyed by method_id, and the ink each fill could carry a
+# number in. They existed for one chart, the methods-by-waterbody stack, which
+# the client deleted on 23 Sept 2026 - it was the only figure in the app that
+# ever encoded method as colour. Every other chart segments by OUTCOME, and
+# FW_OUTCOME_COLOURS above is the palette for that.
 #
-# SEVEN DISTINCT HUES. This was a single-hue sequential ramp - dark to light
-# teal, ordered by how often each method appears. THE CLIENT REJECTED IT, and
-# they were right: method is a nominal category, not a magnitude, and a ramp
-# tells a reader the segments are ordered when they are not. Measured, the old
-# ramp failed outright - its worst adjacent pair came to dE 9.0 against a floor
-# of 15 under normal vision, so neighbouring segments genuinely were not
-# separable.
+# dev/check_palette.R lost its method sections with them. Two of those pairs
+# had never passed, and both faults were properties of that chart alone.
 #
-# WHERE THESE VALUES COME FROM. Paul Tol's "muted" qualitative palette, which is
-# designed for colour-vision deficiency, with each hue then stepped into the
-# usable lightness band (OKLCH L 0.43-0.77) and lifted over the chroma floor
-# (C >= 0.10) so that none of them reads as grey or vanishes against white. Tol's
-# teal slot is deliberately NOT used: the brand teal is interface chrome and
-# must never encode data.
-#
-# THE ORDER IS LOAD-BEARING, TWICE OVER. It is still frequency order, so the
-# stack reads most-used first. It is ALSO the order that maximises separation
-# between segments that physically touch: of all 5040 arrangements of these
-# seven colours, this one gives the best worst-adjacent-pair distance. Reordering
-# the entries re-colours the chart AND degrades it. Measured on this order:
-#
-#   adjacent pairs   worst dE 12.5 CVD / 23.0 normal   (floors 8 and 15)  PASS
-#   all pairs        worst dE  2.7 CVD / 12.4 normal                      fails
-#
-# The all-pairs figure is expected and is not a defect to fix by re-picking
-# colours: seven categories cannot be made pairwise-distinct at that floor by
-# any palette. It only bites where two NON-neighbouring segments end up touching,
-# which needs an intervening method to be absent from that waterbody. The white
-# separator line and the in-segment counts in fw_chart_method_waterbody() are
-# what carry that case, which is why both are mandatory rather than decoration.
-#
-# Keyed by method_id because those are fixed (ME01-ME07 in FW_METHODS above) and
-# a renamed method must not silently re-colour the chart.
-#
-# Re-check with dev/check_palette.R after touching any value or the order.
-FW_METHOD_COLOURS <- c(
-  "ME07" = "#007da4",   # Rotenone            - blue
-  "ME04" = "#a58a22",   # Netting / Trapping  - sand
-  "ME02" = "#8e2a72",   # Draining            - wine
-  "ME03" = "#3f9b3f",   # Electrofishing      - green
-  "ME01" = "#8c4a1f",   # Antimycin-A         - brown
-  "ME05" = "#534bb4",   # Other chemical      - indigo
-  "ME06" = "#cf5f6f"    # Other mechanical    - rose
-)
-
-# The count that sits inside each segment, per method. Four of the seven fills
-# are dark enough to take white; three are not, and white on the sand slot came
-# to 3.36:1 - under the floor for text that the reader is expected to read a
-# NUMBER off. Every pair below is >= 4.5:1 against its own fill.
-FW_METHOD_LABEL_INK <- c(
-  "ME07" = FW_COLOURS$surface,
-  "ME04" = FW_COLOURS$ink,
-  "ME02" = FW_COLOURS$surface,
-  "ME03" = FW_COLOURS$ink,
-  "ME01" = FW_COLOURS$surface,
-  "ME05" = FW_COLOURS$surface,
-  "ME06" = FW_COLOURS$ink
-)
+# Bring them back only with a chart that needs method-as-colour, and re-run
+# dev/check_palette.R against it before shipping.
 
 # ---- Constants ---------------------------------------------------------------
 
@@ -258,39 +210,95 @@ FW_TOP_N <- 10L
 # The badge is still in use - it is the loader and the busy spinner, where a
 # square mark turns on its own centre and a wordmark would not.
 #
-# EXCEPT THE NAVBAR AND THE FOOTER, which serve the full-resolution originals
+# EXCEPT THE NAVBAR AND THE FOOTER, which serve the full-resolution original
 # at the client's request (September 2026): the navbar mark is 7rem tall and
-# the client wants it drawn from the uncompressed file.
+# the client wants it drawn from the uncompressed file. The footer carried the
+# badge until the client asked for the long SIMPLE wordmark there too; the
+# full-size FWISE-BADGE.png stays in www/img but nothing serves it.
+# ---- The busy badge ----------------------------------------------------------
+
+# HOW LONG SOMETHING MUST TAKE BEFORE A SPINNER APPEARS, in milliseconds.
+#
+# ONE NUMBER, TWO CONSUMERS. bslib's busyIndicatorOptions() in app.R takes it
+# for every output on the site, and the map overlay in fw_client_script() takes
+# it for the two leaflet maps, which redraw through a proxy and so are outside
+# bslib's reach entirely. If the two ever disagreed a map would spin while the
+# charts beside it sat quiet, or the other way round.
+#
+# 150ms rather than the 400 it was (client, 24 Sept 2026): they asked for a
+# spinner wherever something takes a moment, and at 400 a redraw that took a
+# third of a second showed nothing at all. Still long enough that a redraw
+# finishing within a couple of frames never flashes a badge at anyone.
+FW_SPINNER_DELAY_MS <- 150
+
 FW_LOGO <- list(
   mark_web   = "img/FWISE-SIMPLE.png",
-  badge_full = "img/FWISE-BADGE.png",
   mark_file  = "www/img/FWISE-SIMPLE-1200.png",
-  badge_web  = "img/FWISE-BADGE-256.png"
+  badge_web  = "img/FWISE-BADGE-256.png",
+  # THE REST OF THE FOOTER'S LOGOS, as files, for the two documents a reader
+  # takes away (the PDF report and the attempts .html). The client asked for
+  # every logo the site carries to travel with the report, collaborators
+  # included. The -400 files are sips -Z copies of the originals beside them,
+  # which are not to be edited; the footer itself still serves the originals.
+  # Named, and in the footer's order, because the documents print them in it.
+  wfa_file   = "www/img/wfa-logo-rect-dark-320.png",
+  collab_files = c(
+    fwl     = "www/img/collab/FRESHWATER_LIFE-400.png",
+    ucsc    = "www/img/collab/UCSC-400.png",
+    scripps = "www/img/collab/UCSD_SCRIPPS-400.png",
+    issg    = "www/img/collab/ISSG_SSC_IUCN-400.png"
+  )
 )
 
 # The Welcome page's pictures. WEB COPIES of the client's originals in
 # resources/, which are print-sized (3508px species plates, 12600px maps) and
-# not served. How the copies were made is at the top of R/mod_home.R. One entry
-# per success story, keyed as FW_COPY$home$stories is, in page order; NA is a
-# picture the client has not supplied yet and draws as a placeholder.
+# not served. How the copies were made is at the top of R/mod_home.R. One
+# beneficiary picture per success story, keyed as FW_COPY$home$stories is (A-Z
+# by continent); NA is a picture the client has not supplied yet and draws as a
+# placeholder.
+#
+# BENEFICIARIES ONLY (client, Sept 2026): the story cards no longer show the
+# invasive species. Its greyscale plates are client artwork and are kept in
+# resources/success-pic/, but they are no longer served.
+#
+# TWO SETS, AND THE DIFFERENCE IS THE LETTERING. `stories` is the small
+# unlettered drawing in the tile strip; `stories_named` is the same beneficiary
+# with its common name and binomial hand-lettered in, which is what the pop-up
+# shows once a tile is clicked. Both are web copies - the -named ones are built
+# by dev/build_success_named.R, NOT the print originals they are named after,
+# which stay in resources/success-pic/.
+#
+# The two sets spell their filenames differently - underscores for the
+# thumbnails, hyphens for the lettered plates. That is how the client sent them
+# and how they already sit in www/; the build script preserves it on purpose.
 FW_HOME_IMG <- list(
   map_now  = "img/home/map-now.png",
   map_next = "img/home/map-next.png",
-  stories = list(
-    africa        = list(invasive    = "img/home/success/africa_smallmouth_bass_greyscale.png",
-                         beneficiary = "img/home/success/africa_fiery_redfin.png"),
-    asia          = list(invasive    = NA,
-                         beneficiary = "img/home/success/as_little_grebe.png"),
-    europe        = list(invasive    = "img/home/success/eu_salmon_fluke_greyscale.png",
-                         beneficiary = "img/home/success/eu_pearl_mussel.png"),
-    latin_america = list(invasive    = "img/home/success/la_rainbow_trout_greyscale.png",
-                         beneficiary = "img/home/success/la_valchetta_frog.png"),
-    north_america = list(invasive    = NA,
-                         beneficiary = "img/home/success/na_apache_trout.png"),
-    oceania       = list(invasive    = "img/home/success/oc_common_carp_greyscale.png",
-                         beneficiary = "img/home/success/oc_golden_galaxias.png")
+  stories = c(
+    africa        = "img/home/success/africa_fiery_redfin.png",
+    asia          = "img/home/success/as_little_grebe.png",
+    europe        = "img/home/success/eu_pearl_mussel.png",
+    north_america = "img/home/success/na_apache_trout.png",
+    oceania       = "img/home/success/oc_golden_galaxias.png",
+    latin_america = "img/home/success/la_valchetta_frog.png"
+  ),
+  stories_named = c(
+    africa        = "img/home/success/africa-fiery-redfin-named.png",
+    asia          = "img/home/success/as-little-grebe-named.png",
+    europe        = "img/home/success/eu-pearl-mussel-named.png",
+    north_america = "img/home/success/na-apache-trout-named.png",
+    oceania       = "img/home/success/oc-golden-galaxias-named.png",
+    latin_america = "img/home/success/la-valchetta-frog-named.png"
   )
 )
+
+# The order the pictures sit in on the Welcome page, set by the client: two
+# columns of three, filled DOWN the left column first. So Apache trout, Valcheta
+# frog, fiery redfin on the left; little grebe, golden galaxias, pearl mussel on
+# the right. The grid flows by column (.fw-home-species-grid), so this is also
+# the tab order.
+FW_HOME_ORDER <- c("north_america", "latin_america", "africa",
+                   "asia", "oceania", "europe")
 
 # The species photo grids on the report builder, which show FEWER than FW_TOP_N.
 # A tile is a photograph the size of a playing card, so ten of them ran to two
@@ -306,9 +314,62 @@ FW_HOME_IMG <- list(
 # without a sentence to keep in step with it.
 FW_PLAN_SPECIES_N <- 3L
 
-# The country table in the HTML report. Longer than FW_TOP_N because a printed
+# The country table in the PDF report. Longer than FW_TOP_N because a printed
 # list is scanned rather than read off a bar.
 FW_REPORT_COUNTRY_ROWS <- 15L
+
+# THE PDF REPORT. Rendered by Quarto (Typst engine) on the server - see the
+# header of R/report_pdf.R.
+#
+# THE WARNING. The client asked for one when the PDF would be very large, and
+# measured, "large" here is mostly LONG: the whole database comes to about
+# 2 MB but 25 pages, 19 of them the contacts table. So the picker warns when
+# the estimate reaches `warn_pages` OR `warn_mb`, whichever comes first -
+# a size cap alone would never fire on this database.
+#
+# THE ESTIMATE is fw_pdf_size_estimate(), whose coefficients below were fitted
+# to real renders on 21 Sept 2026: the whole database (237 contacts, 911 map
+# dots, 5 photographs: 2.00 MB, 25 pages), Norway (2, 200, 6: 1.29 MB, 7) and
+# a single attempt (2, 1, 4: 0.78 MB, 6). dev/value_test.R re-renders those
+# three and fails if the estimate drifts more than 30% from either figure.
+#
+# `timeout_s` is how long a render may take before it is abandoned with an
+# error, rather than leaving the reader waiting on a download that will not
+# come. `image_timeout_s` is the same for each species photograph fetched from
+# Wikimedia; one that does not arrive in time prints as the page's placeholder.
+FW_PDF <- list(
+  warn_mb = 5,
+  warn_pages = 20,
+  timeout_s = 120,
+  image_timeout_s = 8,
+  # bytes: the fixed part (fonts, logos, charts), then per species photograph,
+  # per map dot (the map's PNG grows with its dots, up to about 300 of them,
+  # after which they overlap and add nothing), and per contact row.
+  est_base = 460000,
+  est_per_image = 80000,
+  est_per_point = 1750,
+  est_point_cap = 300,
+  est_per_contact = 2600,
+  # How many contacts the report prints. SIX, at the client's request (23 Sept
+  # 2026): the busiest handful to write to, not a directory - the whole
+  # directory is the Networking page, and the spreadsheet in the same download
+  # carries a contact on every row.
+  contacts_n = 6,
+  # Pages. Fixed now that the contacts table is capped at contacts_n: it was
+  # the one block whose length ran with the selection, and a broad filter used
+  # to push the report past twenty pages on that table alone.
+  #
+  # SIX, DOWN FROM SEVEN (24 Sept 2026). The five caveat blocks came out of the
+  # closing section - the client is writing their own - and the methods
+  # statement that replaced them is a short one, so every report lost about a
+  # page. Measured across the three selections dev/value_test.R renders: 8, 6
+  # and 5 pages, which 6 covers and 7 no longer did. RE-MEASURE WHEN THE REAL
+  # CAVEATS ARRIVE; they will push it back up.
+  est_pages_base = 6,
+  # A4, in mm. The width is what every figure is drawn to.
+  page_margin_mm = 18,
+  text_width_mm = 174
+)
 
 # Page sizes offered under paged tables. The first element is the default.
 #
@@ -394,8 +455,7 @@ FW_CHART <- list(
     donut            = 300,
     method           = c(min = 250, per_row = 46, pad = 110),
     duration         = c(min = 270, per_row = 54, pad = 124),
-    category         = c(min = 240, per_row = 34, pad = 120),
-    method_waterbody = c(min = 240, per_row = 40, pad = 120)
+    category         = c(min = 240, per_row = 34, pad = 120)
   ),
   # A count is printed inside a segment only when the segment holds at least
   # this share of its bar, in percent; narrower than that and the hover carries
@@ -437,13 +497,32 @@ FW_CHART <- list(
   legend_entry_px = 42,
   # The rule between stacked segments, in px. 0 for the outcome charts: the
   # four Wong colours separate on their own and the rule read as aggressive.
-  # The method chart keeps a hairline, because its adjacent-segment case under
-  # colour-vision deficiency relies on one (see FW_METHOD_COLOURS above).
+  #
+  # separator_method WENT WITH THE METHODS-BY-WATERBODY CHART (client, 23 Sept
+  # 2026). It was the hairline between two adjacent method fills, and that was
+  # the only chart that ever stacked method against method.
   separator_outcome = 0,
-  separator_method  = 0.5,
-  # The named ticks on the duration chart's log axis, in days. The labels are
-  # fw_t("charts", "duration_ticks") and must stay the same length.
+  # The weight of the vertical rules on the stacked bar charts, in px. A
+  # hairline: unlike the duration chart's dotted breaks below, these are solid
+  # and are drawn OVER the bars (fw_bar_rules() in charts.R), so they need no
+  # extra weight to be seen and would read as stripes if they had any.
+  bar_grid = 1,
+  # How far apart the success-rate axis's ticks sit, in percentage points. Set
+  # rather than left to plotly, because the rules over the bars are drawn at
+  # these same values and a rule that missed its label would be worse than no
+  # rule at all. 20 is what plotly chose for 0-100 anyway.
+  share_dtick = 20,
+  # The FIXED named ticks on the duration chart's log axis, in days. The labels
+  # are fw_t("charts", "duration_ticks") and must stay the same length.
+  #
+  # NOT THE WHOLE SET ANY MORE: fw_duration_ticks() drops the ones past the
+  # selection's longest attempt and adds a seventh at that attempt, so the axis
+  # labels reach the last dot. These are the breaks below it.
   duration_ticks = c(1, 7, 30, 365, 1825, 3650),
+  # How close a fixed tick may come to that terminal one before it gives way,
+  # in log10 days. 0.08 is about a fifth of the gap between two of the breaks
+  # above, which is enough room for two labels not to overprint.
+  duration_tick_gap = 0.08,
   # The weight of the dotted unit-break gridlines on that axis, in px. See the
   # xaxis comment in fw_chart_duration() for why a dotted line needs this much.
   duration_grid = 2,
@@ -461,5 +540,19 @@ FW_CHART <- list(
   point    = list(size = 7, opacity = 0.75, stroke = 1),
   box_line = 1.5,
   # The step line on the cumulative chart.
-  line = 1
+  line = 1,
+  # The gap between an axis and its tick labels, in px. Made by invisible
+  # outside ticks of this length - see fw_tick_gap(). The axis-line A/B test
+  # that used to sit here ended with the client choosing bare axes (Sept 2026).
+  tick_gap = 8,
+  # The duration chart's dots are spread across their row rather than drawn on
+  # one line, so a pile of identical durations shows as a column you can count.
+  # `bin` is how close two durations have to be (in log10 days) to count as
+  # the same place; `step` is the vertical gap between neighbours and `spread`
+  # the furthest a dot may sit from its row's centre, both in rows.
+  duration_swarm = list(bin = 0.035, step = 0.07, spread = 0.38),
+  # PNG exports print at this density: plotly's scale is export px per screen
+  # px, and a screen px is 1/96 inch, so dpi / 96 is the scale. Raise it here
+  # if an export comes out soft.
+  export_dpi = 300
 )

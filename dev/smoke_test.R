@@ -33,11 +33,16 @@ ok <- function(lbl, got, want) {
 testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   cat("\n-- gating on an empty form --\n")
   ok("all_valid with nothing filled", all_valid(), FALSE)
-  ok("consent not given -> start blocked", { session$setInputs(start=1); stage() }, "intro")
+  # CONSENT GATES SEND, NOT START (24 Sept 2026). Both boxes sit at the foot
+  # of the form now - see fw_step_review_ui().
+  ok("start opens the form without consent", { session$setInputs(start=1); stage() }, "form")
+  ok("the data-use box is a sending error while unticked",
+     "consent_data_use" %in% vapply(fw_check()$errors, `[[`, "", "id"), TRUE)
 
-  session$setInputs(consent_data_use = TRUE, email_private = FALSE, start = 2)
-  ok("consent given -> form starts", stage(), "form")
+  session$setInputs(consent_data_use = TRUE)
   ok("all_valid still false (fields empty)", all_valid(), FALSE)
+  ok("and consent is no longer among the errors once ticked",
+     "consent_data_use" %in% vapply(fw_check()$errors, `[[`, "", "id"), FALSE)
 
   cat("\n-- country must not silently default --\n")
   ok("country starts empty", is.null(input$country) || input$country == "", TRUE)
@@ -62,12 +67,19 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
 
   cat("\n-- contact validation --\n")
   session$setInputs(method_1="Rotenone", outcome="Successful",
-                    primary_contact_name="A Tester", primary_contact_email="nope")
+                    primary_contact_name="A Tester", primary_contact_email="nope",
+                    contact_public = TRUE)
   ok("malformed email blocks", all_valid(), FALSE)
   # Guards the POSIX character-class fix: an address containing the letter "s"
   # was rejected when the pattern used [^@\\s].
   session$setInputs(primary_contact_email="tester@essex.org")
   ok("address containing 's' is accepted", all_valid(), TRUE)
+  # The data-use box is the one consent that gates Send; the display one never does.
+  session$setInputs(consent_data_use = FALSE)
+  ok("a complete form without data-use consent blocks", all_valid(), FALSE)
+  session$setInputs(consent_data_use = TRUE, contact_public = FALSE)
+  ok("a complete form without display consent sends", all_valid(), TRUE)
+  session$setInputs(contact_public = TRUE)
 
   cat("\n-- conditional chemical section --\n")
   ok("chemical section live for Rotenone", chemical_selected(), TRUE)
@@ -87,6 +99,10 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
      identical(row$invasive_species, unname(ch$species_ids[["Common carp (Cyprinus carpio)"]])), TRUE)
   ok("the contributor travels as a new: reference marked public",
      grepl("^new:A Tester\\|", row$primary_contact_id) && grepl("public$", row$primary_contact_id), TRUE)
+  # write_csv(na = "") puts NA on disk as an empty cell, which the loader
+  # reads back as NA.
+  ok("the secondary contact is written as NA (a blank cell)",
+     is.na(row$secondary_contact_id) || !nzchar(row$secondary_contact_id), TRUE)
   ok("the method note is paired with its method",
      identical(row$method_notes, "Rotenone: CFT Legumine"), TRUE)
   ok("ingredient basis is recorded", identical(row$target_ingredient_basis, "Product"), TRUE)
@@ -97,10 +113,22 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   ok("stage is done", stage(), "done")
 })
 
+cat("\n-- the email permission is opt-in --\n")
+# Built straight from fw_collect_submission(), the function the write path
+# uses, so the default is tested without sending a second record.
+contact_of <- function(extra) {
+  inp <- c(list(primary_contact_name = "B Tester", primary_contact_email = "b@x.org",
+                primary_contact_org = "Org"), extra)
+  fw_collect_submission(inp, rows = list(), choices = ch)$primary_contact_id
+}
+ok("unticked -> the address is private", grepl("\\|private$", contact_of(list())), TRUE)
+ok("ticked -> the address is public",
+   grepl("\\|public$", contact_of(list(contact_public = TRUE))), TRUE)
+
 cat("\n-- check my answers: hard errors block, soft warnings never do --\n")
 testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   strip <- function(x) gsub("\\s+", " ", gsub("<[^>]*>", " ", as.character(x$html %||% x)))
-  session$setInputs(consent_data_use = TRUE, email_private = FALSE, start = 1)
+  session$setInputs(consent_data_use = TRUE, start = 1)
 
   session$setInputs(check_answers = 1)
   ok("empty form reports errors",

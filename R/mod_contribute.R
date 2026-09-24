@@ -137,8 +137,6 @@ mod_contribute_server <- function(id, data, choices) {
     iv_contributor$add_rule("primary_contact_name", sv_required(message = fw_t("contribute", "validate", "contact_name")))
     iv_contributor$add_rule("primary_contact_email", sv_required(message = fw_t("contribute", "validate", "contact_email")))
     iv_contributor$add_rule("primary_contact_email", sv_email(message = fw_t("contribute", "validate", "email_format")))
-    iv_contributor$add_rule("secondary_contact_email", sv_optional())
-    iv_contributor$add_rule("secondary_contact_email", sv_email(message = fw_t("contribute", "validate", "email_format")))
 
     step_validators <- list(
       site = iv_site, waterbody = iv_waterbody, invasive = iv_invasive,
@@ -167,9 +165,8 @@ mod_contribute_server <- function(id, data, choices) {
       if (!isTRUE(value)) fw_t("contribute", "validate", "consent")
     })
     # Deliberately NOT enabled here. Enabling at startup shows the contributor an
-    # error on the opening panel before they have touched anything, which reads
-    # as being told off for arriving. It is enabled the first time they try to
-    # start the form without ticking the box.
+    # error on a box at the foot of the form before they have reached it. It is
+    # enabled when they check their answers or try to send.
     
 
     # Gating is computed independently of the validators, on purpose.
@@ -213,9 +210,7 @@ mod_contribute_server <- function(id, data, choices) {
               as.numeric(input$end_year) >= as.numeric(input$start_year))) &&
         filled("driver") && filled("method_1") && filled("outcome") &&
         filled("primary_contact_name") &&
-        fw_is_email(input$primary_contact_email) &&
-        (!filled("secondary_contact_email") ||
-           fw_is_email(input$secondary_contact_email))
+        fw_is_email(input$primary_contact_email)
     })
 
     # ---- "Check my answers" ---------------------------------------------------
@@ -275,9 +270,6 @@ mod_contribute_server <- function(id, data, choices) {
       } else if (!fw_is_email(input$primary_contact_email)) {
         err("primary_contact_email", msg("e_contact_bad"))
       }
-      if (filled("secondary_contact_email") &&
-          !fw_is_email(input$secondary_contact_email))
-        err("secondary_contact_email", msg("e_second_mail"))
 
       if (!isTRUE(input$consent_data_use)) err("consent_data_use", msg("e_consent"))
 
@@ -311,15 +303,9 @@ mod_contribute_server <- function(id, data, choices) {
       )
     })
 
-    observeEvent(input$start, {
-      if (!isTRUE(input$consent_data_use)) {
-        iv_consent$enable()
-        fw_announce(session, fw_t("contribute", "announce", "consent_start"))
-        return()
-      }
-      iv_consent$enable()
-      stage("form")
-    })
+    # NOT GATED (24 Sept 2026). Consent is asked at the foot of the form now,
+    # and Send is what it gates - see all_valid() and fw_check().
+    observeEvent(input$start, stage("form"))
 
     # ---- Repeatable blocks ----------------------------------------------------
 

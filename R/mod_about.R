@@ -8,8 +8,9 @@
 # loaded data - never by typing a number that will be wrong by next quarter.
 #
 # THE SHAPE OF THE PAGE, which is a client decision and not a layout accident:
-# a short summary that is always visible - what FWISE is, how big it is and how
-# to hear about it - and then five click-to-open panels holding the depth, the
+# a short always-visible opening - now the sign-up card alone, since the
+# paragraphs above it were placeholder text and came out on 24 Sept 2026 - and
+# then five click-to-open panels holding the depth, the
 # citation and the small print included. A reader who wants to know whether to
 # trust a figure opens the caveats; a reader who wants to know where the records
 # came from opens the methods; nobody has to scroll past either to reach the
@@ -60,36 +61,31 @@ mod_about_server <- function(id, data, meta = NULL) {
 
     output$body <- renderUI({
       s <- fw_headline_stats(data)
-      n_contributors <- sum(!is.na(data$contact$contact_name) &
-                              nzchar(data$contact$contact_name))
 
-      section <- function(key, ...) {
-        tagList(tags$h2(class = "fw-visually-hidden", fw_t("about", paste0(key, "_heading"))), ...)
-      }
       para <- function(key) p(fw_t("about", key))
 
       tagList(
         div(
           class = "fw-prose",
 
-          # ---- What this is, and how big it is ---------------------------
-          section("database", para("database"), para("database2")),
-
-          # Computed, never typed. The sentence is the client's; the numbers in
-          # it come from the data that is loaded right now.
-          p(class = "fw-lead", fw_about_scale(s, n_contributors, ns)),
-
           # ---- Hear about it ---------------------------------------------
+          #
+          # THE PAGE OPENS ON THIS. The "what FWISE is" paragraphs that used to
+          # sit above it were Lorem Ipsum awaiting client copy and were taken
+          # out on 24 Sept 2026 - see the note at `about` in R/copy.R for what
+          # to put back when the text arrives.
           fw_about_signup()
         ),
 
         # ---- The depth, behind disclosures --------------------------------
         #
-        # ORDER IS THE CLIENT'S. The citation first, because it was the last
-        # thing on the always-visible summary before the client asked for it to
-        # fold; then caveats, because they qualify everything else on the page;
-        # related databases after the methods because that panel sends the
-        # reader away; other information last, as the page's small print.
+        # ORDER IS THE CLIENT'S (23 Sept 2026), and it runs from the thing a
+        # reader most often arrives wanting to the thing they read last: how to
+        # cite it, how it was made, what to be careful of, what the methods on
+        # the charts mean, where else to look, and the page's small print.
+        #
+        # SIX PANELS. dev/value_test.R counts them - add one here and update
+        # the count there.
         div(
           class = "fw-about__panels",
 
@@ -101,6 +97,12 @@ mod_about_server <- function(id, data, meta = NULL) {
           ),
 
           fw_disclosure(
+            fw_t("about", "method_heading"),
+            note = fw_t("about", "method_summary"),
+            para("method")
+          ),
+
+          fw_disclosure(
             fw_t("about", "caveats_heading"),
             note = fw_t("about", "caveats_summary"),
             p(class = "fw-lead", fw_t("about", "caveats_lead")),
@@ -108,13 +110,9 @@ mod_about_server <- function(id, data, meta = NULL) {
           ),
 
           fw_disclosure(
-            fw_t("about", "method_heading"),
-            note = fw_t("about", "method_summary"),
-            para("method"), para("method2"), para("method3"),
-            # Reserved for the paper's methods section, which the client is
-            # writing. A vector, so it takes however many paragraphs arrive.
-            tags$h3(fw_t("about", "method_paper_heading")),
-            lapply(fw_t("about", "method_paper"), function(x) p(x))
+            fw_t("about", "glossary_heading"),
+            note = fw_t("about", "glossary_summary"),
+            fw_about_glossary()
           ),
 
           fw_disclosure(
@@ -135,7 +133,7 @@ mod_about_server <- function(id, data, meta = NULL) {
             tags$ul(
               tags$li(tags$a(href = fw_t("footer", "github_url"),
                              fw_t("footer", "github_label"))),
-              tags$li(tags$a(href = fw_t("footer", "fwise_url"),
+              tags$li(tags$a(href = fw_t("footer", "fwl_url"),
                              fw_t("about", "link_fwise"))),
               tags$li(tags$a(href = fw_t("footer", "doi_url"),
                              fw_t("about", "link_zenodo")))
@@ -169,30 +167,6 @@ mod_about_server <- function(id, data, meta = NULL) {
 
 # ---- Pieces ------------------------------------------------------------------
 
-#' The one sentence in the app that states the size of the database
-#'
-#' Assembled from live counts, with the invitation to be the next contributor
-#' wired to the contribute page rather than written as a dead sentence.
-fw_about_scale <- function(s, n_contributors, ns) {
-  text <- fw_fill(
-    fw_t("about", "scale"),
-    attempts     = fw_fmt_num(s$attempts),
-    countries    = fw_fmt_num(s$countries),
-    contributors = fw_fmt_num(n_contributors),
-    species      = fw_fmt_num(s$species),
-    year         = as.character(s$earliest_year)
-  )
-
-  tagList(
-    text, " ",
-    tags$a(
-      href = "#",
-      onclick = "Shiny.setInputValue('fw_nav_to','contribute',{priority:'event'}); return false;",
-      fw_fill(fw_t("about", "scale_action"), n = fw_ordinal(n_contributors + 1L))
-    )
-  )
-}
-
 #' Hear about new releases
 #'
 #' A LINK OUT, NOT A FORM. The app collects no address, so there is nothing here
@@ -202,7 +176,9 @@ fw_about_scale <- function(s, n_contributors, ns) {
 fw_about_signup <- function() {
   div(
     class = "fw-panel fw-signup",
-    tags$h2(class = "fw-visually-hidden", fw_t("about", "signup_heading")),
+    # Visible since 24 Sept 2026 (client): the card needs a name now it leads
+    # the page.
+    tags$h2(fw_t("about", "signup_heading")),
     p(fw_t("about", "signup_body")),
     tags$a(
       class = "btn btn-primary",
@@ -213,30 +189,27 @@ fw_about_signup <- function() {
   )
 }
 
-#' Two copyable citations, with the release the reader is actually looking at
+#' The copyable citation, with the release the reader is actually looking at
 #'
-#' THE DASHBOARD AND THE DATABASE ARE TWO THINGS TO CITE and a reader quoting a
-#' figure needs the one that pins the release they read it in. Only the database
-#' citation carries the attempt count: it is a property of the data, and putting
-#' it on the dashboard citation would suggest the dashboard is a version of a
-#' number rather than a way of reading one.
+#' ONE CITATION, FOR THE DATABASE. It carries the version and the attempt count
+#' because a reader quoting a figure needs the release they read it in, and both
+#' are filled here from the data loaded rather than typed into the copy deck,
+#' where they would be wrong by the next release. The form itself is the
+#' client's - see about$citation_db in R/copy.R, and fw_citation_text() in
+#' R/export.R, which the downloads' closing section shares.
 fw_about_citations <- function(meta, s) {
-  release <- meta$release %||% format(Sys.Date())
-  year <- substr(as.character(release), 1, 4)
-
   tagList(
-    tags$pre(class = "fw-citation",
-             fw_fill(fw_t("about", "citation_db"),
-                     year = year, release = as.character(release),
-                     n = fw_fmt_num(s$attempts))),
+    tags$pre(class = "fw-citation", fw_citation_text(meta, s$attempts)),
     p(tags$a(href = fw_t("footer", "doi_url"), fw_t("footer", "doi_label")))
   )
 }
 
 #' Where to look for what FWISE does not hold
 #'
-#' Each entry carries a line saying what is behind it. That line is the point of
-#' the panel: a list of database names tells nobody which one to follow.
+#' THE NOTE IS OPTIONAL. Entries used to carry a line saying what was behind
+#' each one; the client's own list (23 Sept 2026) is eight well-known resources
+#' by name and URL, with no characterisation of ours attached. An entry that
+#' does carry a `note` still draws it, so a future list can mix the two.
 fw_about_related <- function() {
   items <- fw_t("about", "related_items")
   tags$ul(
@@ -245,7 +218,29 @@ fw_about_related <- function() {
       tags$li(
         tags$a(href = it$url, target = "_blank", rel = "noopener noreferrer",
                it$name),
-        tags$span(class = "fw-linklist__note", it$note)
+        if (!is.null(it$note)) tags$span(class = "fw-linklist__note", it$note)
+      )
+    })
+  )
+}
+
+#' What each method on the charts actually means
+#'
+#' A DESCRIPTION LIST, because that is what it is: a term and its definition,
+#' which <dl> says to a screen reader and a <ul> of bolded run-ons does not.
+#'
+#' THE TERMS MATCH THE DATA. Every `term` in about$glossary_items is a value
+#' that appears in attempts.csv$methods, so a reader who meets "Antimycin-A" on
+#' the method chart finds it here spelled the same way. dev/value_test.R checks
+#' the two lists against each other.
+fw_about_glossary <- function() {
+  items <- fw_t("about", "glossary_items")
+  tags$dl(
+    class = "fw-glossary",
+    lapply(items, function(it) {
+      tagList(
+        tags$dt(class = "fw-glossary__term", it$term),
+        tags$dd(class = "fw-glossary__body", it$body)
       )
     })
   )
@@ -255,7 +250,10 @@ fw_about_related <- function() {
 fw_feedback_panel <- function(ns) {
   div(
     class = "fw-feedback",
-    tags$h2(class = "fw-visually-hidden", fw_t("about", "fb_heading")),
+    # NO HIDDEN HEADING (client, 23 Sept 2026). fb_heading - "Tell us what is
+    # wrong" - was visually hidden and announced to a screen reader only, so
+    # deleting it costs sighted readers nothing and removes a line nobody
+    # could see. The body paragraph opens the panel now.
     p(fw_t("about", "fb_body")),
     div(
       class = "fw-field",

@@ -28,7 +28,10 @@ library(shiny)
 # Passed to fw_filter_ids() everywhere on this page. Both are the client's
 # decisions and the reasoning for each is at the top of mod_plan.R: outcome is
 # an answer this page must not let the reader pre-select, and method is the
-# thing the reader came here to learn rather than to assert.
+# thing the reader came here to learn rather than to assert. The two fish
+# family filters were dropped here after Sept 2026 user testing and came back
+# at the client's request (24 Sept 2026), shown only while Fish is picked, as
+# on Explore.
 FW_PLAN_DROP <- c("outcome", "method")
 
 fw_plan_filter_ids <- function() fw_filter_ids(drop = FW_PLAN_DROP)
@@ -63,9 +66,11 @@ fw_plan_filters_ui <- function(ns, ch) {
         class = "fw-field fw-field--range",
         div(
           class = "fw-field__label-row",
-          tags$label(class = "form-label", `for` = ns("years"),
-                     fw_filter_label("years")),
-          fw_info(fw_filter_tip("years", ch), fw_filter_label("years"))
+          fw_with_info(
+            fw_filter_label("years"),
+            fw_info(fw_filter_tip("years", ch), fw_filter_label("years")),
+            wrap = function(x) tags$label(class = "form-label", `for` = ns("years"), x)
+          )
         ),
         # ticks = FALSE is not cosmetic. ionRangeSlider draws a grid of labels
         # across a 90-year span that overlap and pile up at both ends, which is
@@ -109,7 +114,7 @@ fw_plan_filters_ui <- function(ns, ch) {
     switch(FW_FILTERS[[id]]$kind,
            range = years(),
            size  = size(),
-           multi(id))
+           fw_filter_when_panel(ns, id, multi(id)))
   })
 
   tags$section(
@@ -117,7 +122,9 @@ fw_plan_filters_ui <- function(ns, ch) {
     `aria-labelledby` = ns("filters_heading"),
     h2(id = ns("filters_heading"), class = "fw-plan-filters__heading fw-visually-hidden",
        fw_t("plan", "f_heading")),
-    p(class = "fw-plan-filters__lead", fw_t("plan", "f_lead")),
+    # NO LEAD PARAGRAPH HERE (client, 24 Sept 2026). It said "All fields are
+    # optional. Fields default to 'All'." - the green callout above this card
+    # already says it, and says more. See the note on plan$f_heading in copy.R.
 
     # COLLAPSIBLE, AND ONLY AFTER A BUILD. A native <details> rather than a
     # scripted panel: it opens and closes without JavaScript, it is a disclosure
@@ -196,7 +203,8 @@ fw_plan_size_ui <- function(ns, ch, units = FW_SIZE_UNITS) {
         sliderInput(ns(paste0("size_", unit)), label = NULL,
                     min = r[1], max = r[2], value = r,
                     step = FW_SIZE_LOG_STEP, sep = "", ticks = FALSE,
-                    dragRange = TRUE, width = "100%")
+                    dragRange = TRUE, width = "100%"),
+        unit
       ),
       div(class = "fw-field__range-readout",
           textOutput(ns(paste0("size_readout_", unit)), inline = TRUE))
@@ -206,9 +214,11 @@ fw_plan_size_ui <- function(ns, ch, units = FW_SIZE_UNITS) {
   tagList(
     div(
       class = "fw-field__label-row",
-      tags$label(class = "form-label",
-                 paste0(fw_filter_label("size"), " ", unit_phrase)),
-      fw_info(fw_filter_tip("size", ch), fw_filter_label("size"))
+      fw_with_info(
+        paste0(fw_filter_label("size"), " ", unit_phrase),
+        fw_info(fw_filter_tip("size", ch), fw_filter_label("size")),
+        wrap = function(x) tags$label(class = "form-label", x)
+      )
     ),
     lapply(units, slider),
     # DEFAULTS ON, exactly as the year range's companion does: a size range

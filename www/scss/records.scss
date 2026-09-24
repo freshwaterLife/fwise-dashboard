@@ -1,0 +1,255 @@
+// records.scss
+// Entry file for the attempts download (.html): every matching attempt written
+// out in full, one card after another. Built by fw_write_records_html() in
+// R/report_records.R, which compiles this through fw_compile_css() with the same
+// tokens as the app and inlines the result - and the fonts it names - into the
+// file, so it opens anywhere with no connection.
+//
+// A SMALL STYLESHEET OF ITS OWN, not main.scss. This file is read as a
+// document, not used as an app: none of the app's components appear in it, and
+// the app's compiled stylesheet would be most of the file's weight.
+
+@import "tokens";
+
+@font-face {
+  font-family: "Ubuntu";
+  src: url("../fonts/ubuntu-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal;
+}
+@font-face {
+  font-family: "Ubuntu";
+  src: url("../fonts/ubuntu-700.woff2") format("woff2");
+  font-weight: 700; font-style: normal;
+}
+@font-face {
+  font-family: "Ubuntu Mono";
+  src: url("../fonts/ubuntu-mono-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal;
+}
+
+// ---- The page ------------------------------------------------------------------
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: $fw-space-3; }
+
+body {
+  margin: 0;
+  background: $fw-page;
+  color: $fw-ink;
+  font-family: $fw-font-body;
+  font-size: $fw-size-body;
+  line-height: $fw-leading-body;
+}
+
+a { color: $fw-teal-text; }
+a:hover { color: $fw-teal-hover; }
+
+.fw-rec {
+  width: $fw-container-width;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding-block: $fw-space-4 $fw-space-5;
+}
+
+// ---- The letterhead ---------------------------------------------------------------
+
+.fw-rec-head {
+  padding-block-end: $fw-space-3;
+  margin-block-end: $fw-space-4;
+  border-block-end: 3px solid $fw-brand-teal;
+
+  &__mark { height: 5rem; width: auto; display: block; }
+
+  h1 {
+    font-size: $fw-size-h1;
+    line-height: $fw-leading-heading;
+    margin: 0 0 $fw-space-1;
+  }
+  &__subtitle { color: $fw-ink-muted; margin: 0; }
+  &__lead { margin: $fw-space-2 0 0; max-width: $fw-measure; }
+}
+
+// ---- The selection and the contents ------------------------------------------------
+
+.fw-rec-panel {
+  background: $fw-surface;
+  border-radius: $fw-radius-card;
+  box-shadow: $fw-shadow-card;
+  padding: $fw-space-3;
+  margin-block-end: $fw-space-4;
+
+  > summary {
+    cursor: pointer;
+    font-size: $fw-size-h3;
+    font-weight: $fw-weight-bold;
+  }
+  > h2 { font-size: $fw-size-h3; margin: 0 0 $fw-space-2; }
+}
+
+.fw-rec-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-block-start: $fw-space-2;
+
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.35rem 0.6rem;
+    border-block-end: 1px solid $fw-border;
+  }
+  th { background: $fw-sunken; }
+}
+
+.fw-rec-find {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $fw-space-1 $fw-space-2;
+  align-items: baseline;
+  margin-block-end: $fw-space-2;
+
+  label { font-weight: $fw-weight-bold; }
+  input {
+    flex: 1 1 18rem;
+    font: inherit;
+    color: $fw-ink;
+    background: $fw-surface;
+    border: 1px solid $fw-border-input;
+    border-radius: $fw-radius-input;
+    padding: 0.4rem 0.7rem;
+  }
+  input:focus-visible { outline: 3px solid $fw-brand-teal; outline-offset: 1px; }
+  output { color: $fw-ink-muted; flex-basis: 100%; }
+}
+
+.fw-rec-toc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 22rem;
+  overflow-y: auto;
+  // A grid, not CSS columns: columns inside a fixed height flow sideways into
+  // a horizontal scroll rather than down.
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  gap: 0.3rem $fw-space-4;
+  a { text-decoration: none; }
+  a:hover { text-decoration: underline; }
+}
+
+.fw-rec-id {
+  font-family: $fw-font-mono;
+  color: $fw-ink-muted;
+}
+
+// ---- A card ------------------------------------------------------------------------
+
+.fw-rec-card {
+  background: $fw-surface;
+  border-radius: $fw-radius-card;
+  box-shadow: $fw-shadow-card;
+  padding: $fw-space-3;
+  margin-block-end: $fw-space-3;
+
+  &__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $fw-space-1 $fw-space-2;
+    border-block-end: 1px solid $fw-border;
+    padding-block-end: $fw-space-2;
+    margin-block-end: $fw-space-2;
+  }
+  h2 {
+    font-size: $fw-size-h2;
+    line-height: $fw-leading-heading;
+    margin: 0;
+  }
+  &__place { color: $fw-ink-muted; margin: 0.2rem 0 0; }
+  &__meta { display: flex; flex-wrap: wrap; gap: $fw-space-2; align-items: center; }
+
+  h3 {
+    font-size: $fw-size-lead;
+    margin: $fw-space-3 0 $fw-space-1;
+    color: $fw-teal-text;
+  }
+
+  &__top { font-size: $fw-size-min; margin: $fw-space-2 0 0; }
+}
+
+// The outcome, named in words, with its data colour as a swatch beside it -
+// never as the only signal.
+.fw-rec-outcome {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: $fw-weight-bold;
+
+  &__dot {
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: $fw-radius-round;
+    display: inline-block;
+  }
+}
+
+.fw-rec-fields {
+  display: grid;
+  grid-template-columns: minmax(10rem, 16rem) 1fr;
+  gap: 0.25rem $fw-space-3;
+  margin: 0;
+
+  dt { color: $fw-ink-muted; }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  .fw-rec-none { color: $fw-ink-muted; font-style: italic; }
+}
+
+@media (max-width: $fw-bp-sm) {
+  .fw-rec-fields { grid-template-columns: 1fr; }
+  .fw-rec-fields dd { margin-block-end: $fw-space-1; }
+}
+
+// ---- The foot ------------------------------------------------------------------------
+
+.fw-rec-caveats {
+  background: $fw-teal-wash;
+  border-radius: $fw-radius-card;
+  padding: $fw-space-3;
+  margin-block: $fw-space-4;
+
+  h2 { font-size: $fw-size-h3; margin: 0 0 $fw-space-2; }
+  h3 { font-size: $fw-size-lead; margin: $fw-space-3 0 $fw-space-1; }
+  p { margin: 0; }
+}
+
+.fw-rec-foot {
+  border-block-start: 1px solid $fw-border;
+  padding-block-start: $fw-space-3;
+  color: $fw-ink-muted;
+
+  &__logos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $fw-space-2 $fw-space-4;
+    align-items: center;
+    margin-block-end: $fw-space-2;
+  }
+  &__logos img { height: 3rem; width: auto; }
+}
+
+[hidden] { display: none !important; }
+
+// ---- Print ---------------------------------------------------------------------------
+
+@media print {
+  body {
+    background: $fw-surface;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .fw-rec-find, .fw-rec-card__top { display: none; }
+  .fw-rec-toc { max-height: none; overflow: visible; }
+  .fw-rec-card, .fw-rec-panel { box-shadow: none; border: 1px solid $fw-border; }
+  .fw-rec-card { break-inside: avoid-page; }
+}

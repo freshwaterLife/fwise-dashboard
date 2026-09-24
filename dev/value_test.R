@@ -82,8 +82,20 @@ ok("summary: attempts",  ps$attempts,  nrow(sel1))
 ok("summary: countries", ps$countries, length(unique(sel1$country)))
 ok("summary: species",   ps$species,
    length(unique(asp$species_id[asp$role == "invasive" & asp$attempt_id %in% sel1$attempt_id])))
-ok("summary: methods",   ps$methods,
-   length(unique(am$method_id[am$attempt_id %in% sel1$attempt_id])))
+# SUCCESSFUL ATTEMPTS ONLY (client, 23 Sept 2026). A species on an attempt
+# that failed was not protected by it, so the strip's figure narrows to the
+# ones that worked - the same rule fw_headline_stats()$protected has always
+# applied on the Welcome page.
+won1 <- sel1$attempt_id[sel1$outcome %in% "Successful"]
+ok("summary: species protected counts successful attempts only", ps$beneficiaries,
+   length(unique(asp$species_id[asp$role == "beneficiary" & asp$attempt_id %in% won1])))
+ok("summary: and that is fewer than every attempt would give",
+   ps$beneficiaries <=
+     length(unique(asp$species_id[asp$role == "beneficiary" &
+                                    asp$attempt_id %in% sel1$attempt_id])))
+ok("summary: no methods count any more", is.null(ps$methods))
+ok("summary: the strip shows protected as a floor",
+   grepl(paste0("&gt;", fw_fmt_num(ps$beneficiaries)), as.character(fw_plan_summary_ui(ps)), fixed = TRUE))
 yrs <- sel1$start_year[!is.na(sel1$start_year)]
 ok("summary: year span", ps$year_span, paste0(min(yrs), "-", max(yrs)))
 
@@ -93,34 +105,59 @@ pending <- attr(d, "status_counts")[["pending"]]
 inbox <- tryCatch(fw_pending_submissions(), error = function(e) data.frame())
 in_inbox <- if (nrow(inbox) == 0) 0L else if ("status" %in% names(inbox)) sum(inbox$status == "pending") else nrow(inbox)
 ok("footer: in-review count", fw_review_count(d), as.integer(pending + in_inbox))
-
-# About's scale sentence.
-n_contrib <- sum(!is.na(d$contact$contact_name) & nzchar(d$contact$contact_name))
-scale_txt <- strip(fw_about_scale(s, n_contrib, NS("x")))
-ok("about: names the attempt count",  grepl(fw_fmt_num(nrow(a)), scale_txt, fixed = TRUE))
-ok("about: names the contributor count", grepl(fw_fmt_num(n_contrib), scale_txt, fixed = TRUE))
-ok("about: no placeholder left", !grepl("\\{[a-z_]+\\}", scale_txt))
+foot_html <- as.character(fw_footer(as.Date(m$release)))
+fwise_a <- regmatches(foot_html, regexpr('<a[^>]*>\\s*<img src="[^"]*" alt="FWISE[^"]*"', foot_html))
+ok("footer: the FWISE logo is the long SIMPLE wordmark",
+   grepl(paste0('src="', FW_LOGO$mark_web, '"'), fwise_a, fixed = TRUE))
+ok("footer: the FWISE logo goes to The solution, in the same tab",
+   grepl("fw_nav_to&#39;, &#39;home&#39;", fwise_a, fixed = TRUE) && !grepl("_blank", fwise_a, fixed = TRUE))
 
 # The caveats.
+#
+# [PLACEHOLDER] THE CLIENT IS WRITING THESE (24 Sept 2026), so what is asserted
+# here is the machinery, not the words: that the placeholder is the only thing
+# in there, that a block with no heading prints no heading, and that the number
+# substitution still works. WHEN THE REAL TEXT ARRIVES, put back the per-number
+# checks that stood here - each computed figure appearing in some body, and no
+# {placeholder} surviving - because a caveat carrying a stale number reads as
+# precision and is worse than no caveat at all.
 blocks <- fw_caveat_blocks(d)
-n <- nrow(a)
-successful <- sum(a$outcome == "Successful", na.rm = TRUE)
-unverified <- sum(a$outcome == "Successful" &
-                    (is.na(a$verification_notes) | a$verification_notes == ""), na.rm = TRUE)
-no_size <- sum(is.na(a$area_treated)); no_start <- sum(is.na(a$start_year)); no_end <- sum(is.na(a$end_year))
-pct <- function(x) paste0(round(100 * x / n), "%")
 bodies <- vapply(blocks, `[[`, character(1), "body")
-ok("caveats: successful count",  any(grepl(paste0(format(successful, big.mark = ","), " attempts recorded as successful"), bodies, fixed = TRUE)))
-ok("caveats: unverified count",  any(grepl(paste0(format(unverified, big.mark = ","), " carry no verification"), bodies, fixed = TRUE)))
-ok("caveats: no-size count and share",
-   any(grepl(paste0(format(no_size, big.mark = ","), " attempts (", pct(no_size), ")"), bodies, fixed = TRUE)))
-ok("caveats: no-start count and share",
-   any(grepl(paste0(format(no_start, big.mark = ","), " (", pct(no_start), ")"), bodies, fixed = TRUE)))
-ok("caveats: no-end count and share",
-   any(grepl(paste0(format(no_end, big.mark = ","), " (", pct(no_end), ")"), bodies, fixed = TRUE)))
-ok("caveats: no placeholder left", !any(grepl("\\{[a-z_]+\\}", bodies)))
-ok("caveats: flat vector is heading, body, blank",
-   length(fw_caveats(d)), 3L * length(blocks) - 1L)
+ok("caveats: the client's placeholder is the whole of it",
+   bodies, "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]")
+ok("caveats: the placeholder block carries no heading",
+   vapply(blocks, function(b) fw_caveat_title(b$heading), ""), "")
+ok("caveats: flat vector is body only while there is no heading",
+   length(fw_caveats(d)), length(blocks))
+
+# The numbers a caveat can quote are still computed and still substituted, so
+# the client's text can use them the day it lands. Asserted on a body of our
+# own rather than on the copy deck, which currently has nothing to fill.
+local({
+  filled <- fw_fill("{successful} of {no_start}",
+                    successful = format(sum(a$outcome == "Successful", na.rm = TRUE), big.mark = ","),
+                    no_start = format(sum(is.na(a$start_year)), big.mark = ","))
+  ok("caveats: the number substitution still works", !grepl("\\{", filled))
+})
+
+# The closing section of every export: methods, caveats, citation (client,
+# 24 Sept 2026), each under its own title.
+closing <- fw_closing_blocks(d, m)
+ok("closing section: titled methods, caveats, citation",
+   vapply(closing, function(b) b$heading %||% "", ""),
+   c(fw_t("export", "methods_heading"), fw_t("export", "caveats_title"),
+     fw_t("export", "citation_heading")))
+ok("closing section: the citation carries the release and the count",
+   closing[[3]]$body, fw_citation_text(m, nrow(d$attempt)))
+ok("closing section: the citation is fully filled", !grepl("\\{", closing[[3]]$body))
+ok("closing section: the About caveats panel keeps no title of its own",
+   is.null(fw_caveat_blocks(d)[[1]]$heading))
+ok("closing section: the workbook text carries all three",
+   all(c(toupper(fw_t("export", "methods_heading")),
+         toupper(fw_t("export", "caveats_title")),
+         "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]",
+         toupper(fw_t("export", "citation_heading")),
+         closing[[3]]$body) %in% fw_methods_caveats_text(d, m)))
 
 # The About page renders end to end. Its section keys are built with paste0(),
 # which dev/check_literals.R cannot see, so a missing key only shows up here.
@@ -130,16 +167,32 @@ try(testServer(mod_about_server, args = list(data = d, meta = m), {
 }), silent = TRUE)
 ok("about: the page renders", !is.na(about_html) && nchar(about_html) > 1000)
 # Every heading on the page, whether it is an always-visible section or the
-# summary of one of the five disclosures. Add a section, add it here.
+# summary of one of the six disclosures. Add a section, add it here. NO
+# "database": the opening prose section held Lorem Ipsum and came out on
+# 24 Sept 2026 - put it back here when the client's copy arrives.
 ok("about: every section heading is present",
-   all(vapply(c("database", "signup", "cite", "caveats", "method",
+   all(vapply(c("signup", "cite", "caveats", "method", "glossary",
                 "related", "other", "images", "licence", "links"),
               function(k) grepl(fw_t("about", paste0(k, "_heading")), about_html, fixed = TRUE),
               logical(1))))
+ok("about: the sign-up heading is visible",
+   grepl(paste0("<h2>", fw_t("about", "signup_heading"), "</h2>"), about_html, fixed = TRUE))
+ok("about: no Lorem Ipsum left in How it was built",
+   grepl("perspiciatis|Nemo enim|Neque porro", about_html), FALSE)
 # The panels are click-to-open, and a <details> that lost its <summary> is a
 # block of prose nobody can close.
-ok("about: the five panels are disclosures",
-   lengths(regmatches(about_html, gregexpr("fw-disclosure__summary", about_html)))[[1]], 5L)
+ok("about: the six panels are disclosures",
+   lengths(regmatches(about_html, gregexpr("fw-disclosure__summary", about_html)))[[1]], 6L)
+
+# THE GLOSSARY NAMES THE METHODS THE DATA ACTUALLY HOLDS (client, 23 Sept
+# 2026). A term that does not match a value in attempts.csv$methods sends a
+# reader looking for something the charts never say.
+glossary_terms <- vapply(fw_t("about", "glossary_items"), function(it) it$term, "")
+ok("about: every method in the data has a glossary entry",
+   all(d$method$method_name %in% sub(" methods$", "", glossary_terms)))
+ok("about: and every glossary entry is drawn",
+   all(vapply(glossary_terms, function(t) grepl(t, about_html, fixed = TRUE),
+              logical(1))))
 # The preamble moved to Contribute only. If it comes back here, the page opens
 # on scope rules again.
 ok("about: no eradication preamble",
@@ -160,6 +213,47 @@ ok("coverage: reachable of total",
 ok("coverage: no-email of contacts",
    grepl(paste0(fw_fmt_num(sum(is.na(contacts$contact_email))), " of the ", fw_fmt_num(nrow(contacts))), cov, fixed = TRUE))
 ok("coverage: no-contact count", grepl(paste0(fw_fmt_num(no_contact), " attempts have no contact"), cov, fixed = TRUE))
+
+# THE NETWORKING FILTERS. Recomputed from attempts.csv and species.csv on disk:
+# the attempts matching place AND species-in-role, then every contact named on
+# them in either contact column.
+net_a  <- read.csv(FW_ATTEMPTS_CSV, colClasses = "character", na.strings = "")
+net_a  <- net_a[net_a$status == "approved", ]
+net_sp <- read.csv(FW_SPECIES_CSV, colClasses = "character", na.strings = "")
+net_label <- stats::setNames(fw_species_label(net_sp)$label, net_sp$species_id)
+net_has <- function(col, labels) vapply(
+  strsplit(ifelse(is.na(net_a[[col]]), "", net_a[[col]]), ";"),
+  function(ids) any(net_label[trimws(ids)] %in% labels), logical(1))
+net_expect <- function(rows) {
+  ids <- c(net_a$primary_contact_id[rows], net_a$secondary_contact_id[rows])
+  sort(intersect(unique(ids[!is.na(ids)]), contacts$contact_id))
+}
+net_got <- function(...) sort(fw_networking_filter(d, contacts, list(...))$contact_id)
+# The most-recorded protected species, and the country with most of its attempts.
+ben_ids <- trimws(unlist(strsplit(stats::na.omit(net_a$beneficiary_species), ";")))
+net_sp1 <- unname(net_label[names(sort(table(ben_ids), decreasing = TRUE))[1]])
+net_c1 <- names(sort(table(net_a$country[net_has("beneficiary_species", net_sp1)]),
+                     decreasing = TRUE))[1]
+ok("networking: no filter lists everyone", net_got(), sort(contacts$contact_id))
+ok(paste0("networking: ", net_c1, " alone"),
+   net_got(country = net_c1), net_expect(which(net_a$country == net_c1)))
+ok("networking: species as protected",
+   net_got(species = net_sp1, category = "beneficiary"),
+   net_expect(which(net_has("beneficiary_species", net_sp1))))
+ok("networking: species as either role",
+   net_got(species = net_sp1, category = "either"),
+   net_expect(which(net_has("beneficiary_species", net_sp1) |
+                      net_has("invasive_species", net_sp1))))
+ok("networking: species AND country on the same attempt",
+   net_got(species = net_sp1, category = "beneficiary", country = net_c1),
+   net_expect(which(net_has("beneficiary_species", net_sp1) & net_a$country == net_c1)))
+ok("networking: a protected species searched as invasive finds only invasive records",
+   net_got(species = net_sp1, category = "invasive"),
+   net_expect(which(net_has("invasive_species", net_sp1))))
+net_org <- names(sort(table(contacts$organisation), decreasing = TRUE))[1]
+ok("networking: organization",
+   net_got(organisation = net_org),
+   sort(contacts$contact_id[!is.na(contacts$organisation) & contacts$organisation == net_org]))
 
 # The species tiles.
 inv_rows <- unique(data.frame(attempt_id = as.character(asp$attempt_id[asp$role == "invasive"]),
@@ -185,16 +279,65 @@ exp_ids <- fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
 ok("explore: offers exactly its six filters", sort(exp_ids), sort(FW_EXPLORE_FILTERS))
 ok("explore: and no year range", "years" %in% exp_ids, FALSE)
 
+# THE FISH FAMILY FILTERS. Recomputed from the CSVs on disk - the packed
+# species ids in attempts.csv and the family column of species.csv - not from
+# the loaded bridge table the engine reads.
+raw_a  <- read.csv(FW_ATTEMPTS_CSV, colClasses = "character", na.strings = "")
+raw_a  <- raw_a[raw_a$status == "approved", ]
+raw_sp <- read.csv(FW_SPECIES_CSV, colClasses = "character", na.strings = "")
+fam_of <- stats::setNames(raw_sp$family, raw_sp$species_id)
+raw_family_hits <- function(col, fam) {
+  has <- vapply(strsplit(ifelse(is.na(raw_a[[col]]), "", raw_a[[col]]), ";"),
+                function(ids) any(fam_of[trimws(ids)] %in% fam), logical(1))
+  sort(raw_a$attempt_id[has])
+}
+fam_apply <- function(...) {
+  st <- list(...); st$.ids <- exp_ids
+  sort(as.character(fw_filter_apply(d, st)$attempt_id))
+}
+ok("family: only fish carry a family",
+   unique(raw_sp$taxa[!is.na(raw_sp$family)]), "Fish")
+fam_inv <- names(sort(table(fam_of[unlist(lapply(strsplit(raw_a$invasive_species, ";"), trimws))]),
+                      decreasing = TRUE))[1]
+ok("family: choices are the invasive side's fish families",
+   ch$family, sort(unique(stats::na.omit(fam_of[trimws(unlist(strsplit(raw_a$invasive_species, ";")))]))))
+ok(paste0("family: ", fam_inv, " (invasive) selects its attempts"),
+   fam_apply(taxa = "Fish", family = fam_inv), raw_family_hits("invasive_species", fam_inv))
+fam_ben <- names(sort(table(fam_of[trimws(unlist(strsplit(stats::na.omit(raw_a$beneficiary_species), ";")))]),
+                      decreasing = TRUE))[1]
+ok(paste0("family: ", fam_ben, " (protected) selects its attempts"),
+   fam_apply(taxa_beneficiary = "Fish", family_beneficiary = fam_ben),
+   raw_family_hits("beneficiary_species", fam_ben))
+ok("family: two families are any-of",
+   fam_apply(taxa = "Fish", family = ch$family[1:2]),
+   raw_family_hits("invasive_species", ch$family[1:2]))
+# Hidden means not applied: a family left set after Fish is deselected must not
+# narrow anything. Read through fw_filter_state(), which is where that is done.
+st_hidden <- fw_filter_state(list(taxa = "Crayfish", family = fam_inv), exp_ids)
+ok("family: ignored while Fish is not picked", st_hidden$family, character(0))
+st_shown <- fw_filter_state(list(taxa = c("Crayfish", "Fish"), family = fam_inv), exp_ids)
+ok("family: applied while Fish is picked", st_shown$family, fam_inv)
+
 ben_rows <- unique(data.frame(
   attempt_id = as.character(asp$attempt_id[asp$role == "beneficiary"]),
   species_id = asp$species_id[asp$role == "beneficiary"], stringsAsFactors = FALSE))
 
 # The database panel. Never filtered, so these are the whole-table counts.
 ok("explore db: beneficiary species", s$beneficiaries, length(unique(ben_rows$species_id)))
+won_all <- a$attempt_id[a$outcome %in% "Successful"]
+ok("explore db: protected counts only successful attempts", s$protected,
+   length(unique(ben_rows$species_id[ben_rows$attempt_id %in% as.character(won_all)])))
+ok("explore db: and that is fewer than every beneficiary recorded",
+   s$protected < s$beneficiaries)
 ok("explore db: latest year", s$latest_year, max(a$start_year, na.rm = TRUE))
 db <- strip(fw_explore_db_panel(s, 7L))
 for (v in list(c("attempts", nrow(a)), c("countries", length(unique(a$country))),
-               c("invasive", s$species), c("beneficiaries", s$beneficiaries),
+               c("invasive", s$species),
+               # SUCCESSFUL ATTEMPTS ONLY (client, 23 Sept 2026): the tile
+               # shows s$protected, not s$beneficiaries. The two differ, and
+               # the assertion below checks they still do - otherwise this
+               # would pass against either.
+               c("protected", s$protected),
                c("in review", 7L))) {
   ok(paste("explore db: panel names the", v[1], "count"),
      grepl(fw_fmt_num(as.integer(v[2])), db, fixed = TRUE))
@@ -211,8 +354,13 @@ for (v in list(c("attempts", nrow(a)), c("countries", length(unique(a$country)))
 # absent still existing.
 ok("explore db: the panel does NOT name a success count",
    !grepl("success", db, ignore.case = TRUE))
-ok("explore db: the year span is filled in",
-   grepl(paste0(min(a$start_year, na.rm = TRUE), " to ", max(a$start_year, na.rm = TRUE)), db, fixed = TRUE))
+# NO YEAR-SPAN SENTENCE (client, 24 Sept 2026): "Attempts recorded from ... to
+# ..." came off the panel.
+ok("explore db: the year span sentence is gone",
+   grepl(paste0(min(a$start_year, na.rm = TRUE), " to ", max(a$start_year, na.rm = TRUE)), db, fixed = TRUE),
+   FALSE)
+ok("explore db: the protected figure carries its >",
+   grepl(paste0("&gt;", fw_fmt_num(s$protected)), as.character(fw_explore_db_panel(s, 7L)), fixed = TRUE))
 ok("explore db: no placeholder left", !grepl("\\{[a-z_]+\\}", db))
 
 # Beneficiary taxa: the new filter, matched against the bridge directly.
@@ -326,24 +474,155 @@ if (nrow(no_ben)) {
      grepl(fw_popup_thumb_unrecorded(),
            fw_record_detail_html(nb, d$species), fixed = TRUE))
 }
-# RECORDED BY IS THE PRIMARY CONTACT OR NOTHING. It used to fall back to the
-# reference; the row now stays, empty.
-no_contact <- map_pts[is.na(map_pts$primary_contact_name) &
-                        !is.na(map_pts$reference) & nzchar(map_pts$reference), ]
-if (nrow(no_contact)) {
-  nc <- no_contact[1, ]
-  nc_card <- fw_map_hover_html(nc)
-  ok("hover: no contact does not fall back to the reference",
-     grepl(htmltools::htmlEscape(nc$reference), nc_card, fixed = TRUE), FALSE)
-  ok("hover: and still draws an empty Recorded by row",
-     grepl(paste0(fw_t("species", "p_recorded_by"),
-                  '</span><span class="fw-popup__val fw-popup__val--none"></span>'),
-           nc_card, fixed = TRUE))
+# THE CARD'S FIELDS, IN THE CLIENT'S ORDER (23 Sept 2026), EVERY ONE DRAWN.
+# Location and country unlabelled, then the labelled rows. Recorded by is
+# gone from the card. A blank field says "Not noted".
+#
+# KIND OF WATER NOW SITS ABOVE METHOD(S) - the setting a reader is matching
+# their own site against comes before what was done about it - and carries the
+# treated size in brackets. Both are asserted below.
+hover_keys <- c("p_targeted", "p_protected", "p_outcome", "p_began",
+                "p_duration", "p_waterbody", "p_methods")
+key_pos <- function(html, key) regexpr(paste0('fw-popup__key">', fw_t("species", key), "<"),
+                                       html, fixed = TRUE)
+ok("hover: every card has every field, in order",
+   all(vapply(cards, function(x) {
+     pos <- vapply(hover_keys, function(k) key_pos(x, k), integer(1))
+     all(pos > 0) && !is.unsorted(pos)
+   }, logical(1))))
+ok("hover: every card names its country, unlabelled",
+   all(grepl('class="fw-popup__place', cards, fixed = TRUE)))
+ok("hover: no card carries a Recorded by row",
+   any(grepl("Recorded by", cards, fixed = TRUE)), FALSE)
+# THE KIND OF WATER CARRIES THE TREATED SIZE, in brackets after it.
+sized <- map_pts[!is.na(map_pts$area_treated) & !is.na(map_pts$waterbody_type), ]
+if (nrow(sized)) {
+  sz <- sized[1, ]
+  ok("hover: kind of water carries the size and its unit",
+     grepl(paste0(sz$waterbody_type, " (", fw_popup_area(sz), ")"),
+           fw_map_hover_html(sz), fixed = TRUE))
+  ok("hover: and the size is the same string the record panel prints",
+     grepl(fw_popup_area(sz), fw_record_detail_html(sz, d$species), fixed = TRUE))
 }
-with_contact <- map_pts[!is.na(map_pts$primary_contact_name), ][1, ]
-ok("hover: Recorded by names the primary contact",
-   grepl(htmltools::htmlEscape(with_contact$primary_contact_name),
-         fw_map_hover_html(with_contact), fixed = TRUE))
+# No size recorded: the kind of water stands alone, with no empty brackets.
+nosize <- map_pts[is.na(map_pts$area_treated) & !is.na(map_pts$waterbody_type), ]
+if (nrow(nosize)) {
+  ok("hover: no size recorded leaves the kind of water bare",
+     fw_popup_waterbody(nosize[1, ]), nosize$waterbody_type[1])
+}
+
+blank_row <- map_pts[1, ]
+blank_row$waterbody_type <- NA; blank_row$area_treated <- NA
+blank_row$method_names <- NA
+blank_row$duration_days <- NA; blank_row$start_year <- NA
+blank_row$inv_list <- NA; blank_row$country <- NA
+blank_card <- fw_map_hover_html(blank_row)
+# Six fields blanked above: the country line and five rows.
+ok("hover: blank fields say Not noted",
+   lengths(regmatches(blank_card, gregexpr(fw_t("species", "p_not_noted"), blank_card, fixed = TRUE))), 6L)
+ok("hover: and the rows are still all there",
+   all(vapply(hover_keys, function(k) key_pos(blank_card, k) > 0, logical(1))))
+
+# THE RECORD: EVERY FIELD DRAWN FOR EVERY ATTEMPT, so every record has the
+# same labels. Verification notes are gone; contacts are one bulleted row.
+detail_keys <- c("p_species", "p_beneficiary", "p_outcome", "p_began",
+                 "p_duration", "p_driver", "p_waterbody", "p_area",
+                 "p_methods", "p_method_desc", "p_verified", "p_contacts",
+                 "p_reference")
+recs_all <- fw_attempt_records(d, a)
+details <- vapply(seq_len(nrow(recs_all)), function(i)
+  fw_record_detail_html(recs_all[i, ], d$species, figure_cache = character(0)),
+  character(1))
+ok("detail: every record has every field, in order",
+   all(vapply(details, function(x) {
+     pos <- vapply(detail_keys, function(k) key_pos(x, k), integer(1))
+     all(pos > 0) && !is.unsorted(pos)
+   }, logical(1))))
+ok("detail: every record has the download pointer",
+   all(grepl(fw_t("species", "p_download_hint"), details, fixed = TRUE)))
+# THE SOURCE BUTTON, ONLY WHERE THERE IS A LINK (21 Sept 2026). No link, no
+# line at all - the "Read the source: Not noted" line is gone.
+has_src <- !is.na(recs_all$reference_link) & nzchar(recs_all$reference_link)
+ok("detail: a source button exactly where the record has a link",
+   identical(grepl("fw-popup-detail__link-btn", details, fixed = TRUE), has_src))
+ok("detail: no record says Read the source: Not noted",
+   any(grepl(paste0(fw_t("species", "p_read_source"), ": "), details, fixed = TRUE)), FALSE)
+ok("detail: some records have a link and some do not",
+   any(has_src) && !all(has_src))
+# By its row, not its text: one attempt repeats its note in What was done.
+ok("detail: no record has a verification notes row",
+   any(grepl('fw-popup__key">Verification<', details, fixed = TRUE)), FALSE)
+# The 23 Sept 2026 export holds no "Unknown" verification (the client's
+# cleaning blanked them), so this only runs while one exists.
+unk <- which(recs_all$verification_method == "Unknown")[1]
+if (!is.na(unk)) {
+  ok("detail: an Unknown verification is shown as Unknown",
+     grepl(paste0(fw_t("species", "p_verified"), '</span><span class="fw-popup__val">Unknown<'),
+           details[unk], fixed = TRUE))
+}
+two_c <- which(!is.na(recs_all$primary_contact_name) & !is.na(recs_all$secondary_contact_name))[1]
+if (!is.na(two_c)) {
+  ok("detail: two contacts are two bullets",
+     lengths(regmatches(sub(".*Contact\\(s\\)", "", details[two_c]),
+                        gregexpr("<li>", sub(".*Contact\\(s\\)", "", details[two_c]), fixed = TRUE))), 2L)
+}
+
+# METHODS BY NAME ONLY, at most three, recomputed from attempts.csv. No note
+# text reaches a card or a record.
+am_sorted <- am[order(am$attempt_id, am$method_order), ]
+want_names <- vapply(as.character(a$attempt_id), function(id) {
+  nm <- unname(method_name[as.character(am_sorted$method_id[am_sorted$attempt_id == id])])
+  paste(unique(nm[!is.na(nm)]), collapse = FW_POPUP_SEP)
+}, character(1), USE.NAMES = FALSE)
+got_names <- recs_all$method_names[match(a$attempt_id, recs_all$attempt_id)]
+got_names[is.na(got_names)] <- ""
+ok("methods: the record's method names match the bridge, in order", got_names, want_names)
+before_contacts <- sub("Contact\\(s\\).*", "", details)
+ok("methods: no record lists more than three",
+   max(lengths(regmatches(before_contacts, gregexpr("<li>", before_contacts, fixed = TRUE)))) <= 3L)
+
+# THE PLAN SPECIES TITLES name the tiles shown and the role's full count.
+for (role in c("invasive", "beneficiary")) {
+  n_role <- length(unique(asp$species_id[asp$role == role & asp$attempt_id %in% sel1$attempt_id]))
+  ttl <- fw_species_top_title(d, sel1, role)
+  ok(paste0("species title (", role, "): names the total"),
+     grepl(paste0(if (role == "beneficiary") ">" else "(of ", fw_fmt_num(n_role), " total)"), ttl, fixed = TRUE))
+  ok(paste0("species title (", role, "): names the tiles shown"),
+     grepl(paste0("Top ", fw_num_word(min(FW_PLAN_SPECIES_N, n_role)), " "), ttl, fixed = TRUE))
+}
+# STRUCTURALLY, not by searching for note text: the notes repeat inside What
+# was done and elsewhere, so a text search proves nothing. The Method(s) row's
+# bullets must be exactly the attempt's method names from the bridge table.
+methods_row <- function(html) {
+  m <- regmatches(html, regexpr('Method\\(s\\)</span><span class="fw-popup__val[^"]*">.*?</span></div>', html))
+  if (!length(m)) return(NA_character_)
+  items <- regmatches(m, gregexpr("<li>.*?</li>", m))[[1]]
+  paste(gsub("</?li>", "", items), collapse = FW_POPUP_SEP)
+}
+got_rows <- vapply(details, methods_row, character(1), USE.NAMES = FALSE)
+want_rows <- vapply(want_names[match(recs_all$attempt_id, a$attempt_id)],
+                    function(x) paste(htmltools::htmlEscape(fw_popup_parts(x)), collapse = FW_POPUP_SEP),
+                    character(1), USE.NAMES = FALSE)
+ok("methods: every record's bullets are its method names and nothing else", got_rows, want_rows)
+ok("methods: every hover card's bullets are too",
+   vapply(cards, methods_row, character(1), USE.NAMES = FALSE),
+   vapply(map_pts$attempt_id, function(id) paste(htmltools::htmlEscape(fw_popup_parts(
+     want_names[match(id, a$attempt_id)])), collapse = FW_POPUP_SEP), character(1), USE.NAMES = FALSE))
+
+# DURATION, recomputed by hand: days under a year, years to 1dp from 365 on.
+ok("duration: 1 day",    fw_popup_duration(1),   "1 day")
+ok("duration: 20 days",  fw_popup_duration(20),  "20 days")
+ok("duration: 364 days", fw_popup_duration(364), "364 days")
+ok("duration: 365 is 1.0 years", fw_popup_duration(365), "1.0 years")
+ok("duration: 400 is 1.1 years", fw_popup_duration(400), "1.1 years")
+ok("duration: 10220 is 28.0 years", fw_popup_duration(10220), "28.0 years")
+ok("duration: none is NA", fw_popup_duration(NA), NA_character_)
+ok("years: a range", fw_popup_years(1998, 2004), "1998-2004")
+ok("years: start only", fw_popup_years(1998, NA), "1998")
+dur_i <- which(!is.na(recs_all$duration_days))[1]
+ok("duration: a record shows its own",
+   grepl(fw_popup_duration(recs_all$duration_days[dur_i]), details[dur_i], fixed = TRUE))
+
 # THE BASEMAPS. No place-label layer, and no null overlay - leaflet.js turns a
 # null into a checkbox named null in the layer switcher.
 bm <- fw_add_basemaps(fw_leaflet())
@@ -403,7 +682,7 @@ ok("hover: the card script fills a by-reference slot",
 # to open a record wants to know whether it is from this decade or the eighties.
 dated <- map_pts[!is.na(map_pts$start_year), ][1, ]
 ok("hover: the card names the years",
-   grepl(fw_popup_years(dated$start_year, dated$end_year),
+   grepl(paste0(">", fw_popup_years(dated$start_year, dated$end_year), "<"),
          fw_map_popup(dated, d$species, detail = "lazy"), fixed = TRUE))
 
 # "SELECT FOR THE FULL RECORD" IS A BUTTON NOW, not a line of quiet text.
@@ -596,23 +875,37 @@ ok("method: in-bar count hidden exactly under the share floor", hidden_ok)
 # the share floor, so the narrow segments - the ones a reader hovers to find
 # out about - said "Unknown:  of 567". The count and the total are recomputed
 # here and the hover string has to carry both, hidden label or not.
-hover_of <- fw_t("charts", "hover_of")
-hover_want <- function(t, i, rows, group, name_of) {
+# AND IT IS THE SPECIES TILE'S SENTENCE, IN BOTH MODES (client, 24 Sept 2026):
+# "Successful: 25% (3 of 12)", the same plan$r_tile_seg the tiles fill, so the
+# reader meets one wording wherever they hover. The mode no longer changes it.
+# Recomputed here from the raw rows, so the assertion cannot be satisfied by
+# the chart reading its own drawn value.
+#
+# THE OUTCOME IS PART OF THE ASSERTION, and deliberately. It is a loop variable
+# on the R side, and a ~formula would have plotly resolve it after the loop had
+# finished - giving every trace the last outcome. That bug is invisible unless
+# something checks the name against the trace it came from.
+hover_want <- function(t, i, rows, group, name_of, mode = "count") {
   mname <- label_name(t$y[i])
-  paste0(sum(group == mname & name_of == t$name), hover_of, sum(group == mname))
+  n <- sum(group == mname & name_of == t$name)
+  total <- sum(group == mname)
+  fw_fill(fw_t("plan", "r_tile_seg"), outcome = t$name,
+          pc = sprintf("%.0f", round(100 * n / total)),
+          n = fw_fmt_num(n), total = fw_fmt_num(total))
 }
 for (mode in c("count", "share")) {
   tr <- traces(fw_chart_method(d, all_sel, mode))
   all_ok <- TRUE; hidden_ok <- TRUE; n_hidden <- 0L
   for (t in tr) for (i in seq_along(t$y)) {
-    want <- hover_want(t, i, me, me$method, me$outcome)
+    want <- hover_want(t, i, me, me$method, me$outcome, mode)
     if (t$customdata[i] != want) all_ok <- FALSE
     if (t$text[i] == "") { n_hidden <- n_hidden + 1L; if (t$customdata[i] != want) hidden_ok <- FALSE }
     # plotly_build() repeats the template per point; one is enough to read.
     if (!grepl("%{customdata}", t$hovertemplate[1], fixed = TRUE) ||
         grepl("%{text}", t$hovertemplate[1], fixed = TRUE)) all_ok <- FALSE
   }
-  ok(sprintf("method (%s): every hover reads 'n of total'", mode), all_ok)
+  ok(sprintf("method (%s): every hover is the species tile's sentence, outcome included",
+             mode), all_ok)
   ok(sprintf("method (%s): the %d hidden-label segments still hover a count", mode, n_hidden),
      hidden_ok && n_hidden > 0L)
 }
@@ -641,10 +934,44 @@ ok("method: and there is at least one to check",
 tr_count <- traces(fw_chart_method(d, all_sel, "count"))
 ok("method: count mode labels stay counts",
    all(grepl("^[0-9]+$", label_text(tr_count))))
-# The same fix, the same bug, the other chart.
-ok("method by waterbody: share mode labels are percentages too",
-   all(grepl("%$", label_text(traces(fw_chart_method_waterbody(d, all_sel, "share"))))))
 
+# THE VERTICAL RULES ARE DRAWN OVER THE BARS (client, 23 Sept 2026: "add light
+# grey vertical lines for each %"). They have to be SHAPES: plotly draws every
+# gridline under every trace, and a 100% stack spans the whole axis, so the
+# share view's grid was painted over end to end and showed only in the gaps
+# between rows. xaxis.layer = "above traces" does not fix it - by plotly's own
+# definition it lifts the axis line and the labels and leaves the grid where it
+# was. What is pinned here is that the shapes exist, that they sit above the
+# data, and that every one of them lands on a tick the axis labels.
+bar_layout <- function(p) plotly::plotly_build(p)$x$layout
+for (mode in c("count", "share")) {
+  for (nm in c("method", "waterbody")) {
+    lay <- bar_layout(if (nm == "method") fw_chart_method(d, all_sel, mode)
+                      else fw_chart_waterbody(all_sel, mode))
+    want_at <- if (mode == "share") seq(0, 100, FW_CHART$share_dtick) else 0
+    ok(sprintf("%s (%s): one rule per labelled break", nm, mode),
+       length(lay$shapes), length(want_at))
+    ok(sprintf("%s (%s): each rule is at a break the axis names", nm, mode),
+       vapply(lay$shapes, function(s) s$x0, numeric(1)), want_at)
+    ok(sprintf("%s (%s): and drawn above the bars, full height", nm, mode),
+       all(vapply(lay$shapes, function(s)
+         identical(s$layer, "above") && identical(s$yref, "paper") &&
+           identical(s$line$color, FW_COLOURS$border), logical(1))))
+    # THE AXIS DRAWS NO GRID OF ITS OWN IN SHARE MODE, or every rule would have
+    # a half-hidden twin under the bars. The count view keeps its gridlines:
+    # its bars stop short of the right-hand edge, so they read there, and only
+    # the rule at zero needed adding.
+    ok(sprintf("%s (%s): the axis grid is off exactly in share mode", nm, mode),
+       identical(lay$xaxis$showgrid, FALSE), mode == "share")
+    if (mode == "share") {
+      ok(sprintf("%s: the share axis states its own tick spacing", nm),
+         lay$xaxis$dtick, FW_CHART$share_dtick)
+    } else {
+      ok(sprintf("%s: the count grid is the interface hairline grey", nm),
+         lay$xaxis$gridcolor, FW_COLOURS$border)
+    }
+  }
+}
 # THE TWO "OTHER" METHODS SIT AT THE BOTTOM whatever their counts. plotly draws
 # the first category at the bottom, so they must come FIRST in the level order.
 # Asserted on the ids in FW_METHOD_OTHER rather than the display names, which is
@@ -685,8 +1012,43 @@ ok("duration: one point per (attempt, method) with a duration",
    sum(vapply(pts, function(t) length(t$x), integer(1))), nrow(dm))
 ok("duration: per-outcome point counts",
    all(vapply(pts, function(t) length(t$x) == sum(dm$outcome == t$name), logical(1))))
+dur_y <- plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$yaxis
+dur_rows <- as.character(dur_y$ticktext)
 ok("duration: the (n) in each label counts durations, not attempts",
-   all(vapply(unique(as.character(box$y)), function(l) label_n(l) == sum(dm$method == label_name(l)), logical(1))))
+   all(vapply(dur_rows, function(l) label_n(l) == sum(dm$method == label_name(l)), logical(1))))
+# THE DOTS ARE SPREAD ACROSS THEIR ROW, and never far enough to be read as the
+# next one. Each dot's row is recovered from its y by rounding, and the method
+# on that row must be the dot's own - checked against the per-method counts,
+# recomputed from dm rather than read from the chart.
+sw <- FW_CHART$duration_swarm
+pt_y <- unlist(lapply(pts, function(t) t$y))
+ok("duration: every dot is within its row's spread",
+   all(abs(pt_y - round(pt_y)) <= sw$spread + 1e-9))
+ok("duration: dots per row equal that method's durations",
+   as.integer(table(factor(round(pt_y), levels = seq_along(dur_rows)))),
+   vapply(dur_rows, function(l) sum(dm$method == label_name(l)), integer(1)))
+ok("duration: identical durations are drawn apart, not on top of each other",
+   {
+     key <- paste(round(pt_y), unlist(lapply(pts, function(t) t$x)))
+     dup <- duplicated(key) | duplicated(key, fromLast = TRUE)
+     !any(duplicated(paste(key, pt_y))) && any(dup)
+   })
+ok("duration: the dots carry no hover",
+   all(vapply(pts, function(t) all(t$hoverinfo == "skip"), logical(1))))
+# THE ROW ORDER IS THE BAR CHARTS' RULE (client, 23 Sept 2026): ordered by the
+# label's own n, with the two "Other" methods pinned to the bottom whatever
+# their counts. Asserted here the way the method chart's order is asserted
+# above - on the ids in FW_METHOD_OTHER, not on the display names, which is the
+# whole reason that constant is held as ids. dur_rows is bottom to top.
+dur_other <- d$method$method_name[match(FW_METHOD_OTHER, d$method$method_id)]
+dur_other <- dur_other[!is.na(dur_other)]
+dur_is_other <- vapply(dur_rows, function(l) label_name(l) %in% dur_other, logical(1))
+ok("duration: the Other methods are pinned to the bottom of the order",
+   all(which(dur_is_other) <= sum(dur_is_other)))
+ok("duration: and every other row is still ordered by how many durations it has",
+   label_n(dur_rows[!dur_is_other]), sort(label_n(dur_rows[!dur_is_other])))
+ok("duration: the pinning is doing something in this selection",
+   sum(dur_is_other) > 0L)
 # A single-method attempt contributes exactly one (attempt, method) row, so the
 # points and the attempts drawn are the same number. That is the whole point of
 # the filter: every point on this chart is a duration of the method it sits on.
@@ -716,8 +1078,22 @@ ok("duration: and that range is in log10, close around the data",
 # THE TICKS ARE THE THIRD SPACE: data units, logged by plotly itself. Wrapping
 # them in log10() bunches them into the left tenth of the axis and loses "1 day"
 # entirely, because log10(0) is -Inf.
+dur_days <- fw_duration_sel(d, all_sel)$duration_days
 ok("duration: the tick values are day counts, not log10 of them",
-   identical(dur_x$tickvals, FW_CHART$duration_ticks))
+   identical(dur_x$tickvals, fw_duration_ticks(dur_days)$vals))
+# THE AXIS REACHES THE LAST DOT (client, 23 Sept 2026). The fixed breaks stop
+# at ten years, so a longer selection used to draw dots past the final label.
+ok("duration: the last tick is the longest attempt drawn",
+   dur_x$tickvals[length(dur_x$tickvals)], max(dur_days))
+ok("duration: and every tick is labelled",
+   length(dur_x$tickvals), length(dur_x$ticktext))
+# No fixed break is left sitting past the data, where it would label empty
+# axis, and none is left crowding the terminal tick.
+ok("duration: no tick sits beyond the data", all(dur_x$tickvals <= max(dur_days)))
+ok("duration: no two ticks overprint",
+   all(diff(log10(dur_x$tickvals)) >= FW_CHART$duration_tick_gap))
+# NO AXIS TITLE (client, 23 Sept 2026): the named ticks say what it measures.
+ok("duration: the x axis carries no title", dur_x$title, "")
 # THE UNIT BREAKS, which is what replaced the bands. They are the axis's own
 # gridlines rather than shapes, so they land on tickvals and nowhere else - one
 # dotted vertical on a day, a week, a month, a year, five years and ten.
@@ -736,11 +1112,52 @@ ok("duration: the ticks are the only thing the axis draws a line at",
 ok("duration: the method axis draws no gridlines",
    isFALSE(plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$yaxis$showgrid))
 
+# EVERY CHART IS A PICTURE, NOT A CANVAS (Sept 2026 user testing): the key
+# cannot switch a series off, nothing zooms or pans, the only button is
+# plotly's own PNG camera, and the PNG is print-ready at FW_CHART$export_dpi.
+# Checked on every chart builder the app draws, through fw_plotly_style().
+all_charts <- list(
+  methods = fw_chart_method(d, all_sel, "count"),
+  duration = fw_chart_duration(d, all_sel),
+  waterbody = fw_chart_waterbody(all_sel, "count"),
+  cumulative = fw_chart_cumulative(all_sel)
+)
+for (nm in names(all_charts)) {
+  bx <- plotly::plotly_build(all_charts[[nm]])$x
+  ok(paste0("plotly ", nm, ": legend entries cannot be toggled"),
+     isFALSE(bx$layout$legend$itemclick) && isFALSE(bx$layout$legend$itemdoubleclick))
+  ok(paste0("plotly ", nm, ": axes cannot be zoomed or panned"),
+     isTRUE(bx$layout$xaxis$fixedrange) && isTRUE(bx$layout$yaxis$fixedrange) &&
+       isFALSE(bx$layout$dragmode) && isFALSE(bx$config$scrollZoom) &&
+       isFALSE(bx$config$doubleClick))
+  ok(paste0("plotly ", nm, ": the camera is the only button"),
+     unlist(bx$config$modeBarButtons), "toImage")
+  ok(paste0("plotly ", nm, ": PNG export at ", FW_CHART$export_dpi, " dpi"),
+     bx$config$toImageButtonOptions$scale * 96, FW_CHART$export_dpi)
+  ok(paste0("plotly ", nm, ": the button is plotly's default (hover)"),
+     is.null(bx$config$displayModeBar))
+}
+# BARE AXES, WITH ROOM. The A/B test is over (Sept 2026): no chart draws an
+# axis line, and every axis keeps its labels FW_CHART$tick_gap off the axis
+# with ticks that are there only as spacing - long enough, and no colour.
+for (nm in names(all_charts)) {
+  bx <- plotly::plotly_build(all_charts[[nm]])$x$layout
+  for (ax in c("xaxis", "yaxis")) {
+    axl <- bx[[ax]]
+    ok(paste0("axis ", nm, " ", ax, ": no axis line"), isTRUE(axl$showline), FALSE)
+    ok(paste0("axis ", nm, " ", ax, ": labels ", FW_CHART$tick_gap, "px off the axis"),
+       c(identical(axl$ticks, "outside"), identical(axl$ticklen, FW_CHART$tick_gap)),
+       c(TRUE, TRUE))
+    ok(paste0("axis ", nm, " ", ax, ": the spacing ticks are not drawn"),
+       axl$tickcolor, FW_TRANSPARENT)
+  }
+}
+
 # A category chart with Other.
 wb <- all_sel$waterbody_type[!is.na(all_sel$waterbody_type)]
 wb_out <- outcome_of[as.character(all_sel$attempt_id[!is.na(all_sel$waterbody_type)])]
 totals <- sort(table(wb), decreasing = TRUE)
-b <- plotly::plotly_build(fw_chart_waterbody(all_sel))
+b <- plotly::plotly_build(fw_chart_waterbody(all_sel, "count"))
 tr <- b$x$data
 labels <- unique(unlist(lapply(tr, function(t) as.character(t$y))))
 n_named <- min(FW_TOP_N, length(totals)); has_other <- length(totals) > FW_TOP_N
@@ -762,34 +1179,62 @@ ok("category: every segment is the direct count",
    all(unlist(lapply(tr, function(t) vapply(seq_along(t$y), function(i)
      sum(wb_named == label_name(t$y[i]) & wb_out == t$name) == t$x[i], logical(1))))))
 
-# Methods within each kind of water.
-wbt <- stats::setNames(all_sel$waterbody_type, as.character(all_sel$attempt_id))
-mw <- me; mw$wb <- wbt[mw$attempt_id]; mw <- mw[!is.na(mw$wb), ]
-wb_totals <- sort(table(mw$wb), decreasing = TRUE)
-if (length(wb_totals) > FW_TOP_N) {
-  mw$wb[!mw$wb %in% names(wb_totals)[seq_len(FW_TOP_N)]] <- fw_t("charts", "other")
-}
-tr <- traces(fw_chart_method_waterbody(d, all_sel, "count"))
-ok("method x water: every segment counts (attempt, method) once",
-   all(unlist(lapply(tr, function(t) vapply(seq_along(t$y), function(i)
-     sum(mw$wb == label_name(t$y[i]) & mw$method == t$name) == t$x[i], logical(1))))))
-tr_share <- traces(fw_chart_method_waterbody(d, all_sel, "share"))
-sums <- tapply(unlist(lapply(tr_share, `[[`, "x")),
-               unlist(lapply(tr_share, function(t) as.character(t$y))), sum)
-ok("method x water: shares sum to 100 per kind of water", all(abs(sums - 100) < 1e-9))
+# THE SHARE VIEW IS OF EACH BAR, NOT OF THE SELECTION. Every kind of water
+# reaches 100%, which is what makes it the outcome mix rather than the
+# selection's composition - the two read the same on a one-category chart and
+# quite differently on a real one.
+tr_wb_share <- plotly::plotly_build(fw_chart_waterbody(all_sel, "share"))$x$data
+wb_sums <- tapply(unlist(lapply(tr_wb_share, `[[`, "x")),
+                  unlist(lapply(tr_wb_share, function(t) as.character(t$y))), sum)
+ok("category: shares sum to 100 per kind of water", all(abs(wb_sums - 100) < 1e-9))
+
+# THE HOVER IS THE SPECIES TILE'S SENTENCE, IN BOTH MODES (client, 24 Sept
+# 2026) - "Successful: 25% (3 of 12)". It used to read the drawn value, so
+# share mode would have offered "Successful: 33.33333"; then it read the count
+# only, and later the count with a percentage in share mode alone. One template
+# now, plan$r_tile_seg. Both numbers are recomputed here from the attempts, and
+# the outcome is checked against the trace it came from - see the note on the
+# method chart's hover above for why that matters.
 for (mode in c("count", "share")) {
-  tr <- traces(fw_chart_method_waterbody(d, all_sel, mode))
-  all_ok <- TRUE; hidden_ok <- TRUE; n_hidden <- 0L
-  for (t in tr) for (i in seq_along(t$y)) {
-    want <- hover_want(t, i, mw, mw$wb, mw$method)
-    if (t$customdata[i] != want) all_ok <- FALSE
-    if (t$text[i] == "") { n_hidden <- n_hidden + 1L; if (t$customdata[i] != want) hidden_ok <- FALSE }
-    if (grepl("%{text}", t$hovertemplate[1], fixed = TRUE)) all_ok <- FALSE
+  tr_h <- plotly::plotly_build(fw_chart_waterbody(all_sel, mode))$x$data
+  all_ok <- TRUE
+  for (t in tr_h) {
+    if (grepl("%{x}", t$hovertemplate[1], fixed = TRUE)) all_ok <- FALSE
+    for (i in seq_along(t$y)) {
+      lab <- label_name(t$y[i])
+      n <- sum(wb_named == lab & wb_out == t$name)
+      total <- sum(wb_named == lab)
+      want <- fw_fill(fw_t("plan", "r_tile_seg"), outcome = t$name,
+                      pc = sprintf("%.0f", round(100 * n / total)),
+                      n = fw_fmt_num(n), total = fw_fmt_num(total))
+      if (!identical(as.character(t$customdata[i]), want)) all_ok <- FALSE
+    }
   }
-  ok(sprintf("method x water (%s): every hover reads 'n of total'", mode), all_ok)
-  ok(sprintf("method x water (%s): the %d hidden-label segments still hover a count", mode, n_hidden),
-     hidden_ok && n_hidden > 0L)
+  ok(paste0("category ", mode, ": hover is the species tile's sentence"), all_ok)
 }
+
+# THE SEGMENTS CARRY LABELS IN BOTH MODES (client, 21 Sept 2026: the 100% view
+# had none). Recomputed from the attempts: the count, or round(100 * n / bar
+# total) with a %, and blank only under the share floor.
+for (mode in c("count", "share")) {
+  tr_l <- plotly::plotly_build(fw_chart_waterbody(all_sel, mode))$x$data
+  all_ok <- TRUE; n_shown <- 0
+  for (t in tr_l) {
+    for (i in seq_along(t$y)) {
+      lab <- label_name(t$y[i])
+      n <- sum(wb_named == lab & wb_out == t$name)
+      share <- 100 * n / sum(wb_named == lab)
+      want <- if (share < FW_CHART$label_min_share) "" else
+        if (mode == "share") paste0(round(share), "%") else as.character(n)
+      if (!identical(as.character(t$text[i]), want)) all_ok <- FALSE
+      if (nzchar(want)) n_shown <- n_shown + 1
+    }
+  }
+  ok(paste0("category ", mode, ": segment labels match the recomputed values"),
+     all_ok)
+  ok(paste0("category ", mode, ": some segments are labelled"), n_shown > 0)
+}
+
 # The caption under the method chart: attempts with no method row at all.
 ok("method: the no-method caption count",
    fw_n_no_method(d, all_sel),
@@ -843,16 +1288,14 @@ xlsx <- tempfile(fileext = ".xlsx")
 f1_plan <- modifyList(base, list(country = unique(sel1$country)))
 fw_write_workbook(xlsx, d, export, f1_plan, m)
 sheet_names <- unname(unlist(fw_t("export", "sheets")))
-ok("workbook: the five sheets, named from the copy", openxlsx::getSheetNames(xlsx), sheet_names)
+ok("workbook: the four sheets, named from the copy", openxlsx::getSheetNames(xlsx), sheet_names)
 ok("workbook: attempts sheet rows", nrow(openxlsx::read.xlsx(xlsx, sheet_names[1])), nrow(sel1))
-# BY NAME, not by position. The sheet list gained Contacts, and an index that
-# silently pointed at the wrong sheet is how this assertion stopped meaning
-# anything the first time.
+# BY NAME, not by position. The sheet list has changed before, and an index
+# that silently pointed at the wrong sheet is how this assertion stopped
+# meaning anything the first time.
 defs <- openxlsx::read.xlsx(xlsx, fw_t("export", "sheets")$definitions)
-ok("workbook: dictionary opens with exactly the export columns",
-   defs[[1]][seq_along(FW_EXPORT_COLUMNS)], FW_EXPORT_COLUMNS)
-ok("workbook: and then defines the contacts sheet's own columns",
-   all(names(fw_t("export", "dictionary_contacts")) %in% defs[[1]]), TRUE)
+ok("workbook: dictionary is exactly the export columns",
+   defs[[1]], FW_EXPORT_COLUMNS)
 fs <- openxlsx::read.xlsx(xlsx, fw_t("export", "sheets")$filters)
 # grepl, not %in%: size contributes one row per unit, each labelled
 # "<label> (<unit>)", so an exact match would miss it.
@@ -874,67 +1317,98 @@ fills <- toupper(unique(unlist(lapply(wbk$styleObjects, function(s) s$style$fill
 ok("workbook: header fill is the teal text token",
    any(grepl(toupper(sub("^#", "", FW_COLOURS$teal_text)), fills)))
 
-html <- tempfile(fileext = ".html")
-fw_write_html_report(html, d, sel1, export, f1, m)
-doc <- fw_html_read_text(html)
-tables <- regmatches(doc, gregexpr('(?s)<table class="fw-table">.*?</table>', doc, perl = TRUE))[[1]]
-# THE ATTEMPTS TABLE IS NOT IN THE DOCUMENT ANY MORE. It used to be asserted
-# here as "one row per selected attempt"; the client removed it from the page
-# and this file followed, so the assertion is now that it is absent. Written
-# against the CONTACTS heading as the thing that should still be there, so a
-# report that renders no tables at all fails rather than passes.
-# Named by what each remaining table is FOR, so this says which survive rather
-# than only how many.
+# ---- The PDF report's static twins ---------------------------------------
 #
-# MATCHED ON HEADER CELLS ONLY. Matching anywhere in the table finds "Invasive
-# species" in the FILTERS table, where it is the name of a filter the reader
-# set rather than a column of attempts - which is exactly the false positive
-# that made the first version of the absence test below fail.
-headings <- function(t) gsub("<[^>]*>", "",
-                             regmatches(t, gregexpr("<th[^>]*>[^<]*</th>", t))[[1]])
-has_table <- function(heading) any(vapply(tables, function(t)
-  heading %in% headings(t), logical(1)))
-ok("report: the contacts table is still there",
-   has_table(fw_t("plan", "col_contact_name")))
-ok("report: the attempts-by-country table is still there",
-   has_table(fw_t("export", "col_country")))
-# THE ROW-PER-ATTEMPT TABLE IS GONE. Asserted on a literal rather than a copy
-# key, because the keys it used were deleted with it - and an absence test that
-# depends on the absent thing still existing is how dev/value_test.R broke once
-# already (see the success-count assertion further up).
-ok("report: the row-per-attempt table is gone",
-   !has_table("Site") && !has_table("Invasive species"))
-# It is only acceptable to drop it because every row still leaves the building
-# in the CSV below, which the next assertion is what pins.
-# EVERY RECORD MUST STILL LEAVE THE BUILDING. Dropping the table from the
-# document is only acceptable because the CSV below carries the same rows -
-# that is asserted a few lines down, and the two belong together.
-payload <- function(id) {
-  one <- regmatches(doc, regexpr(paste0('<script id="', id, '".*?</script>'), doc, perl = TRUE))
-  jsonlite::base64_dec(sub("</script>$", "", sub("^<script[^>]*>", "", one)))
+# THE SAME NUMBERS AS THE PAGE. Each ggplot twin in R/charts_static.R is drawn
+# from the counting function its plotly original uses; this recomputes each
+# total in base R and checks the page's traces and the PDF's drawn bars
+# against it, in both modes, for the whole database and for one method's slice.
+gg_total <- function(p) {
+  if (is.null(p)) return(0)
+  ld <- ggplot2::layer_data(p, 1)
+  sum(ld$xmax - ld$xmin)
 }
-csv_path <- tempfile(fileext = ".csv"); writeBin(payload("fw-file-csv"), csv_path)
-ok("report: the csv inside matches the selection",
-   nrow(utils::read.csv(csv_path, check.names = FALSE, encoding = "UTF-8")), nrow(sel1))
-# The no-method caption under the method chart, present with the base-R count
-# when there is one and absent when there is none.
-n_nm <- sum(!as.character(sel1$attempt_id) %in% as.character(am$attempt_id))
-ok(sprintf("report: the no-method caption is %s (%d)",
-           if (n_nm > 0) "present" else "absent", n_nm),
-   grepl(fw_fill(fw_t("plan", "r_method_missing"), n = fw_fmt_num(n_nm)), doc, fixed = TRUE),
-   n_nm > 0)
-# The waterbody chart's own mode reaches the document independently.
-html2 <- tempfile(fileext = ".html")
-fw_write_html_report(html2, d, sel1, export, f1, m, method_mode = "count", method_wb_mode = "share")
-doc2 <- fw_html_read_text(html2)
-ok("report: the waterbody chart follows its own mode",
-   grepl(fw_t("charts", "x_share_uses"), doc2, fixed = TRUE) &&
-     !grepl(fw_t("charts", "x_share"), doc2, fixed = TRUE))
-styles <- regmatches(doc, gregexpr("(?s)<style[^>]*>.*?</style>", doc, perl = TRUE))[[1]]
-ours <- styles[grepl(".fw-container", styles, fixed = TRUE) | grepl(".fw-report{", styles, fixed = TRUE)]
-ok("report: both of our stylesheets are inlined", length(ours), 2L)
-ok("report: our stylesheets carry no pure white",
-   !any(grepl("#fff\\b|#ffffff", ours, ignore.case = TRUE)))
+pl_total <- function(p) {
+  if (is.null(p)) return(0)
+  b <- plotly::plotly_build(p)$x$data
+  sum(unlist(lapply(b, function(t) if (identical(t$type, "bar")) t$x else NULL)))
+}
+pairs_of <- function(s) {
+  am_s <- am[as.character(am$attempt_id) %in% as.character(s$attempt_id), ]
+  unique(paste(am_s$attempt_id, am_s$method_id))
+}
+for (nm in c("all", "slice")) {
+  s <- if (nm == "all") all_sel else sel1
+  n_pairs <- length(pairs_of(s))
+  n_wb <- sum(!is.na(s$waterbody_type))
+  ok(sprintf("pdf twin (%s): methods, page = recount", nm),
+     pl_total(fw_chart_method(d, s, "count")), n_pairs)
+  ok(sprintf("pdf twin (%s): methods, pdf = recount", nm),
+     gg_total(fw_gg_method(d, s, "count")), n_pairs)
+  ok(sprintf("pdf twin (%s): kind of water, page = pdf = recount", nm),
+     c(pl_total(fw_chart_waterbody(s, "count")), gg_total(fw_gg_waterbody(s, "count"))),
+     c(n_wb, n_wb))
+  # In share mode every bar is 100, so the drawn total is 100 per bar.
+  md <- fw_method_data(d, s, "share")
+  if (!is.null(md)) {
+    ok(sprintf("pdf twin (%s): share bars each reach 100", nm),
+       gg_total(fw_gg_method(d, s, "share")), 100 * length(md$order_lv))
+  }
+  # One dot per single-method attempt with a duration, the page's caption count.
+  dur <- fw_gg_duration(d, s)
+  if (!is.null(dur)) {
+    ok(sprintf("pdf twin (%s): one duration dot per counted attempt", nm),
+       nrow(ggplot2::layer_data(dur, 3)), nrow(fw_duration_sel(d, s)))
+  }
+  # One dot per located attempt on the map.
+  #
+  # FOUND BY ITS DATA, NOT BY INDEX. The map gained an ocean layer and a lakes
+  # layer on 23 Sept 2026 and the points moved from index 2 to index 4, which
+  # this read as "176 dots" - the country count - and passed nothing. Every
+  # layer here is a geom_sf, so the geom cannot tell them apart; the points
+  # are the only layer whose data carries an outcome.
+  mp <- fw_gg_map(d, s)
+  pt_layer <- which(vapply(mp$plot$layers,
+                           function(l) "outcome" %in% names(l$data), logical(1)))
+  ok(sprintf("pdf twin (%s): the map has exactly one point layer", nm),
+     length(pt_layer), 1L)
+  ok(sprintf("pdf twin (%s): one map dot per located attempt", nm),
+     nrow(ggplot2::layer_data(mp$plot, pt_layer)),
+     sum(!is.na(s$latitude) & !is.na(s$longitude)))
+}
+# THE PDF FOLLOWS THE READER'S TOGGLES, each chart on its own: the axis title
+# is the one the page shows in that mode.
+ok("pdf twin: the methods chart follows its mode",
+   c(fw_gg_method(d, sel1, "count")$labels$x, fw_gg_method(d, sel1, "share")$labels$x),
+   c(fw_t("charts", "x_attempts"), fw_t("charts", "x_share")))
+
+# ---- The PDF's size estimate ----------------------------------------------
+#
+# THE WARNING IS ONLY AS GOOD AS THE ESTIMATE. Rendered for real on three
+# selections - the whole database, one country, one attempt - and the estimate
+# must land within 30% of each file, or the picker warns about the wrong ones.
+if (!fw_pdf_available()) {
+  cat("  *** PDF SIZE ASSERTIONS SKIPPED: quarto not found (set QUARTO_PATH) ***\n")
+} else {
+  one_country <- names(sort(table(all_sel$country), decreasing = TRUE))[2]
+  cases <- list(world = all_sel,
+                country = all_sel[all_sel$country %in% one_country, ],
+                single = all_sel[1, ])
+  for (nm in names(cases)) {
+    s <- cases[[nm]]
+    out <- tempfile(fileext = ".pdf")
+    fw_write_pdf_report(out, d, s, filters = base, meta = m)
+    est <- fw_pdf_size_estimate(d, s)
+    real_mb <- file.size(out) / 1e6
+    real_pages <- fw_pdf_page_count(out)
+    cat(sprintf("    %-8s %4d attempts: %.2f MB / %d pages, estimated %.2f MB / %d pages\n",
+                nm, nrow(s), real_mb, real_pages, est$mb, est$pages))
+    ok(sprintf("pdf size (%s): estimate within 30%% of the file", nm),
+       abs(est$mb - real_mb) / real_mb <= 0.3, TRUE)
+    ok(sprintf("pdf pages (%s): estimate within 30%% of the file", nm),
+       abs(est$pages - real_pages) / real_pages <= 0.3, TRUE)
+  }
+}
 
 ct <- fw_report_country_table(all_sel)
 n_c <- length(unique(all_sel$country))
@@ -949,7 +1423,7 @@ if (n_c > FW_REPORT_COUNTRY_ROWS) {
      ct[[1]][nrow(ct)], fw_fill(fw_t("export", "other_countries"), n = n_c - FW_REPORT_COUNTRY_ROWS))
 }
 
-private <- d$contact$contact_email[!d$contact$email_public & !is.na(d$contact$contact_email)]
+private <- d$contact$contact_email[!d$contact$contact_public & !is.na(d$contact$contact_email)]
 if (length(private)) {
   ok("redaction: a private address is refused",
      inherits(try(fw_assert_export_safe(data.frame(primary_contact_email = private[1]), d),
@@ -992,8 +1466,10 @@ ok("map: the record frame holds every attempt, located or not", nrow(recs), nrow
 ok("map: and the located ones are byte-identical to the map's",
    identical(as.data.frame(recs[match(mp$attempt_id, recs$attempt_id), ], row.names = NULL),
              as.data.frame(mp, row.names = NULL)))
-ok("map: the orphan notes reach the popup frame",
-   all(!is.na(mp$method_pairs[match(intersect(orphan_ids, mp$attempt_id), mp$attempt_id)])))
+# The orphan notes no longer reach the map: it lists method names only
+# (client, 21 Sept 2026), and those notes stay in the export asserted above.
+ok("map: an attempt with only a note lists no method",
+   all(is.na(mp$method_names[match(intersect(orphan_ids, mp$attempt_id), mp$attempt_id)])))
 
 # Cached figures are the figures. Rendering once per species must give the same
 # panel as rendering per marker, or the cache has changed what the reader sees.
@@ -1052,10 +1528,39 @@ home_html <- as.character(mod_home_ui("home", fw_headline_stats(d)))
 ok_ids <- as.character(d$attempt$attempt_id)[as.character(d$attempt$outcome) %in% "Successful"]
 as_ben <- d$attempt_species[as.character(d$attempt_species$role) == "beneficiary", ]
 n_protected <- length(unique(as_ben$species_id[as.character(as_ben$attempt_id) %in% ok_ids]))
+n_successful <- length(ok_ids)
 ok("welcome: species protected = beneficiaries of successful attempts",
    fw_headline_stats(d)$protected, n_protected)
-ok("welcome: the figure is on the page",
-   grepl(paste0('class="fw-kpi__value">', fw_fmt_num(n_protected), "<"), home_html, fixed = TRUE))
+ok("welcome: successful attempts counted from the outcomes",
+   fw_headline_stats(d)$successful, n_successful)
+# Both figures in the sentence, each in its own bold span, attempts first.
+kpi_html <- regmatches(home_html, regexpr('(?s)<p class="fw-home-kpi">.*?</p>', home_html, perl = TRUE))
+kpi_bold <- regmatches(kpi_html, gregexpr("<strong>[^<]*</strong>", kpi_html))[[1]]
+ok("welcome: the sentence is on the page", length(kpi_html), 1L)
+# THE ">" IS INSIDE THE SECOND BOLD (client, 24 Sept 2026), so it is teal and
+# in the numeric face with the figure it qualifies rather than in plain ink
+# beside it.
+ok("welcome: the sentence carries both figures in bold, attempts then species",
+   kpi_bold, paste0("<strong>", c(fw_fmt_num(n_successful),
+                                  paste0("&gt;", fw_fmt_num(n_protected))), "</strong>"))
+ok("welcome: the sentence reads as the client wrote it",
+   grepl(paste0("<strong>", fw_fmt_num(n_successful),
+                "</strong> successful eradications recorded so far have protected <strong>&gt;",
+                fw_fmt_num(n_protected), "</strong> species."), kpi_html, fixed = TRUE))
+# The map's instruction is the caption under the map, in the map colours, and
+# not in the bar.
+cap_html <- regmatches(home_html, regexpr('(?s)<figcaption class="fw-compare__caption">.*?</figcaption>', home_html, perl = TRUE))
+ok("welcome: the map line is under the map, both states in their map colours",
+   c(length(cap_html) == 1L,
+     grepl('<span class="fw-compare__now">successes (blue)</span>', cap_html, fixed = TRUE),
+     grepl('<span class="fw-compare__later">opportunities (yellow)</span>', cap_html, fixed = TRUE)),
+   c(TRUE, TRUE, TRUE))
+ok("welcome: the bar holds only the sentence", grepl("fw-compare__", kpi_html, fixed = TRUE), FALSE)
+# The title's ** pairs are bold, not literal asterisks.
+title_html <- regmatches(home_html, regexpr('(?s)<h1 class="fw-page-header__title">.*?</h1>', home_html, perl = TRUE))
+ok("welcome: the title's ** pairs render as bold",
+   c(grepl("**", title_html, fixed = TRUE), grepl("<strong>", title_html, fixed = TRUE)),
+   c(FALSE, TRUE))
 ok("welcome: no more protected than beneficiaries overall",
    n_protected <= fw_headline_stats(d)$beneficiaries)
 ok("welcome: no unfilled slot left in the page", !grepl("\\{[a-z_]+\\}", home_html))
@@ -1071,14 +1576,50 @@ ok("welcome: one card per story", card_ids, paste0("fw-home-story-", names(fw_t(
 ok("welcome: one picture button per story",
    lengths(regmatches(home_html, gregexpr('class="fw-home-species"', home_html))),
    length(fw_t("home", "stories")))
+ok("welcome: the page order names every story once",
+   setequal(FW_HOME_ORDER, names(fw_t("home", "stories"))) && !anyDuplicated(FW_HOME_ORDER))
+# The buttons, in the order they are in the page - the grid fills by column,
+# so this is down the left then down the right.
+tile_order <- sub(".*fw-home-story-", "", regmatches(home_html,
+  gregexpr('class="fw-home-species" popovertarget="fw-home-story-[a-z_]+', home_html))[[1]])
+ok("welcome: pictures run Apache, Valcheta, redfin | grebe, galaxias, mussel",
+   vapply(tile_order, function(k) fw_t("home", "stories", k)$beneficiary$name, ""),
+   c("Apache trout", "Valcheta frog", "Fiery redfin",
+     "Little grebe", "Golden galaxias", "Freshwater pearl mussel"))
 ok("welcome: every button opens a card that exists", setequal(opens, card_ids))
-pics <- na.omit(unlist(c(FW_HOME_IMG$stories, FW_HOME_IMG[c("map_now", "map_next")])))
+pics <- na.omit(unlist(c(FW_HOME_IMG$stories, FW_HOME_IMG$stories_named,
+                         FW_HOME_IMG[c("map_now", "map_next")])))
 ok("welcome: every picture named exists under www/", all(file.exists(file.path("www", pics))))
-ok("welcome: every story has its beneficiary picture",
-   !any(is.na(vapply(FW_HOME_IMG$stories, `[[`, "", "beneficiary"))))
+ok("welcome: every story has its beneficiary picture", !any(is.na(FW_HOME_IMG$stories)))
 ok("welcome: placeholders drawn for each missing picture",
    lengths(regmatches(home_html, gregexpr('class="fw-story__placeholder"', home_html))),
-   sum(is.na(unlist(FW_HOME_IMG$stories))))
+   sum(is.na(FW_HOME_IMG$stories)))
+ok("welcome: the cards show the beneficiary only",
+   !grepl("fw-story__figure--invasive", home_html, fixed = TRUE) &&
+     !grepl("_greyscale.png", home_html, fixed = TRUE))
+ok("welcome: one picture per card",
+   lengths(regmatches(home_html, gregexpr('class="fw-story__figure"', home_html))),
+   length(fw_t("home", "stories")))
+
+# THE TILE AND THE CARD SHOW DIFFERENT PLATES, and which way round matters.
+# The card gets the lettered one because that is where the reader asked for the
+# story; the strip keeps the unlettered drawing because six lettered plates at
+# tile size are six pieces of unreadable text. Swapping them looks harmless in
+# a diff and is the whole of this feature.
+ok("welcome: every story card carries the lettered plate",
+   all(vapply(FW_HOME_IMG$stories_named,
+              function(p) grepl(paste0('src="', p, '"'), home_html, fixed = TRUE),
+              TRUE)))
+ok("welcome: the tile strip keeps the unlettered drawing",
+   all(vapply(FW_HOME_IMG$stories,
+              function(p) grepl(paste0('src="', p, '"'), home_html, fixed = TRUE),
+              TRUE)))
+# Both sets are in the page at once, so the lettered plates must not be fetched
+# until a card opens. They are inside a closed popover, which is display:none,
+# and it is loading="lazy" that stops the browser fetching them anyway.
+ok("welcome: every story picture is lazy",
+   lengths(regmatches(home_html, gregexpr('loading="lazy"', home_html))) >=
+     length(FW_HOME_IMG$stories) + length(FW_HOME_IMG$stories_named))
 nav_to <- regmatches(home_html, gregexpr("fw_nav_to&#39;,&#39;[a-z_]+", home_html))[[1]]
 nav_to <- sub(".*&#39;", "", nav_to)
 ok("welcome: header links go to explore, plan, contribute, networking",
@@ -1097,16 +1638,29 @@ ok("welcome: the reveal starts fully on current work",
 cat("\n-- design values --\n")
 
 rem <- function(x) as.numeric(sub("rem$", "", x))
-# THE TWO EXEMPTIONS ARE NAMED, so a third cannot be added by accident: a new
-# size_* token under 1rem fails this until someone writes it down here and says
-# why. size_popup is for transient overlays; size_credit is the photo credits in
-# the dashboard's attempts table. Both are recorded at FW_TYPE in R/brand.R.
-FW_TYPE_FLOOR_EXEMPT <- c("size_popup", "size_credit")
+# THE THREE EXEMPTIONS ARE NAMED, so a fourth cannot be added by accident: a
+# new size_* token under 1rem fails this until someone writes it down here and
+# says why. size_popup is for transient overlays; size_credit is the photo
+# credits in the dashboard's attempts table; size_fine is the Welcome page's
+# evidence footnote, the Mercator note under both maps, and the report's
+# filters table on paper (client, 23 Sept 2026). All three are recorded at
+# FW_TYPE in R/brand.R and in the floor note in www/scss/_tokens.scss.
+FW_TYPE_FLOOR_EXEMPT <- c("size_popup", "size_credit", "size_fine")
 sizes <- FW_TYPE[grepl("^size_", names(FW_TYPE)) &
                    !names(FW_TYPE) %in% FW_TYPE_FLOOR_EXEMPT]
 ok("type: nothing on the page is under the 1rem floor", all(vapply(sizes, rem, numeric(1)) >= 1))
-ok("type: the floor's exemptions are the two that are written down",
-   sum(vapply(FW_TYPE[grepl("^size_", names(FW_TYPE))], rem, numeric(1)) < 1), 2L)
+ok("type: the floor's exemptions are the three that are written down",
+   sum(vapply(FW_TYPE[grepl("^size_", names(FW_TYPE))], rem, numeric(1)) < 1), 3L)
+# AND THE EXEMPTION HAS EXACTLY THE CALLERS IT IS WRITTEN DOWN FOR. $fw-size-fine
+# is the one token that may go under the floor on a page that stays put, so the
+# stylesheet is checked for who actually uses it.
+scss <- paste(vapply(list.files("www/scss", pattern = "[.]scss$", full.names = TRUE),
+                     function(f) paste(readLines(f, warn = FALSE), collapse = "\n"),
+                     character(1)), collapse = "\n")
+# DECLARATIONS, not mentions: the token is named several times in the comments
+# that explain it, and those are not callers.
+fine_users <- length(gregexpr("font-size:\\s*\\$fw-size-fine", scss)[[1]])
+ok("type: the fine size has the three page callers it is permitted", fine_users, 3L)
 ok("type: the plotly floor is the rem floor in pixels", FW_TYPE$floor_px, 16L)
 vars <- fw_sass_variables()
 ok("tokens: no empty Sass variable", !any(vapply(vars, function(v) is.null(v) || is.na(v) || !nzchar(v), logical(1))))
@@ -1114,6 +1668,12 @@ ok("tokens: no white surface",
    !any(tolower(unlist(FW_COLOURS)) %in% c("#fff", "#ffffff")))
 ok("charts: duration tick labels match the tick values",
    length(fw_t("charts", "duration_ticks")), length(FW_CHART$duration_ticks))
+# THE PRINTED MAP'S OWN COLOURS. Four, all named, none of them white - the
+# report's page is a tint and a white lake would read as a hole in it.
+ok("map print: every colour is a hex value",
+   all(grepl("^#[0-9a-fA-F]{6}$", unlist(FW_MAP_PRINT))))
+ok("map print: none of them is white",
+   !any(tolower(unlist(FW_MAP_PRINT)) %in% c("#fff", "#ffffff")))
 
 cat("\n")
 if (failures > 0L) stop(failures, " value assertion(s) failed", call. = FALSE)

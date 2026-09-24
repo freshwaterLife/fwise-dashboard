@@ -26,35 +26,66 @@ FW_COPY_CONTRIBUTE <- list(
       "only a few fields are required."
     ),
 
-    # THE DEFINITION AND THE SCOPE, pinned to the top of the page. This is the
-    # client's wording and the citation is Piero Genovesi's review; do not
-    # reword either without asking them. Shown by fw_preamble() on the
-    # contribute page and again on About, from this one source.
+    # THE DEFINITION AND THE SCOPE, pinned to the top of the page. Every word of
+    # this is the client's (24 Sept 2026); do not reword any of it without
+    # asking them. Shown by fw_preamble() on the contribute page only - it came
+    # off About on 21 Sept, see the note at the top of mod_about.R.
+    #
+    # THE ** PAIRS ARE LOAD-BEARING: fw_emphasis() turns them into <strong>, and
+    # the client chose which clause in each point is the one that has to be read
+    # if nothing else is.
+    #
+    # `citation` is the reference `cite_short` resolves to, and the only place
+    # in the app where it is written out in full. Keep the three in step, and
+    # keep them in step with the outcome tooltip below, which cites the same
+    # work.
+    #
+    # IT USED TO BE FOUR. A "How success is defined" caveat in copy_export.R
+    # carried the same reference until the client replaced every caveat with a
+    # placeholder for their own (24 Sept 2026), so THIS is now the only place
+    # in the app that defines what success means. When the FWISE team's caveats
+    # arrive, check whether theirs defines it too, and if so keep the two in
+    # step - a reader who met the definition on this form must not meet a
+    # different one in the download.
     preamble = list(
       heading = "What counts as an eradication",
       definition = paste(
-        "Eradication is the complete and permanent removal of all wild",
-        "populations of an alien plant or animal species from a defined area,",
-        "by means of a time-limited campaign."
+        "**Eradication is the complete and permanent removal of all wild",
+        "populations of a species from a defined area by means of a",
+        "time-limited campaign**"
       ),
+      cite_short = "Genovesi 2000",
+      cite_url = "https://rm.coe.int/1680746248",
       citation = paste(
-        "Genovesi, Piero. Limits and Potentialities of Eradication as a Tool",
-        "for Addressing Biological Invasions."
+        "Genovesi, P. (2000). Guidelines for Eradication of Terrestrial",
+        "Vertebrates: A European Contribution to the Invasive Alien Species",
+        "Issue. IUCN/SSC Invasive Species Specialist Group, National Wildlife",
+        "Institute, Italy."
       ),
       scope_heading = "What is the scope of contributions?",
-      # A list rather than prose because the two points answer different
-      # questions: which attempts we want, and which organisms.
+      # A list rather than prose because the three points answer different
+      # questions: which outcomes we want, what we are not, and which organisms.
       scope = c(
         paste(
-          "FWISE is interested in all stages of an eradication - failed,",
-          "in-progress, successful, or even unverified. Past, present. The more",
-          "data we are able to collate at different cycles of eradication the",
-          "more practitioners have to leverage, the more gaps we can expose to",
-          "funders to help invasive species eradication."
+          "FWISE **includes and is equally interested in all outcomes of an",
+          "eradication**: successful, failed, ongoing, and unknown. Failure is",
+          "as important to know about as success. Please submit both past",
+          "eradication attempts (even if they occurred long ago and much data",
+          "lacks) and current ones (even if unfinished, they help track global",
+          "progress as new species and geographies are addressed)."
         ),
         paste(
-          "FWISE covers freshwater invasive **animals** - fish, crayfish,",
-          "molluscs, amphibians etc. It does not cover plants."
+          "FWISE **does not include control**: the reduction of population",
+          "density and abundance, in order to keep damage at an acceptable",
+          "level (Genovesi 2000). Though control can be important and",
+          "necessary, eradication (time-limited) is cheaper and more enduring",
+          "than control (long-term)."
+        ),
+        paste(
+          "FWISE includes freshwater invasive animals: fish, mussels, crayfish,",
+          "amphibians, etc. **It does not include plants.** The context and",
+          "methods of freshwater animal versus plant eradications are",
+          "different."
         )
       )
     ),
@@ -98,28 +129,25 @@ FW_COPY_CONTRIBUTE <- list(
       start_action   = "Start the form"
     ),
 
-    # Consent controls, section 0.1 of the specification
+    # Consent controls, section 0.1 of the specification. At the foot of the
+    # form since 24 Sept 2026 - see fw_step_review_ui().
     consent = list(
-      heading = "Before you begin",
-      # This is the client's wording from the specification and should not be
-      # reworded without asking them.
+      heading = "Consent",
+      # [NEEDS CLIENT SIGN-OFF] Reworded 24 Sept 2026 at Alex's request. The
+      # specification's wording also granted permission to DISPLAY contact
+      # details, which contradicted the separate opt-in for exactly that
+      # (fields$contact_public), so this now covers storing and using the record
+      # only.
       statement = paste(
-        "By submitting this information you confirm that FWISE staff may contact",
-        "you regarding your submission, and allow FWISE to display contact",
-        "information within the dashboard."
+        "By sending this record you agree that FWISE staff may store and use",
+        "the information in it to review the record, publish it in the FWISE",
+        "database, and contact you about your submission."
       ),
-      agree_label = "I agree to the above and to FWISE using this information as described",
+      agree_label = "I agree to FWISE storing and using this information as described.",
+      agree_yes   = "Yes, I agree",
       # [PLACEHOLDER] the full terms of data use are still being drafted
       terms_link_label = "Read the full terms of data use",
-      terms_url = "#",
-      email_private_label = paste(
-        "Keep my email address private. FWISE staff can still contact me, but my",
-        "address will not be shown to public users."
-      ),
-      email_private_help = paste(
-        "Leave this unticked and your address appears on the contacts page, so",
-        "other practitioners can reach you directly."
-      )
+      terms_url = "#"
     ),
 
     # Step titles, shown in the progress indicator
@@ -148,7 +176,7 @@ FW_COPY_CONTRIBUTE <- list(
       methods   = "How the eradication was carried out.",
       chemical  = "Detail on the chemical treatment. All optional.",
       outcome   = "What happened, and where the evidence for it sits.",
-      contributor = "Who to credit and contact. We need a primary contact so the review team can follow up.",
+      contributor = "Who to credit and contact. We need a contact so the review team can follow up.",
       other     = "Anything else you would like the FWISE team to know.",
       review    = "A last read-through before sending. Everything here is editable above; scroll back up to change anything."
     ),
@@ -205,7 +233,6 @@ FW_COPY_CONTRIBUTE <- list(
       e_contact_name = "We need a contact name so the review team can follow up.",
       e_contact_mail = "We need a contact email so the review team can follow up.",
       e_contact_bad  = "That does not look like an email address.",
-      e_second_mail  = "The second contact's email does not look like an email address.",
       e_consent      = "Confirm you are happy for us to use this before sending.",
 
       # Soft warnings
@@ -291,8 +318,8 @@ FW_COPY_CONTRIBUTE <- list(
       start_year       = "Year the eradication attempt began",
       end_year         = "Year the eradication attempt ended",
       duration         = "Estimated total duration (days)",
-      driver           = "What was the primary driver for the eradication attempt?",
-      driver_other     = "Please describe the driver",
+      driver           = "What was the main reason for the eradication attempt?",
+      driver_other     = "Please describe the reason",
 
       methods_heading  = "Methods used",
       method_main      = "Main eradication method",
@@ -318,9 +345,13 @@ FW_COPY_CONTRIBUTE <- list(
       reference        = "Link or citation for the underlying evidence",
       source           = "Where did this record come from?",
 
-      primary_heading  = "Primary contact",
-      secondary_heading = "Secondary contact",
-      secondary_note   = "Optional.",
+      contact_heading  = "Contact information",
+      contact_public     = paste(
+        "I give permission for my personal information (name, organization,",
+        "email) to be displayed in app for people to contact me regarding",
+        "eradications."
+      ),
+      contact_public_yes = "Yes, show",
       contact_name     = "Name",
       contact_email    = "Email",
       contact_org      = "Organisation",
@@ -340,6 +371,11 @@ FW_COPY_CONTRIBUTE <- list(
 
     # Help text printed under a control. Keyed like `fields`.
     help = list(
+      contact_public   = paste(
+        "Tick this and your name, organization and email appear in the app, so",
+        "other practitioners can contact you about eradications. Leave it",
+        "unticked and only FWISE staff will see them."
+      ),
       region         = "Optional. Choose the state, province or region, or type one if it is not listed.",
       location       = "Click the map to place your site, or type coordinates below.",
       waterbody_type = "The list narrows once you have answered still or flowing.",
@@ -366,7 +402,7 @@ FW_COPY_CONTRIBUTE <- list(
       country      = "The country the site sits in. Pick the region as well where the site is in a territory recorded separately, such as Hawaii or the Galapagos Islands.",
       location     = "Click the map to drop a pin, or type coordinates directly. Either way the two boxes stay in step with the map.",
       waterbody    = "The kind of waterbody treated. Choose the closest match, or Other (specify) if none fits.",
-      water_regime = "Still water is lentic, such as a lake or pond. Flowing water is lotic, such as a river or stream.",
+      water_regime = "Still water is a lake or pond, for example. Flowing water is a river or stream.",
       area         = "The size of the area treated. Hectares are usual for still water, kilometers for flowing water.",
       area_notes   = "Anything that qualifies the figure, for example five golf-course ponds.",
       depth        = "Average or estimated depth in meters.",
@@ -391,11 +427,11 @@ FW_COPY_CONTRIBUTE <- list(
       toxin_conc   = "Target concentration of the chemical in mg/L. A text box rather than a number, because the value can vary over a treatment.",
       toxin_conc_measured = "The concentration actually measured in the water, in mg/L, if it was measured. A range is fine.",
       neutralising = "The neutralizing agent used, if any.",
-      outcome      = "Eradication means the complete and permanent removal of the population (Genovesi 2005). You can record an attempt as successful without formal proof of absence; our review team records that distinction separately, so answer as you see it.",
+      outcome      = "Eradication means the complete and permanent removal of the population (Genovesi 2000). You can record an attempt as successful without formal proof of absence; our review team records that distinction separately, so answer as you see it.",
       verification = "How the outcome was verified, and any notes on it.",
       reference    = "A link or citation for the underlying evidence. A DOI or URL is ideal.",
       source       = "Where this record came from. This is for our internal provenance and is not shown publicly.",
-      contact      = "We need a primary contact so the review team can follow up on your submission.",
+      contact      = "We need a contact so the review team can follow up on your submission.",
       notes        = "Anything else you would like the FWISE team to know."
     ),
 
@@ -417,7 +453,7 @@ FW_COPY_CONTRIBUTE <- list(
       year_range      = "Enter a year between {min} and {year}.",
       end_year_range  = "Enter a year between {min} and twenty years from now.",
       end_before_start = "The end year cannot be before the start year.",
-      driver          = "Please choose a driver.",
+      driver          = "Please choose a reason.",
       method          = "Please choose the main method.",
       outcome         = "Please choose an outcome.",
       contact_name    = "Please give a contact name.",
@@ -429,7 +465,6 @@ FW_COPY_CONTRIBUTE <- list(
     # ---- Announcements ---------------------------------------------------------
     # Written to the polite live region so a screen reader hears them.
     announce = list(
-      consent_start     = "Please confirm you agree before starting.",
       waterbody_changed = "The waterbody types have changed to match {regime}. Please choose again.",
       regions_changed   = "The regions have changed to match {country}. Please choose again.",
       target_added      = "Target {n} added.",

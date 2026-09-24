@@ -3,7 +3,8 @@
 # motion and breakpoints, for the whole application: the Shiny UI, the Bootstrap
 # theme (R/theme.R), every plotly chart (R/charts.R), the maps (R/maps.R), the
 # workbook export (R/export.R), the Word question list (R/questions_docx.R) and
-# the standalone HTML report (R/report_html.R).
+# the PDF report (R/report_pdf.R, R/charts_static.R) and the attempts download
+# (R/report_records.R).
 #
 # HOW IT REACHES THE STYLESHEET. www/scss/_tokens.scss contains NO literal
 # values. fw_sass_variables() below flattens everything here into Sass variables
@@ -140,6 +141,22 @@ FW_TYPE <- list(
   size_min     = "1.05rem",    # THE FLOOR. Not a step on the scale; do not lower.
   size_popup   = "0.9rem",     # THE ONE EXEMPTION: transient overlays only
 
+  # THE THIRD EXEMPTION, and like the other two it is a client instruction
+  # rather than a drift (23 Sept 2026): "smaller than 1rem", for small print
+  # that qualifies the page without competing with it. FOUR PLACES ONLY -
+  # the Welcome page's evidence footnote, the Mercator note under both maps,
+  # the footer's licence line (added 24 Sept 2026 at the client's request),
+  # and, on paper, the report's "What this report covers" table (fw-small in
+  # fw_pdf_tokens()).
+  #
+  # 0.95rem, not the 0.8rem the credits take: this is running prose a reader
+  # is expected to read through, where a credit is a line they glance at.
+  #
+  # THE FLOOR STILL STANDS FOR EVERYTHING ELSE. If a fifth caller wants this,
+  # that is the point at which to ask the client whether the floor has moved
+  # rather than to add it here.
+  size_fine    = "0.95rem",    # footnotes and map notes. See $fw-size-fine.
+
   # THE SECOND EXEMPTION, and a client instruction rather than a drift. A
   # photograph's credit line is an obligation under the licence - it has to be
   # present and legible - but in the dashboard's attempts table it sits under
@@ -168,6 +185,45 @@ FW_TYPE <- list(
   leading_heading = 1.15,
 
   measure = "68ch"             # opt-in prose width, .fw-measure
+)
+
+# ---- Print -------------------------------------------------------------------
+
+# THE PDF REPORT'S TYPE, in points. A printed page has no rem, so the floor is
+# carried across by the CSS definition of the units: 1rem is 16px and 16px is
+# 12pt, so FW_TYPE$size_min (1.05rem) is 12.6pt on paper. Body text and the
+# charts' own labels sit ON that floor - the client's rule does not relax
+# because the page is printed - and the headings step up from it. The charts
+# are drawn at their printed size, so a label set at `floor` in ggplot prints
+# at `floor`.
+fw_rem_pt <- function(rem) 12 * as.numeric(sub("rem$", "", rem))
+# THE PRINTED MAP'S OWN COLOURS, and the one place in the app where water and
+# land are drawn as themselves rather than as surface tones (client, 23 Sept
+# 2026). Everywhere else the map is a ground for data - light land, slightly
+# darker sea, both from the neutral palette - because colour there belongs to
+# the outcome dots. On paper the client asked for it to read as a map.
+#
+# MUTED ON PURPOSE. These sit under the four Wong outcome colours, which are
+# the data, and a saturated green would compete with the dots sitting on it.
+# Both are well below the outcome palette in chroma; check with
+# dev/check_contrast.R if either is changed.
+#
+# `frame` is the figure's border, its ticks and the scale bar: one dark grey,
+# stated once, so the three read as parts of the same edge.
+FW_MAP_PRINT <- list(
+  land    = "#dbe6d4",   # pale green
+  water   = "#cfe0ea",   # pale blue - the sea, and every lake
+  outline = "#9aa89a",   # coastlines and lake edges
+  frame   = "#4a4f53"    # the border, the ticks and the scale bar
+)
+
+FW_PRINT <- list(
+  floor   = fw_rem_pt(FW_TYPE$size_min),
+  title   = 24,
+  h2      = 17,
+  h3      = 14,
+  stat    = 20,     # the five numbers in the summary strip
+  leading = 0.62    # Typst's gap between lines, in em
 )
 
 # ---- Space -------------------------------------------------------------------

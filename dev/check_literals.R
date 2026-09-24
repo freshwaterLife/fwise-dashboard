@@ -41,6 +41,18 @@ for (f in list.files("www/scss", pattern = "[.]scss$", full.names = TRUE)) {
   for (i in hits) fail(f, ":", i, "  the word white: ", trimws(lines[i]))
 }
 
+# ---- 2 and 3: the PDF report's Typst template --------------------------------
+# Every value the template draws with comes from fwise-tokens.typ, which
+# fw_pdf_tokens() writes from R/brand.R. A colour typed into the template
+# itself would be a second copy of the palette, so it is refused here.
+for (f in list.files("resources/report", pattern = "[.]typ$", full.names = TRUE)) {
+  lines <- sub("//.*$", "", readLines(f, warn = FALSE))
+  hits <- grep("#[0-9a-fA-F]{3,8}\\b|rgb\\(\"", lines)
+  for (i in hits) fail(f, ":", i, "  colour literal: ", trimws(lines[i]))
+  hits <- grep("(^|[^a-z-])white($|[^a-z-])", lines)
+  for (i in hits) fail(f, ":", i, "  the word white: ", trimws(lines[i]))
+}
+
 # ---- 4: every fw_t() key resolves ------------------------------------------
 source("R/copy.R"); source("R/copy_contribute.R"); source("R/copy_export.R")
 pattern <- 'fw_t\\(("[^"]+"(, *"[^"]+")*)\\)'

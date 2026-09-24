@@ -1,46 +1,5 @@
 # mod_plan.R
-# BUILT. The report builder.
-#
-# A FILTER PANEL AND A DELIBERATE BUILD STEP, not a live dashboard. Results
-# render only when Build report is pressed. That is a DESIGN decision before it
-# is a performance one: the client's steer was "controlled, informative, not
-# random clicking", and the reason is credibility. A view that redraws under the
-# cursor invites someone to land on a narrow, unrepresentative slice by accident
-# and then cite it. Making the user commit to a selection makes the selection
-# something they chose.
-#
-# So do not "make the results reactive to the filters". The gap between changing
-# a filter and seeing a result is the feature.
-#
-# NO OUTCOME FILTER AND NO METHOD FILTER. Both are the client's decision rather
-# than oversights, and they are different decisions.
-#
-# OUTCOME is not filterable ANYWHERE any more - the dashboard's copy of it went
-# when that page was cut back to four simple filters. The reasoning (Graden,
-# metrics framework): given their situation - region, species, waterbody type
-# and size - a user planning an eradication should see EVERYTHING that has been
-# tried there and its association with success and failure. Letting them filter
-# to successes only produces false optimism about their own site, and letting
-# them filter to failures is no better. All four outcome states stay visible in
-# every result instead.
-#
-# METHOD is not filterable here because it is an ANSWER, not a question. This
-# page exists to tell a reader what has been tried in a situation like theirs;
-# pre-selecting the method inverts that into "show me evidence for the thing I
-# had already decided to do". The two method charts are where method belongs.
-#
-# THE FILTERS DESCRIBE THE SITUATION, then: where it is, what kind of water,
-# how big, which animals, and when. Size is the newest of them and the only one
-# that is unit-aware - see the header of R/filters.R.
-#
-# THE CAVEATS ARE ON THE ABOUT PAGE. They are properties of the whole database
-# rather than of any one selection, and under a freshly built result they read
-# as qualifications of that selection alone. They still travel inside every
-# download, including as a plain text file that is never optional.
-#
-# The filter panel lives in mod_plan_filters.R, the shared filter engine in
-# filters.R, rendering in mod_plan_results.R, and the export in export.R, which
-# is shared with the future Zenodo release.
+# The report builder.
 
 library(shiny)
 library(bslib)
@@ -48,14 +7,7 @@ library(dplyr)
 
 #' The report builder page
 #'
-#' STACKED, NOT SIDE BY SIDE. The filter panel is the whole width of the page
-#' and the results sit underneath it. See the note at the top
-#' of mod_plan_filters.R for the three reasons, the first of which is that a
-#' reader should answer the questions before they can see any answer.
-#'
-#' The results carry an id because the server scrolls to them on Build. With the
-#' panel above rather than beside, a rebuild otherwise leaves the reader looking
-#' at the controls with no sign that anything happened below the fold.
+
 mod_plan_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -65,6 +17,12 @@ mod_plan_ui <- function(id) {
       id = "fw-main",
       fw_section(
         fw_container(
+          # THE GREEN CARD, above the filters (client, 24 Sept 2026): what the
+          # report gives you before you are asked to describe anything. It
+          # shares .fw-preamble's treatment - the app's one "read this first"
+          # block - through the .fw-callout selector in _components.scss.
+          div(class = "fw-callout",
+              lapply(fw_t("plan", "callout"), function(x) p(fw_emphasis(x)))),
           uiOutput(ns("filters")),
           div(id = ns("results_anchor"), class = "fw-plan__results",
               uiOutput(ns("zero")),
@@ -78,35 +36,26 @@ mod_plan_ui <- function(id) {
   )
 }
 
-#' The results, as a fixed skeleton
-#'
-#' THE CHARTS AND THE MAP ARE STATIC OUTPUTS, and they used to live inside one
-#' renderUI that was rebuilt on every Build. That was the bug the client
-#' reported as "some figures update when I change country and some do not":
-#' each rebuild destroyed and recreated every chart's element while the chart
-#' itself was re-rendering, and whether a chart's new value reached the new
-#' element or the dying one came down to message timing. The map, rebuilt from
-#' scratch into a fresh element, sometimes came up grey for the same reason.
-#' Same fix as the Explore page: the elements exist once, and only their
-#' contents change. What still varies with the selection - the summary, the
-#' species tiles, the outcome bars and the captions - is plain HTML in small
-#' uiOutputs that contain no outputs of their own. Keep it that way: an output
-#' inside any of those renderUIs brings the bug back.
-#'
-#' Ids here share one DOM id space with the filters - see the note above the
-#' waterbody chart.
 fw_plan_results_ui <- function(ns) {
   tagList(
-    # THE DOWNLOAD SITS AT THE TOP, beside the heading. It used to be the
-    # last thing on the page, below two tables, and the client's objection
-    # was that a reader had no way of knowing any of this was exportable
-    # until they had scrolled past all of it. Exporting is the point of this
-    # page, so it is the first thing the results say.
+    # THE DOWNLOAD FLOATS OVER THE RESULTS (client, 24 Sept 2026). It used to
+    # be the last thing on the page, below two tables, and the client's
+    # objection was that a reader had no way of knowing any of this was
+    # exportable until they had scrolled past all of it. It then sat in a
+    # sticky row of its own at the top of the results, which cost a line of
+    # the page for one button; it is now fixed in the bottom corner instead,
+    # out of the flow entirely. See .fw-plan__results-head in
+    # _components.scss - the row is still the element, it just has no height.
+    #
+    # IT STAYS FIRST IN THE DOM even though it is drawn last on the screen, so
+    # the results open on the thing this page is for rather than ending on it
+    # - dev/plan_test.R asserts that order.
     #
     # IT DOES NOT NEED DISABLING BEFORE A BUILD. This whole skeleton is hidden
     # until a build has matched something, so the button cannot be seen until
     # there is a report behind it - which is the same guarantee, without a
-    # disabled control sitting on the page inviting a click.
+    # disabled control sitting on the page inviting a click. It is why the
+    # floating button appears on the build and not before it.
     div(
       class = "fw-plan__results-head",
       h2(class = "fw-visually-hidden", fw_t("plan", "r_heading")),
@@ -114,30 +63,20 @@ fw_plan_results_ui <- function(ns) {
                    class = "btn btn-primary fw-plan__download-open",
                    icon = icon("download"))
     ),
+    # THE ORDER BELOW IS THE CLIENT'S (23 Sept 2026) and is not arbitrary: the
+    # counts, then who is involved, then where, then what happened, then what
+    # it happened in, then what was done, then how long it took. Setting and
+    # outcome before method, so a reader meets the evidence base before the
+    # techniques. The PDF report follows the same sequence - see fw_pdf_body()
+    # in R/report_pdf.R - with one exception noted there.
     uiOutput(ns("summary")),
-
-    # THE ORDER, AND IT IS THE CLIENT'S. It used to be a pure funnel -
-    # general to specific, with the species photographs at the narrow end -
-    # and the objection was that the photographs were the one part of this
-    # report a reader recognises on sight and they were below the fold.
-    #
-    # So: WHAT, then WHERE, then WHAT HAPPENED, then HOW LONG, then IN WHAT
-    # KIND OF WATER, then WHO. The species lead because they are the thing a
-    # reader can identify with their own site; the map follows because it is
-    # the only view that says whether this evidence is anywhere near them
-    # before they read anything into it; the two outcome charts sit together
-    # because the second is the first broken down by method; and duration
-    # follows them because "how long" is the next question after "did it
-    # work", not a footnote after the waterbody pair.
-    #
-    # The species block is drawn by output$species; the reasoning for its
-    # layout is there.
     uiOutput(ns("species")),
 
     fw_block(
-      fw_t("plan", "r_map"), fw_t("plan", "r_map_note"),
+      fw_t("maps", "title"), fw_t("maps", "note"),
       tagList(
         fw_map_output(ns("map")),
+        fw_map_note(),
         uiOutput(ns("map_missing"))
       )
     ),
@@ -147,17 +86,30 @@ fw_plan_results_ui <- function(ns) {
       uiOutput(ns("outcome_bars"))
     ),
 
-    # ABOVE THE WATERBODY PAIR, at the client's request. This is the
-    # Outcomes block broken down by method, so the two belong together: a
-    # reader who has just seen four outcome bars reads this as the same
-    # four bars split by what was tried, which is not what it looks like
-    # after two blocks about water in between.
+    # ---- What kind of water -----------------------------------------------
+
+    fw_block(
+      fw_t("plan", "r_waterbody"), fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
+      tagList(
+        # Its own toggle, like the method chart. The denominator here is
+        # the kind of water's own attempts, so share answers "in a lake, how
+        # often did it work" - and the count stays in the bar's label either
+        # way, so a share off four attempts still shows it is off four.
+        fw_mode_toggle(ns("waterbody_mode"),
+                       fw_t("plan", "r_waterbody_count"),
+                       fw_t("plan", "r_waterbody_share")),
+        plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
+      )
+    ),
+
     fw_block(
       fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
       tagList(
         # One chart, two questions. "Count" answers how much evidence stands
-        # behind a method; "share" answers how often it worked. Count leads,
-        # so nobody reads a share off three attempts as a success rate.
+        # behind a method; "Success rate" answers how often it worked. Count
+        # still leads, which is what stops three attempts being read as a rate:
+        # the mode is named for the question it answers, and the bar's label
+        # carries the total in both modes so the n is never off the chart.
         fw_mode_toggle(ns("method_mode"),
                        fw_t("plan", "r_method_count"),
                        fw_t("plan", "r_method_share")),
@@ -168,20 +120,12 @@ fw_plan_results_ui <- function(ns) {
 
     # ---- How long ---------------------------------------------------------
     #
-    # STRAIGHT AFTER THE TWO OUTCOME CHARTS, at the client's request. It sat
-    # at the foot of the results, on the reasoning that it is about time
-    # rather than about the reader's situation and is drawn from less than
-    # the full selection. The client's answer is that "how long will this
-    # take" is the second question a planner asks after "does it work", and
-    # burying it under the waterbody charts answered it last.
-    #
-    # It still carries its caption saying how much of the selection it
-    # actually draws, which is the part that made it a narrow-end block.
-    #
-    # The cumulative chart used to sit beside it and is now on the dashboard
-    # (FW_COPY$explore$cumulative). It answers how the DATABASE has grown,
-    # which is not a question about the reader's situation at all, and on a
-    # narrow selection it was actively misleading.
+    # THERE WAS A METHODS-BY-WATERBODY CHART AFTER THIS ONE and the client
+    # deleted it outright (23 Sept 2026), along with its data half, its ggplot
+    # twin in the PDF, its copy, its palettes and its toggle. It asked a
+    # crossed question that neither axis answered well, and the two charts
+    # above it already carry both halves.
+
     fw_block(
       fw_t("plan", "r_duration"), fw_t("plan", "r_duration_note"),
       tagList(
@@ -190,52 +134,12 @@ fw_plan_results_ui <- function(ns) {
       )
     ),
 
-    # ---- What kind of water -----------------------------------------------
-    #
-    # chart_ PREFIX, AND IT IS NOT DECORATION. Inputs and outputs share one
-    # DOM id space, and "waterbody" is already a filter's input id - so an
-    # output of that name renders a second element with the same id, the
-    # output binding attaches to the selectize control instead, and the
-    # chart silently never draws. Any chart named after the thing it plots
-    # has to clear the filter registry in R/filters.R first.
     fw_block(
-      fw_t("plan", "r_waterbody"), fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
-      plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
-    ),
-
-    # Segmented by METHOD, not by outcome, and on its own colour scale. ITS
-    # OWN TOGGLE, because its denominator is different: a bar here is
-    # uses (one per attempt-method pair), not attempts, so the control
-    # says "uses" and switches this chart alone.
-    #
-    # DIRECTLY UNDER THE WATERBODY CHART it breaks down, which is the same
-    # pairing the two method charts above have.
-    fw_block(
-      fw_t("plan", "r_method_wb"), fw_t("plan", "r_method_wb_note"),
-      tagList(
-        fw_mode_toggle(ns("method_wb_mode"),
-                       fw_t("plan", "r_method_wb_count"),
-                       fw_t("plan", "r_method_wb_share")),
-        plotly::plotlyOutput(ns("chart_method_waterbody"), height = "auto")
-      )
-    ),
-
-    # THE TABLE OF MATCHING ATTEMPTS USED TO SIT HERE, and the client
-    # removed it. It was the same rows, in the same order, that the Explore
-    # page was showing on its own tab - and a reader who has just been given
-    # eight figures about a slice does not then read three hundred raw rows
-    # of it. Every record is still in the export, and the map above is still
-    # the way to open one.
-    #
-    # THE CONTACTS TABLE BELOW IS NOT THE SAME THING and stays: it is the
-    # one part of this page that tells a reader who to talk to rather than
-    # what happened, which is a stated year-one success measure.
-
-    # THE NETWORKING SIDE, at the point it is useful. A reader has just seen
-    # what was tried near them; who did it is the next question, and it is
-    # one of the client's stated year-one success measures. Reads only from
-    # fw_contacts_summary(), so a redacted address cannot reach this page.
-    fw_block(
+      # THE NOTE IS AN (i) HERE TOO (client, 23 Sept 2026). It was the one
+      # block held back as visible text, on the grounds that "they are not
+      # expecting to hear from you" has to be read rather than asked for. The
+      # client has since asked for it in the popup with every other note, so
+      # nothing on the results page carries a note as a paragraph any more.
       fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note"),
       tagList(
         div(
@@ -274,13 +178,6 @@ mod_plan_server <- function(id, data, meta = NULL) {
     output$filters <- renderUI(fw_plan_filters_ui(ns, choices))
 
     # ---- The two geography filters, linked ----------------------------------
-    #
-    # THIS PAGE WENT WITHOUT IT FOR A RELEASE, and that was the bug. The
-    # dashboard's pickers narrowed each other and this page's did not, so a
-    # reader who asked for Europe and then Australia here still got the honest
-    # answer of nothing at all - which is indistinguishable from a page that has
-    # broken, and is what the client reported.
-    #
     # Same call as mod_explore.R. The reasoning, and why it cannot loop, is at
     # fw_link_geo_filters() in R/filters.R.
     fw_link_geo_filters(input, session, data, choices)
@@ -289,25 +186,15 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # FW_FILTERS is cleared without a second edit here.
     observeEvent(input$clear, fw_filter_clear(session, ids, choices))
 
-    # What the collapsed panel says it is showing. Built from fw_filter_summary(),
-    # the same function that writes the workbook's Filters sheet, so the line the
-    # reader sees and the record in their download cannot disagree. Only the
-    # filters they actually set, because listing the nine they left alone is how
-    # a summary becomes unreadable.
+    # The fish family pair empties itself when Fish is deselected, as on
+    # Explore. See fw_filter_when_observers() in R/filters.R.
+    fw_filter_when_observers(input, session, ids)
+
+
     output$filters_summary <- renderUI({
       if (!built()) return(NULL)
       f <- report()$filters
       rows <- fw_filter_summary(f)
-
-      # Only what the reader actually CHOSE. Three kinds of default to drop:
-      # a picker left alone, which records "All"; the two "include unrecorded"
-      # checkboxes, which record "Yes" untouched - unticking one IS a
-      # narrowing, so a "No" stays; and a year slider still spanning the whole
-      # record, which is a bound in the sheet but not a decision here.
-      #
-      # THE SHEET STILL RECORDS ALL OF IT. This is the difference between a
-      # summary and a record: the workbook has to say what every filter was set
-      # to months later, and this line has to be readable at a glance.
       full_years <- identical(f$year_from, choices$year_min) &&
         identical(f$year_to, choices$year_max)
       years_label <- fw_filter_label("years")
@@ -338,14 +225,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
     # ---- The size control ---------------------------------------------------
     #
-    # ITS OWN uiOutput, NESTED INSIDE THE PANEL, and that is the whole design.
-    # Which sliders apply depends on the regime selection, so this has to
-    # re-render when regime changes - and re-rendering the WHOLE panel to
-    # achieve that would rebuild every selectize in it at its default and throw
-    # away the nine other filters the reader had set. Only this cell redraws.
-    #
-    # The id is "size_control", which is deliberately NOT a name in FW_FILTERS:
-    # inputs and outputs share one DOM id space. See the note above the charts.
+    # ITS OWN uiOutput, NESTED INSIDE THE PANEL
     output$size_control <- renderUI({
       fw_plan_size_ui(
         ns, choices,
@@ -353,7 +233,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
       )
     })
 
-    # Real units under each log slider. The reader never sees the logarithm.
+    # Real units under each log slider - mo log units.
     for (unit in FW_SIZE_UNITS) {
       local({
         u <- unit
@@ -366,10 +246,6 @@ mod_plan_server <- function(id, data, meta = NULL) {
       })
     }
 
-    # THE GATE. eventReactive, so nothing below recomputes until Build is
-    # pressed. The filter state is snapshotted here too, so the results, the
-    # caveats and the download all describe the same selection even if the user
-    # goes on to change a control.
     report <- eventReactive(input$build, {
       f <- fw_filter_state(input, ids, ch = choices)
       sel <- fw_filter_apply(data, f)
@@ -380,39 +256,21 @@ mod_plan_server <- function(id, data, meta = NULL) {
       )
     })
 
-    # "Not yet asked" and "asked and got nothing" are different states and must
-    # not look the same, so this is checked BEFORE report() is touched. The
-    # filter panel is a renderUI, so its inputs - input$build included - are NULL
-    # until the browser has painted it; reading report() before then would filter
-    # against a year range that does not exist yet.
     built <- reactive(!is.null(input$build) && input$build > 0)
 
-    # The results are BELOW the questions now, so a build that lands off screen
-    # looks like a build that did nothing. Scroll to them, and say what happened
-    # in the live region for anyone who is not watching the screen.
     observeEvent(input$build, {
-      # Fold the questions away now they have been answered. Client-side, never
-      # by re-rendering the panel - see the fw-collapse handler in
-      # R/ui_helpers.R for why that distinction is load-bearing.
       session$sendCustomMessage("fw-collapse", ns("filters_disclosure"))
       session$sendCustomMessage("fw-scroll-to", ns("results_anchor"))
       session$sendCustomMessage("fw-announce", fw_fill(fw_t("plan", "built_announce"), n = fw_fmt_num(nrow(report()$sel))))
     })
 
-    # WHICH OF THE THREE STATES THE PAGE IS IN: nothing asked yet, asked and
-    # nothing matched, or results. The skeleton in fw_plan_results_ui() is
-    # shown only for the last, through a conditionalPanel that reads this.
-    # Never suspended - it is not drawn anywhere, and a suspended output would
-    # leave the panel's condition unanswered.
     output$state <- renderText({
       if (!built()) return("none")
       if (nrow(report()$sel) == 0) "zero" else "results"
     })
     outputOptions(output, "state", suspendWhenHidden = FALSE)
 
-    # NOTHING here before a build. The page's introduction moved into the page
-    # header, where a reader meets it before the controls rather than after
-    # them, so there is no longer a second block to show in the meantime.
+    # NOTHING here before a build.
     output$zero <- renderUI({
       if (!built()) return(NULL)
       r <- report()
@@ -420,9 +278,6 @@ mod_plan_server <- function(id, data, meta = NULL) {
       fw_plan_zero_ui(fw_filter_zero_hints(data, r$filters))
     })
 
-    # Everything below reads a report with at least one attempt in it. While
-    # the page is in either other state the skeleton is hidden and these are
-    # suspended, so the req() is for the moment the state changes.
     results <- reactive({
       req(built())
       r <- report()
@@ -439,50 +294,18 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
     # ---- What these attempts were about -------------------------------------
     #
-    # ONE BLOCK, TWO ROWS - the targeted species, then the ones that stood
-    # to gain, each row across the full width of the page with its tiles
-    # sharing that width equally. The two used to sit side by side, which
-    # at three tiles each left half-width photographs and dead space at
-    # the end of every row; the client asked for the width to be used.
-    # See .fw-plan__species-pair and .fw-species-tiles.
-    #
-    # THE HALF NOTES ARE GONE, and the beneficiary half used to keep one on
-    # the explicit reasoning that a warning about how thinly beneficiaries
-    # are recorded has to sit with the tiles it qualifies. The client has
-    # reversed that: three tiles under a heading under a note under a
-    # heading was more apparatus than the grids themselves. The warning now
-    # sits in the block note above both halves (r_species_pair_note), which
-    # is the one place left that says it - so that note is load-bearing, not
-    # an introduction that can be trimmed next.
+    # TWO PLAIN BLOCKS, each titled like every other block on the page: "Top
+    # three invasive species targeted (of 41 total)", then "Top three species
+    # protected (of >12 total)". 
     output$species <- renderUI({
       sel <- results()$sel
-      # Whether the selection records any beneficiary at all. This used to be a
-      # pair of counts feeding the two notes under the tile grids - "the five
-      # named most often, of 212" - and the client removed the notes. The
-      # beneficiary count survives them because the half itself is dropped when
-      # it would be empty, which is a layout decision rather than a caption.
-      n_beneficiary <- dplyr::n_distinct(
-        fw_species_rows(data, sel, "beneficiary")$species_id)
-      fw_block(
-        fw_t("plan", "r_species_pair"), fw_t("plan", "r_species_pair_note"),
-        div(
-          class = "fw-plan__species-pair",
-          div(
-            class = "fw-plan__species-half",
-            h4(fw_t("plan", "r_invasive")),
-            fw_species_tiles_ui(data, sel, "invasive", limit = FW_PLAN_SPECIES_N)
-          ),
-          # Dropped entirely rather than shown empty: the grid is two columns
-          # of 1fr, so the surviving half takes the full width on its own.
-          if (n_beneficiary > 0) {
-            div(
-              class = "fw-plan__species-half",
-              h4(fw_t("plan", "r_beneficiary")),
-              fw_species_tiles_ui(data, sel, "beneficiary", limit = FW_PLAN_SPECIES_N)
-            )
-          }
-        )
-      )
+      role_block <- function(role_name) {
+        title <- fw_species_top_title(data, sel, role_name)
+        if (is.null(title)) return(NULL)
+        fw_block(title, NULL,
+                 fw_species_tiles_ui(data, sel, role_name, limit = FW_PLAN_SPECIES_N))
+      }
+      tagList(role_block("invasive"), role_block("beneficiary"))
     })
 
     output$outcome_bars <- renderUI(fw_outcome_bars_ui(results()$sel))
@@ -493,21 +316,14 @@ mod_plan_server <- function(id, data, meta = NULL) {
     })
     output$method_missing <- renderUI(
       caption("r_method_missing", fw_n_no_method(data, results()$sel)))
-    # THE COUNT THE CHART ACTUALLY DRAWS, not the count with a duration. The
-    # chart drops attempts that used more than one method - see
-    # fw_duration_sel() - so counting duration alone here would promise the
-    # reader more points than they can see. Shown even at zero, as it always
-    # was: "drawn from 0 attempts" explains an empty chart.
     output$duration_missing <- renderUI(p(
       class = "fw-caption",
       fw_fill(fw_t("plan", "r_duration_missing"),
               n = fw_fmt_num(nrow(fw_duration_sel(data, results()$sel))))))
 
-    # COUNT LEADS ON EVERY BUILD. The toggles used to be redrawn with the
-    # results, which put them back to count each time; now that they persist,
-    # a build does that explicitly. See fw_mode_toggle().
+    # COUNT LEADS ON EVERY BUILD. toggle for %.
     observeEvent(input$build, {
-      for (id in c("method_mode", "method_wb_mode")) {
+      for (id in c("method_mode", "waterbody_mode")) {
         if (!identical(input[[id]] %||% "count", "count")) {
           updateRadioButtons(session, id, selected = "count")
         }
@@ -516,20 +332,6 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
     # ---- The download picker, in an overlay ---------------------------------
     #
-    # IT USED TO BE A BLOCK AT THE FOOT OF THE PAGE. The client asked for it as
-    # a pop-up to stop the page being quite so long a scroll, and moving it here
-    # is what let the button above sit at the top without the page carrying the
-    # picker twice.
-    #
-    # EXACTLY ONE COPY OF THE PICKER EXISTS AT A TIME, which is not a style
-    # preference. Every input in this module shares one DOM id space (see the
-    # note above fw_plan_download_ui), so rendering the picker on the page AND
-    # in the modal would put two controls called download_parts in the document
-    # and the handler would read whichever Shiny bound last.
-    #
-    # NOTHING IN export.R CHANGED. The picker is a pure function of ns, and the
-    # handler reads input$download_parts when the button is clicked rather than
-    # when it is drawn, so it does not care where the checkboxes live.
     observeEvent(input$download_open, {
       showModal(modalDialog(
         title = fw_t("plan", "download_heading"),
@@ -540,25 +342,29 @@ mod_plan_server <- function(id, data, meta = NULL) {
       ))
     })
 
-    # A downloadButton inside a modal does not dismiss it - the browser handles
-    # the download without Shiny ever seeing a click - so the button carries an
-    # onclick that tells the server it went. It does not preventDefault, so the
-    # download still happens; this only closes the box behind it.
     observeEvent(input$download_taken, removeModal())
+
+    # ---- The PDF size warning -----------------------------------------------
+    #
+    # BEFORE THE DOWNLOAD, NOT AFTER IT. Size is ESTIMATED from the selection -
+    # what grows a PDF is the contacts table and the species photographs, both
+    # of which are known creation. See fw_pdf_size_estimate() in R/report_pdf.R.
+    #
+    # Once per build, not once per tick: the estimate reads the selection only.
+    pdf_estimate <- reactive(fw_pdf_size_estimate(data, results()$sel))
+    output$download_warn <- renderUI({
+      if (!"pdf" %in% (input$download_parts %||% character(0))) return(NULL)
+      est <- pdf_estimate()
+      if (est$mb < FW_PDF$warn_mb && est$pages < FW_PDF$warn_pages) return(NULL)
+      p(class = "fw-plan__download-warn", role = "status",
+        icon("triangle-exclamation"), " ",
+        fw_fill(fw_t("plan", "pdf_warn"), mb = sprintf("%.1f", est$mb),
+                pages = fw_fmt_num(est$pages)))
+    })
 
     # ---- The map: drawn once, markers swapped -------------------------------
     #
-    # THE SAME PATTERN AS THE EXPLORE PAGE, and the reasoning is at its copy in
-    # mod_explore.R. It used to be rebuilt whole on every Build - tiles, legend,
-    # card script and markers - which was slow and, inside the old renderUI,
-    # sometimes left the map grey.
-    #
-    # detail = "lazy": the map carries the hover card for every marker and
-    # fetches the full record when one is clicked. The photograph dictionary is
-    # the whole database's, so any selection the proxy draws is covered by it.
-    #
-    # The widget is first drawn when the results are first shown - it is
-    # suspended while the skeleton is hidden - so it opens at the right size.
+    # THE SAME PATTERN AS THE EXPLORE PAGE.
     output$map <- leaflet::renderLeaflet({
       fw_leaflet() |>
         fw_add_basemaps() |>
@@ -595,48 +401,26 @@ mod_plan_server <- function(id, data, meta = NULL) {
     fw_map_detail_server(input, session, "map_detail", data, reactive(results()$sel))
 
     # The mode toggle is the ONE control that redraws without a rebuild. It does
-    # not change the selection, only how the same numbers are drawn, so it does
-    # not undermine the deliberate build step above.
+    # not change the selection, only how the same numbers are drawn.
     output$methods <- plotly::renderPlotly({
       fw_chart_or_empty(
         fw_chart_method(data, results()$sel, mode = input$method_mode %||% "count"))
     })
     # Its own toggle, same reason: it redraws the same numbers a different way
     # and does not change the selection.
-    output$chart_method_waterbody <- plotly::renderPlotly({
-      fw_chart_or_empty(
-        fw_chart_method_waterbody(data, results()$sel,
-                                  mode = input$method_wb_mode %||% "count"))
-    })
     output$chart_waterbody <- plotly::renderPlotly(
-      fw_chart_or_empty(fw_chart_waterbody(results()$sel)))
+      fw_chart_or_empty(fw_chart_waterbody(results()$sel,
+                                           mode = input$waterbody_mode %||% "count")))
     output$duration <- plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_duration(data, results()$sel)))
 
-    # THE RESULTS TABLE'S PAGING WENT WITH THE TABLE. It owned its page number
-    # as server state rather than reading it back off the buttons, because
-    # fw_page_numbers() writes through Shiny.setInputValue() and an input set
-    # that way has no binding for update*Input() to talk to. The contacts
-    # directory below still does exactly that, and the comment explaining why
-    # now lives there.
-
-    # ---- Potential relevant contacts ----------------------------------------
-    #
-    # Reads fw_contacts_summary() ONLY. Redaction happens inside that function
-    # and nowhere downstream, so there is no code path here that can see an
-    # address a contact asked to keep private.
+    # THE RESULTS TABLE'S PAGING WENT WITH THE TABLE.
     contacts <- reactive(fw_plan_contacts(data, results()$sel))
 
     contacts_per_page <- reactive(
       as.integer(input$contacts_size %||% FW_PLAN_CONTACTS_PAGE_SIZES[1]))
 
-    # THE PAGE IS STATE THE SERVER OWNS, not something read back off the
-    # buttons. fw_page_numbers() writes the chosen page into the input with
-    # Shiny.setInputValue(), and an input set that way has no binding in the
-    # page for update*Input() or sendInputMessage() to talk to - so a reset
-    # written that way is silently ignored, and a rebuild leaves the reader on
-    # whatever page they had reached in the previous report: "Showing 11-17 of
-    # 17". Same pattern as the contacts directory on the Networking page.
+    # THE PAGE IS STATE THE SERVER OWNS,
     contacts_page <- reactiveVal(1L)
     observeEvent(input$contacts_page_to, {
       n <- suppressWarnings(as.integer(input$contacts_page_to))
@@ -672,26 +456,37 @@ mod_plan_server <- function(id, data, meta = NULL) {
     #
     # ONE HANDLER AND A PICKER, replacing a spreadsheet button and a report
     # button. Two buttons made the reader choose between the data and the
-    # document when most of them wanted both, and neither carried the methods
-    # and the caveats out of the building with it.
+    # document when most of them wanted both.
     #
-    # The methods-and-caveats text is NOT one of the choices. It always travels,
-    # for the same reason the workbook's caveats sheet is not optional: a file
-    # that turns up in an inbox six months later has to carry its own
-    # qualifications, and by then nobody remembers what was on screen.
+    # WHAT YOU TICK IS WHAT YOU GET (client, 24 Sept 2026). A methods-and-
+    # caveats .txt used to ride along whatever else was chosen, so ticking the
+    # PDF handed back a zip of two files. Each document now closes on that
+    # section itself - see fw_closing_blocks() in R/export.R - which is what
+    # the travelling text file was for, and one tick now downloads one file.
     #
     # filename is a function evaluated at click time, so it can read the
     # checkboxes and name a .zip or the single file as appropriate.
+    #
+    # A PROGRESS BAR WHILE IT IS BUILT (client, 21 Sept 2026). The PDF takes
+    # several seconds - Quarto renders it on the server - and the browser shows
+    # nothing until the first byte arrives, so the click looked ignored.
+    # withProgress rather than anything drawn in the modal: Shiny sends its
+    # progress messages straight away, while ordinary output updates wait for
+    # a flush that does not happen until the download is done. The bar wears
+    # the FWISE badge (.shiny-notification in _components.scss).
     output$download <- downloadHandler(
       filename = function() fw_bundle_filename(input$download_parts),
       content = function(file) {
         r <- report()
-        fw_write_bundle(
-          path = file, parts = input$download_parts, data = data,
-          sel = r$sel, export = r$export, filters = r$filters, meta = meta,
-          method_mode = input$method_mode %||% "count",
-          method_wb_mode = input$method_wb_mode %||% "count"
-        )
+        withProgress(message = fw_t("plan", "progress_title"), value = 0, {
+          fw_write_bundle(
+            path = file, parts = input$download_parts, data = data,
+            sel = r$sel, export = r$export, filters = r$filters, meta = meta,
+            method_mode = input$method_mode %||% "count",
+            waterbody_mode = input$waterbody_mode %||% "count",
+            progress = function(value, detail) setProgress(value, detail = detail)
+          )
+        })
       }
     )
 
@@ -723,52 +518,30 @@ fw_mode_toggle <- function(id, count_label, share_label) {
   )
 }
 
-#' How many of these attempts have no method recorded
-#'
-#' The two method charts draw from attempt_method, so an attempt with no row
-#' there is simply absent from both. The caption under the chart says how many,
-#' and the report's copy of it comes from this same function.
 fw_n_no_method <- function(data, sel) {
   sum(!sel$attempt_id %in% data$attempt_method$attempt_id)
 }
 
-#' The download picker: one button, and a choice of what goes in the bundle
-#'
-#' ONE BUTTON, NOT THREE. The page used to offer a spreadsheet button and a
-#' report button, which made the reader choose between the data and the document
-#' when most of them wanted both - and neither carried the methods and the
-#' caveats with it once it left the building.
-#'
-#' THE TEXT FILE IS NOT A CHECKBOX. It is listed so the reader knows it is
-#' coming, and it always comes. Same reasoning as the workbook's caveats sheet:
-#' a reader who did not ask for the caveats is exactly the reader who needs them.
-#'
-#' Ids here must not collide with anything in FW_FILTERS - inputs and outputs
-#' share one DOM id space on this page.
-fw_plan_download_ui <- function(ns) {
+fw_plan_download_ui <- function(ns, pdf = fw_pdf_available()) {
   part <- function(id, label, note) {
     list(id = id, label = label, note = note)
   }
+  # THE READING ORDER, NOT THE FILE-SIZE ORDER (client, 23 Sept 2026): the
+  # finished report first, then every record in full, then the raw spreadsheet
+  # last. It matches FW_BUNDLE_PARTS in R/export.R, which is the order the
+  # files are written and named in; keep the two in step.
   parts <- list(
-    part("xlsx", fw_t("plan", "download_xlsx"), fw_t("plan", "download_xlsx_note")),
-    part("csv",  fw_t("plan", "download_csv"),  fw_t("plan", "download_csv_note")),
-    part("html", fw_t("plan", "download_html"), fw_t("plan", "download_html_note")),
-    part("pdf",  fw_t("plan", "download_pdf"),  fw_t("plan", "download_pdf_note"))
+    part("pdf",  fw_t("plan", "download_pdf"),  fw_t("plan", "download_pdf_note")),
+    part("records", fw_t("plan", "download_records"), fw_t("plan", "download_records_note")),
+    part("xlsx", fw_t("plan", "download_xlsx"), fw_t("plan", "download_xlsx_note"))
   )
+  # NO PDF CHECKBOX WHERE NO PDF CAN BE MADE. Only tickable is quarto is present - it is in
+  # Posit - sometimes not locally if working locally. 
+  if (!pdf) parts <- Filter(function(p) p$id != "pdf", parts)
 
   div(
     class = "fw-plan__download",
-    # NO HEADING OF ITS OWN. This is drawn inside a modal whose title is already
-    # fw_t("plan", "download_heading"), and a second copy of the same words
-    # under it read as a duplicate rather than as a section.
-    #
-    # THE .txt IS STATED HERE, NOT LISTED BELOW. It is not a choice, and a line
-    # sitting under four checkboxes with no box of its own reads as an option
-    # that failed to render. Said once at the top, it is a fact about every
-    # download the page produces.
-    p(class = "fw-plan__note",
-      fw_t("plan", "download_lead"), " ",
-      tags$b(fw_t("plan", "download_txt")), " ", fw_t("plan", "download_txt_note")),
+    p(class = "fw-plan__note", fw_t("plan", "download_lead")),
     div(
       class = "fw-download-picker",
       tags$fieldset(
@@ -788,8 +561,15 @@ fw_plan_download_ui <- function(ns) {
                     span(class = "fw-download-picker__note", p$note))
           }),
           choiceValues = vapply(parts, function(p) p$id, character(1)),
-          selected = c("xlsx", "html")
+          selected = if (pdf) c("xlsx", "pdf") else "xlsx"
         ),
+        if (!pdf) p(class = "fw-plan__note", fw_t("plan", "pdf_unavailable")),
+        p(class = "fw-plan__note", fw_t("plan", "download_none")),
+        # THE SIZE WARNING, drawn by the server from the reader's selection and
+        # their ticks - see output$download_warn in mod_plan_server(). Inside
+        # the fieldset, under the boxes, so it is read with the choice it is
+        # about and before the Download button.
+        uiOutput(ns("download_warn"))
       ),
       # THE onclick IS WHAT CLOSES THE MODAL. A downloadButton is an ordinary
       # link the browser follows on its own, so Shiny never sees the click and
@@ -804,10 +584,24 @@ fw_plan_download_ui <- function(ns) {
   )
 }
 
-#' Built, but nothing matched
-#'
-#' Says so plainly and names which filter to relax. "No results" with no next
-#' step is where a user leaves.
+# THE DOWNLOAD BUTTON IS DISABLED WHILE NOTHING IS TICKED, and that is done in
+# fw_client_script() (R/ui_helpers.R) rather than here.
+#
+# There is nothing to download with an empty selection any more: the methods-
+# and-caveats text that used to travel regardless is gone (client, 24 Sept
+# 2026), so an empty picker would ask the server for a file that has no name.
+# fw_bundle_parts() has a floor for that case; a reader should not have to
+# reach it.
+#
+# IT CANNOT BE AN INLINE SCRIPT IN THIS PICKER. The picker is built into a
+# modalDialog, and this app does not trust a <script> inserted with dynamic
+# content to run - which is why fw_popover_script() re-initialises popovers
+# from a MutationObserver instead of shipping one per render. The guard is a
+# delegated listener on the document, mounted once with everything else.
+#
+# The picker's default selection is never empty, so there is no initial state
+# to set: no aria-disabled attribute means enabled, which is correct on open.
+
 fw_plan_zero_ui <- function(hints) {
   div(
     class = "fw-plan__zero fw-prose", role = "status",

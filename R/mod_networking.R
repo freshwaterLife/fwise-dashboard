@@ -29,21 +29,40 @@ mod_networking_ui <- function(id) {
       id = "fw-main",
       fw_section(
         fw_container(
-          div(class = "fw-prose", p(class = "fw-lead", fw_t("networking", "intro"))),
-
           div(
-            class = "fw-filters",
-            selectInput(ns("continent"), fw_t("networking", "filter_continent"),
-                        choices = NULL, selectize = FALSE),
-            selectInput(ns("country"), fw_t("networking", "filter_country"),
-                        choices = NULL, selectize = FALSE),
-            textInput(ns("search"), fw_t("networking", "filter_search"),
-                      placeholder = "")
-          ),
-          div(
-            style = "margin-block-end: 1.5rem;",
-            actionButton(ns("clear"), fw_t("common", "clear_filters"),
-                         class = "btn btn-outline-primary btn-sm")
+            class = "fw-filters fw-filters--networking",
+            # The role scope only means something once a species is picked, so
+            # it waits underneath the species box until then, in the same cell.
+            div(
+              class = "fw-filters__stack",
+              fw_networking_picker(ns, "species"),
+              conditionalPanel(
+                "input.species && input.species.length > 0", ns = ns,
+                fw_field(
+                  selectInput(ns("category"), label = NULL, width = "100%",
+                              selectize = FALSE,
+                              choices = stats::setNames(
+                                FW_NETWORKING_CATEGORIES,
+                                vapply(FW_NETWORKING_CATEGORIES, function(k)
+                                  fw_t("networking", paste0("category_", k)), character(1)))),
+                  label = fw_t("networking", "filter_category"),
+                  tooltip = fw_t("networking", "tip_category"),
+                  input_id = ns("category")
+                )
+              )
+            ),
+            fw_networking_picker(ns, "continent"),
+            fw_networking_picker(ns, "country"),
+            fw_networking_picker(ns, "organisation"),
+            fw_field(textInput(ns("search"), label = NULL,
+                               placeholder = fw_t("networking", "search_placeholder")),
+                     label = fw_t("networking", "filter_search"),
+                     input_id = ns("search")),
+            div(
+              class = "fw-filters__clear",
+              actionButton(ns("clear"), fw_t("common", "clear_filters"),
+                           class = "btn btn-outline-primary btn-sm")
+            )
           ),
 
           uiOutput(ns("summary")),
@@ -71,16 +90,25 @@ mod_networking_ui <- function(id) {
 
           div(
             class = "fw-panel fw-prose",
+            # The button alone (client, 24 Sept 2026): its sentence now ends
+            # the coverage line at the top of the page.
             h2(class = "fw-visually-hidden", fw_t("networking", "outro_heading")),
-            p(fw_t("networking", "outro")),
             tags$a(
               class = "btn btn-primary",
-              # Built at click time rather than served as a mailto, for the same
-              # scraping reason as the contact rows below.
+              # SPLIT ACROSS TWO ATTRIBUTES and joined at click time, the same
+              # way fw_contact_action() below handles every contact's address.
+              #
+              # IT USED TO BE THE WHOLE STRING in this onclick, which was
+              # harmless only while it was a [PLACEHOLDER]: the moment the real
+              # FWISE address landed here (23 Sept 2026) the one address the
+              # site most wants to protect was the one address served in full
+              # in the markup. Do not put it back together here.
               href = "#",
-              onclick = sprintf(
-                "window.location.href='mail'+'to:'+%s; return false;",
-                jsonlite_quote(fw_t("networking", "outro_email"))
+              `data-u` = fw_t("networking", "outro_user"),
+              `data-d` = fw_t("networking", "outro_domain"),
+              onclick = paste0(
+                "window.location.href='mail'+'to:'+this.dataset.u",
+                "+String.fromCharCode(64)+this.dataset.d; return false;"
               ),
               fw_t("networking", "outro_action")
             )
@@ -88,6 +116,94 @@ mod_networking_ui <- function(id) {
         )
       )
     )
+  )
+}
+
+# Species filter scope: either role, the invasive species, or the protected one.
+FW_NETWORKING_CATEGORIES <- c("either", "invasive", "beneficiary")
+
+fw_networking_picker <- function(ns, id) {
+  fw_field(
+    selectizeInput(ns(id), label = NULL, choices = NULL, multiple = TRUE,
+                   width = "100%",
+                   options = list(placeholder = fw_t("filters", "all"),
+                                  plugins = list("remove_button"))),
+    label = fw_t("networking", paste0("filter_", id)),
+    input_id = ns(id)
+  )
+}
+
+#' The contacts that match the Networking page's filters
+#'
+#' MATCHED ON ATTEMPTS, then lifted to people. Place and species are properties
+#' of an attempt, so a contact is kept when ONE of their attempts satisfies all
+#' of them together - "someone who removed a fish in Chile", not "someone who
+#' worked in Chile and, separately, on some fish somewhere". Organisation and
+#' the name search are properties of the person and are applied to the contact.
+#'
+#' @param contacts fw_contacts_summary(data)
+#' @param f list(continent, country, species, category, organisation, search);
+#'   an empty or NULL entry is no filter. `species` holds labels as the picker
+#'   shows them; `category` scopes them to a role ("either" by default).
+fw_networking_filter <- function(data, contacts, f) {
+  picked <- function(x) if (length(x)) as.character(x[nzchar(x)]) else character(0)
+  cont <- picked(f$continent); ctry <- picked(f$country); sp <- picked(f$species)
+  out <- contacts
+
+  if (length(cont) || length(ctry) || length(sp)) {
+    keep_ids <- data$attempt$attempt_id
+    if (length(cont) || length(ctry)) {
+      keep_ids <- fw_filter_apply(
+        data, list(continent = cont, country = ctry, .ids = c("continent", "country"))
+      )$attempt_id
+    }
+    if (length(sp)) {
+      roles <- switch(f$category %||% "either",
+                      invasive = "invasive", beneficiary = "beneficiary",
+                      c("invasive", "beneficiary"))
+      lab <- fw_species_label(data$species)
+      asp <- data$attempt_species
+      hit <- asp$attempt_id[asp$role %in% roles &
+                              asp$species_id %in% lab$species_id[lab$label %in% sp]]
+      keep_ids <- intersect(keep_ids, hit)
+    }
+    out <- out[vapply(out$attempt_ids, function(x) any(x %in% keep_ids), logical(1)), ]
+  }
+
+  org <- picked(f$organisation)
+  if (length(org)) out <- out[!is.na(out$organisation) & out$organisation %in% org, ]
+
+  term <- trimws(f$search %||% "")
+  if (nzchar(term)) {
+    hay <- paste(coalesce(out$contact_name, ""), coalesce(out$organisation, ""))
+    out <- out[grepl(term, hay, ignore.case = TRUE, fixed = FALSE), ]
+  }
+  out
+}
+
+#' The choice lists for the Networking page's pickers
+#'
+#' From the attempts that HAVE a contact on this page only, so every option
+#' finds somebody. Species are listed most-recorded first, as elsewhere, and
+#' per role (the page offers the "either" list; the category scopes the match).
+fw_networking_choices <- function(data, contacts) {
+  ids <- unique(unlist(contacts$attempt_ids))
+  att <- data$attempt[data$attempt$attempt_id %in% ids, ]
+  lab <- fw_species_label(data$species)
+  asp <- data$attempt_species[data$attempt_species$attempt_id %in% ids, ]
+  by_freq <- function(sid) {
+    tab <- sort(table(sid), decreasing = TRUE)
+    lab$label[match(names(tab), lab$species_id)]
+  }
+  inv <- by_freq(asp$species_id[asp$role == "invasive"])
+  ben <- by_freq(asp$species_id[asp$role == "beneficiary"])
+  list(
+    attempt = att,
+    continent = sort(unique(stats::na.omit(att$continent))),
+    country = sort(unique(stats::na.omit(att$country))),
+    organisation = sort(unique(stats::na.omit(contacts$organisation))),
+    species = list(invasive = inv, beneficiary = ben,
+                   either = by_freq(asp$species_id))
   )
 }
 
@@ -103,64 +219,45 @@ mod_networking_server <- function(id, data) {
     # happened inside this function.
     contacts <- fw_contacts_summary(data)
 
-    # Continent and country come from the attempts a contact is attached to, so
-    # the filter options are derived the same way rather than from the contact
-    # table, which deliberately has no country of its own.
-    all_continents <- sort(unique(unlist(contacts$continents)))
-    all_countries  <- sort(unique(unlist(contacts$countries)))
+    # Options come from the attempts a contact is attached to, so every one
+    # finds somebody. See fw_networking_choices().
+    ch <- fw_networking_choices(data, contacts)
+    for (id in c("continent", "country", "organisation")) {
+      updateSelectizeInput(session, id, choices = ch[[id]], selected = character(0),
+                           server = FALSE)
+    }
 
-    updateSelectInput(
-      session, "continent",
-      choices = c(stats::setNames(list(""), fw_t("networking", "filter_all")),
-                  stats::setNames(as.list(all_continents), all_continents))
-    )
-    updateSelectInput(
-      session, "country",
-      choices = c(stats::setNames(list(""), fw_t("networking", "filter_all")),
-                  stats::setNames(as.list(all_countries), all_countries))
-    )
+    # Every species, whatever its role. The category box only appears once a
+    # species is picked, so it scopes the match rather than narrowing this list:
+    # narrowing would drop the pick and hide the box it had just revealed.
+    updateSelectizeInput(session, "species", choices = ch$species$either,
+                         selected = character(0), server = TRUE)
 
-    # Narrow the country list to the chosen continent, so the two filters cannot
-    # be set to a combination that returns nothing.
-    observeEvent(input$continent, ignoreInit = TRUE, {
-      countries <- if (identical(input$continent, "")) {
-        all_countries
-      } else {
-        keep <- vapply(contacts$continents, function(x) input$continent %in% x, logical(1))
-        sort(unique(unlist(contacts$countries[keep])))
-      }
-      selected <- if (input$country %in% countries) input$country else ""
-      updateSelectInput(
-        session, "country",
-        choices = c(stats::setNames(list(""), fw_t("networking", "filter_all")),
-                    stats::setNames(as.list(countries), countries)),
-        selected = selected
-      )
-    })
+    # Clearing the species hides the category box, and a scope the reader can
+    # no longer see should not come back set when the box reappears.
+    observeEvent(input$species, {
+      if (!length(input$species)) updateSelectInput(session, "category", selected = "either")
+    }, ignoreNULL = FALSE, ignoreInit = TRUE)
+
+    # Continent and country narrow each other, as on every other page - over
+    # the contacted attempts only, so a narrowed list never offers a country
+    # nobody here worked in.
+    fw_link_geo_filters(input, session, list(attempt = ch$attempt), ch)
 
     observeEvent(input$clear, {
-      updateSelectInput(session, "continent", selected = "")
-      updateSelectInput(session, "country", selected = "")
+      for (id in c("species", "continent", "country", "organisation")) {
+        updateSelectizeInput(session, id, selected = character(0))
+      }
+      updateSelectInput(session, "category", selected = "either")
       updateTextInput(session, "search", value = "")
     })
 
     filtered <- reactive({
-      out <- contacts
-
-      if (!identical(input$continent %||% "", "")) {
-        keep <- vapply(out$continents, function(x) input$continent %in% x, logical(1))
-        out <- out[keep, ]
-      }
-      if (!identical(input$country %||% "", "")) {
-        keep <- vapply(out$countries, function(x) input$country %in% x, logical(1))
-        out <- out[keep, ]
-      }
-      term <- trimws(input$search %||% "")
-      if (nzchar(term)) {
-        hay <- paste(out$contact_name, coalesce(out$organisation, ""))
-        out <- out[grepl(term, hay, ignore.case = TRUE, fixed = FALSE), ]
-      }
-      out
+      fw_networking_filter(data, contacts, list(
+        continent = input$continent, country = input$country,
+        species = input$species, category = input$category,
+        organisation = input$organisation, search = input$search
+      ))
     })
 
     # WHAT THIS PAGE DOES NOT COVER, stated on the page itself.
@@ -225,7 +322,8 @@ mod_networking_server <- function(id, data) {
     # Any filter change, or a change of page size, puts the reader back on the
     # first page. Otherwise they can be left on page 8 of a two-page result and
     # see nothing.
-    observeEvent(list(input$continent, input$country, input$search,
+    observeEvent(list(input$continent, input$country, input$species,
+                      input$category, input$organisation, input$search,
                       input$page_size), {
       page(1L)
     }, ignoreInit = TRUE)
@@ -274,7 +372,7 @@ mod_networking_server <- function(id, data) {
       rows <- lapply(seq_len(nrow(f)), function(i) {
         r <- f[i, ]
         tags$tr(
-          tags$td(r$contact_name),
+          tags$td(r$contact_name %|na|% ""),
           tags$td(r$organisation %|na|% fw_t("networking", "no_organisation")),
           # Continent as well as country. Someone looking for "anyone in
           # Africa" should not have to know which 29 countries are in the
@@ -283,7 +381,7 @@ mod_networking_server <- function(id, data) {
           tags$td(r$continent_label),
           tags$td(r$country_label),
           tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
-          tags$td(fw_contact_action(r$contact_email, r$contact_name))
+          tags$td(fw_contact_action(r$contact_email, fw_contact_who(r)))
         )
       })
 
@@ -316,7 +414,7 @@ mod_networking_server <- function(id, data) {
 #'
 #' This is a speed bump, NOT security. Anyone running the page's JavaScript, or
 #' willing to read it, can recover a public address. The real control is the
-#' email_public flag: an address flagged not-public never reaches this function
+#' contact_public flag: an address flagged not-public never reaches this function
 #' at all, because fw_contacts_summary() has already replaced it with NA.
 fw_contact_action <- function(email, name) {
   if (is.na(email) || !nzchar(email)) {
@@ -342,6 +440,9 @@ fw_contact_action <- function(email, name) {
     fw_t("networking", "email_action")
   )
 }
+
+#' What to call a contact: the person, or the organisation when no one is named
+fw_contact_who <- function(r) (r$contact_name %|na|% r$organisation) %|na|% r$contact_email
 
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0) y else x
 `%|na|%` <- function(x, y) if (is.na(x) || !nzchar(x)) y else x

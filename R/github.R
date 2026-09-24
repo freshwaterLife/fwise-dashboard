@@ -94,7 +94,7 @@ fw_gh_put <- function(path, content, message, ref = FW_DATA_REF) {
   body <- list(
     message = message,
     # base64enc, NOT jsonlite::base64_enc, which wraps at 76 characters. The
-    # same trap as the inlined images in report_html.R.
+    # same trap as the inlined fonts in report_records.R.
     content = base64enc::base64encode(charToRaw(enc2utf8(content))),
     branch  = ref
   )

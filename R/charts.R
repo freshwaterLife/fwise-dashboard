@@ -9,11 +9,18 @@
 # loses nothing.
 #
 # ALL FOUR OUTCOMES STAY VISIBLE. Successful, Failed, Ongoing and Unknown are
-# never collapsed into a success rate. The client's metrics framework proposed a
-# headline "% successful" figure; it was declined, because failure teaches as
+# never collapsed into a single number. The client's metrics framework proposed
+# a headline "% successful" figure; it was declined, because failure teaches as
 # much as success and ongoing attempts show where the next results will come
 # from. A single rate throws away half of what the database is for, and on
 # socially sensitive methods it reads as advocacy.
+#
+# THE TOGGLE NOW SAYS "SUCCESS RATE" and that is the client's wording (23 Sept
+# 2026), not a change of mind about the paragraph above. It switches the bars
+# from counts to a 100% stack; all four outcomes are still drawn, still
+# labelled, and the bar still carries its own total. What went is the phrase
+# "share of attempts", which readers were taking to mean each method's share of
+# the selection rather than the outcome mix within that method.
 #
 # ROTENONE IS NOT A HEADLINE. It is 544 of 914 attempts and is socially
 # sensitive. Nothing here foregrounds its success rate as a hero statistic; it
@@ -75,6 +82,117 @@ fw_legend_margin <- function(labels = NULL, width = 640) {
 
 FW_OUTCOME_LEVELS <- c("Successful", "Failed", "Ongoing", "Unknown")
 
+#' The x axis shared by every horizontal stacked bar, in either mode
+#'
+#' ONE DEFINITION FOR BOTH CHARTS. fw_chart_method() and fw_chart_category()
+#' had a byte-identical copy of this each, which is two places for the client to
+#' ask for a change to the grid and one of them to be missed.
+#'
+#' THE SHARE VIEW HAS NO GRID OF ITS OWN; see fw_bar_rules() for what draws its
+#' vertical lines and why the axis cannot. The count view keeps the ordinary
+#' gridline at every tick: its bars stop short of the right-hand edge, so those
+#' lines read, and they are the ones the client pointed at as the thing the
+#' success-rate view was missing.
+#'
+#' AN EXPLICIT dtick IN SHARE MODE, because fw_bar_rules() draws a rule at each
+#' of these same values and a rule that missed its label would be worse than no
+#' rule at all. 20 is what plotly picks for 0-100 unprompted; stating it means
+#' the two can never disagree.
+fw_bar_x_axis <- function(mode = c("count", "share")) {
+  mode <- match.arg(mode)
+  if (mode == "share") {
+    list(title = fw_t("charts", "x_share"), range = c(0, 100), ticksuffix = "%",
+         zeroline = FALSE, showgrid = FALSE,
+         tick0 = 0, dtick = FW_CHART$share_dtick)
+  } else {
+    # zeroline stays FALSE: the rule at zero is a shape too, because plotly's
+    # own zeroline is drawn under the bars like the grid.
+    list(title = fw_t("charts", "x_attempts"), zeroline = FALSE,
+         gridcolor = FW_COLOURS$border, gridwidth = FW_CHART$bar_grid)
+  }
+}
+
+#' The vertical rules a stacked bar chart draws OVER its bars
+#'
+#' SHAPES, NOT GRIDLINES, AND THAT IS NOT A PREFERENCE. The client asked for a
+#' light grey vertical line at each % on the success-rate view, "like you have
+#' for n attempts" (23 Sept 2026). The gridlines were already there and already
+#' the right colour; what was wrong is that plotly draws every gridline
+#' underneath every trace, and a 100% stacked bar spans the whole axis, so each
+#' line was painted over end to end and only showed in the gaps between rows.
+#'
+#' xaxis.layer = "above traces" LOOKS LIKE THE FIX AND IS NOT. plotly's own
+#' wording is that the axis is drawn above the traces "but above the grid
+#' lines" - it lifts the axis line and the tick labels and leaves the grid
+#' where it was. The rendered DOM says the same: gridlayer is a sibling BEFORE
+#' plot inside the subplot, in 2.25 and in every version since. A shape with
+#' layer = "above" is the one thing that genuinely draws over a trace.
+#'
+#' In count mode there is only one: the rule at zero, which the client asked to
+#' see tried. The rest of that view's lines are real gridlines and stay so,
+#' because its bars stop short of the right-hand edge and the lines read there.
+#'
+#' @param mode the chart's mode
+#' @return a list of plotly shapes, spanning the plot's full height (yref
+#'   "paper", so it does not matter that the y axis is category names)
+fw_bar_rules <- function(mode = c("count", "share")) {
+  mode <- match.arg(mode)
+  at <- if (mode == "share") seq(0, 100, FW_CHART$share_dtick) else 0
+  lapply(at, function(v) {
+    list(type = "line", layer = "above", xref = "x", yref = "paper",
+         x0 = v, x1 = v, y0 = 0, y1 = 1,
+         line = list(color = FW_COLOURS$border, width = FW_CHART$bar_grid))
+  })
+}
+
+#' What a stacked segment's hover says
+#'
+#' THE SAME SENTENCE THE SPECIES TILES USE, in both modes (client, 24 Sept
+#' 2026): "Successful: 25% (3 of 12)". It is literally plan$r_tile_seg, the
+#' tiles' popover template, rather than a second template that says the same
+#' thing - the two drifted apart once already, the tiles leading with the
+#' percentage and the bars with the count, and one template is what stops that
+#' happening again.
+#'
+#' THE MODE NO LONGER CHANGES IT, and that is the point. The percentage used to
+#' appear in share mode only, so the count view answered a hover with an n and
+#' the share view had answered with an n before that; both numbers are always
+#' there now, because a share that hides how much evidence stands behind it is
+#' the fault this fragment exists to avoid.
+#'
+#' The hover reads ITS OWN NUMBERS rather than the drawn value: %{x} on a 100%
+#' stack tells the reader "Successful: 33.33333".
+#'
+#' @param outcome the trace's outcome. One string - a trace is one outcome.
+#' @param n,total,share the segment's count, its bar's total, and n/total as a
+#'   percentage. Vectors, one element per segment in the trace.
+fw_hover_counts <- function(outcome, n, total, share) {
+  tpl <- fw_t("plan", "r_tile_seg")
+  # share is 100 * n / total and total is a bar's own total, which is never
+  # zero for a bar that exists - a bar is drawn because something counted into
+  # it. max() is the floor anyway, so a future empty category rounds to 0%
+  # rather than printing NA at a reader.
+  pc <- sprintf("%.0f", pmax(0, round(share)))
+  vapply(seq_along(n), function(i) {
+    fw_fill(tpl, outcome = outcome, pc = pc[i],
+            n = fw_fmt_num(n[i]), total = fw_fmt_num(total[i]))
+  }, character(1))
+}
+
+#' Room between an axis and its tick labels
+#'
+#' INVISIBLE TICKS, NOT A STANDOFF. plotly.js has ticklabelstandoff from 2.29,
+#' and the plotly R package here bundles 2.25, so the gap is made the way it
+#' was before that existed: outside ticks as long as the gap, drawn in no
+#' colour. The labels sit off the axis and there is still no mark on it - the
+#' client ended the axis-line A/B test (Sept 2026) in favour of bare axes.
+#'
+#' @param axis an axis list to add the gap to
+fw_tick_gap <- function(axis = list()) {
+  modifyList(axis, list(ticks = "outside", ticklen = FW_CHART$tick_gap,
+                        tickcolor = FW_TRANSPARENT))
+}
+
 #' Strip plotly's chrome down to what the design system uses
 #'
 #' Height is NOT set here. plotly deprecated width/height in layout(), so each
@@ -94,15 +212,6 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
                             legend_side = c("top", "right"),
                             filename = "fwise-chart") {
   legend_side <- match.arg(legend_side)
-
-  # THE DONUTS PUT THEIR KEY BESIDE THEM, and the bar charts do not, because
-  # the two have different things above and below the plot. A bar chart has an
-  # axis and an axis title on both sides and nowhere sideways to go without
-  # squeezing the bars; a donut is a circle in a rectangle with half its width
-  # already empty, so the key costs it nothing and a seven-entry key above a
-  # small circle takes more vertical room than the chart. The pie's own domain
-  # is narrowed to match in fw_chart_donut() - plotly does not reserve the
-  # space for a legend at x > 1 on its own.
   side <- identical(legend_side, "right")
 
   legend_layout <- if (side) {
@@ -110,7 +219,7 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
          y = 0.5, yanchor = "middle",
          traceorder = "normal", font = fw_plot_font())
   } else {
-    list(orientation = "h", y = 1, yanchor = "bottom", x = 0,
+    list(orientation = "h", yref = "container", y = 1, yanchor = "top", x = 0,
          traceorder = "normal", font = fw_plot_font())
   }
 
@@ -120,16 +229,6 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
     # Transparent, so a chart takes the surface it sits on.
     paper_bgcolor = FW_TRANSPARENT,
     plot_bgcolor  = FW_TRANSPARENT,
-    # THE LEGEND SITS ABOVE THE PLOT, not below it. Underneath, plotly places it
-    # in paper coordinates at a fixed offset and it lands on top of the x-axis
-    # title, which is where the units are - so the reader loses the label that
-    # says what they are looking at. Above, it has the margin to itself - but
-    # only as much of it as was reserved, which is why the top margin is
-    # computed rather than fixed.
-    #
-    # A SIDE LEGEND NEEDS NEITHER. It is inside the paper, beside a pie that has
-    # been narrowed to leave room for it, so there is no top margin to reserve
-    # and no axis title underneath to clear.
     margin = if (side) {
       list(l = 8, r = 8, t = 8, b = 8)
     } else {
@@ -138,82 +237,37 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
            b = 52)
     },
     hoverlabel = list(font = fw_plot_font()),
-    # THE CAMERA ICON'S COLOUR HAS TO BE SET HERE, and a CSS rule will not do
-    # it. plotly picks the modebar's colour from paper_bgcolor, and ours is
-    # transparent (FW_TRANSPARENT) - which it reads as a dark ground and answers
-    # with a near-white icon at 30% opacity. On our light surface that is an
-    # empty white pill with nothing visible in it, which is what the client was
-    # looking at when they reported the download button as not visible. The
-    # colour is written onto the path as an inline attribute, so it beats
-    # anything .modebar-btn can say from the stylesheet - hence the colours live
-    # here and _components.scss only gives the bar its surface.
     modebar = list(
       bgcolor = FW_TRANSPARENT,
       color = FW_COLOURS$ink_muted,
       activecolor = FW_COLOURS$teal_text
     ),
     showlegend = legend,
-    # traceorder IS NOT REDUNDANT. plotly.js flips its default to "reversed" as
-    # soon as a chart has stacked bars or a filled area, which is every chart
-    # here except the box plot - so the key read Unknown first and Successful
-    # last while the traces were added Successful first. Pinning it makes the
-    # key agree with FW_OUTCOME_LEVELS, which is the one source of that order.
-    #
-    # font IS NOT REDUNDANT EITHER. plotly.js does not reliably inherit
-    # layout.font into legend entries, so the key was rendering below the
-    # client's 1rem floor while every other label on the chart honoured it.
-    legend = legend_layout
+    legend = modifyList(legend_layout, list(itemclick = FALSE, itemdoubleclick = FALSE)),
+    dragmode = FALSE,
+    xaxis = fw_tick_gap(list(fixedrange = TRUE)),
+    yaxis = fw_tick_gap(list(fixedrange = TRUE))
   ) |>
-    # DOWNLOADABLE, AND NOTHING ELSE. The modebar used to be off entirely
-    # (displayModeBar = FALSE), which also took away the one button on it worth
-    # having: the client asked for every plot to be saveable as a PNG the way
-    # plotly does it by default. So the bar comes back with the camera and the
-    # camera alone - zoom, pan, lasso and select are removed rather than left to
-    # be discovered, because none of these charts is a canvas the reader is
-    # meant to navigate, and a half-zoomed axis is a way to misread one.
-    #
-    # scale = 2 because the paper is transparent and the type is at the 1rem
-    # floor: a 1x export of this is soft the moment it lands in a slide.
-    #
-    # This travels into the downloaded HTML report too - the report embeds these
-    # same widgets (see fw_html_figure() in R/report_html.R) - so its charts
-    # become saveable as well. The print block in _report_frame.scss takes the
-    # bar off the page, which matters more now that it is always on screen.
     plotly::config(
       responsive = TRUE,
       displaylogo = FALSE,
-      # AN ALLOW LIST, NOT A DENY LIST. modeBarButtonsToRemove was the obvious
-      # way to write this and it does not hold: plotly adds buttons of its own
-      # accord depending on the chart - setting hovermode on the cumulative
-      # chart brings in a hover toggle that is not either of the
-      # hoverClosest/hoverCompare pair and does not come off by name - so a deny
-      # list quietly grows a button every time a chart option changes. Naming
-      # the one button we want is the only version that stays true.
-      #
-      # The nesting is plotly's: the outer list is groups, the inner is the
-      # buttons in a group. One of each.
+      scrollZoom = FALSE,
+      doubleClick = FALSE,
+      showAxisDragHandles = FALSE,
       modeBarButtons = list(list("toImage")),
-      # ALWAYS ON, NOT ON HOVER. plotly's default is displayModeBar = "hover",
-      # which fades the one button we keep to nothing until the pointer is over
-      # the chart - so on a page of charts the way to save a PNG was invisible
-      # until you happened to find it, and on touch there is no hover to find it
-      # with. The client reported the button as not visible enough; this is the
-      # half of the fix that makes it present at all. The rest of it - a surface
-      # and a border, so it reads as a control over a transparent chart - is in
-      # .modebar-group in _components.scss.
-      displayModeBar = TRUE,
-      toImageButtonOptions = list(format = "png", scale = 2,
+      toImageButtonOptions = list(format = "png",
+                                  scale = FW_CHART$export_dpi / 96,
                                   filename = filename)
     )
 }
 
 #' A chart, or a sentence saying there is none
 #'
-#' Every builder below returns NULL when the selection gives it nothing to
+#' Every plot returns NULL when the selection gives it nothing to
 #' draw, and renderPlotly(NULL) leaves a blank space under the block's heading -
 #' which reads as a chart that failed to load. Shiny's validation message lands
 #' in the output's own slot, so this needs no second output and no second id.
-#' The HTML report does not use it: fw_html_figure() skips a NULL widget,
+#' The PDF report does not use it: fw_typ_figure() skips a NULL chart,
 #' heading and all.
 fw_chart_or_empty <- function(p) {
   shiny::validate(shiny::need(!is.null(p), fw_t("charts", "empty")))
@@ -236,42 +290,10 @@ fw_outcome_counts <- function(sel) {
 # ---- Cumulative over time ----------------------------------------------------
 
 #' Cumulative attempts by start year, stacked by outcome
-#'
-#' Stacked rather than a single line, at the client's request: the growth of the
-#' record and the mix of what came of it are the same question, and a single
-#' line answers only half of it.
-#'
-#' LIVES ON THE DASHBOARD, NOT THE REPORT BUILDER. It answers how the database
-#' has grown, which is a question about the record rather than about a reader's
-#' own situation, and on a narrow selection it was actively misleading.
-#'
-#' SMOOTHED, at the client's request. It was step interpolation ("hv") on the
-#' reasoning that an attempt joins the total on its start year rather than
-#' easing in across the gap - true, but over ninety mostly-sparse years it drew
-#' a staircase that read as noise. "linear" and NOT "spline": the series is
-#' cumulative and therefore never decreases, and a spline overshoots between
-#' knots, so it would draw a band dipping below a total the record had already
-#' reached.
-#'
-#' THE AXIS RUNS TO THIS YEAR, not to the last year with an attempt in it. The
-#' chart answers "how has the record grown", and an axis that stops at the most
-#' recent attempt quietly redraws itself every time one lands - and, worse,
-#' leaves a reader to assume the last point is the present. The completion grid
-#' is extended to the current year with it, so the bands carry flat to the right
-#' edge: cumsum() over zero-count years is the honest reading, because the total
-#' genuinely has not changed since the last recorded attempt.
-#'
-#' HOVER IS UNIFIED, at the client's request: one box listing all four outcomes
-#' at the year under the pointer, rather than whichever single band happens to
-#' be nearest. Set on THIS chart and not in fw_plotly_style(), which is shared
-#' with the donuts and the horizontal bars where an x-unified hover is wrong.
+
 fw_chart_cumulative <- function(sel) {
   y <- sel[!is.na(sel$start_year), c("start_year", "outcome")]
   if (!nrow(y)) return(NULL)
-
-  # max() of the two, not the current year outright: a selection can hold a
-  # start year in the future (FW_YEAR_FUTURE allows a planned attempt), and
-  # truncating the axis would cut a band off mid-flight.
   this_year <- as.integer(format(Sys.Date(), "%Y"))
   last_year <- max(max(y$start_year), this_year)
   years <- seq(min(y$start_year), last_year)
@@ -291,14 +313,10 @@ fw_chart_cumulative <- function(sel) {
     p <- plotly::add_trace(
       p, data = dd, x = ~start_year, y = ~cumulative,
       type = "scatter", mode = "lines", name = o,
-      # The line is the same colour as its fill, so the band reads as one shape
-      # rather than as an outlined one.
       stackgroup = "one",
       line = list(shape = "linear", width = FW_CHART$line,
                   color = unname(FW_OUTCOME_COLOURS[[o]])),
       fillcolor = unname(FW_OUTCOME_COLOURS[[o]]),
-      # NO YEAR IN THE TEMPLATE. Unified hover prints the x value once in its
-      # own header; repeating it on all four rows is what it looked like before.
       hovertemplate = paste0(o, ": %{y}<extra></extra>")
     )
   }
@@ -316,31 +334,7 @@ fw_chart_cumulative <- function(sel) {
     )
 }
 
-# ---- The proportion donuts, both of which are gone ---------------------------
-#
-# THERE WERE TWO RINGS HERE and the client removed them one at a time.
-#
-# The outcome donut went first - "what came of these attempts", one slice per
-# level of FW_OUTCOME_LEVELS. The outcome split is already the segmentation of
-# every stacked bar in the app and the colour of every marker on the map, so the
-# ring was a fourth telling of it and the one that carried the least.
-#
-# The method donut followed, for the same reason and with the same argument made
-# out loud: the stacked bars of outcome-by-method say everything the ring said
-# about the method mix AND say what happened to each method, so the ring was the
-# weaker of two tellings. fw_chart_method() is what the dashboard draws in its
-# place.
-#
-# WHAT THE METHOD RING COUNTED IS NOT WHAT REPLACED IT COUNTS. The ring's
-# denominator was USES - an attempt using three methods put three slices on it -
-# and fw_chart_method() counts ATTEMPTS, once under each of its methods. The
-# totals differ, the copy under the chart says which is which, and anyone
-# comparing a screenshot of the old ring to the new bars needs to know that.
-#
-# None of the counts are lost: fw_outcome_counts() still feeds the report
-# builder's summary (R/mod_plan_results.R) and the dashboard's summary strip.
-# fw_chart_donut() was generic - a data.frame of label and n - so if a ring is
-# ever wanted again it is a small function, not a recovery job.
+
 
 # ---- Outcome by method -------------------------------------------------------
 
@@ -349,19 +343,7 @@ fw_chart_cumulative <- function(sel) {
 #' Two modes over one chart rather than two charts, because the sidebar leaves a
 #' narrow column and a pair side by side would crush both. "share" answers "how
 #' often does this work", "count" answers "how much evidence is there".
-#'
-#' Either way the ATTEMPT COUNT is printed against each method. The count is what
-#' stops a method with three attempts reading as comparable to one with five
-#' hundred - there is no suppression threshold, so the number has to be visible
-#' for the reader to make that judgement themselves.
-#'
-#' COUNT IS THE DEFAULT. It used to be share. A 100% stacked bar answers "how
-#' often did this work" before the reader has been told how much evidence is
-#' behind it, and a method with three attempts looks exactly as authoritative as
-#' one with five hundred. Absolute counts first, share on request.
-#'
-#' @param mode "count" for absolute stacked, "share" for 100% stacked
-fw_chart_method <- function(data, sel, mode = c("count", "share")) {
+fw_method_data <- function(data, sel, mode = c("count", "share")) {
   mode <- match.arg(mode)
   me <- data$attempt_method |>
     filter(attempt_id %in% sel$attempt_id) |>
@@ -371,16 +353,6 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
     mutate(outcome = ifelse(is.na(outcome), "Unknown", outcome))
   if (nrow(me) == 0) return(NULL)
 
-  # THE TWO "OTHER" METHODS SIT AT THE BOTTOM, whatever their counts. This is
-  # the client's standard and it is the same rule fw_chart_category() applies to
-  # its own "Other" bar: an "other" bucket is not a method, it is the remainder
-  # of a list, so ranking it against real methods invites a reader to compare
-  # the two. Everything else is still ordered by frequency, ascending, because
-  # plotly draws the first category at the bottom.
-  #
-  # ON method_id, NOT THE DISPLAY NAME. FW_METHODS in config.R is what makes
-  # ME05/ME06 "Other chemical"/"Other mechanical", and renaming either there
-  # must not quietly unpin it here.
   totals <- me |>
     count(method_name, method_id, name = "total") |>
     mutate(is_other = method_id %in% FW_METHOD_OTHER) |>
@@ -393,29 +365,34 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
            value = if (mode == "share") share else n,
            method_label = paste0(method_name, "  (", total, ")"))
 
-  order_lv <- paste0(totals$method_name, "  (", totals$total, ")")
+  list(d = d, order_lv = paste0(totals$method_name, "  (", totals$total, ")"),
+       mode = mode)
+}
+
+fw_chart_method <- function(data, sel, mode = c("count", "share")) {
+  mode <- match.arg(mode)
+  md <- fw_method_data(data, sel, mode)
+  if (is.null(md)) return(NULL)
+  d <- md$d
+  order_lv <- md$order_lv
   # Grows with the number of methods, so eight methods are not crushed into the
   # space two would use.
   font <- fw_plot_font()
-  p <- plotly::plot_ly(height = fw_chart_height("method", nrow(totals)))
+  p <- plotly::plot_ly(height = fw_chart_height("method", length(order_lv)))
   for (o in FW_OUTCOME_LEVELS) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
+    # COMPUTED HERE, NOT AS A ~FORMULA. A formula is evaluated when plotly
+    # builds the figure, by which time this loop has finished and `o` is the
+    # last outcome - so every trace would hover as "Unknown". The frame is
+    # already subset to this outcome, so there is nothing to defer for.
+    hover <- fw_hover_counts(o, dd$n, dd$total, dd$share)
     p <- plotly::add_trace(
       p, data = dd, type = "bar", orientation = "h",
       y = ~factor(method_label, levels = order_lv), x = ~value, name = o,
       marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
                     line = list(color = FW_COLOURS$surface,
                                 width = FW_CHART$separator_outcome)),
-      # The value inside the segment. Colour alone never carries it.
-      #
-      # IT FOLLOWS THE MODE. It used to print the count in both modes, so a 100%
-      # stacked bar carried raw counts that summed to the method's total rather
-      # than to the 100% the axis promised - the client caught it on a call, and
-      # a reader who trusted the numbers over the axis would have read the chart
-      # backwards. The floor that blanks a label is still a share either way:
-      # what makes a label unreadable is how narrow the segment is, not which
-      # number is in it.
       text = ~ifelse(share < FW_CHART$label_min_share, "",
                      if (mode == "share") paste0(round(share), "%") else as.character(n)),
       textposition = "inside",
@@ -423,34 +400,22 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
       # four Wong fills is dark enough to carry white numerals.
       insidetextfont = list(color = unname(FW_OUTCOME_LABEL_INK[[o]]),
                             family = font$family, size = font$size),
-      # THE HOVER HAS ITS OWN COPY OF THE COUNT. It used to read %{text}, which
-      # is the in-bar label above - and that label is blanked under the share
-      # floor, so exactly the segments a reader hovers to find out about were
-      # the ones that showed "Unknown:  of 567". customdata is never blanked.
-      hovertemplate = paste0("%{y}<br>", o, ": %{customdata}<extra></extra>"),
-      customdata = ~paste0(n, fw_t("charts", "hover_of"), total)
+      # THE WHOLE SENTENCE TRAVELS IN customdata, outcome included, so the one
+      # template in fw_hover_counts() owns the wording. %{y} stays in front of
+      # it: it names which bar is under the pointer, which a species tile does
+      # not need because its name is printed beside the bar.
+      hovertemplate = "%{y}<br>%{customdata}<extra></extra>",
+      customdata = hover
     )
-  }
-
-  x_axis <- if (mode == "share") {
-    list(title = fw_t("charts", "x_share"), range = c(0, 100), ticksuffix = "%",
-         zeroline = FALSE, gridcolor = FW_COLOURS$border)
-  } else {
-    list(title = fw_t("charts", "x_attempts"), zeroline = FALSE,
-         gridcolor = FW_COLOURS$border)
   }
 
   fw_plotly_style(p, legend_labels = FW_OUTCOME_LEVELS,
                   filename = paste0("fwise-methods-", mode)) |>
     plotly::layout(
       barmode = "stack",
-      # Stops plotly shrinking the in-bar counts to illegibility on a narrow
-      # segment; below the floor it hides them instead, which is honest.
-      # The same 1rem floor. mode = "hide" drops a label rather than
-      # shrinking it, so a segment too narrow for the floor shows no number
-      # instead of an unreadable one - the hover still has it.
       uniformtext = list(minsize = FW_TYPE$floor_px, mode = "hide"),
-      xaxis = x_axis,
+      shapes = fw_bar_rules(mode),
+      xaxis = fw_bar_x_axis(mode),
       yaxis = list(title = "", automargin = TRUE)
     )
 }
@@ -532,13 +497,104 @@ fw_duration_range <- function(days) {
   c(lx[1] - pad, lx[2] + pad)
 }
 
-fw_chart_duration <- function(data, sel) {
+#' The named ticks for a selection, reaching as far as its longest attempt
+#'
+#' THE AXIS HAS TO LABEL THE LAST DOT (client, 23 Sept 2026). The six fixed
+#' breaks in FW_CHART$duration_ticks stop at ten years, so a selection holding a
+#' twenty-seven-year attempt drew dots well past the final label and left the
+#' reader with nothing to measure them against. A seventh tick is added at the
+#' longest duration in the selection, named in whichever unit reads plainly at
+#' that length.
+#'
+#' A FIXED TICK TOO CLOSE TO IT IS DROPPED. "10 years" and "11 years" a few
+#' pixels apart overprint each other and say nothing the second does not, so a
+#' fixed tick within FW_CHART$duration_tick_gap of the terminal one (in log10
+#' space, the space the axis is actually spaced in) gives way to it. The
+#' terminal tick always wins, because it is the one carrying new information.
+#'
+#' Ticks past the maximum are dropped outright - they would sit in the padding
+#' beyond the data, labelling empty axis.
+#'
+#' @param days every duration in the selection, all > 0
+#' @return list(vals = tick positions in DAYS, text = their labels). Days, not
+#'   log10: plotly logs tickvals itself. See the long note at the call site.
+fw_duration_ticks <- function(days) {
+  mx <- max(days)
+  vals <- FW_CHART$duration_ticks
+  text <- fw_t("charts", "duration_ticks")
+
+  keep <- vals <= mx
+  vals <- vals[keep]
+  text <- text[keep]
+
+  # The longest attempt already sits on a named break - nothing to add.
+  if (length(vals) && isTRUE(all.equal(vals[length(vals)], mx))) {
+    return(list(vals = vals, text = text))
+  }
+
+  # Name it in the largest unit that leaves a whole number above one, so a
+  # nine-month attempt is "9 months" rather than "0.7 years".
+  label <- if (mx >= 365) {
+    fw_fill(fw_t("charts", "duration_max_years"), n = round(mx / 365))
+  } else if (mx >= 30) {
+    fw_fill(fw_t("charts", "duration_max_months"), n = round(mx / 30))
+  } else {
+    fw_fill(fw_t("charts", "duration_max_days"), n = round(mx))
+  }
+
+  crowded <- length(vals) > 0 &&
+    (log10(mx) - log10(vals[length(vals)])) < FW_CHART$duration_tick_gap
+  if (crowded) {
+    vals <- vals[-length(vals)]
+    text <- text[-length(text)]
+  }
+
+  list(vals = c(vals, mx), text = c(text, label))
+}
+
+#' Vertical offsets that spread the duration chart's dots across their row
+#'
+#' A BEESWARM, CHEAPLY. Every dot used to sit on its method's centre line, so
+#' attempts with the same duration - and a great many were entered as exactly
+#' a year - were one dot drawn on top of another, and a row of forty looked like
+#' a row of six. Dots that land within FW_CHART$duration_swarm$bin of each
+#' other (log10 days) now fan out from the centre, 0, +1, -1, +2, -2 steps, so
+#' a pile of equal durations becomes a column whose height is its count. A pile
+#' too tall for the row is squeezed to fit rather than allowed into the next.
+#' Deterministic: the same selection always draws the same picture.
+#'
+#' @param days durations in days, all > 0.
+#' @param row the row each dot belongs to.
+#' @return an offset per dot, in rows, within +/- FW_CHART$duration_swarm$spread.
+fw_duration_swarm <- function(days, row) {
+  cfg <- FW_CHART$duration_swarm
+  bin <- floor(log10(days) / cfg$bin)
+  out <- numeric(length(days))
+  for (idx in split(seq_along(days), list(row, bin), drop = TRUE)) {
+    m <- length(idx)
+    if (m < 2) next
+    half <- ceiling((m - 1) / 2)
+    step <- min(cfg$step, cfg$spread / half)
+    k <- seq_len(m) - 1L
+    out[idx] <- step * ceiling(k / 2) * ifelse(k %% 2 == 1, 1, -1)
+  }
+  out
+}
+
+#' The rows the duration chart draws, one per dot, with its row and offset
+#'
+#' Shared by the plotly chart and the PDF's static twin, so the swarm is the
+#' same picture in both. See fw_method_data() for why this is split out.
+#'
+#' @return list(d = one row per attempt with row and y_dot, order_lv = the row
+#'   labels bottom to top), or NULL when fewer than two dots would be drawn
+fw_duration_data <- function(data, sel) {
   sel <- fw_duration_sel(data, sel)
   if (!nrow(sel)) return(NULL)
   d <- data$attempt_method |>
     filter(attempt_id %in% sel$attempt_id) |>
     left_join(select(data$method, method_id, method_name), by = "method_id") |>
-    distinct(attempt_id, method_name) |>
+    distinct(attempt_id, method_name, method_id) |>
     left_join(select(sel, attempt_id, duration_days, outcome), by = "attempt_id") |>
     filter(!is.na(duration_days), duration_days > 0) |>
     mutate(outcome = ifelse(is.na(outcome), "Unknown", outcome))
@@ -547,16 +603,45 @@ fw_chart_duration <- function(data, sel) {
   # The n WITH A DURATION, not the n with the method. Half the database has no
   # duration recorded, so labelling with the method's full total would overstate
   # what this chart is drawn from.
-  totals <- d |> count(method_name, name = "n") |> arrange(n)
+  #
+  # THE TWO "OTHER" METHODS SIT AT THE BOTTOM, as they do on every chart that
+  # ranks methods (client, 23 Sept 2026: this chart's rows should read in the
+  # same order as the bars above it). They are the remainder of the list rather
+  # than a treatment anyone chose - see FW_METHOD_OTHER in config.R, held as
+  # ids so renaming one cannot quietly unpin it - and the same desc(is_other)
+  # sort fw_chart_method() uses puts them first in order_lv, which is the row
+  # plotly and ggplot both draw at the BOTTOM. Everything else stays ordered by
+  # how many durations it has, which is what its label counts.
+  totals <- d |>
+    count(method_name, method_id, name = "n") |>
+    mutate(is_other = method_id %in% FW_METHOD_OTHER) |>
+    arrange(desc(is_other), n)
   d <- d |>
-    left_join(totals, by = "method_name") |>
+    left_join(select(totals, method_name, n), by = "method_name") |>
     mutate(method_label = paste0(method_name, "  (", n, ")"))
   order_lv <- paste0(totals$method_name, "  (", totals$n, ")")
+  # A NUMERIC ROW PER METHOD, not a category axis: a category can only be hit
+  # dead centre, and the dots need to sit either side of it. The names come
+  # back as the y axis's tick text in fw_chart_duration().
+  d <- d |> arrange(method_label, duration_days, attempt_id)
+  d$row <- match(d$method_label, order_lv)
+  d$y_dot <- d$row + fw_duration_swarm(d$duration_days, d$row)
 
-  p <- plotly::plot_ly(height = fw_chart_height("duration", nrow(totals)))
+  list(d = d, order_lv = order_lv)
+}
+
+fw_chart_duration <- function(data, sel) {
+  dd <- fw_duration_data(data, sel)
+  if (is.null(dd)) return(NULL)
+  d <- dd$d
+  order_lv <- dd$order_lv
+
+  ticks <- fw_duration_ticks(d$duration_days)
+
+  p <- plotly::plot_ly(height = fw_chart_height("duration", length(order_lv)))
   p <- plotly::add_trace(
     p, data = d, type = "box", orientation = "h",
-    x = ~duration_days, y = ~factor(method_label, levels = order_lv),
+    x = ~duration_days, y = ~row, width = 2 * FW_CHART$duration_swarm$spread,
     name = "", showlegend = FALSE, hoverinfo = "x",
     # Interface colours, deliberately. The box is chrome rather than data - the
     # outcome markers on top of it carry the encoding - so it is the only chart
@@ -565,20 +650,21 @@ fw_chart_duration <- function(data, sel) {
     line = list(color = FW_COLOURS$teal_text, width = FW_CHART$box_line),
     boxpoints = FALSE
   )
+  # THE DOTS ARE PICTURE, NOT CONTROLS (Sept 2026 user testing): no hover,
+  # so nothing on them invites a click. The box under them still answers a
+  # hover with its median and quartiles.
   for (o in FW_OUTCOME_LEVELS) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
     p <- plotly::add_trace(
       p, data = dd, type = "scatter", mode = "markers",
-      x = ~duration_days, y = ~factor(method_label, levels = order_lv),
-      name = o,
+      x = ~duration_days, y = ~y_dot,
+      name = o, hoverinfo = "skip",
       marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
                     size = FW_CHART$point$size,
                     opacity = FW_CHART$point$opacity,
                     line = list(color = FW_COLOURS$surface,
-                                width = FW_CHART$point$stroke)),
-      hovertemplate = paste0("%{y}<br>", o, ": %{x:,.0f}",
-                             fw_t("charts", "hover_days"), "<extra></extra>")
+                                width = FW_CHART$point$stroke))
     )
   }
 
@@ -586,8 +672,14 @@ fw_chart_duration <- function(data, sel) {
                   filename = "fwise-duration") |>
     plotly::layout(
       boxmode = "group",
+      # ROOM FOR THE TERMINAL TICK'S LABEL, which sits at the longest attempt
+      # in the selection and so at the right-hand end of the axis. The shared
+      # style leaves 8px there, which "20 years" centred on that tick overruns.
+      margin = list(l = 8, r = 44, t = fw_legend_margin(FW_OUTCOME_LEVELS), b = 52),
       xaxis = list(
-        title = fw_t("charts", "x_duration"),
+        # NO TITLE (client, 23 Sept 2026). The named ticks below say what the
+        # axis measures, and the title under them said it a second time.
+        title = "",
         type = "log", zeroline = FALSE,
         # A DOTTED LINE ON EACH UNIT BREAK, ON A PLAIN GROUND, and that is the
         # client's instruction. This chart used to carry alternating tinted
@@ -625,18 +717,24 @@ fw_chart_duration <- function(data, sel) {
         # "1 day" disappears entirely because log10(0) is -Inf. The gridlines
         # ride on these values, so getting them wrong loses the unit breaks too.
         tickmode = "array",
-        tickvals = FW_CHART$duration_ticks,
-        ticktext = fw_t("charts", "duration_ticks")
+        # THE SELECTION'S OWN TICKS, not the fixed six: the last one lands on
+        # the longest attempt drawn, so no dot sits past the final label. See
+        # fw_duration_ticks() - and note it returns DAYS, per the note above.
+        tickvals = ticks$vals,
+        ticktext = ticks$text
       ),
       # NO HORIZONTAL RULES. "Plain background" means the vertical unit breaks
       # and nothing else; a y gridline here would be a line through the middle
       # of every box rather than a reference of any kind, since this axis is
       # method names.
-      yaxis = list(title = "", automargin = TRUE, showgrid = FALSE)
+      yaxis = list(title = "", automargin = TRUE, showgrid = FALSE,
+                   zeroline = FALSE, tickmode = "array",
+                   tickvals = seq_along(order_lv), ticktext = order_lv,
+                   range = c(0.5, length(order_lv) + 0.5))
     )
 }
 
-# ---- Waterbody, driver and species -------------------------------------------
+# ---- Waterbody and species ---------------------------------------------------
 
 #' A horizontal bar of counts by category, stacked by outcome
 #'
@@ -645,12 +743,20 @@ fw_chart_duration <- function(data, sel) {
 #' different looks for the same shape of question.
 #'
 #' @param d      a frame with `category` and `outcome`
-#' @param title  the x-axis label
 #' @param limit  keep the top n categories and gather the rest into "Other"
 #' @param filename what a PNG export is called. Each caller passes its own,
-#'   because this one builder draws waterbodies, drivers and species.
-fw_chart_category <- function(d, title, limit = NA_integer_,
-                              filename = "fwise-categories") {
+#'   because this one builder draws waterbodies and species. The mode
+#'   is appended to it, so the two views do not export over each other.
+#' @param mode "count" for absolute stacked, "share" for 100% stacked. The
+#'   denominator is the CATEGORY's own total, so share answers "within this kind
+#'   of thing, how did it go" - the same question, and the same arithmetic, as
+#'   the mode on fw_chart_method(). It is not each category's share of the
+#'   selection.
+#'
+#' fw_category_data() is the counting half, shared with the PDF's static twin
+#' (fw_gg_category() in R/charts_static.R); fw_chart_category() draws it.
+fw_category_data <- function(d, limit = NA_integer_, mode = c("count", "share")) {
+  mode <- match.arg(mode)
   if (!nrow(d)) return(NULL)
   d$outcome <- as.character(fw_outcome_factor(d$outcome))
   other <- fw_t("charts", "other")
@@ -671,27 +777,62 @@ fw_chart_category <- function(d, title, limit = NA_integer_,
   d <- d |>
     count(category, outcome, name = "n") |>
     left_join(select(totals, category, total), by = "category") |>
-    mutate(label = paste0(category, "  (", total, ")"))
+    mutate(share = 100 * n / total,
+           value = if (mode == "share") share else n,
+           label = paste0(category, "  (", total, ")"))
   order_lv <- paste0(totals$category, "  (", totals$total, ")")
 
-  p <- plotly::plot_ly(height = fw_chart_height("category", nrow(totals)))
+  list(d = d, order_lv = order_lv)
+}
+
+fw_chart_category <- function(d, limit = NA_integer_,
+                              filename = "fwise-categories",
+                              mode = c("count", "share")) {
+  mode <- match.arg(mode)
+  cd <- fw_category_data(d, limit, mode)
+  if (is.null(cd)) return(NULL)
+  d <- cd$d
+  order_lv <- cd$order_lv
+  font <- fw_plot_font()
+
+  p <- plotly::plot_ly(height = fw_chart_height("category", length(order_lv)))
   for (o in FW_OUTCOME_LEVELS) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
+    # Eager, not a ~formula - see the note in fw_chart_method().
+    hover <- fw_hover_counts(o, dd$n, dd$total, dd$share)
     p <- plotly::add_trace(
       p, data = dd, type = "bar", orientation = "h",
-      y = ~factor(label, levels = order_lv), x = ~n, name = o,
+      y = ~factor(label, levels = order_lv), x = ~value, name = o,
       marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
                     line = list(color = FW_COLOURS$surface,
                                 width = FW_CHART$separator_outcome)),
-      hovertemplate = paste0("%{y}<br>", o, ": %{x}<extra></extra>")
+      # The value inside the segment, following the mode, as fw_chart_method()
+      # does and for the same reasons. This chart had none in either mode until
+      # the client caught its 100% view with no numbers on it (21 Sept 2026).
+      text = ~ifelse(share < FW_CHART$label_min_share, "",
+                     if (mode == "share") paste0(round(share), "%") else as.character(n)),
+      textposition = "inside",
+      insidetextfont = list(color = unname(FW_OUTCOME_LABEL_INK[[o]]),
+                            family = font$family, size = font$size),
+      # ITS OWN NUMBERS, not %{x}. The hover used to read the drawn value, which
+      # is right up until the bar is a 100% stack and the reader is told
+      # "Successful: 33.33333". Same builder as fw_chart_method(), which is the
+      # same template the species tiles use - see fw_hover_counts().
+      hovertemplate = "%{y}<br>%{customdata}<extra></extra>",
+      customdata = hover
     )
   }
+
   fw_plotly_style(p, legend_labels = FW_OUTCOME_LEVELS,
-                  filename = filename) |>
+                  filename = paste0(filename, "-", mode)) |>
     plotly::layout(
       barmode = "stack",
-      xaxis = list(title = title, zeroline = FALSE, gridcolor = FW_COLOURS$border),
+      # The 1rem floor: a segment too narrow for it shows no number rather
+      # than a shrunken one. The hover still has it.
+      uniformtext = list(minsize = FW_TYPE$floor_px, mode = "hide"),
+      shapes = fw_bar_rules(mode),
+      xaxis = fw_bar_x_axis(mode),
       yaxis = list(title = "", automargin = TRUE)
     )
 }
@@ -701,12 +842,22 @@ fw_chart_category <- function(d, title, limit = NA_integer_,
 #' The specific type rather than the still/flowing split: "Lake" and "Pond"
 #' behave differently enough that collapsing them loses the useful part, and the
 #' regime is one filter away in the sidebar.
-fw_chart_waterbody <- function(sel) {
-  d <- sel |>
+#'
+#' @param mode "count" for attempts, "share" for the outcome mix in each kind of
+#'   water as a 100% bar. The segments carry counts or percentages to match;
+#'   the bar labels keep their totals in both modes, so the evidence behind a
+#'   share is never off the chart.
+fw_chart_waterbody <- function(sel, mode = c("count", "share")) {
+  mode <- match.arg(mode)
+  fw_chart_category(fw_waterbody_rows(sel), limit = FW_TOP_N,
+                    filename = "fwise-waterbody-types", mode = mode)
+}
+
+#' The kind-of-water chart's input: one row per attempt with a waterbody
+fw_waterbody_rows <- function(sel) {
+  sel |>
     filter(!is.na(waterbody_type)) |>
     transmute(category = waterbody_type, outcome)
-  fw_chart_category(d, fw_t("charts", "x_attempts"), limit = FW_TOP_N,
-                    filename = "fwise-waterbody-types")
 }
 
 #' One row per (attempt, species) for a role, labelled and with its outcome
@@ -760,127 +911,4 @@ fw_species_top_n <- function(data, sel, role_name, limit = FW_TOP_N) {
       for (o in FW_OUTCOME_LEVELS) if (is.null(x[[o]])) x[[o]] <- 0L
       x
     })()
-}
-
-# ---- Methods against waterbody -----------------------------------------------
-
-#' Which methods get used in which kind of water
-#'
-#' THE ONE CHART SEGMENTED BY METHOD RATHER THAN OUTCOME. It answers a question
-#' the outcome charts cannot: standing at a lake, what have people actually
-#' reached for? "How the methods compare" says how each method fared overall,
-#' which is not the same thing - draining a pond and draining a river are one
-#' method and two different propositions.
-#'
-#' Colour comes from FW_METHOD_COLOURS: seven distinct hues, because method is a
-#' nominal category and the ramp that used to be here implied an order the data
-#' does not have. See the long note in config.R for what was measured and why
-#' the order of that vector must not be changed casually.
-#'
-#' THE COUNTS INSIDE THE SEGMENTS ARE NOT DECORATION. Seven categories is past
-#' the point where colour alone can separate every possible pair, so the number
-#' in the segment and the white rule between segments are the second and third
-#' encodings. Do not remove either to tidy the chart up.
-#'
-#' Counted once per (attempt, method): an attempt using rotenone twice is one
-#' use of rotenone.
-#'
-#' @param mode "count" for absolute stacked, "share" for 100% stacked
-fw_chart_method_waterbody <- function(data, sel, mode = c("count", "share")) {
-  mode <- match.arg(mode)
-  d <- data$attempt_method |>
-    filter(attempt_id %in% sel$attempt_id) |>
-    distinct(attempt_id, method_id) |>
-    left_join(select(data$method, method_id, method_name), by = "method_id") |>
-    left_join(select(sel, attempt_id, waterbody_type), by = "attempt_id") |>
-    filter(!is.na(waterbody_type), !is.na(method_name))
-  if (!nrow(d)) return(NULL)
-
-  # Same contract as fw_chart_category(): keep the top ten kinds of water and
-  # gather the rest into a real bar rather than dropping them, so the reader can
-  # see how much of the picture the named ones cover.
-  other <- fw_t("charts", "other")
-  wb <- d |> count(waterbody_type, name = "total") |> arrange(desc(total))
-  if (nrow(wb) > FW_TOP_N) {
-    keep <- wb$waterbody_type[seq_len(FW_TOP_N)]
-    d$waterbody_type <- ifelse(d$waterbody_type %in% keep, d$waterbody_type,
-                               other)
-  }
-
-  totals <- d |>
-    count(waterbody_type, name = "total") |>
-    mutate(is_other = waterbody_type == other) |>
-    arrange(desc(is_other), total)
-
-  dd <- d |>
-    count(waterbody_type, method_id, method_name, name = "n") |>
-    left_join(select(totals, waterbody_type, total), by = "waterbody_type") |>
-    mutate(share = 100 * n / total,
-           value = if (mode == "share") share else n,
-           label = paste0(waterbody_type, "  (", total, ")"))
-  order_lv <- paste0(totals$waterbody_type, "  (", totals$total, ")")
-
-  # Methods are added in ramp order, so the key reads dark to light rather than
-  # in whatever order the selection happened to produce.
-  method_ids <- intersect(names(FW_METHOD_COLOURS), unique(dd$method_id))
-
-  font <- fw_plot_font()
-  p <- plotly::plot_ly(height = fw_chart_height("method_waterbody", nrow(totals)))
-  for (m in method_ids) {
-    seg <- dd[dd$method_id == m, ]
-    if (!nrow(seg)) next
-    p <- plotly::add_trace(
-      p, data = seg, type = "bar", orientation = "h",
-      y = ~factor(label, levels = order_lv), x = ~value,
-      name = seg$method_name[1],
-      marker = list(color = unname(FW_METHOD_COLOURS[[m]]),
-                    # A hairline, kept on purpose: it is the separator that
-                    # keeps two segments readable as two when their fills are
-                    # the closest pair in the palette. See FW_CHART in config.R.
-                    line = list(color = FW_COLOURS$surface,
-                                width = FW_CHART$separator_method)),
-      # The threshold is on SHARE, so the label only appears where the segment
-      # is actually wide enough to hold it, whichever mode the chart is in - but
-      # the NUMBER follows the mode, the same fix as fw_chart_method(). Printing
-      # a count inside a 100% stacked bar contradicts the axis above it.
-      text = ~ifelse(share < FW_CHART$label_min_share, "",
-                     if (mode == "share") paste0(round(share), "%") else as.character(n)),
-      textposition = "inside",
-      # PER METHOD, not white throughout. Three of the seven fills are light
-      # enough that white numerals on them fall under 4.5:1. See
-      # FW_METHOD_LABEL_INK in config.R.
-      insidetextfont = list(color = unname(FW_METHOD_LABEL_INK[[m]]),
-                            family = font$family, size = font$size),
-      # Own copy of the count, not %{text}: see fw_chart_method().
-      hovertemplate = paste0("%{y}<br>", seg$method_name[1],
-                             ": %{customdata}<extra></extra>"),
-      customdata = ~paste0(n, fw_t("charts", "hover_of"), total)
-    )
-  }
-
-  x_axis <- if (mode == "share") {
-    list(title = fw_t("charts", "x_share_uses"), range = c(0, 100),
-         ticksuffix = "%", zeroline = FALSE, gridcolor = FW_COLOURS$border)
-  } else {
-    list(title = fw_t("charts", "x_times_used"), zeroline = FALSE,
-         gridcolor = FW_COLOURS$border)
-  }
-
-  # The key carries seven method names, which is the chart that made the old
-  # fixed top margin overlap the bars. Names in trace order, so the reserved
-  # space matches the key that is actually drawn.
-  legend_labels <- vapply(method_ids,
-                          function(m) dd$method_name[dd$method_id == m][1],
-                          character(1))
-  fw_plotly_style(p, legend_labels = unname(legend_labels),
-                  filename = paste0("fwise-method-waterbody-", mode)) |>
-    plotly::layout(
-      barmode = "stack",
-      # The same 1rem floor. mode = "hide" drops a label rather than
-      # shrinking it, so a segment too narrow for the floor shows no number
-      # instead of an unreadable one - the hover still has it.
-      uniformtext = list(minsize = FW_TYPE$floor_px, mode = "hide"),
-      xaxis = x_axis,
-      yaxis = list(title = "", automargin = TRUE)
-    )
 }

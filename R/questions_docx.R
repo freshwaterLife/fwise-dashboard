@@ -60,6 +60,11 @@ fw_questions_docx <- function(choices, logo = FW_LOGO$mark_file) {
     w <- 1.9
     h <- if (is.null(dims)) 0.75 else round(w * dims[1] / dims[2], 2)
     doc <- body_add_img(doc, logo, width = w, height = h)
+    # A LINE UNDER THE MARK (client, 24 Sept 2026). An image paragraph has no
+    # space after it in officer, so the title sat straight on the logo. The
+    # empty paragraph is the idiom the rest of this file already uses for a
+    # blank line rather than a second spacing mechanism.
+    doc <- body_add_par(doc, "")
   }
 
   q <- fw_t("questions")

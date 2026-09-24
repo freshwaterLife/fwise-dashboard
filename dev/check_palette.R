@@ -127,15 +127,15 @@ cat("\n================ OUTCOME palette (Wong 2011) ================\n")
 cat("Fixed by the associated paper. Checked, not tuned.\n\n")
 validate(unname(FW_OUTCOME_COLOURS), "light", FW_COLOURS$surface)
 
-cat("\n================ METHOD palette ================\n")
-cat("Adjacent pairs - the pairlist a stacked bar is judged on.\n")
-cat("Order matters and is the order of FW_METHOD_COLOURS.\n\n")
-ok <- validate(unname(FW_METHOD_COLOURS), "light", FW_COLOURS$surface)
-
-cat("\nAll pairs - the harder test. EXPECTED TO FAIL at seven categories;\n")
-cat("recorded so the margin is visible rather than forgotten. The white\n")
-cat("separator and the in-segment counts are what cover this case.\n\n")
-invisible(validate(unname(FW_METHOD_COLOURS), "light", FW_COLOURS$surface, pairs = "all"))
+# THE METHOD PALETTE USED TO BE CHECKED HERE. It coloured one chart, the
+# methods-by-waterbody stack, which the client deleted on 23 Sept 2026 - it was
+# the only figure in the app that ever encoded method as colour. Two of its
+# seven fills had never passed the all-pairs test, and both faults were
+# properties of that chart alone, so they went with it.
+#
+# FW_METHOD_COLOURS and FW_METHOD_LABEL_INK are gone from R/config.R; see the
+# note where they were. Bring this section back with any chart that needs
+# method-as-colour.
 
 cat("\n================ In-segment label ink ================\n")
 cat("The count drawn inside each segment, against that segment's own fill.\n")
@@ -147,17 +147,25 @@ for (o in names(FW_OUTCOME_COLOURS)) {
               FW_OUTCOME_COLOURS[[o]], r, if (r >= 4.5) "pass" else "FAIL"))
   if (r < 4.5) ink_ok <- FALSE
 }
-for (m in names(FW_METHOD_COLOURS)) {
-  r <- contrast(FW_METHOD_LABEL_INK[[m]], FW_METHOD_COLOURS[[m]])
-  cat(sprintf("  %s  %s on %s  %5.2f:1  %s\n", m, FW_METHOD_LABEL_INK[[m]],
-              FW_METHOD_COLOURS[[m]], r, if (r >= 4.5) "pass" else "FAIL"))
-  if (r < 4.5) ink_ok <- FALSE
+cat("\n================ The printed map ================\n")
+cat("The PDF report's own green and blue, which are NOT the app's surfaces.\n")
+cat("They sit UNDER the outcome dots drawn on them, so the test is that each\n")
+cat("outcome colour still separates from both grounds.\n\n")
+map_ok <- TRUE
+for (g in c("land", "water")) {
+  for (o in names(FW_OUTCOME_COLOURS)) {
+    de <- deltaE(FW_OUTCOME_COLOURS[[o]], FW_MAP_PRINT[[g]])
+    cat(sprintf("  %-11s on %-5s  %s vs %s  dE=%4.1f  %s\n", o, g,
+                FW_OUTCOME_COLOURS[[o]], FW_MAP_PRINT[[g]], de,
+                if (de >= 15) "pass" else "FAIL"))
+    if (de < 15) map_ok <- FALSE
+  }
 }
 
 cat("\n")
-if (!isTRUE(ok)) {
-  cat("FAIL: the method palette breaks on its ADJACENT pairlist.\n")
-  cat("Re-step one colour of the flagged pair, or reorder FW_METHOD_COLOURS.\n")
+if (!map_ok) {
+  cat("FAIL: an outcome dot does not separate from the map it sits on.\n")
+  cat("Lighten FW_MAP_PRINT$land or $water in R/brand.R.\n")
   quit(status = 1)
 }
 if (!ink_ok) {
@@ -165,4 +173,4 @@ if (!ink_ok) {
   cat("Flip that method's entry in FW_METHOD_LABEL_INK, or step the fill.\n")
   quit(status = 1)
 }
-cat("Method palette passes on the pairlist that applies to it.\n")
+cat("Every palette passes the pairlist that applies to it.\n")

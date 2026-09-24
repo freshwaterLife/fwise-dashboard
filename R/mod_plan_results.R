@@ -15,16 +15,26 @@ library(dplyr)
 #' invites the reader to stop there.
 fw_plan_summary <- function(data, sel) {
   ids <- sel$attempt_id
-  inv <- data$attempt_species |>
-    filter(attempt_id %in% ids, role == "invasive")
-  me <- data$attempt_method |> filter(attempt_id %in% ids)
+  sp <- data$attempt_species |> filter(attempt_id %in% ids)
+
+  # SPECIES PROTECTED COUNTS SUCCESSFUL ATTEMPTS ONLY (client, 23 Sept 2026),
+  # which is what fw_headline_stats()$protected has always done for the Welcome
+  # page. A species on an attempt that failed was not protected by it, so it is
+  # not counted here - and this is the only figure in the strip that narrows to
+  # one outcome, which is why it is computed from its own id set rather than
+  # from `sp`.
+  won <- sel$attempt_id[sel$outcome %in% "Successful"]
+  protected <- n_distinct(sp$species_id[sp$role == "beneficiary" &
+                                          sp$attempt_id %in% won])
 
   years <- sel$start_year[!is.na(sel$start_year)]
   list(
     attempts  = nrow(sel),
     countries = n_distinct(sel$country),
-    species   = n_distinct(inv$species_id),
-    methods   = n_distinct(me$method_id),
+    species   = n_distinct(sp$species_id[sp$role == "invasive"]),
+    # Species protected, in place of the methods count (client, 21 Sept 2026).
+    # Shown as a floor (">X"): beneficiaries are under-recorded.
+    beneficiaries = protected,
     year_span = if (length(years)) paste0(min(years), "-", max(years))
                 else fw_t("common", "empty_value")
   )
@@ -36,12 +46,19 @@ fw_plan_summary_ui <- function(s) {
     span(class = "fw-summary-strip__value", value),
     span(class = "fw-summary-strip__label", label)
   )
+  # EVERY LABEL INFLECTS WITH ITS FIGURE (client, 23 Sept 2026: one country was
+  # labelled "countries"). Two of the four do not change form in English, and
+  # they still go through fw_plural() so that adding a form later is a copy
+  # edit rather than a code change. "Year range" is a range whatever it spans.
+  lab <- function(n, key) fw_plural(n, fw_t("plan", paste0(key, "_one")),
+                                    fw_t("plan", key))
   div(
     class = "fw-summary-strip", role = "status",
-    item(fw_fmt_num(s$attempts),  fw_t("plan", "r_attempts")),
-    item(fw_fmt_num(s$countries), fw_t("plan", "r_countries")),
-    item(fw_fmt_num(s$species),   fw_t("plan", "r_species")),
-    item(fw_fmt_num(s$methods),   fw_t("plan", "r_methods")),
+    item(fw_fmt_num(s$attempts),  lab(s$attempts, "r_attempts")),
+    item(fw_fmt_num(s$countries), lab(s$countries, "r_countries")),
+    item(fw_fmt_num(s$species),   lab(s$species, "r_species")),
+    item(paste0(">", fw_fmt_num(s$beneficiaries)),
+         lab(s$beneficiaries, "r_beneficiaries")),
     item(s$year_span,             fw_t("plan", "r_years"))
   )
 }
@@ -75,40 +92,30 @@ fw_outcome_bars_ui <- function(sel) {
 
 # ---- Species tiles -----------------------------------------------------------
 
+#' The heading over one role's tiles
+#'
+#' "Top three invasive species targeted (of 41 total)", and for the protected
+#' side "(of >12 total)" because beneficiaries are under-recorded. The number
+#' word is the tiles actually shown, so a selection with two species says "Top
+#' two". Shared by the page and the PDF report so the two cannot disagree.
+#'
+#' @return NULL when the selection has no species in that role
+fw_species_top_title <- function(data, sel, role_name, limit = FW_PLAN_SPECIES_N) {
+  total <- dplyr::n_distinct(fw_species_rows(data, sel, role_name)$species_id)
+  if (!total) return(NULL)
+  key <- if (role_name == "invasive") "r_species_top_inv" else "r_species_top_ben"
+  fw_fill(fw_t("plan", key), n_word = fw_num_word(min(limit, total)),
+          total = fw_fmt_num(total))
+}
+
 #' The top species for a role, as photographs
 #'
-#' A GRID OF PICTURES RATHER THAN A BAR CHART, and that is the point of it. The
-#' rest of this page is counts; this is the row where a reader recognises the
-#' animal they are actually dealing with. The count and the outcome split are
-#' still there, so nothing is traded away for the photograph.
-#'
-#' Every photograph carries its credit and a linked licence. That is a condition
-#' of using them, not decoration - fw_species_figure() builds both, and returns
-#' a placeholder rather than a bare image when a species has no licensed
-#' photograph. See the header of R/species_images.R.
-#'
-#' live = FALSE always. A grid of these is built at once and none of them may
-#' reach Wikimedia while the page is rendering.
-#'
-#' @param limit how many tiles. The page passes FW_PLAN_SPECIES_N (five), which
-#'   is deliberately fewer than the FW_TOP_N the ranked bar charts use: a tile
-#'   is a photograph rather than a line, so ten of them ran to two full rows and
-#'   pushed the rest of the report below the fold.
-#'
-#' @param role_name "invasive" or "beneficiary"
-#' @return NULL when the selection has none of that role, so the calling block
-#'   disappears rather than standing over an empty grid. 107 of 914 attempts
-#'   record no beneficiary at all.
+#' A GRID OF PICTURES RATHER THAN A BAR CHART.
 fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
   top <- fw_species_top_n(data, sel, role_name, limit)
   if (!nrow(top)) return(NULL)
 
-  # THE COLUMN COUNT IS THE TILE COUNT, handed to the stylesheet as a custom
-  # property. The grid used to be auto-fill, which lays out as many tracks as
-  # fit and leaves the ones it has no tile for standing empty - the dead space
-  # the client objected to once each role became a full-width row. A selection
-  # with two species gets two columns that share the width, not three with a
-  # gap at the end.
+  # THE COLUMN COUNT IS THE TILE COUNT.
   div(
     class = "fw-species-tiles",
     style = sprintf("--fw-tiles:%d;", nrow(top)),
@@ -129,18 +136,31 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
           span(class = "fw-species-tile__count",
                fw_fmt_num(row$n), " ",
                fw_t("plan", if (row$n == 1) "r_tile_attempt" else "r_tile_attempts")),
-          # The outcome split as a single bar. Decoration: the numbers are in
-          # the title attribute and in the Outcomes block above, so a reader who
-          # cannot separate the colours has lost nothing.
+          # The outcome split as a single bar, EACH SEGMENT HOVERABLE (client,
+          # 21 Sept 2026): a popover gives its outcome and share, "Successful:
+          # 25% (3 of 12)". The same popovers as the (i) buttons, initialised by
+          # fw_popover_script() when renderUI adds them, and focusable so a
+          # keyboard reaches them too. The bar's aria-label carries the whole
+          # split for a screen reader in one go.
           div(
             class = "fw-species-tile__bar",
-            title = paste(paste0(FW_OUTCOME_LEVELS, ": ", counts),
-                          collapse = ", "),
+            role = "img",
+            `aria-label` = paste(paste0(FW_OUTCOME_LEVELS, ": ", counts),
+                                 collapse = ", "),
             lapply(FW_OUTCOME_LEVELS, function(o) {
               n <- counts[[o]]
               if (n == 0L) return(NULL)
               div(
                 class = "fw-species-tile__seg",
+                tabindex = "0",
+                `data-bs-toggle` = "popover",
+                `data-bs-trigger` = "hover focus",
+                `data-bs-placement` = "top",
+                `data-bs-content` = fw_fill(fw_t("plan", "r_tile_seg"),
+                                            outcome = o,
+                                            pc = sprintf("%.0f", 100 * n / total),
+                                            n = fw_fmt_num(n),
+                                            total = fw_fmt_num(total)),
                 style = sprintf("width:%.2f%%;background:%s;",
                                 100 * n / total, FW_OUTCOME_COLOURS[[o]])
               )
@@ -160,7 +180,8 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
 #' dashboard's are the same map with a different selection in it.
 #'
 #' @param detail,detail_input passed to fw_add_attempt_markers(): the page
-#'   fetches each record on click, the HTML report carries them all.
+#'   fetches each record on click; "embed" carries every record inside its
+#'   marker, for a map with no server behind it.
 fw_plan_map <- function(data, sel, detail = c("embed", "lazy"), detail_input = NULL) {
   fw_leaflet() |>
     fw_add_basemaps() |>
@@ -172,14 +193,14 @@ fw_plan_map <- function(data, sel, detail = c("embed", "lazy"), detail_input = N
 # fw_plan_table() USED TO LIVE HERE - one page of the matching attempts, hand
 # built rather than DT so the page did not carry a second sorting and paging
 # model beside its own. The client removed the table from the report builder,
-# and the HTML report's copy of it went at the same time, so it had no callers
+# and the old HTML report's copy of it went at the same time, so it had no callers
 # left.
 #
 # fw_plan_pages() below is still used - the contacts block pages the same way.
 #
-# IF A RECORD-BY-RECORD SECTION COMES BACK, and the client has asked for one in
-# prose for the next round, it should not be this: a table of truncated cells is
-# what the CSV in the same bundle already does better.
+# THE RECORD-BY-RECORD READING ARRIVED as its own download (21 Sept 2026): every
+# attempt written out in full, one card after another - see R/report_records.R.
+# Not a table of truncated cells, which is what the CSV already does better.
 
 #' How many pages a selection needs
 fw_plan_pages <- function(n_rows, per_page) {
@@ -190,15 +211,9 @@ fw_plan_pages <- function(n_rows, per_page) {
 
 #' The people attached to the attempts in this selection
 #'
-#' REDACTION IS NOT DONE HERE, and must not be. fw_contacts_summary() replaces
-#' the address of any contact flagged not-public with NA before the data reaches
-#' the session, so this function - and the page built from it - has no code path
-#' that can see one. Do not reach past it to data$contact.
+#' REDACTION IS NOT DONE HERE.
 #'
-#' RELEVANCE IS THE SELECTION ITSELF, not a second idea of "region". A contact
-#' is relevant if they are attached to an attempt the reader actually built, so
-#' the table cannot disagree with the filters above it. `attempt_ids` is the
-#' list column fw_contacts_summary() already derives from both contact slots.
+#' RELEVANCE IS IN THE SELECTION.
 #'
 #' @return one row per contact, most involved in THIS selection first, with
 #'   attempt_count replaced by the count within the selection.
@@ -216,12 +231,7 @@ fw_plan_contacts <- function(data, sel) {
 }
 
 #' One page of the relevant contacts
-#'
-#' Hand-built, like every other table in the app, and the mailto comes from
-#' fw_contact_action() in mod_networking.R rather than a second copy of it: the
-#' address is assembled in JavaScript at click time so a scraper reading the
-#' served markup does not harvest it in one pass, and a contact with no public
-#' address gets an empty cell rather than a badge advertising a hidden one.
+
 fw_plan_contacts_ui <- function(contacts, page = 1L,
                                 per_page = FW_PLAN_CONTACTS_PAGE_SIZES[1]) {
   if (!nrow(contacts)) return(p(fw_t("plan", "r_contacts_none")))
@@ -243,20 +253,14 @@ fw_plan_contacts_ui <- function(contacts, page = 1L,
     tags$tbody(lapply(seq_len(nrow(rows)), function(i) {
       r <- rows[i, ]
       tags$tr(
-        tags$td(r$contact_name),
+        tags$td(r$contact_name %|na|% ""),
         tags$td(r$organisation %|na|% fw_t("networking", "no_organisation")),
         tags$td(r$continent_label),
         tags$td(r$country_label),
         tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
-        tags$td(fw_contact_action(r$contact_email, r$contact_name))
+        tags$td(fw_contact_action(r$contact_email, fw_contact_who(r)))
       )
     }))
   )
 }
 
-# ---- Caveats -----------------------------------------------------------------
-#
-# THE PANEL MOVED TO THE ABOUT PAGE. fw_caveats_ui() and fw_caveat_title() now
-# live in R/ui_helpers.R, because About, the HTML report and this page's
-# downloads all draw them and none of the three owns the other two. The text
-# itself has always come from fw_caveat_blocks() in R/export.R and still does.
