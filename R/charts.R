@@ -145,24 +145,38 @@ fw_bar_rules <- function(mode = c("count", "share")) {
   })
 }
 
-#' What a stacked segment's hover says, in either mode
+#' What a stacked segment's hover says
 #'
-#' THE COUNT IN BOTH MODES, THE PERCENTAGE IN SHARE MODE TOO. The hover reads
-#' its own numbers rather than the drawn value - %{x} on a 100% stack tells the
-#' reader "Successful: 33.33333" - and it led with the raw count in both modes
-#' until the client pointed out that the success-rate view therefore answered a
-#' hover with an n and never with the % its bar is drawn in (23 Sept 2026).
-#' The count still comes first, because a share that hides how much evidence
-#' stands behind it is the fault this fragment was written to avoid.
+#' THE SAME SENTENCE THE SPECIES TILES USE, in both modes (client, 24 Sept
+#' 2026): "Successful: 25% (3 of 12)". It is literally plan$r_tile_seg, the
+#' tiles' popover template, rather than a second template that says the same
+#' thing - the two drifted apart once already, the tiles leading with the
+#' percentage and the bars with the count, and one template is what stops that
+#' happening again.
 #'
+#' THE MODE NO LONGER CHANGES IT, and that is the point. The percentage used to
+#' appear in share mode only, so the count view answered a hover with an n and
+#' the share view had answered with an n before that; both numbers are always
+#' there now, because a share that hides how much evidence stands behind it is
+#' the fault this fragment exists to avoid.
+#'
+#' The hover reads ITS OWN NUMBERS rather than the drawn value: %{x} on a 100%
+#' stack tells the reader "Successful: 33.33333".
+#'
+#' @param outcome the trace's outcome. One string - a trace is one outcome.
 #' @param n,total,share the segment's count, its bar's total, and n/total as a
-#'   percentage. Vectors, one element per segment in a trace.
-#' @param mode the chart's mode. "count" gets no percentage.
-fw_hover_counts <- function(n, total, share, mode) {
-  out <- paste0(n, fw_t("charts", "hover_of"), total)
-  if (!identical(mode, "share")) return(out)
-  tpl <- fw_t("charts", "hover_share")
-  paste0(out, vapply(round(share), function(p) fw_fill(tpl, pct = p), character(1)))
+#'   percentage. Vectors, one element per segment in the trace.
+fw_hover_counts <- function(outcome, n, total, share) {
+  tpl <- fw_t("plan", "r_tile_seg")
+  # share is 100 * n / total and total is a bar's own total, which is never
+  # zero for a bar that exists - a bar is drawn because something counted into
+  # it. max() is the floor anyway, so a future empty category rounds to 0%
+  # rather than printing NA at a reader.
+  pc <- sprintf("%.0f", pmax(0, round(share)))
+  vapply(seq_along(n), function(i) {
+    fw_fill(tpl, outcome = outcome, pc = pc[i],
+            n = fw_fmt_num(n[i]), total = fw_fmt_num(total[i]))
+  }, character(1))
 }
 
 #' Room between an axis and its tick labels
@@ -368,6 +382,11 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
   for (o in FW_OUTCOME_LEVELS) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
+    # COMPUTED HERE, NOT AS A ~FORMULA. A formula is evaluated when plotly
+    # builds the figure, by which time this loop has finished and `o` is the
+    # last outcome - so every trace would hover as "Unknown". The frame is
+    # already subset to this outcome, so there is nothing to defer for.
+    hover <- fw_hover_counts(o, dd$n, dd$total, dd$share)
     p <- plotly::add_trace(
       p, data = dd, type = "bar", orientation = "h",
       y = ~factor(method_label, levels = order_lv), x = ~value, name = o,
@@ -381,8 +400,12 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
       # four Wong fills is dark enough to carry white numerals.
       insidetextfont = list(color = unname(FW_OUTCOME_LABEL_INK[[o]]),
                             family = font$family, size = font$size),
-      hovertemplate = paste0("%{y}<br>", o, ": %{customdata}<extra></extra>"),
-      customdata = ~fw_hover_counts(n, total, share, mode)
+      # THE WHOLE SENTENCE TRAVELS IN customdata, outcome included, so the one
+      # template in fw_hover_counts() owns the wording. %{y} stays in front of
+      # it: it names which bar is under the pointer, which a species tile does
+      # not need because its name is printed beside the bar.
+      hovertemplate = "%{y}<br>%{customdata}<extra></extra>",
+      customdata = hover
     )
   }
 
@@ -776,6 +799,8 @@ fw_chart_category <- function(d, limit = NA_integer_,
   for (o in FW_OUTCOME_LEVELS) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
+    # Eager, not a ~formula - see the note in fw_chart_method().
+    hover <- fw_hover_counts(o, dd$n, dd$total, dd$share)
     p <- plotly::add_trace(
       p, data = dd, type = "bar", orientation = "h",
       y = ~factor(label, levels = order_lv), x = ~value, name = o,
@@ -792,12 +817,10 @@ fw_chart_category <- function(d, limit = NA_integer_,
                             family = font$family, size = font$size),
       # ITS OWN NUMBERS, not %{x}. The hover used to read the drawn value, which
       # is right up until the bar is a 100% stack and the reader is told
-      # "Successful: 33.33333". Same builder, and the same reasoning, as
-      # fw_chart_method(): the count travels in BOTH modes so a share never
-      # hides how much evidence is behind it, and the percentage joins it in
-      # share mode. See fw_hover_counts().
-      hovertemplate = paste0("%{y}<br>", o, ": %{customdata}<extra></extra>"),
-      customdata = ~fw_hover_counts(n, total, share, mode)
+      # "Successful: 33.33333". Same builder as fw_chart_method(), which is the
+      # same template the species tiles use - see fw_hover_counts().
+      hovertemplate = "%{y}<br>%{customdata}<extra></extra>",
+      customdata = hover
     )
   }
 

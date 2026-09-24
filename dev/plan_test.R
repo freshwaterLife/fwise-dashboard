@@ -32,6 +32,10 @@ base$include_no_year <- TRUE
 base$include_no_size <- TRUE
 
 cat("\n-- the copy deck --\n")
+# [PLACEHOLDER] What the caveats say while the client writes the real ones.
+# When they land, these assertions should name a phrase from their text instead.
+PLACEHOLDER_CAVEAT <- "ANABELL TO PROVIDE CAVEATS FOR FWISE"
+
 ok("no section is defined in two copy files",
    anyDuplicated(names(fw_copy_all())), 0L)
 
@@ -252,7 +256,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # describe the whole database rather than the selection, and under a freshly
   # built result they read as qualifications of that selection alone. They still
   # travel inside every download - asserted further down.
-  ok("caveats do NOT sit beside the results", grepl("laimed is not the same", h), FALSE)
+  ok("caveats do NOT sit beside the results", grepl(PLACEHOLDER_CAVEAT, h, fixed = TRUE), FALSE)
   ok("the contacts block does", grepl("Potential relevant contacts", h), TRUE)
   ok("the cumulative chart has left this page",
      grepl("How the record has", h), FALSE)
@@ -296,13 +300,13 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
      grepl("No attempts match those filters", h), TRUE)
   ok("and names a filter to relax", grepl("Try relaxing one of these first", h), TRUE)
   ok("the zero state does not carry caveats either",
-     grepl("laimed is not the same", h), FALSE)
+     grepl(PLACEHOLDER_CAVEAT, h, fixed = TRUE), FALSE)
 
   # ---- The download -------------------------------------------------------
   #
-  # ONE HANDLER AND A PICKER. The methods-and-caveats text is NOT one of the
-  # choices: it travels whatever else is ticked, which is the whole reason the
-  # panel could move off the page without the qualifications going with it.
+  # ONE HANDLER AND A PICKER. The methods-and-caveats text used to travel
+  # whatever else was ticked; it is gone (client, 24 Sept 2026) and each
+  # document carries the section itself, so one tick downloads one file.
   session$setInputs(taxa = character(0), build = input$build + 1)
   ok("back from zero to results", output$state, "results")
 
@@ -348,8 +352,12 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # it was the spreadsheet's rows a second time - and the interactive HTML
   # report before it.
   ok("the three parts, in order", FW_BUNDLE_PARTS, c("pdf", "records", "xlsx"))
-  ok("the old html part is not recognised", fw_bundle_parts("html"), character(0))
-  ok("and the csv is not recognised either", fw_bundle_parts("csv"), character(0))
+  # A RETIRED PART IS DROPPED AND THE SELECTION FALLS TO THE SPREADSHEET. It
+  # used to be dropped to nothing, which was safe while the methods text made
+  # every download non-empty; with that gone, an empty selection has no file to
+  # name, so fw_bundle_parts() has a floor - see the note there.
+  ok("the old html part is not recognised", fw_bundle_parts("html"), "xlsx")
+  ok("and the csv is not recognised either", fw_bundle_parts("csv"), "xlsx")
   picker <- as.character(fw_plan_download_ui(session$ns, pdf = TRUE))
   ok("the picker offers all three",
      all(vapply(c('value="pdf"', 'value="records"', 'value="xlsx"'),
@@ -385,37 +393,47 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   inside <- unzip_names(path)
   ok("it carries the spreadsheet", any(grepl("[.]xlsx$", inside)), TRUE)
   ok("and the attempts file",      fw_records_filename() %in% inside, TRUE)
-  ok("and the methods and caveats", fw_methods_filename() %in% inside, TRUE)
+  # THE MANDATORY .txt IS GONE (client, 24 Sept 2026) and the zip holds exactly
+  # what was ticked. It used to carry a methods-and-caveats file whatever else
+  # was in there; each document closes on that section itself now.
+  ok("and nothing else",
+     sort(inside), sort(c(fw_export_filename(), fw_records_filename())))
+
+  # ONE TICK, ONE FILE, NOT A ZIP OF ONE. This is the change the client asked
+  # for: the travelling text file made every download a zip of two things, so
+  # ticking the report handed back an archive to unpack.
+  session$setInputs(download_parts = "records")
+  ok("one thing ticked downloads that one thing",
+     fw_bundle_filename("records"), fw_records_filename())
+  ok("and it is not a zip",
+     grepl("^<!DOCTYPE html", readLines(output$download, n = 1)), TRUE)
 
   # AN UNRECOGNISED PART IS DROPPED, NOT REFUSED. "csv" was a real part until
-  # 23 Sept 2026, so a stale bookmark or a re-sent form can still name it; it
-  # is filtered out by fw_bundle_parts() and the reader gets the text alone,
-  # the same as ticking nothing.
+  # 23 Sept 2026, so a stale bookmark or a re-sent form can still name it. With
+  # nothing left to write, fw_bundle_parts() falls to the spreadsheet rather
+  # than naming a file it cannot produce - the picker's own Download button is
+  # disabled long before a reader could get here (fw_download_guard()).
   session$setInputs(download_parts = "csv")
-  ok("a bundle asking for the retired csv falls back to the text",
-     fw_bundle_filename("csv"), fw_methods_filename())
-  ok("and it is the real text",
-     grepl("HOW FWISE WAS COMPILED", readLines(output$download, n = 1)), TRUE)
+  ok("a bundle asking for the retired csv falls back to the spreadsheet",
+     fw_bundle_filename("csv"), fw_export_filename())
 
-  # Nothing ticked is a reasonable thing to want, not an error to refuse: it
-  # downloads the methods and caveats on their own, and raw rather than zipped.
   session$setInputs(download_parts = character(0))
-  ok("nothing ticked downloads the text alone",
-     fw_bundle_filename(character(0)), fw_methods_filename())
-  ok("and that is the real text too",
-     grepl("HOW FWISE WAS COMPILED", readLines(output$download, n = 1)), TRUE)
+  ok("and so does one asking for nothing at all",
+     fw_bundle_filename(character(0)), fw_export_filename())
 
   # THE PROGRESS BAR (client, 21 Sept 2026). Every step reports, the bar never
   # goes backwards, it ends at 1, and every step has words from the copy deck.
-  for (parts in list(character(0), c("xlsx", "records"))) {
+  # The zip step exists only where there is more than one file to pack, so a
+  # single-part bundle reports its own step and the finish and nothing else.
+  for (parts in list("xlsx", c("xlsx", "records"))) {
     seen <- list()
     fw_write_bundle(tempfile(), parts, d, report()$sel, report()$export,
                     report()$filters, m,
                     progress = function(v, detail) seen[[length(seen) + 1]] <<- list(v, detail))
     vals <- vapply(seen, `[[`, numeric(1), 1)
-    lbl <- paste0("progress (", paste(c("txt", parts), collapse = "+"), "): ")
+    lbl <- paste0("progress (", paste(parts, collapse = "+"), "): ")
     ok(paste0(lbl, "one report per step plus the finish"),
-       length(vals), length(parts) + 1L + (length(parts) > 0) + 1L)
+       length(vals), length(parts) + (length(parts) > 1) + 1L)
     ok(paste0(lbl, "never goes backwards"), all(diff(vals) >= 0))
     ok(paste0(lbl, "starts at 0 and ends at 1"), c(vals[1], utils::tail(vals, 1)), c(0, 1))
     ok(paste0(lbl, "every step is worded"),
@@ -423,15 +441,20 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   }
 
   # ---- The workbook -------------------------------------------------------
+  # Ticked on its own, so the download IS the .xlsx - no archive to open.
   session$setInputs(download_parts = "xlsx")
-  book <- tempfile(fileext = ".zip")
-  file.copy(output$download, book, overwrite = TRUE)
-  xl <- tempfile(); dir.create(xl)
-  utils::unzip(book, exdir = xl)
-  path <- list.files(xl, pattern = "[.]xlsx$", full.names = TRUE)[1]
+  path <- tempfile(fileext = ".xlsx")
+  file.copy(output$download, path, overwrite = TRUE)
   sheets <- openxlsx::getSheetNames(path)
-  ok("all four sheets present, and no contacts sheet",
-     sheets, c("Attempts", "Caveats", "Field definitions", "Filters applied"))
+  # METHODS AND CAVEATS IS THE LAST TAB (client, 24 Sept 2026), where the PDF
+  # and the records HTML also close. Still no contacts sheet.
+  ok("all four sheets present, in order, and no contacts sheet",
+     sheets, c("Attempts", "Field definitions", "Filters applied",
+               "Methods and caveats"))
+  ok("and the last tab carries the methods and the client's caveats",
+     all(c(toupper(fw_t("export", "methods_heading")),
+           "ANABELL TO PROVIDE CAVEATS FOR FWISE") %in%
+           openxlsx::read.xlsx(path, "Methods and caveats")[[1]]), TRUE)
   ok("data sheet matches the selection",
      nrow(openxlsx::read.xlsx(path, "Attempts")), nrow(report()$sel))
   ok("field definitions cover every exported column",
@@ -452,8 +475,18 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # EVERY ATTEMPT IN THE SELECTION, ONCE, IN THE SPREADSHEET'S ORDER, with every
   # exported field labelled on every card. Read back out of the file the reader
   # gets, not out of the function that wrote it.
+  # ONE PART DOWNLOADS AS ITSELF, more than one as a zip (client, 24 Sept
+  # 2026). fw_bundle_filename() draws that line and this follows it, so the
+  # assertions below read the same file the reader would get either way.
   unpack <- function(parts, pattern) {
     session$setInputs(download_parts = parts)
+    name <- fw_bundle_filename(parts)
+    if (!grepl("[.]zip$", name)) {
+      out <- file.path(tempfile("fw-one-"), name)
+      dir.create(dirname(out))
+      file.copy(output$download, out, overwrite = TRUE)
+      return(out)
+    }
     z <- tempfile(fileext = ".zip")
     file.copy(output$download, z, overwrite = TRUE)
     dir <- tempfile(); dir.create(dir)
@@ -485,12 +518,24 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   cut <- vapply(seq_len(nrow(exp_rows)),
                 function(i) fw_record_group_drop(chem, as.list(exp_rows[i, ])),
                 logical(1))
-  # all(), not the two vectors: ok() prints a line per element, and this one is
-  # as long as the selection.
+  # AND MINUS A BLANK REGION (client, 24 Sept 2026). Region is recorded for a
+  # handful of countries only, so "Not noted" under an Australian site read as
+  # a missing Tasmania. It is the one field that vanishes rather than saying
+  # so - see FW_RECORD_OMIT_BLANK - and the expected count follows the same
+  # predicate the writer uses.
+  no_region <- vapply(exp_rows$region, fw_record_blank, logical(1))
   ok("every card draws every grouped field it keeps",
      all(unname(n_dt) ==
-           ifelse(cut, length(grouped) - length(chem$fields), length(grouped))),
+           length(grouped) -
+           ifelse(cut, length(chem$fields), 0L) -
+           ifelse(no_region, 1L, 0L)),
      TRUE)
+  ok("some cards in here have no region, or the rule is untested",
+     sum(no_region) > 0)
+  ok("a card with no region draws no Region row",
+     any(grepl("<dt>Region</dt>", cards[no_region], fixed = TRUE)), FALSE)
+  ok("and a card with one still does",
+     all(grepl("<dt>Region</dt>", cards[!no_region], fixed = TRUE)), TRUE)
   ok("some cards here have the chemical section cut", sum(cut) > 0)
   ok("and some keep it, or the rule is untested", sum(!cut) > 0)
   ok("a cut card loses the heading with the fields",
@@ -524,7 +569,9 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
            fixed = TRUE), TRUE)
   ok("no private address reaches the attempts file",
      any(vapply(private, grepl, logical(1), x = rec, fixed = TRUE)), FALSE)
-  ok("the caveats travel with it", grepl("Claimed is not the same", rec, fixed = TRUE), TRUE)
+  ok("the caveats travel with it", grepl(PLACEHOLDER_CAVEAT, rec, fixed = TRUE), TRUE)
+  ok("and the methods statement with them",
+     grepl(fw_t("export", "methods_heading"), rec, fixed = TRUE), TRUE)
   ok("nothing in it is fetched",
      grepl('(src|href)="(?!data:|#|https?:|mailto:)[^"]*[.](css|js|png|jpe?g|woff2?)"',
            rec, perl = TRUE), FALSE)
@@ -557,7 +604,19 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     has <- function(txt) grepl(txt, typ, fixed = TRUE)
     ok("the letterhead carries the title", has(fw_t("plan", "report_title")), TRUE)
     ok("the filter selection is recorded", has(fw_t("plan", "report_selection")), TRUE)
-    ok("the caveats travel with the document", has("Claimed is not the same"), TRUE)
+    ok("the caveats travel with the document", has(PLACEHOLDER_CAVEAT), TRUE)
+    ok("and the methods statement with them",
+       has(fw_t("export", "methods_heading")), TRUE)
+    # NOT "How fwise was compiled". fw_caveat_title() used to lowercase
+    # everything after the first letter, which was invisible while every
+    # heading was a plain sentence and ate the acronym the moment one was not.
+    ok("with its acronym intact", has("How FWISE was compiled"), TRUE)
+    # AND THE HEADINGLESS BLOCK CARRIES NO HEADING. fw_typ_str() turns an empty
+    # value into "-" for a data cell, which here would set a bold hyphen above
+    # the caveats; the heading is passed with na = "" so the Typst partial can
+    # test for it. See fw-caveats in resources/report/typst-template.typ.
+    ok("and the headingless caveat block passes an empty title, not a dash",
+       has(paste0('("", "', PLACEHOLDER_CAVEAT, '")')), TRUE)
     ok("and so do the contacts", has(fw_t("plan", "r_contacts")), TRUE)
     ok("the map is drawn", file.exists(file.path(keep, "map.png")), TRUE)
     ok("every chart is drawn",

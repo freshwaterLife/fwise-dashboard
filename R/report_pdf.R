@@ -414,7 +414,9 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
   })
 
   people <- fw_plan_contacts(data, sel)
-  caveats <- fw_caveat_blocks(data)
+  # Methods then caveats, the same closing section the workbook's last tab and
+  # the records HTML carry. See fw_closing_blocks() in R/export.R.
+  caveats <- fw_closing_blocks(data)
 
   parts <- list(
     paste0("#fw-letterhead(title: ", fw_typ_str(fw_t("plan", "report_title")),
@@ -496,9 +498,13 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
     },
 
     # Last, and never optional.
-    paste0("#fw-caveats(", fw_typ_str(fw_t("about", "caveats_heading")), ", ",
+    paste0("#fw-caveats(", fw_typ_str(fw_t("export", "closing_heading")), ", ",
+           # na = "" ON THE HEADING, not the "-" fw_typ_str() gives an empty
+           # data value: a block with no heading means print no heading, and
+           # the Typst partial tests for exactly "". A dash there would set a
+           # bold hyphen above the text. See fw-caveats in typst-template.typ.
            fw_typ_array(vapply(caveats, function(b) fw_typ_array(c(
-             fw_typ_str(fw_caveat_title(b$heading)),
+             fw_typ_str(fw_caveat_title(b$heading), na = ""),
              fw_typ_str(paste(b$body, collapse = "\n\n")))), "")), ")"),
 
     paste0("#v(6mm)\n#text(fill: fw-ink-muted)[#", fw_typ_str(fw_t("plan", "report_footer")), "]")

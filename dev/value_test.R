@@ -113,25 +113,41 @@ ok("footer: the FWISE logo goes to The solution, in the same tab",
    grepl("fw_nav_to&#39;, &#39;home&#39;", fwise_a, fixed = TRUE) && !grepl("_blank", fwise_a, fixed = TRUE))
 
 # The caveats.
+#
+# [PLACEHOLDER] THE CLIENT IS WRITING THESE (24 Sept 2026), so what is asserted
+# here is the machinery, not the words: that the placeholder is the only thing
+# in there, that a block with no heading prints no heading, and that the number
+# substitution still works. WHEN THE REAL TEXT ARRIVES, put back the per-number
+# checks that stood here - each computed figure appearing in some body, and no
+# {placeholder} surviving - because a caveat carrying a stale number reads as
+# precision and is worse than no caveat at all.
 blocks <- fw_caveat_blocks(d)
-n <- nrow(a)
-successful <- sum(a$outcome == "Successful", na.rm = TRUE)
-unverified <- sum(a$outcome == "Successful" &
-                    (is.na(a$verification_notes) | a$verification_notes == ""), na.rm = TRUE)
-no_size <- sum(is.na(a$area_treated)); no_start <- sum(is.na(a$start_year)); no_end <- sum(is.na(a$end_year))
-pct <- function(x) paste0(round(100 * x / n), "%")
 bodies <- vapply(blocks, `[[`, character(1), "body")
-ok("caveats: successful count",  any(grepl(paste0(format(successful, big.mark = ","), " attempts recorded as successful"), bodies, fixed = TRUE)))
-ok("caveats: unverified count",  any(grepl(paste0(format(unverified, big.mark = ","), " carry no verification"), bodies, fixed = TRUE)))
-ok("caveats: no-size count and share",
-   any(grepl(paste0(format(no_size, big.mark = ","), " attempts (", pct(no_size), ")"), bodies, fixed = TRUE)))
-ok("caveats: no-start count and share",
-   any(grepl(paste0(format(no_start, big.mark = ","), " (", pct(no_start), ")"), bodies, fixed = TRUE)))
-ok("caveats: no-end count and share",
-   any(grepl(paste0(format(no_end, big.mark = ","), " (", pct(no_end), ")"), bodies, fixed = TRUE)))
-ok("caveats: no placeholder left", !any(grepl("\\{[a-z_]+\\}", bodies)))
-ok("caveats: flat vector is heading, body, blank",
-   length(fw_caveats(d)), 3L * length(blocks) - 1L)
+ok("caveats: the client's placeholder is the whole of it",
+   bodies, "ANABELL TO PROVIDE CAVEATS FOR FWISE")
+ok("caveats: the placeholder block carries no heading",
+   vapply(blocks, function(b) fw_caveat_title(b$heading), ""), "")
+ok("caveats: flat vector is body only while there is no heading",
+   length(fw_caveats(d)), length(blocks))
+
+# The numbers a caveat can quote are still computed and still substituted, so
+# the client's text can use them the day it lands. Asserted on a body of our
+# own rather than on the copy deck, which currently has nothing to fill.
+local({
+  filled <- fw_fill("{successful} of {no_start}",
+                    successful = format(sum(a$outcome == "Successful", na.rm = TRUE), big.mark = ","),
+                    no_start = format(sum(is.na(a$start_year)), big.mark = ","))
+  ok("caveats: the number substitution still works", !grepl("\\{", filled))
+})
+
+# The closing section of every export: methods first, then the caveats.
+closing <- fw_closing_blocks(d)
+ok("closing section: methods block leads",
+   closing[[1]]$heading, fw_t("export", "methods_heading"))
+ok("closing section: the caveats follow it", length(closing), length(blocks) + 1L)
+ok("closing section: the workbook text carries both",
+   all(c(toupper(fw_t("export", "methods_heading")),
+         "ANABELL TO PROVIDE CAVEATS FOR FWISE") %in% fw_methods_caveats_text(d)))
 
 # The About page renders end to end. Its section keys are built with paste0(),
 # which dev/check_literals.R cannot see, so a missing key only shows up here.
@@ -836,18 +852,23 @@ ok("method: in-bar count hidden exactly under the share floor", hidden_ok)
 # the share floor, so the narrow segments - the ones a reader hovers to find
 # out about - said "Unknown:  of 567". The count and the total are recomputed
 # here and the hover string has to carry both, hidden label or not.
-# AND IN SHARE MODE IT CARRIES THE PERCENTAGE TOO (client, 23 Sept 2026): the
-# success-rate view answered a hover with a count and never with the % its bar
-# is drawn in. The count still leads. Recomputed here from the raw rows, so the
-# assertion cannot be satisfied by the chart reading its own drawn value.
-hover_of <- fw_t("charts", "hover_of")
-hover_share <- fw_t("charts", "hover_share")
+# AND IT IS THE SPECIES TILE'S SENTENCE, IN BOTH MODES (client, 24 Sept 2026):
+# "Successful: 25% (3 of 12)", the same plan$r_tile_seg the tiles fill, so the
+# reader meets one wording wherever they hover. The mode no longer changes it.
+# Recomputed here from the raw rows, so the assertion cannot be satisfied by
+# the chart reading its own drawn value.
+#
+# THE OUTCOME IS PART OF THE ASSERTION, and deliberately. It is a loop variable
+# on the R side, and a ~formula would have plotly resolve it after the loop had
+# finished - giving every trace the last outcome. That bug is invisible unless
+# something checks the name against the trace it came from.
 hover_want <- function(t, i, rows, group, name_of, mode = "count") {
   mname <- label_name(t$y[i])
   n <- sum(group == mname & name_of == t$name)
   total <- sum(group == mname)
-  paste0(n, hover_of, total,
-         if (mode == "share") fw_fill(hover_share, pct = round(100 * n / total)) else "")
+  fw_fill(fw_t("plan", "r_tile_seg"), outcome = t$name,
+          pc = sprintf("%.0f", round(100 * n / total)),
+          n = fw_fmt_num(n), total = fw_fmt_num(total))
 }
 for (mode in c("count", "share")) {
   tr <- traces(fw_chart_method(d, all_sel, mode))
@@ -860,7 +881,7 @@ for (mode in c("count", "share")) {
     if (!grepl("%{customdata}", t$hovertemplate[1], fixed = TRUE) ||
         grepl("%{text}", t$hovertemplate[1], fixed = TRUE)) all_ok <- FALSE
   }
-  ok(sprintf("method (%s): every hover reads its own count, and its %% in share mode",
+  ok(sprintf("method (%s): every hover is the species tile's sentence, outcome included",
              mode), all_ok)
   ok(sprintf("method (%s): the %d hidden-label segments still hover a count", mode, n_hidden),
      hidden_ok && n_hidden > 0L)
@@ -1144,11 +1165,13 @@ wb_sums <- tapply(unlist(lapply(tr_wb_share, `[[`, "x")),
                   unlist(lapply(tr_wb_share, function(t) as.character(t$y))), sum)
 ok("category: shares sum to 100 per kind of water", all(abs(wb_sums - 100) < 1e-9))
 
-# THE HOVER CARRIES THE RAW COUNT IN BOTH MODES, AND THE % IN SHARE MODE. It
-# used to read the drawn value, so share mode would have offered "Successful:
-# 33.33333"; then it read only the count, so the success-rate view never
-# answered with the percentage its own bar is drawn in (client, 23 Sept 2026).
-# Both numbers are recomputed here from the attempts.
+# THE HOVER IS THE SPECIES TILE'S SENTENCE, IN BOTH MODES (client, 24 Sept
+# 2026) - "Successful: 25% (3 of 12)". It used to read the drawn value, so
+# share mode would have offered "Successful: 33.33333"; then it read the count
+# only, and later the count with a percentage in share mode alone. One template
+# now, plan$r_tile_seg. Both numbers are recomputed here from the attempts, and
+# the outcome is checked against the trace it came from - see the note on the
+# method chart's hover above for why that matters.
 for (mode in c("count", "share")) {
   tr_h <- plotly::plotly_build(fw_chart_waterbody(all_sel, mode))$x$data
   all_ok <- TRUE
@@ -1158,16 +1181,13 @@ for (mode in c("count", "share")) {
       lab <- label_name(t$y[i])
       n <- sum(wb_named == lab & wb_out == t$name)
       total <- sum(wb_named == lab)
-      want <- paste0(n, fw_t("charts", "hover_of"), total,
-                     if (mode == "share")
-                       fw_fill(fw_t("charts", "hover_share"),
-                               pct = round(100 * n / total)) else "")
+      want <- fw_fill(fw_t("plan", "r_tile_seg"), outcome = t$name,
+                      pc = sprintf("%.0f", round(100 * n / total)),
+                      n = fw_fmt_num(n), total = fw_fmt_num(total))
       if (!identical(as.character(t$customdata[i]), want)) all_ok <- FALSE
     }
   }
-  ok(paste0("category ", mode, ": hover is the count out of the bar's total",
-            if (mode == "share") ", with its %" else ""),
-     all_ok)
+  ok(paste0("category ", mode, ": hover is the species tile's sentence"), all_ok)
 }
 
 # THE SEGMENTS CARRY LABELS IN BOTH MODES (client, 21 Sept 2026: the 100% view

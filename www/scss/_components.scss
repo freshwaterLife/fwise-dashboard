@@ -797,9 +797,27 @@
   // .fw-download-picker__fixed USED TO LIVE HERE - the always-included .txt,
   // set apart under a rule as a statement rather than an option. It reads as a
   // checkbox that failed to render however it is styled, so the sentence moved
-  // up into the lead above the list. See fw_plan_download_ui().
+  // up into the lead above the list. The .txt itself went on 24 Sept 2026 and
+  // the sentence with it. See fw_plan_download_ui().
 
   .btn { width: auto; }
+
+  // NOTHING TICKED, NOTHING TO DOWNLOAD (client, 24 Sept 2026). The methods
+  // text that used to travel regardless is gone, so an empty picker has no
+  // file to name. fw_download_guard() in R/mod_plan.R sets aria-disabled and
+  // takes the button out of the tab order; this is what that looks like.
+  //
+  // KEYED ON aria-disabled, NOT .disabled ALONE. A downloadButton is an
+  // anchor, and `disabled` means nothing to one - the attribute that carries
+  // the state to a screen reader is the one worth styling from, so the two
+  // can never disagree.
+  .btn[aria-disabled="true"] {
+    background: $fw-border;
+    border-color: $fw-border;
+    color: $fw-ink-muted;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
 }
 
 // The large-PDF warning under the picker's boxes. A notice, not an error: the
@@ -1347,6 +1365,25 @@
 
     &:hover { color: $fw-teal-text; background: $fw-teal-wash; }
   }
+
+  // THE PANEL WHILE THE SERVER IS FINDING THE RECORD. The map's markers carry
+  // no record of their own on the Plan page (detail = "lazy"), so a click asks
+  // the server and the panel would otherwise stay shut until the answer came
+  // back. panelPending() in R/maps.R mounts this; the record replaces it.
+  // min-height so the dialog does not open as a sliver and then jump.
+  &__pending {
+    display: grid;
+    place-items: center;
+    min-height: 12rem;
+
+    &::after {
+      content: "";
+      width: 4rem;
+      height: 4rem;
+      background: var(--fw-badge-url) center / contain no-repeat;
+      animation: fw-spin 1.4s linear infinite;
+    }
+  }
 }
 
 .fw-popup-detail {
@@ -1836,8 +1873,47 @@
 .fw-map {
   height: clamp(320px, 55vh, 560px);
   width: 100%;
+  // The overlay below is absolute against this.
+  position: relative;
 
   .leaflet-container { height: 100%; width: 100%; }
+
+  // THE BADGE WHILE THE MARKERS ARE BEING SWAPPED.
+  //
+  // Both maps are drawn once and then updated through leaflet::leafletProxy(),
+  // which never marks the output .recalculating - so the global busy spinner
+  // that covers every chart and table on the site cannot see them, and the old
+  // markers sit there looking finished. fw_client_script() hangs this class on
+  // Shiny's own busy signal instead, after FW_SPINNER_DELAY_MS.
+  //
+  // A WASH, NOT A CURTAIN. The stale markers stay readable underneath; the
+  // point is to say they are stale, not to hide the map. Above Leaflet's panes
+  // (400) and its controls (1000), below the marker card at 1200.
+  // TWO PSEUDO-ELEMENTS, NOT ONE. The badge turns and the wash does not: a
+  // single element carrying both would rotate a full-width rectangle, which
+  // reads as the map itself tipping over.
+  &--busy::before,
+  &--busy::after {
+    content: "";
+    position: absolute;
+    z-index: 1100;
+    // The map underneath stays pannable; this only says "working".
+    pointer-events: none;
+  }
+
+  &--busy::before {
+    inset: 0;
+    background: rgba($fw-page, 0.6);
+  }
+
+  &--busy::after {
+    inset-block-start: calc(50% - 2rem);
+    inset-inline-start: calc(50% - 2rem);
+    width: 4rem;
+    height: 4rem;
+    background: var(--fw-badge-url) center / contain no-repeat;
+    animation: fw-spin 1.4s linear infinite;
+  }
 }
 
 // THE 1rem FLOOR INSIDE LEAFLET. Leaflet ships its own type scale - it sets

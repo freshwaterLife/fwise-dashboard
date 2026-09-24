@@ -444,13 +444,13 @@ mod_plan_server <- function(id, data, meta = NULL) {
     #
     # ONE HANDLER AND A PICKER, replacing a spreadsheet button and a report
     # button. Two buttons made the reader choose between the data and the
-    # document when most of them wanted both, and neither carried the methods
-    # and the caveats out of the building with it.
+    # document when most of them wanted both.
     #
-    # The methods-and-caveats text is NOT one of the choices. It always travels,
-    # for the same reason the workbook's caveats sheet is not optional: a file
-    # that turns up in an inbox six months later has to carry its own
-    # qualifications, and by then nobody remembers what was on screen.
+    # WHAT YOU TICK IS WHAT YOU GET (client, 24 Sept 2026). A methods-and-
+    # caveats .txt used to ride along whatever else was chosen, so ticking the
+    # PDF handed back a zip of two files. Each document now closes on that
+    # section itself - see fw_closing_blocks() in R/export.R - which is what
+    # the travelling text file was for, and one tick now downloads one file.
     #
     # filename is a function evaluated at click time, so it can read the
     # checkboxes and name a .zip or the single file as appropriate.
@@ -529,9 +529,7 @@ fw_plan_download_ui <- function(ns, pdf = fw_pdf_available()) {
 
   div(
     class = "fw-plan__download",
-    p(class = "fw-plan__note",
-      fw_t("plan", "download_lead"), " ",
-      tags$b(fw_t("plan", "download_txt")), " ", fw_t("plan", "download_txt_note")),
+    p(class = "fw-plan__note", fw_t("plan", "download_lead")),
     div(
       class = "fw-download-picker",
       tags$fieldset(
@@ -554,6 +552,7 @@ fw_plan_download_ui <- function(ns, pdf = fw_pdf_available()) {
           selected = if (pdf) c("xlsx", "pdf") else "xlsx"
         ),
         if (!pdf) p(class = "fw-plan__note", fw_t("plan", "pdf_unavailable")),
+        p(class = "fw-plan__note", fw_t("plan", "download_none")),
         # THE SIZE WARNING, drawn by the server from the reader's selection and
         # their ticks - see output$download_warn in mod_plan_server(). Inside
         # the fieldset, under the boxes, so it is read with the choice it is
@@ -572,6 +571,24 @@ fw_plan_download_ui <- function(ns, pdf = fw_pdf_available()) {
     )
   )
 }
+
+# THE DOWNLOAD BUTTON IS DISABLED WHILE NOTHING IS TICKED, and that is done in
+# fw_client_script() (R/ui_helpers.R) rather than here.
+#
+# There is nothing to download with an empty selection any more: the methods-
+# and-caveats text that used to travel regardless is gone (client, 24 Sept
+# 2026), so an empty picker would ask the server for a file that has no name.
+# fw_bundle_parts() has a floor for that case; a reader should not have to
+# reach it.
+#
+# IT CANNOT BE AN INLINE SCRIPT IN THIS PICKER. The picker is built into a
+# modalDialog, and this app does not trust a <script> inserted with dynamic
+# content to run - which is why fw_popover_script() re-initialises popovers
+# from a MutationObserver instead of shipping one per render. The guard is a
+# delegated listener on the document, mounted once with everything else.
+#
+# The picker's default selection is never empty, so there is no initial state
+# to set: no aria-disabled attribute means enabled, which is correct on open.
 
 fw_plan_zero_ui <- function(hints) {
   div(

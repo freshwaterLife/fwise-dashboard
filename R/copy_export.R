@@ -17,11 +17,16 @@ FW_COPY_EXPORT <- list(
     # ORDER IS THE SHEET ORDER in the workbook, and `attempts` must stay first.
     sheets = list(
       attempts    = "Attempts",
-      caveats     = "Caveats",
       definitions = "Field definitions",
-      filters     = "Filters applied"
+      filters     = "Filters applied",
+      caveats     = "Methods and caveats"
     ),
-    caveats_heading = "Caveats and limitations",
+    # The title over the closing section of EVERY export - the last sheet of the
+    # workbook, the last section of the PDF and of the records HTML. It covers
+    # both blocks below: how the database was built, then what to watch for in
+    # it. There is no longer a separate text file carrying them (client, 24 Sept
+    # 2026); each document carries its own.
+    closing_heading = "Methods and caveats",
     col_field      = "Field",
     col_definition = "Definition",
     col_setting    = "Setting",
@@ -46,11 +51,12 @@ FW_COPY_EXPORT <- list(
     # one file was ticked. See fw_write_bundle() in R/export.R.
     bundle_stem    = "fwise-report_",
 
-    # ---- The methods and caveats text -----------------------------------------
-    # The plain text file that travels inside EVERY download, whatever else the
-    # reader chose. Its second half is the caveats below, from the same
-    # fw_caveats() vector the workbook sheet uses.
-    methods_filename = "fwise-methods-and-caveats.txt",
+    # ---- The methods statement -------------------------------------------------
+    # The first half of the closing section of every export. It is NOT the
+    # caveats: the two are being written by different people, so they stay two
+    # blocks. There is no longer a .txt file carrying them out of the building
+    # (client, 24 Sept 2026) - the workbook's last sheet, the PDF's last section
+    # and the records HTML's last section each carry both.
     methods_heading  = "How FWISE was compiled",
     # [PLACEHOLDER] The client is writing this. It is the account of how records
     # were gathered, screened and entered that a reader needs before quoting any
@@ -61,7 +67,7 @@ FW_COPY_EXPORT <- list(
     methods = c(
       "[PLACEHOLDER - awaiting the methods statement from the FWISE team.]",
       paste(
-        "This file will describe how the records in FWISE were gathered,",
+        "This section will describe how the records in FWISE were gathered,",
         "screened and entered: the literature and reporting searched, the",
         "criteria an attempt had to meet to be included, how conflicting",
         "sources were resolved, and what was done about records that were",
@@ -71,64 +77,23 @@ FW_COPY_EXPORT <- list(
     ),
 
     # ---- The caveats ----------------------------------------------------------
-    # THE SAME TEXT travels into every export and sits beside every result on
-    # the report builder. The {numbers} are computed from the data by
-    # fw_caveat_blocks() in export.R, never written here, so a caveat cannot
-    # carry a stale figure. Headings are printed in capitals in the workbook.
+    # [PLACEHOLDER] THE CLIENT IS WRITING THESE (24 Sept 2026). Five blocks
+    # stood here - how success is defined, claimed is not validated, why there
+    # is no success rate, missing values, what this record is - and they were
+    # ours rather than theirs. They came out so that the FWISE team writes the
+    # caveats it thinks the database needs without our wording in front of it.
+    #
+    # THE STRUCTURE IS UNCHANGED and deliberately so. Add blocks back as
+    # list(heading =, body =) and every surface reflows on its own: the About
+    # panel, the workbook sheet, the PDF and the records HTML all loop over
+    # whatever fw_caveat_blocks() returns. A heading of NULL prints no heading,
+    # which is what the single placeholder block below wants.
+    #
+    # A body may carry {successful} {unverified} {no_size} {pct_size}
+    # {no_start} {pct_start} {no_end} {pct_end}; fw_caveat_blocks() in
+    # R/export.R computes them from the data, so a caveat cannot go stale.
     caveats = list(
-      list(
-        heading = "How success is defined",
-        # THE SAME WORK THE CONTRIBUTE FORM CITES (Genovesi 2000, the CoE
-        # Guidelines). Reword the reference here and reword it in
-        # contribute$preamble in copy_contribute.R too, or a reader who met the
-        # definition on the form will meet a different one in the download.
-        body = paste(
-          "Success here means what Genovesi means by it, in Guidelines for",
-          "Eradication of Terrestrial Vertebrates: A European Contribution to",
-          "the Invasive Alien Species Issue: the complete and permanent removal",
-          "of every wild population of a species from a defined area, by a",
-          "campaign with an end date. Work that suppressed a population without",
-          "removing it is not counted as a success, however useful it was."
-        )
-      ),
-      list(
-        heading = "Claimed is not the same as validated",
-        body = paste(
-          "An outcome is recorded as the source reported it. Of the {successful}",
-          "attempts recorded as successful, {unverified} carry no verification",
-          "note. We have not returned to those sites to confirm absence, and in",
-          "many cases neither has anyone else."
-        )
-      ),
-      list(
-        heading = "Why there is no success rate",
-        body = paste(
-          "The four outcomes are reported separately and are never combined into a",
-          "single figure. A rate needs a denominator, and the honest denominator",
-          "changes with every filter on this page. If you calculate one, state what",
-          "you divided by."
-        )
-      ),
-      list(
-        heading = "Missing values",
-        body = paste(
-          "Blanks are absences, not zeros, and they are common. Here, {no_size}",
-          "attempts ({pct_size}) have no treated size, {no_start} ({pct_start})",
-          "have no start year and {no_end} ({pct_end}) have no end year. A good",
-          "part of that last group is still running."
-        )
-      ),
-      list(
-        heading = "What this record is",
-        body = paste(
-          "This database holds eradication work that has been reported, which is",
-          "not the same as eradication work that has been done. Write-ups favour",
-          "attempts that worked, so the outcome mix here is kinder than reality and",
-          "the map shows where people publish as much as where they act. An empty",
-          "region is not a quiet one. If you have run an attempt, successful or",
-          "not, send it in."
-        )
-      )
+      list(heading = NULL, body = "ANABELL TO PROVIDE CAVEATS FOR FWISE")
     ),
 
     # ---- The data dictionary ---------------------------------------------------
@@ -163,6 +128,10 @@ FW_COPY_EXPORT <- list(
       end_year            = "Year the attempt ended. Blank where the attempt is ongoing.",
       duration_days       = "Estimated total duration of the intervention, days.",
       reason              = "The main reason the eradication was carried out.",
+      # [PLACEHOLDER] THESE TWO POINT AT THE CAVEATS, which currently say only
+      # that the FWISE team is writing them. The pointers are left standing
+      # because they will be true again, but check them against the real text
+      # when it lands: "see the caveats" has to lead somewhere that answers.
       beneficiary_species = "Species the eradication was intended to help. Semicolon-delimited. Under-reported - see the caveats.",
       beneficiary_taxa    = "Broad group of each beneficiary. Semicolon-delimited.",
       methods             = "Methods used, semicolon-delimited. An unordered set, not a ranking.",

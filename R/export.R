@@ -258,28 +258,55 @@ fw_caveat_blocks <- function(data) {
 #'
 #' Heading in capitals, body, blank line, repeated. Derived from
 #' fw_caveat_blocks() so the two can never say different things.
+#'
+#' A BLOCK MAY HAVE NO HEADING and then prints none, rather than a blank line
+#' where a heading would be. The placeholder standing in for the client's
+#' caveats is one such block - see [PLACEHOLDER] in R/copy_export.R.
 fw_caveats <- function(data) {
   blocks <- fw_caveat_blocks(data)
   out <- character(0)
   for (i in seq_along(blocks)) {
-    out <- c(out, toupper(blocks[[i]]$heading), blocks[[i]]$body)
+    h <- blocks[[i]]$heading
+    if (length(h) && nzchar(h)) out <- c(out, toupper(h))
+    out <- c(out, blocks[[i]]$body)
     if (i < length(blocks)) out <- c(out, "")
   }
   out
 }
 
-#' The methods-and-caveats text file that travels with every download
+#' The methods statement, in the same shape as a caveat block
 #'
-#' NEVER OPTIONAL, and that is the point of it. The download picker on the
-#' report builder lets a reader choose the spreadsheet, the CSV, the report or
-#' any combination; this goes in the bundle whatever they choose, for the same
-#' reason the workbook has always carried a caveats sheet. A reader who did not
-#' ask for the qualifications is exactly the reader who needs them, and by the
-#' time a file reaches somebody else nobody remembers what was on screen.
+#' So the closing section of every export is ONE LIST TO LOOP OVER: the methods
+#' first, then whatever caveats there are. Kept as its own block rather than
+#' folded into the caveats because the two are being written by different
+#' people - see the two [PLACEHOLDER] notes in R/copy_export.R.
+fw_methods_blocks <- function() {
+  list(list(heading = fw_t("export", "methods_heading"),
+            body = fw_t("export", "methods")))
+}
+
+#' The whole closing section: how it was built, then what to watch for
 #'
-#' Two sections: how the database was built, then what to watch for in it. The
-#' second half is fw_caveats(), the same vector the workbook sheet uses, so the
-#' text file and the spreadsheet cannot say different things.
+#' THE LAST THING IN EVERY EXPORT - the workbook's last sheet, the PDF's last
+#' section, the records HTML's last section. It used to be a text file that
+#' travelled alongside them whatever the reader ticked; the client removed that
+#' download on 24 Sept 2026, so each document now carries the section itself,
+#' which is what the text file was for in the first place.
+fw_closing_blocks <- function(data) {
+  c(fw_methods_blocks(), fw_caveat_blocks(data))
+}
+
+#' The closing section as flat lines, for the workbook's last sheet
+#'
+#' The same two halves fw_closing_blocks() gives the PDF and the records HTML -
+#' how the database was built, then what to watch for in it - flattened one
+#' line per row because that is what a sheet can hold. Derived from the same
+#' fw_caveats(), so the spreadsheet and the two documents cannot say different
+#' things.
+#'
+#' THIS USED TO BE A .txt IN EVERY DOWNLOAD. The client removed that file on
+#' 24 Sept 2026: a reader who ticks the PDF should get a PDF, not a zip holding
+#' a PDF and a text file, and the three documents can each carry the section.
 fw_methods_caveats_text <- function(data) {
   c(
     toupper(fw_t("export", "methods_heading")),
@@ -288,9 +315,6 @@ fw_methods_caveats_text <- function(data) {
     fw_caveats(data)
   )
 }
-
-#' Filename for the methods-and-caveats text
-fw_methods_filename <- function() fw_t("export", "methods_filename")
 
 # ---- Field definitions -------------------------------------------------------
 
@@ -372,6 +396,10 @@ fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL,
 #' three, and a reader who did not ask for the caveats is exactly the reader who
 #' needs them. There is no contacts sheet: the attempts sheet already carries
 #' primary_contact_* and secondary_contact_* on every row (client, 21 Sept 2026).
+#'
+#' METHODS AND CAVEATS IS THE LAST TAB (client, 24 Sept 2026), where the PDF and
+#' the records HTML also close. It carries what the retired
+#' fwise-methods-and-caveats.txt used to carry out of the building on its own.
 fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
   wb <- openxlsx::createWorkbook()
   header <- openxlsx::createStyle(
@@ -385,15 +413,17 @@ fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
     openxlsx::setColWidths(wb, name, cols = seq_len(max(1, ncol(x))), widths = widths)
   }
 
+  # THE ADD ORDER IS THE TAB ORDER, and it matches `sheets` in R/copy_export.R.
+  # Move one there and move it here.
   sheets <- fw_t("export", "sheets")
   add(sheets$attempts, export)
-  add(sheets$caveats,
-      fw_text_sheet(fw_caveats(data), fw_t("export", "caveats_heading")),
-      widths = 110)
   add(sheets$definitions, fw_field_definitions(), widths = c(26, 100))
   add(sheets$filters,
       fw_filters_sheet(filters, nrow(export), nrow(data$attempt), meta),
       widths = c(30, 60))
+  add(sheets$caveats,
+      fw_text_sheet(fw_methods_caveats_text(data), fw_t("export", "closing_heading")),
+      widths = 110)
 
   openxlsx::saveWorkbook(wb, path, overwrite = TRUE)
   invisible(path)
@@ -407,8 +437,13 @@ fw_export_filename <- function() {
 # ---- The bundle --------------------------------------------------------------
 #
 # ONE DOWNLOAD, ASSEMBLED FROM WHAT THE READER TICKED. The report builder offers
-# a picker and one button, and the methods-and-caveats text rides along whatever
-# else is in there. See fw_plan_download_ui() in mod_plan.R.
+# a picker and one button. See fw_plan_download_ui() in mod_plan.R.
+#
+# NOTHING RIDES ALONG ANY MORE (client, 24 Sept 2026). A methods-and-caveats
+# .txt used to go into every download whatever was ticked, which meant a reader
+# who wanted the PDF got a zip holding a PDF and a text file. The section it
+# carried is now the last tab of the workbook and the last section of the PDF
+# and the records HTML, so ticking one thing downloads that one thing.
 #
 # THREE PARTS, at the client's request (23 Sept 2026): the PDF report, the
 # attempts file and the spreadsheet. The interactive HTML report they replace -
@@ -432,17 +467,37 @@ FW_BUNDLE_PARTS <- c("pdf", "records", "xlsx")
 fw_bundle_parts <- function(parts = character(0)) {
   parts <- intersect(FW_BUNDLE_PARTS, parts %||% character(0))
   if (!fw_pdf_available()) parts <- setdiff(parts, "pdf")
+  # A DEFENSIVE FLOOR, NOT A FEATURE. The download button is disabled while
+  # nothing is ticked (see fw_plan_download_ui() in mod_plan.R), so an empty
+  # selection cannot be asked for from the page. This is here so that a request
+  # that arrives empty anyway - a stale browser, the PDF dropped above as the
+  # only tick - hands back a real spreadsheet rather than a zero-byte file.
+  # It also keeps fw_bundle_filename() and fw_write_bundle() answering the same
+  # question, which they must: the handler names the file before it writes it.
+  if (!length(parts)) parts <- "xlsx"
   parts
 }
 
+#' What one part is called on its own
+#'
+#' The single-file case below, and the name each part is written under inside a
+#' zip. One place, so the handler's filename() and fw_write_bundle() cannot
+#' disagree about what a lone PDF is called.
+FW_BUNDLE_FILENAME <- list(
+  pdf     = function() fw_pdf_filename(),
+  records = function() fw_records_filename(),
+  xlsx    = function() fw_export_filename()
+)
+
 #' What a download of this selection will be called
 #'
-#' A zip when there is more than one file, and the file itself when there is
-#' exactly one. With the text file always travelling, the single-file case is a
-#' reader who ticked nothing - which downloads the methods and caveats alone,
-#' and is a reasonable thing to want rather than an error to refuse.
+#' A zip when more than one thing was ticked, THE FILE ITSELF WHEN ONE WAS
+#' (client, 24 Sept 2026). Ticking the PDF and being handed a zip was the whole
+#' complaint, and it was the methods-and-caveats text - which always travelled -
+#' that made every download a zip of two things.
 fw_bundle_filename <- function(parts = character(0)) {
-  if (!length(fw_bundle_parts(parts))) return(fw_methods_filename())
+  parts <- fw_bundle_parts(parts)
+  if (length(parts) == 1) return(FW_BUNDLE_FILENAME[[parts]]())
   paste0(fw_t("export", "bundle_stem"), format(Sys.Date(), "%Y%m%d"), ".zip")
 }
 
@@ -463,9 +518,14 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
 
   # THE BAR IS WEIGHTED BY WHAT TAKES THE TIME, not by the number of steps: the
   # PDF (Quarto on the server) is most of any bundle that has one, and a bar
-  # that spent a sixth of itself on a text file would stall at the end.
-  steps <- c(txt = 1, xlsx = 2, pdf = 12, records = 3, zip = 1)
-  steps <- steps[c("txt", parts, if (length(parts)) "zip")]
+  # that spent a third of itself on the spreadsheet would stall at the end.
+  #
+  # THE ZIP STEP ONLY EXISTS WHEN THERE IS MORE THAN ONE FILE. It used to be
+  # claimed whenever anything was ticked, which was right only because the
+  # methods text guaranteed a second file; with that gone, a lone PDF never
+  # reaches the zip and a bar holding a twelfth back for it would stop short.
+  steps <- c(xlsx = 2, pdf = 12, records = 3, zip = 1)
+  steps <- steps[c(parts, if (length(parts) > 1) "zip")]
   ends <- cumsum(steps) / sum(steps)
   starts <- stats::setNames(c(0, utils::head(ends, -1)), names(steps))
   step <- function(id, key) progress(starts[[id]], fw_t("plan", key))
@@ -473,11 +533,7 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
   dir <- tempfile("fw-bundle-"); dir.create(dir)
   on.exit(unlink(dir, recursive = TRUE), add = TRUE)
 
-  # Always, and first, so it is the first thing in the archive listing.
-  step("txt", "progress_txt")
-  txt <- file.path(dir, fw_methods_filename())
-  writeLines(fw_methods_caveats_text(data), txt, useBytes = TRUE)
-  files <- fw_methods_filename()
+  files <- character(0)
 
   # THE WRITE ORDER IS FW_BUNDLE_PARTS' ORDER, and that is load-bearing rather
   # than tidy. fw_bundle_parts() above has already sorted `parts` into the
@@ -509,8 +565,8 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
                       filters, meta)
     files <- c(files, fw_export_filename())
   }
-  # One file arrives as itself. Zipping a lone text file to save nothing would
-  # make the reader unpack an archive to read two paragraphs.
+  # ONE FILE ARRIVES AS ITSELF (client, 24 Sept 2026). fw_bundle_filename() has
+  # already named it, and it must reach the same conclusion as this branch.
   if (length(files) == 1) {
     file.copy(file.path(dir, files), path, overwrite = TRUE)
     progress(1, fw_t("plan", "progress_done"))

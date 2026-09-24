@@ -346,12 +346,16 @@ announces the count, because a result below the fold looks like nothing
 happening. **The dashboard keeps its sidebar** - browsing is watching the picture
 change under the controls, so there the controls have to stay in reach.
 
-**The downloads are four parts and a text file (client, 21 September 2026).**
-The picker offers the spreadsheet, the CSV, a **PDF report** and **every
-attempt in full** as one `.html` file; the methods-and-caveats `.txt` always
-travels. This replaced a self-contained interactive HTML report (live plotly
-and leaflet, printed to PDF through the browser), which itself had replaced a
-Word export. The button sits at the right of the results head.
+**The downloads are three parts, and what you tick is what you get.** The
+picker offers a **PDF report**, **every attempt in full** as one `.html` file,
+and the spreadsheet (client, 23 September 2026; the CSV went in that round).
+More than one arrive as a zip, one arrives as itself. A methods-and-caveats
+`.txt` used to ride along whatever else was chosen - so ticking the PDF handed
+back a zip of two files - and the client removed it on 24 September 2026; each
+document carries that section itself now, last. This all replaced a
+self-contained interactive HTML report (live plotly and leaflet, printed to PDF
+through the browser), which itself had replaced a Word export. The button sits
+at the right of the results head.
 
 **The PDF is made on the server by Quarto, with Typst** (`R/report_pdf.R`). The
 old constraint - kaleido needs Python, webshot2 needs Chrome, neither belongs

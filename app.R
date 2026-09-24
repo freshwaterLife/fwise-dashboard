@@ -81,8 +81,13 @@ ui <- page_navbar(
     # delay, so a quick redraw never flashes one - and _components.scss decides
     # what: its default is a colour-filled mask, which would draw the badge as
     # a flat silhouette. No page-top pulse bar; the loader is the one bar.
+    #
+    # THE DELAY IS SHARED with the map overlay in fw_client_script(), which
+    # covers the one thing this cannot: markers swapped through a leaflet proxy
+    # never mark their output .recalculating. See FW_SPINNER_DELAY_MS.
     useBusyIndicators(spinners = TRUE, pulse = FALSE),
-    busyIndicatorOptions(spinner_delay = "400ms", spinner_size = "64px"),
+    busyIndicatorOptions(spinner_delay = paste0(FW_SPINNER_DELAY_MS, "ms"),
+                         spinner_size = "64px"),
     fw_skip_link(),
     fw_popover_script(),
     fw_client_script(),

@@ -1052,6 +1052,18 @@ function (el, x, data) {
     return true;
   }
 
+  // THE PANEL, OPEN AND EMPTY, WHILE THE SERVER FINDS THE RECORD. The lazy
+  // path below asks for a record by id and then had nothing on screen until
+  // the answer came back - on a slow link, a click that appeared to do
+  // nothing. This puts the badge up straight away; panelOpenDetail() replaces
+  // the whole body when the record lands, so nothing has to clear it.
+  function panelPending() {
+    var node = document.createElement('div');
+    node.className = 'fw-map-detail__pending';
+    node.setAttribute('role', 'status');
+    panelMount(node);
+  }
+
   // Open the panel on a record the SERVER sent. No template to look for and
   // none wanted: a template keeps photographs inert while a record rides
   // inside a hover card nobody may open, and this record was asked for by
@@ -1084,6 +1096,10 @@ function (el, x, data) {
     if (!root) return;
     shut();
     panel.fwReturn = document.activeElement;
+    // The focus to return to is taken FIRST - panelPending() moves focus into
+    // the dialog, so reading it after would return the reader to the panel
+    // they just closed.
+    panelPending();
     Shiny.setInputValue(DETAIL_INPUT, root.getAttribute('data-fw-id'),
                         { priority: 'event' });
   }

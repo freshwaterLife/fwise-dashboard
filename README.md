@@ -485,10 +485,16 @@ information. Colourblind safety is a stated client requirement.
 **The caveats panel folds on the About page** and does not anywhere else. It was
 always visible and never an accordion; the client later asked for it to be one of
 the About page's click-to-open panels, so it is a `<details>` there whose summary
-names what is inside ("How success is defined, what is missing, and why there is
-no success rate") rather than saying "caveats". In every export it is still
+names what is inside rather than saying "caveats". In every export it is still
 unfoldable text, and it comes from the same function in both places, so the two
 cannot say different things.
+
+**The caveats themselves are a placeholder** (client, 24 September 2026). Five
+blocks we had written came out and `ANABELL TO PROVIDE CAVEATS FOR FWISE` went
+in, so the FWISE team writes what it thinks the database needs without our
+wording in front of it. Grep `[PLACEHOLDER]` in `R/copy_export.R`. The
+structure is untouched: add blocks back as `list(heading =, body =)` and the
+About panel, the workbook sheet, the PDF and the records HTML all reflow.
 
 ### The export
 
@@ -512,11 +518,19 @@ outside the building and cannot be recalled.
 ### The downloads
 
 One **Download this report** button, at the right of the results, opens a
-picker with four parts (client, 21 September 2026): the spreadsheet (`.xlsx`),
-the CSV, the **PDF report** and **every attempt in full** (`.html`). More than
-one arrive as a zip. The methods-and-caveats `.txt` is always included. The
-interactive HTML report that used to sit here - live plotly charts and a
-leaflet map, printed to PDF through the browser - was replaced by the PDF.
+picker with three parts (client, 23 September 2026): the **PDF report**,
+**every attempt in full** (`.html`) and the spreadsheet (`.xlsx`). More than
+one arrive as a zip; **one arrives as itself**. The interactive HTML report
+that used to sit here - live plotly charts and a leaflet map, printed to PDF
+through the browser - was replaced by the PDF, and the CSV went with it.
+
+**Nothing travels uninvited** (client, 24 September 2026). A methods-and-
+caveats `.txt` used to go into every download whatever was ticked, which meant
+ticking the PDF handed back a zip of two files. It is gone, and each document
+now closes on that section itself: the workbook's last tab, the last section of
+the PDF and of the records `.html`. With nothing left that an empty selection
+could produce, the Download button is disabled until something is ticked - see
+`fw_download_guard()` in `R/mod_plan.R`.
 
 ### The PDF report
 

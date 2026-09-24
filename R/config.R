@@ -215,6 +215,22 @@ FW_TOP_N <- 10L
 # the client wants it drawn from the uncompressed file. The footer carried the
 # badge until the client asked for the long SIMPLE wordmark there too; the
 # full-size FWISE-BADGE.png stays in www/img but nothing serves it.
+# ---- The busy badge ----------------------------------------------------------
+
+# HOW LONG SOMETHING MUST TAKE BEFORE A SPINNER APPEARS, in milliseconds.
+#
+# ONE NUMBER, TWO CONSUMERS. bslib's busyIndicatorOptions() in app.R takes it
+# for every output on the site, and the map overlay in fw_client_script() takes
+# it for the two leaflet maps, which redraw through a proxy and so are outside
+# bslib's reach entirely. If the two ever disagreed a map would spin while the
+# charts beside it sat quiet, or the other way round.
+#
+# 150ms rather than the 400 it was (client, 24 Sept 2026): they asked for a
+# spinner wherever something takes a moment, and at 400 a redraw that took a
+# third of a second showed nothing at all. Still long enough that a redraw
+# finishing within a couple of frames never flashes a badge at anyone.
+FW_SPINNER_DELAY_MS <- 150
+
 FW_LOGO <- list(
   mark_web   = "img/FWISE-SIMPLE.png",
   mark_file  = "www/img/FWISE-SIMPLE-1200.png",
@@ -342,7 +358,14 @@ FW_PDF <- list(
   # Pages. Fixed now that the contacts table is capped at contacts_n: it was
   # the one block whose length ran with the selection, and a broad filter used
   # to push the report past twenty pages on that table alone.
-  est_pages_base = 7,
+  #
+  # SIX, DOWN FROM SEVEN (24 Sept 2026). The five caveat blocks came out of the
+  # closing section - the client is writing their own - and the methods
+  # statement that replaced them is a short one, so every report lost about a
+  # page. Measured across the three selections dev/value_test.R renders: 8, 6
+  # and 5 pages, which 6 covers and 7 no longer did. RE-MEASURE WHEN THE REAL
+  # CAVEATS ARRIVE; they will push it back up.
+  est_pages_base = 6,
   # A4, in mm. The width is what every figure is drawn to.
   page_margin_mm = 18,
   text_width_mm = 174

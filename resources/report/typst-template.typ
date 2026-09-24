@@ -224,9 +224,14 @@
   heading(level: 2)[#heading-text]
   block(
     fill: fw-teal-wash, radius: 3mm, inset: 5mm, width: 100%,
+    // A BLOCK MAY CARRY NO TITLE and then gets none, rather than a bold empty
+    // line holding open 1mm of nothing. The placeholder standing in for the
+    // client's caveats is one - see [PLACEHOLDER] in R/copy_export.R.
     stack(spacing: 5mm, ..blocks.map(b => [
-      #text(weight: "bold", size: fw-h3)[#b.at(0)]
-      #v(1mm)
+      #if b.at(0) != "" [
+        #text(weight: "bold", size: fw-h3)[#b.at(0)]
+        #v(1mm)
+      ]
       #b.at(1)
     ])),
   )

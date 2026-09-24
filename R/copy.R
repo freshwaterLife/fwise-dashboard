@@ -118,13 +118,10 @@ FW_COPY <- list(
     scale_bar     = "{km} km at {lat}",
     other         = "Other",
     hover_days    = " days",
-    hover_of      = " of ",
-    # APPENDED TO THE HOVER IN SHARE MODE ONLY (client, 23 Sept 2026): the
-    # hover read "3 of 9" in both modes, so the success-rate view answered a
-    # hover with a count and never with the percentage its bar is drawn in.
-    # The count stays in front of it - a share that hides how much evidence
-    # is behind it is the fault this whole pair of fragments exists to avoid.
-    hover_share   = " ({pct}%)",
+    # The stacked bars' hover is no longer assembled from fragments here: it
+    # reuses plan$r_tile_seg, the species tile's popover template, so the two
+    # cannot drift apart (client, 24 Sept 2026). hover_of and hover_share went
+    # with the assembly. See fw_hover_counts() in R/charts.R.
     # Shown in a chart's own slot when the selection gives it nothing to draw.
     empty         = "Nothing to draw for this selection."
   ),
@@ -537,7 +534,8 @@ FW_COPY <- list(
     download_xlsx = "Attempt data, spreadsheet (.xlsx)",
     download_xlsx_note = paste(
       "Every field of every matching attempt, with the field definitions, the",
-      "contacts, the filters you applied and the caveats on their own sheets."
+      "contacts, the filters you applied and the methods and caveats on their",
+      "own sheets."
     ),
     # NO .csv (client, 23 Sept 2026): it was the spreadsheet's rows a second
     # time, and the picker now offers the three documents that differ from one
@@ -545,7 +543,7 @@ FW_COPY <- list(
     download_pdf = "Report (.pdf)",
     download_pdf_note = paste(
       "This report on FWISE letterhead, ready to print or send: the summary,",
-      "species, map, charts, contacts and caveats."
+      "species, map, charts, contacts, and the methods and caveats."
     ),
     download_records = "Every attempt in full (.html)",
     download_records_note = paste(
@@ -564,8 +562,11 @@ FW_COPY <- list(
       "The PDF report is not available on this server at the moment. The",
       "other downloads are unaffected."
     ),
-    download_txt = "Methods and caveats (.txt)",
-    download_txt_note = "is always included, whatever else you choose.",
+    # Under the boxes, and the Download button is disabled until one is ticked.
+    # A methods-and-caveats .txt used to travel with every download, so ticking
+    # nothing still produced a file; the client removed it (24 Sept 2026) and
+    # with it the only thing an empty selection could have been.
+    download_none = "Pick at least one to download.",
 
     # ---- Inside the PDF ------------------------------------------------------
     pdf_page = "Page",
@@ -662,7 +663,11 @@ FW_COPY <- list(
     r_species_top_ben = "Top {n_word} species protected (of >{total} total)",
     r_tile_attempt  = "attempt",
     r_tile_attempts = "attempts",
-    # A species tile's outcome bar, one segment on hover.
+    # A species tile's outcome bar, one segment on hover - AND THE HOVER ON
+    # EVERY STACKED BAR CHART (client, 24 Sept 2026). The tiles said
+    # "Successful: 25% (3 of 12)" while the bars said "Successful: 3 of 12" and
+    # only added a percentage in share mode. One template, so the reader meets
+    # one sentence wherever they hover. See fw_hover_counts() in R/charts.R.
     r_tile_seg = "{outcome}: {pc}% ({n} of {total})",
     r_duration   = "How long attempts took",
     r_duration_note = paste(
@@ -697,7 +702,6 @@ FW_COPY <- list(
     # The download's progress bar (fw_write_bundle() names each step as it
     # starts it; the PDF report adds its own two).
     progress_title   = "Preparing your download",
-    progress_txt     = "Writing the methods and caveats",
     progress_xlsx    = "Building the spreadsheet",
     progress_charts  = "Drawing the charts and map",
     progress_pdf     = "Typesetting the PDF report",
@@ -762,7 +766,7 @@ FW_COPY <- list(
     # - see fw_caveat_blocks() in R/export.R - and the same text still travels
     # inside every download.
     caveats_heading = "Data caveats",
-    caveats_summary = "How success is defined, what is missing, and why there is no success rate",
+    caveats_summary = "What to keep in mind when reading this data",
     caveats_lead = paste(
       "Caveats apply to all data within FWISE, and should be bared in mind when analyzing data or viewing the dashboard."
     ),

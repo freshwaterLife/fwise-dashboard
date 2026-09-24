@@ -614,7 +614,10 @@ fw_loader <- function() {
 #' changes are announced, the other moves the navbar from the server, which is
 #' how the stub actions and the contacts page change page.
 fw_client_script <- function() {
-  tags$script(HTML("
+  # A TOKEN AND sub(), NOT sprintf(). sprintf() caps a format string at 8192
+  # characters and this script is longer than that, so threading a value
+  # through it fails at load with a message about format length.
+  tags$script(HTML(sub("__FW_SPINNER_DELAY__", FW_SPINNER_DELAY_MS, "
     $(function () {
       Shiny.addCustomMessageHandler('fw-announce', function (msg) {
         var el = document.getElementById('fw_announce');
@@ -652,11 +655,86 @@ fw_client_script <- function() {
       })();
       // A map record, fetched on click. The card script (R/maps.R) asks for
       // it with an attempt id; this is the answer arriving. The panel exists
-      // by then, because only a click on a drawn marker can have asked.
+      // by then, because only a click on a drawn marker can have asked, and it
+      // is already open on a spinning badge - see panelPending() in R/maps.R.
       Shiny.addCustomMessageHandler('fw-map-detail', function (msg) {
         var panel = document.getElementById('fw-map-detail');
         if (panel && panel.fwOpenDetail) panel.fwOpenDetail(msg.html);
       });
+      // NOTHING TICKED, NOTHING TO DOWNLOAD (client, 24 Sept 2026).
+      //
+      // The methods-and-caveats text that used to travel with every download
+      // is gone, so an empty picker has no file to name. fw_bundle_parts() has
+      // a floor for a request that arrives empty anyway, but the button should
+      // say no first.
+      //
+      // DELEGATED FROM THE DOCUMENT, not shipped inside the picker. The picker
+      // is built into a modalDialog, and a <script> arriving with dynamic
+      // content is exactly what fw_popover_script() below exists to avoid
+      // depending on. Nothing here needs to run at open time either: the
+      // default selection is never empty, and no aria-disabled attribute means
+      // enabled, so a freshly opened picker is already in the right state.
+      (function () {
+        var btnOf = function (node) {
+          var box = node.closest && node.closest('.fw-download-picker');
+          return box ? box.querySelector('a[download], a.btn') : null;
+        };
+        document.addEventListener('change', function (e) {
+          if (!e.target.closest) return;
+          var box = e.target.closest('.fw-download-picker');
+          if (!box) return;
+          var btn = btnOf(e.target);
+          if (!btn) return;
+          var none = box.querySelectorAll('input[type=checkbox]:checked').length === 0;
+          btn.setAttribute('aria-disabled', none ? 'true' : 'false');
+          if (none) btn.setAttribute('tabindex', '-1');
+          else btn.removeAttribute('tabindex');
+        });
+        // IN THE CAPTURE PHASE. The button carries an onclick attribute that
+        // closes the modal, and a bubble-phase listener would run after it -
+        // so a click on a disabled button would shut the picker and download
+        // nothing. Capturing at the document stops both.
+        document.addEventListener('click', function (e) {
+          if (!e.target.closest) return;
+          var btn = e.target.closest('a[aria-disabled=\"true\"]');
+          if (!btn || !btn.closest('.fw-download-picker')) return;
+          e.preventDefault();
+          e.stopPropagation();
+        }, true);
+      })();
+      // THE BADGE ON A MAP THAT IS REDRAWING ITS MARKERS.
+      //
+      // Both maps are drawn once and then have their markers swapped through
+      // leaflet::leafletProxy(), so Shiny never marks the output
+      // .recalculating and the global busy spinner - which is what covers
+      // every other chart and table on the site - never fires for them. The
+      // old markers just sit there until the new ones appear, which on a wide
+      // selection is several seconds of a map that looks finished and is wrong.
+      //
+      // So the overlay is hung on Shiny's own busy signal instead, with the
+      // same delay the spinners use so a quick cycle never flashes one. It
+      // cannot be driven from the server: an observer that sent busy and then
+      // idle around the redraw would have both messages flushed together at
+      // the end of the reactive cycle, and nothing would appear.
+      //
+      // The cost is that a map on screen also wears the badge while unrelated
+      // server work runs. That reads correctly - something IS loading - and it
+      // is what the global indicator does for every other output.
+      (function () {
+        var timer = null;
+        var maps = function () { return document.querySelectorAll('.fw-map'); };
+        var mark = function (on) {
+          maps().forEach(function (m) { m.classList.toggle('fw-map--busy', on); });
+        };
+        $(document).on('shiny:busy', function () {
+          if (timer) return;
+          timer = setTimeout(function () { timer = null; mark(true); }, __FW_SPINNER_DELAY__);
+        });
+        $(document).on('shiny:idle shiny:disconnected', function () {
+          if (timer) { clearTimeout(timer); timer = null; }
+          mark(false);
+        });
+      })();
       // Bring a block into view by id. The report builder uses this after a
       // build: its results now sit BELOW the questions rather than beside them,
       // so without this the reader presses Build and nothing visibly happens.
@@ -730,7 +808,7 @@ fw_client_script <- function() {
         window.location.href = href;
       });
     });
-  "))
+  ", fixed = TRUE)))
 }
 
 # ---- Shared blocks -----------------------------------------------------------
@@ -835,9 +913,13 @@ fw_caveats_ui <- function(data, heading = TRUE) {
     div(
       class = "fw-caveats__grid",
       lapply(blocks, function(b) {
+        title <- fw_caveat_title(b$heading)
         div(
           class = "fw-caveats__block",
-          h3(fw_caveat_title(b$heading)),
+          # A BLOCK MAY HAVE NO HEADING and then gets no h3, rather than an
+          # empty one holding open a line. The placeholder standing in for the
+          # client's caveats is one - see [PLACEHOLDER] in R/copy_export.R.
+          if (nzchar(title)) h3(title),
           lapply(b$body, function(x) p(x))
         )
       })
@@ -845,7 +927,16 @@ fw_caveats_ui <- function(data, heading = TRUE) {
   )
 }
 
-# The export sheet wants shouting headings; a web page does not.
+# The export sheet wants shouting headings; a web page does not. A block with
+# no heading answers "", which every caller tests before drawing anything.
+#
+# ONLY AN ALL-CAPS HEADING IS CASED DOWN. This used to lowercase everything
+# after the first letter unconditionally, which was invisible while every
+# heading in the copy deck was already a sentence - and then turned "How FWISE
+# was compiled" into "How fwise was compiled" the moment a heading carried an
+# acronym. A heading that is already cased is left exactly as it was written.
 fw_caveat_title <- function(x) {
+  if (!length(x) || is.na(x) || !nzchar(x)) return("")
+  if (!identical(x, toupper(x))) return(x)
   paste0(substr(x, 1, 1), tolower(substr(x, 2, nchar(x))))
 }

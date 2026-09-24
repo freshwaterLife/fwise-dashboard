@@ -19,12 +19,17 @@
 # the rule the map's record card follows (client, 21 Sept 2026) - so two cards
 # can be compared line for line.
 #
-# WITH ONE EXCEPTION, THE CHEMICAL DETAIL (client, 23 Sept 2026). An attempt
+# WITH TWO EXCEPTIONS. THE CHEMICAL DETAIL (client, 23 Sept 2026): an attempt
 # that used no chemical method has nothing to say about target concentrations
 # or neutralising agents, and seven "Not noted" lines under a heading about
 # chemicals is not a comparison, it is noise. The section is cut from that card
 # alone - see fw_record_group_drop(), which also refuses to cut it when any of
 # those fields actually holds a value, so the rule above can never lose data.
+#
+# AND REGION (client, 24 Sept 2026): see FW_RECORD_OMIT_BLANK below. Both
+# exceptions drop a field or a section that was never going to be filled; a
+# field that COULD have been filled and was not still says "Not noted", which
+# is the whole point of the rule.
 #
 # SELF-CONTAINED. The stylesheet, the fonts and the logos are inlined; there is
 # no script beyond the few lines of the find box, and no network request. No
@@ -125,6 +130,19 @@ fw_record_group_drop <- function(g, row) {
   all(vapply(g$fields, function(f) fw_record_blank(row[[f]]), logical(1)))
 }
 
+# A FIELD THAT IS DROPPED RATHER THAN DRAWN EMPTY (client, 24 Sept 2026).
+#
+# Region is a state, province or territory, and only a handful of countries
+# record one at all. "Australia" above "Region: Not noted" reads as a missing
+# Tasmania - the reader goes looking for a value that was never coming - where
+# the other blank fields read as what they are, a gap in the record. So this
+# one vanishes when it is empty and prints normally when it is not.
+#
+# KEEP THIS LIST SHORT. Every name added to it is a line two cards can no
+# longer be compared on. The spreadsheet keeps its region column either way: a
+# blank cell in a grid is unambiguous in a way a missing row in a card is not.
+FW_RECORD_OMIT_BLANK <- c("region")
+
 fw_record_value <- function(field, value, none) {
   if (fw_record_blank(value)) {
     return(paste0('<span class="fw-rec-none">', htmlEscape(none), "</span>"))
@@ -165,7 +183,14 @@ fw_record_card <- function(row, copy = fw_record_copy()) {
   # with it rather than leaving an empty <dl> under one.
   shown <- Filter(function(g) !fw_record_group_drop(g, row), copy$groups)
   groups <- vapply(shown, function(g) {
-    fields <- vapply(g$fields, function(f) {
+    # Filtered before the pairs are built, so an omitted field takes its <dt>
+    # with it rather than leaving a label above an empty <dd>. No group is at
+    # risk of emptying out: "Where" also holds the site, country, continent,
+    # ISO code and coordinates, all of which always draw.
+    keep <- Filter(function(f) {
+      !(f %in% FW_RECORD_OMIT_BLANK) || !fw_record_blank(row[[f]])
+    }, g$fields)
+    fields <- vapply(keep, function(f) {
       paste0("<dt>", esc(copy$labels[[f]]), "</dt><dd>",
              fw_record_value(f, row[[f]], copy$none), "</dd>")
     }, character(1))
@@ -287,13 +312,16 @@ fw_write_records_html <- function(path, data, export, filters, meta = NULL) {
     tags$main(HTML(paste(vapply(rows, fw_record_card, character(1), copy = copy),
                          collapse = "\n"))),
 
-    # The qualifications travel with the records, as they do with every
-    # download: this file is the one most likely to be forwarded on its own.
+    # HOW IT WAS BUILT AND WHAT TO WATCH FOR, last, and never optional. This
+    # file is the one most likely to be forwarded on its own, and since the
+    # methods-and-caveats .txt stopped travelling beside it (client, 24 Sept
+    # 2026) it is the only thing carrying the section.
     tags$section(
       class = "fw-rec-caveats",
-      h2(fw_t("about", "caveats_heading")),
-      lapply(fw_caveat_blocks(data), function(b) {
-        tagList(h3(fw_caveat_title(b$heading)), lapply(b$body, p))
+      h2(fw_t("export", "closing_heading")),
+      lapply(fw_closing_blocks(data), function(b) {
+        title <- fw_caveat_title(b$heading)
+        tagList(if (nzchar(title)) h3(title), lapply(b$body, p))
       })
     ),
 
