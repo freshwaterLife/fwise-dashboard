@@ -41,6 +41,11 @@ pairs <- list(
   list("Link on sunken",            "teal_text",  "sunken",       4.5),
   list("Link on teal wash",         "teal_text",  "teal_wash",    4.5),
   list("Ink on teal tint",          "ink",        "teal_tint",    4.5),
+  # THE LINK INSIDE THE TINTED CARD (.fw-preamble / .fw-callout). teal_text is
+  # the link colour everywhere else but only reaches 4.28:1 on teal_tint, so
+  # these two cards use the darker teal at rest and ink on hover.
+  list("Link on teal tint",         "teal_hover", "teal_tint",    4.5),
+  list("Link hover on teal tint",   "ink",        "teal_tint",    4.5),
   list("Primary button label",      "surface",    "teal_text",    4.5),
   list("Primary button hover",      "surface",    "teal_hover",   4.5),
   list("Text on indigo",            "on_indigo",  "brand_indigo", 4.5),

@@ -814,10 +814,15 @@
   color: $fw-ink;
 }
 
-// The eradication definition, pinned above the contribute form and repeated on
-// About. Deliberately the loudest block on the page: someone about to spend
-// fifteen minutes on a plant record should find that out in the first sentence.
-.fw-preamble {
+// THE "READ THIS FIRST" CARD, in two places: the eradication definition pinned
+// above the contribute form (.fw-preamble), and what the report gives you,
+// above the filters on the report builder (.fw-callout). Deliberately the
+// loudest block on its page - someone about to spend fifteen minutes on a plant
+// record, or to press Build report without knowing what comes out, should find
+// that out in the first sentence. One treatment, two names, so the two cards
+// cannot drift apart.
+.fw-preamble,
+.fw-callout {
   padding: $fw-space-3;
   margin-block-end: $fw-space-3;
   border-radius: $fw-radius-card;
@@ -836,7 +841,25 @@
 
   .fw-lead { color: $fw-ink; font-weight: $fw-weight-medium; }
 
+  // $fw-teal-text IS NOT DARK ENOUGH ON THIS CARD. It is the link colour
+  // everywhere else, but the card is $fw-teal-tint rather than the page ground
+  // and the pair comes to 4.28:1 - under the 4.5 floor. $fw-teal-hover is the
+  // palette's darker teal and clears it at 5.63:1, so it is the resting colour
+  // here and $fw-ink is the hover. Both pairs are rows in dev/check_contrast.R.
+  a {
+    color: $fw-teal-hover;
+    text-decoration: underline;
+    &:hover, &:focus-visible { color: $fw-ink; }
+  }
+
   @media (min-width: $fw-bp-md) { padding: $fw-space-4; }
+}
+
+// The contribute box's reference line: the full Genovesi citation under the
+// definition it belongs to, set quieter than the definition itself.
+.fw-preamble__ref {
+  margin-block: $fw-space-1 $fw-space-3;
+  color: $fw-ink-muted;
 }
 
 // About. The most text-heavy page in the app.

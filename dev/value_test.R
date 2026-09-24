@@ -141,9 +141,11 @@ try(testServer(mod_about_server, args = list(data = d, meta = m), {
 }), silent = TRUE)
 ok("about: the page renders", !is.na(about_html) && nchar(about_html) > 1000)
 # Every heading on the page, whether it is an always-visible section or the
-# summary of one of the six disclosures. Add a section, add it here.
+# summary of one of the six disclosures. Add a section, add it here. NO
+# "database": the opening prose section held Lorem Ipsum and came out on
+# 24 Sept 2026 - put it back here when the client's copy arrives.
 ok("about: every section heading is present",
-   all(vapply(c("database", "signup", "cite", "caveats", "method", "glossary",
+   all(vapply(c("signup", "cite", "caveats", "method", "glossary",
                 "related", "other", "images", "licence", "links"),
               function(k) grepl(fw_t("about", paste0(k, "_heading")), about_html, fixed = TRUE),
               logical(1))))
@@ -1492,11 +1494,15 @@ ok("welcome: successful attempts counted from the outcomes",
 kpi_html <- regmatches(home_html, regexpr('(?s)<p class="fw-home-kpi">.*?</p>', home_html, perl = TRUE))
 kpi_bold <- regmatches(kpi_html, gregexpr("<strong>[^<]*</strong>", kpi_html))[[1]]
 ok("welcome: the sentence is on the page", length(kpi_html), 1L)
+# THE ">" IS INSIDE THE SECOND BOLD (client, 24 Sept 2026), so it is teal and
+# in the numeric face with the figure it qualifies rather than in plain ink
+# beside it.
 ok("welcome: the sentence carries both figures in bold, attempts then species",
-   kpi_bold, paste0("<strong>", c(fw_fmt_num(n_successful), fw_fmt_num(n_protected)), "</strong>"))
+   kpi_bold, paste0("<strong>", c(fw_fmt_num(n_successful),
+                                  paste0("&gt;", fw_fmt_num(n_protected))), "</strong>"))
 ok("welcome: the sentence reads as the client wrote it",
    grepl(paste0("<strong>", fw_fmt_num(n_successful),
-                "</strong> successful eradications recorded so far have protected &gt;<strong>",
+                "</strong> successful eradications recorded so far have protected <strong>&gt;",
                 fw_fmt_num(n_protected), "</strong> species."), kpi_html, fixed = TRUE))
 # The map's instruction is the caption under the map, in the map colours, and
 # not in the bar.

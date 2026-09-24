@@ -8,8 +8,9 @@
 # loaded data - never by typing a number that will be wrong by next quarter.
 #
 # THE SHAPE OF THE PAGE, which is a client decision and not a layout accident:
-# a short summary that is always visible - what FWISE is and how
-# to hear about it - and then five click-to-open panels holding the depth, the
+# a short always-visible opening - now the sign-up card alone, since the
+# paragraphs above it were placeholder text and came out on 24 Sept 2026 - and
+# then five click-to-open panels holding the depth, the
 # citation and the small print included. A reader who wants to know whether to
 # trust a figure opens the caveats; a reader who wants to know where the records
 # came from opens the methods; nobody has to scroll past either to reach the
@@ -61,19 +62,18 @@ mod_about_server <- function(id, data, meta = NULL) {
     output$body <- renderUI({
       s <- fw_headline_stats(data)
 
-      section <- function(key, ...) {
-        tagList(tags$h2(class = "fw-visually-hidden", fw_t("about", paste0(key, "_heading"))), ...)
-      }
       para <- function(key) p(fw_t("about", key))
 
       tagList(
         div(
           class = "fw-prose",
 
-          # ---- What this is, and how big it is ---------------------------
-          section("database", para("database"), para("database2")),
-
           # ---- Hear about it ---------------------------------------------
+          #
+          # THE PAGE OPENS ON THIS. The "what FWISE is" paragraphs that used to
+          # sit above it were Lorem Ipsum awaiting client copy and were taken
+          # out on 24 Sept 2026 - see the note at `about` in R/copy.R for what
+          # to put back when the text arrives.
           fw_about_signup()
         ),
 
@@ -191,13 +191,13 @@ fw_about_signup <- function() {
   )
 }
 
-#' Two copyable citations, with the release the reader is actually looking at
+#' The copyable citation, with the release the reader is actually looking at
 #'
-#' THE DASHBOARD AND THE DATABASE ARE TWO THINGS TO CITE and a reader quoting a
-#' figure needs the one that pins the release they read it in. Only the database
-#' citation carries the attempt count: it is a property of the data, and putting
-#' it on the dashboard citation would suggest the dashboard is a version of a
-#' number rather than a way of reading one.
+#' ONE CITATION, FOR THE DATABASE. It carries the version and the attempt count
+#' because a reader quoting a figure needs the release they read it in, and both
+#' are filled here from the data loaded rather than typed into the copy deck,
+#' where they would be wrong by the next release. The form itself is the
+#' client's - see about$citation_db in R/copy.R.
 fw_about_citations <- function(meta, s) {
   release <- meta$release %||% format(Sys.Date())
   year <- substr(as.character(release), 1, 4)

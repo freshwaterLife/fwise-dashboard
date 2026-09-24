@@ -14,7 +14,7 @@ FW_COPY <- list(
     # else - the loader is the badge and a bar. See fw_loader().
     loading    = "Loading FWISE",
     built_by   = "This tool was built by Weird Fishes Advisory.",
-    data_by    = "FWISE database is built and maintained by Freshwater Life and friends.",
+    data_by    = "FWISE Database is built and maintained by Freshwater Life and friends.",
     illustrated_by = "Logo and illustrations by Georgie Bull."
   ),
 
@@ -44,7 +44,7 @@ FW_COPY <- list(
     contact_label  = "Contact FWISE",
     contact_aria   = "Show the FWISE contact address",
     contact_user   = "fwise",
-    contact_domain = "fwise.org",
+    contact_domain = "fwlife.org",
     logo_alt_fwise = "FWISE, the Freshwater Invasive Species Eradication database",
     logo_alt_wfa   = "Weird Fishes Advisory",
     # The collaborators names.
@@ -180,8 +180,12 @@ FW_COPY <- list(
         "and [[networking|connect with others]]."
       )
     ),
+    # THE ">" IS INSIDE THE BOLD (client, 24 Sept 2026), so it is teal and in the
+    # numeric face with the figure it qualifies rather than sitting outside in
+    # plain ink. The report builder and the PDF already build theirs this way -
+    # paste0(">", fw_fmt_num(...)) in mod_plan_results.R and report_pdf.R.
     kpi_sentence = paste(
-      "**{attempts}** successful eradications recorded so far have protected >**{protected}** species.",
+      "**{attempts}** successful eradications recorded so far have protected **>{protected}** species.",
       "Click the species to read worldwide success stories."
     ),
 
@@ -254,17 +258,22 @@ FW_COPY <- list(
     # set below the type floor (client, 23 Sept 2026 - see $fw-size-fine in
     # _tokens.scss). HTML, not markdown: the two citations are live links and
     # fw_emphasis() does not make links. Rendered by fw_home_footnote().
+    #
+    # THE LINK IS THE PHRASE, not the DOI (client, 24 Sept 2026). The bare
+    # numbers were the anchor text and the sentence had to carry them in
+    # brackets to make sense; naming the paper reads as a sentence and still
+    # goes to the same place. .fw-home-footnote a underlines them in teal, so a
+    # reader can still see the two citations are links.
     footnote = paste0(
-      "An article in Nature (<a href=\"",
-      "https://doi.org/10.1038/s41586-024-08375-z\" target=\"_blank\" ",
-      "rel=\"noopener noreferrer\">10.1038/s41586-024-08375-z</a>) found ",
-      "that invasive species have contributed to 55% of freshwater ",
+      "<a href=\"https://doi.org/10.1038/s41586-024-08375-z\" ",
+      "target=\"_blank\" rel=\"noopener noreferrer\">An article in Nature</a> ",
+      "found that invasive species have contributed to 55% of freshwater ",
       "extinctions, second only to dams. Dam removal is scaling fast; ",
-      "freshwater eradications are next. A meta-analysis in Science (<a ",
-      "href=\"https://doi.org/10.1126/science.adj6598\" target=\"_blank\" ",
-      "rel=\"noopener noreferrer\">10.1126/science.adj6598</a>) found that ",
-      "managing invasive species has the “largest impact of [all ",
-      "possible] conservation action”. Eradication is the most ",
+      "freshwater eradications are next. ",
+      "<a href=\"https://doi.org/10.1126/science.adj6598\" ",
+      "target=\"_blank\" rel=\"noopener noreferrer\">A meta-analysis in ",
+      "Science</a> found that managing invasive species has the “largest ",
+      "impact of [all possible] conservation action”. Eradication is the most ",
       "effective form of invasive species management: cheaper and more ",
       "enduring than long-term control."
     )
@@ -478,6 +487,33 @@ FW_COPY <- list(
     # button explain the rest of the page by being there.
     description = "Set the filters to match your situation, then select **Build report**.",
 
+    # ---- The callout ---------------------------------------------------------
+    # THE CLIENT'S OWN WORDING (24 Sept 2026), in the green card above the
+    # filters: what the report contains, what it deliberately does not, and how
+    # the filters behave. One string per paragraph - fw_emphasis() takes the
+    # ** pairs and mod_plan_ui() draws one <p> each.
+    #
+    # It repeats plan$description above it and plan$f_lead inside the filter
+    # card. The client asked for all three to stay (24 Sept 2026): this card is
+    # the one a reader arriving cold actually reads.
+    callout = c(
+      paste(
+        "Recreate your situation or interest by adjusting the filters below and",
+        "clicking **Build Report**. You will get: a map of where matching",
+        "eradication attempts happened, the species involved, what methods were",
+        "used, how long they took, and the outcomes. Plus the full records with",
+        "much more detail. Of course, planning an eradication from start to",
+        "finish requires much more than the technical and ecological evidence",
+        "alone. So the report also gives you the contact information of who you",
+        "should reach out to learn more and move forward."
+      ),
+      "All downloadable as a pdf, interactive html, and spreadsheet.",
+      paste(
+        "All fields are optional. Fields default to 'All'. You can make",
+        "multiple selections within a field, and you can search for selections."
+      )
+    ),
+
     # ---- Zero results --------------------------------------------------------
     zero_heading = "No attempts match those filters",
     zero_body = paste(
@@ -539,7 +575,7 @@ FW_COPY <- list(
     ),
 
     report_title    = "Eradication attempt planning report",
-    report_subtitle = "Generated from the FWISE database on {date}",
+    report_subtitle = "Generated from the FWISE Database on {date}",
     report_selection = "What this report covers",
     # Under the filters table (client, 23 Sept 2026): what the report is for,
     # and what it deliberately is not.
@@ -675,21 +711,14 @@ FW_COPY <- list(
   about = list(
     title = "About FWISE",
     description = paste(
-      "What FWISE is, important caveats about the data, and how to cite it, methods, and how to keep informed on developemnt at FWISE."
+      "What FWISE is, important caveats about the data, and how to cite it, methods, and how to keep informed on development at FWISE."
     ),
 
-    database_heading = "About FWISE",
-    database = paste(
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod",
-      "tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim",
-      "veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea",
-      "commodo consequat."
-    ),
-    database2 = paste(
-      "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
-      "dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non",
-      "proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-    ),
+    # NO OPENING PROSE SECTION. It held Lorem Ipsum waiting on client copy and
+    # was removed on 24 Sept 2026 rather than shipped; the page now opens on the
+    # sign-up card. When the client supplies the text, add the paragraphs and
+    # their `database_heading` back here, restore section() in mod_about.R, and
+    # add "database" to the heading list in dev/value_test.R.
 
     # ---- Sign-up -------------------------------------------------------------
     # NO ADDRESS IS COLLECTED HERE. The button is a link out to the list, so the
@@ -710,10 +739,15 @@ FW_COPY <- list(
     cite = paste(
       "FWISE data is open source and freely available for use. Please cite it in any publication that uses it with the below citation."
     ),
+    # THE FORM IS THE CLIENT'S (24 Sept 2026). {year}, {release} and {n} are
+    # filled by fw_about_citations() from the release actually loaded, so the
+    # version and the attempt count cannot go stale in a citation somebody
+    # copies. "[other authors]" and the DOI stay as placeholders until the
+    # client supplies them.
     citation_db = paste(
-      "Freshwater Life ({year}). FWISE: Freshwater Invasive Species",
-      "Eradication database, release {release} ({n} attempts).",
-      "https://doi.org/[PLACEHOLDER]"
+      "Espinosa et al. [other authors]. ({year}). FWISE: Freshwater Invasive",
+      "Species Eradication Database. (Version {release}; {n} attempts).",
+      "Zenodo. https://doi.org/[PLACEHOLDER]"
     ),
 
     # ---- The panels ----------------------------------------------------------

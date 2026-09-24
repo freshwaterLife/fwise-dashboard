@@ -17,6 +17,12 @@ mod_plan_ui <- function(id) {
       id = "fw-main",
       fw_section(
         fw_container(
+          # THE GREEN CARD, above the filters (client, 24 Sept 2026): what the
+          # report gives you before you are asked to describe anything. It
+          # shares .fw-preamble's treatment - the app's one "read this first"
+          # block - through the .fw-callout selector in _components.scss.
+          div(class = "fw-callout",
+              lapply(fw_t("plan", "callout"), function(x) p(fw_emphasis(x)))),
           uiOutput(ns("filters")),
           div(id = ns("results_anchor"), class = "fw-plan__results",
               uiOutput(ns("zero")),

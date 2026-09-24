@@ -78,13 +78,17 @@ FW_COPY_EXPORT <- list(
     caveats = list(
       list(
         heading = "How success is defined",
+        # THE SAME WORK THE CONTRIBUTE FORM CITES (Genovesi 2000, the CoE
+        # Guidelines). Reword the reference here and reword it in
+        # contribute$preamble in copy_contribute.R too, or a reader who met the
+        # definition on the form will meet a different one in the download.
         body = paste(
-          "Success here means what Genovesi means by it, in Limits and",
-          "Potentialities of Eradication as a Tool for Addressing Biological",
-          "Invasions: the complete and permanent removal of every wild population",
-          "of a species from a defined area, by a campaign with an end date. Work",
-          "that suppressed a population without removing it is not counted as a",
-          "success, however useful it was."
+          "Success here means what Genovesi means by it, in Guidelines for",
+          "Eradication of Terrestrial Vertebrates: A European Contribution to",
+          "the Invasive Alien Species Issue: the complete and permanent removal",
+          "of every wild population of a species from a defined area, by a",
+          "campaign with an end date. Work that suppressed a population without",
+          "removing it is not counted as a success, however useful it was."
         )
       ),
       list(

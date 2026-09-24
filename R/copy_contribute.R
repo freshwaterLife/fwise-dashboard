@@ -26,35 +26,58 @@ FW_COPY_CONTRIBUTE <- list(
       "only a few fields are required."
     ),
 
-    # THE DEFINITION AND THE SCOPE, pinned to the top of the page. This is the
-    # client's wording and the citation is Piero Genovesi's review; do not
-    # reword either without asking them. Shown by fw_preamble() on the
-    # contribute page and again on About, from this one source.
+    # THE DEFINITION AND THE SCOPE, pinned to the top of the page. Every word of
+    # this is the client's (24 Sept 2026); do not reword any of it without
+    # asking them. Shown by fw_preamble() on the contribute page only - it came
+    # off About on 21 Sept, see the note at the top of mod_about.R.
+    #
+    # THE ** PAIRS ARE LOAD-BEARING: fw_emphasis() turns them into <strong>, and
+    # the client chose which clause in each point is the one that has to be read
+    # if nothing else is.
+    #
+    # `citation` is the reference `cite_short` resolves to, and the only place
+    # in the app where it is written out in full. Keep the three in step, and
+    # keep them in step with the outcome tooltip below and the "How success is
+    # defined" caveat in copy_export.R, which cite the same work.
     preamble = list(
       heading = "What counts as an eradication",
       definition = paste(
-        "Eradication is the complete and permanent removal of all wild",
-        "populations of an alien plant or animal species from a defined area,",
-        "by means of a time-limited campaign."
+        "**Eradication is the complete and permanent removal of all wild",
+        "populations of a species from a defined area by means of a",
+        "time-limited campaign**"
       ),
+      cite_short = "Genovesi 2000",
+      cite_url = "https://rm.coe.int/1680746248",
       citation = paste(
-        "Genovesi, Piero. Limits and Potentialities of Eradication as a Tool",
-        "for Addressing Biological Invasions."
+        "Genovesi, P. (2000). Guidelines for Eradication of Terrestrial",
+        "Vertebrates: A European Contribution to the Invasive Alien Species",
+        "Issue. IUCN/SSC Invasive Species Specialist Group, National Wildlife",
+        "Institute, Italy."
       ),
       scope_heading = "What is the scope of contributions?",
-      # A list rather than prose because the two points answer different
-      # questions: which attempts we want, and which organisms.
+      # A list rather than prose because the three points answer different
+      # questions: which outcomes we want, what we are not, and which organisms.
       scope = c(
         paste(
-          "FWISE is interested in all stages of an eradication - failed,",
-          "in-progress, successful, or even unverified. Past, present. The more",
-          "data we are able to collate at different cycles of eradication the",
-          "more practitioners have to leverage, the more gaps we can expose to",
-          "funders to help invasive species eradication."
+          "FWISE **includes and is equally interested in all outcomes of an",
+          "eradication**: successful, failed, ongoing, and unknown. Failure is",
+          "as important to know about as success. Please submit both past",
+          "eradication attempts (even if they occurred long ago and much data",
+          "lacks) and current ones (even if unfinished, they help track global",
+          "progress as new species and geographies are addressed)."
         ),
         paste(
-          "FWISE covers freshwater invasive **animals** - fish, crayfish,",
-          "molluscs, amphibians etc. It does not cover plants."
+          "FWISE **does not include control**: the reduction of population",
+          "density and abundance, in order to keep damage at an acceptable",
+          "level (Genovesi 2000). Though control can be important and",
+          "necessary, eradication (time-limited) is cheaper and more enduring",
+          "than control (long-term)."
+        ),
+        paste(
+          "FWISE includes freshwater invasive animals: fish, mussels, crayfish,",
+          "amphibians, etc. **It does not include plants.** The context and",
+          "methods of freshwater animal versus plant eradications are",
+          "different."
         )
       )
     ),
@@ -387,7 +410,7 @@ FW_COPY_CONTRIBUTE <- list(
       toxin_conc   = "Target concentration of the chemical in mg/L. A text box rather than a number, because the value can vary over a treatment.",
       toxin_conc_measured = "The concentration actually measured in the water, in mg/L, if it was measured. A range is fine.",
       neutralising = "The neutralizing agent used, if any.",
-      outcome      = "Eradication means the complete and permanent removal of the population (Genovesi 2005). You can record an attempt as successful without formal proof of absence; our review team records that distinction separately, so answer as you see it.",
+      outcome      = "Eradication means the complete and permanent removal of the population (Genovesi 2000). You can record an attempt as successful without formal proof of absence; our review team records that distinction separately, so answer as you see it.",
       verification = "How the outcome was verified, and any notes on it.",
       reference    = "A link or citation for the underlying evidence. A DOI or URL is ideal.",
       source       = "Where this record came from. This is for our internal provenance and is not shown publicly.",
