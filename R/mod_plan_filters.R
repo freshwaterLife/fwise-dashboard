@@ -29,8 +29,10 @@ library(shiny)
 # decisions and the reasoning for each is at the top of mod_plan.R: outcome is
 # an answer this page must not let the reader pre-select, and method is the
 # thing the reader came here to learn rather than to assert. The two fish
-# family filters are the Explore page's alone (Sept 2026 user testing).
-FW_PLAN_DROP <- c("outcome", "method", "family", "family_beneficiary")
+# family filters were dropped here after Sept 2026 user testing and came back
+# at the client's request (24 Sept 2026), shown only while Fish is picked, as
+# on Explore.
+FW_PLAN_DROP <- c("outcome", "method")
 
 fw_plan_filter_ids <- function() fw_filter_ids(drop = FW_PLAN_DROP)
 
@@ -112,7 +114,7 @@ fw_plan_filters_ui <- function(ns, ch) {
     switch(FW_FILTERS[[id]]$kind,
            range = years(),
            size  = size(),
-           multi(id))
+           fw_filter_when_panel(ns, id, multi(id)))
   })
 
   tags$section(

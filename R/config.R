@@ -278,17 +278,17 @@ FW_HOME_IMG <- list(
     africa        = "img/home/success/africa_fiery_redfin.png",
     asia          = "img/home/success/as_little_grebe.png",
     europe        = "img/home/success/eu_pearl_mussel.png",
-    latin_america = "img/home/success/la_valchetta_frog.png",
     north_america = "img/home/success/na_apache_trout.png",
-    oceania       = "img/home/success/oc_golden_galaxias.png"
+    oceania       = "img/home/success/oc_golden_galaxias.png",
+    latin_america = "img/home/success/la_valchetta_frog.png"
   ),
   stories_named = c(
     africa        = "img/home/success/africa-fiery-redfin-named.png",
     asia          = "img/home/success/as-little-grebe-named.png",
     europe        = "img/home/success/eu-pearl-mussel-named.png",
-    latin_america = "img/home/success/la-valchetta-frog-named.png",
     north_america = "img/home/success/na-apache-trout-named.png",
-    oceania       = "img/home/success/oc-golden-galaxias-named.png"
+    oceania       = "img/home/success/oc-golden-galaxias-named.png",
+    latin_america = "img/home/success/la-valchetta-frog-named.png"
   )
 )
 

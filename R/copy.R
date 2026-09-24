@@ -8,13 +8,13 @@ FW_COPY <- list(
 
   app = list(
     title      = "FWISE",
-    full_title = "FWISE: Freshwater Invasive Species Eradication database",
+    full_title = "FWISE: Freshwater Invasive Species Eradication Database",
     tagline    = "A world evidence base for freshwater invasive species eradication",
     # Read out by a screen reader while the app is starting, and on nothing
     # else - the loader is the badge and a bar. See fw_loader().
     loading    = "Loading FWISE",
     built_by   = "This tool was built by Weird Fishes Advisory.",
-    data_by    = "FWISE Database is built and maintained by Freshwater Life and friends.",
+    data_by    = "FWISE is built and maintained by Freshwater Life and friends.",
     illustrated_by = "Logo and illustrations by Georgie Bull."
   ),
 
@@ -32,11 +32,11 @@ FW_COPY <- list(
     last_updated  = "Data last updated",
     in_review_one  = "record in review",
     in_review_many = "records in review",
-    doi_label     = "Zenodo DOI",
+    doi_label     = "DOI on Zenodo",
     doi_url       = "#",          
     github_label  = "Source code on GitHub",
     github_url    = "https://github.com/freshwaterLife/fwise-dashboard", 
-    licence       = "Data released under CC BY-NC 4.0 - non-commercial data. Code released under the MIT license.",
+    licence       = "Data released under CC BY-NC 4.0 (non-commercial data). Code released under the MIT license.",
     # THE ADDRESS IS NOT IN THE MARKUP, in two halves that JavaScript joins at
     # click time - the same speed bump the Networking directory uses, and for
     # the same reason. See fw_contact_action() in mod_networking.R and
@@ -166,15 +166,15 @@ FW_COPY <- list(
 
   home = list(
     title = paste(
-      "Freshwaters cover **<1%** of earth yet are home to **45% of all threatened animal species**.",
-      "Eradicating freshwater invasives is the **best** way to **save them from extinction**."
+      "Freshwaters cover **<1%** of earth yet are home to **45% of all Threatened animal species**.",
+      "Eradicating freshwater invasives is a **great** way to **save them from extinction**."
     ),
     lead = c(
-      "But almost nobody knows this. Enter the **Freshwater Invasive Species Eradication Database**. It shows the world **what works**, **where**, and **how**.",
+      "But almost nobody knows this. Enter the **Freshwater Invasive Species Eradication Database**. It shows the world **what works**, **where**, and **how best**.",
       paste(
-        "Use it now to [[explore|understand this solution]],",
+        "Use FWISE now to [[explore|understand this solution]],",
         "[[plan|plan a new eradication]], [[contribute|add your own data]],",
-        "and [[networking|connect with others]]."
+        "and [[networking|connect with community]]."
       )
     ),
     # THE ">" IS INSIDE THE BOLD (client, 24 Sept 2026), so it is teal and in the
@@ -187,54 +187,56 @@ FW_COPY <- list(
     ),
 
     # ---- Success stories ----
-    # ONE ENTRY PER STORY, A-Z by continent, keyed as FW_HOME_IMG$stories is.
-    # The order on the page is FW_HOME_ORDER's, not this. Every string is a
-    # [PLACEHOLDER] until the client supplies the stories.
+    # ONE ENTRY PER STORY, A-Z by continent LABEL, keyed as FW_HOME_IMG$stories
+    # is - so latin_america, labelled South America, sits last. The order on
+    # the page is FW_HOME_ORDER's, not this. Titles and summaries are the
+    # client's (24 Sept 2026); each body is a [PLACEHOLDER] naming who is
+    # writing it.
     stories_open = "Read the {continent} success story: {name}",
     card_close = "Close story",
     image_placeholder = "Image to come",
     stories = list(
       africa = list(
         continent = "Africa",
-        title   = "[PLACEHOLDER] Story title",
-        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
-        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
-        beneficiary = list(name = "Fiery redfin",    alt = "Illustration of a fiery redfin")
+        title   = "Fiery redfin",
+        summary = "A historic restoration that brought back thousands of fish decades after they disappeared.",
+        body    = "[PLACEHOLDER - TATENDA TO PROVIDE A SHORT STORY ABOUT THE RONDEGAT]",
+        beneficiary = list(name = "Fiery redfin", alt = "Illustration of a fiery redfin")
       ),
       asia = list(
         continent = "Asia",
-        title   = "[PLACEHOLDER] Story title",
-        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
-        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
-        beneficiary = list(name = "Little grebe",        alt = "Illustration of a little grebe")
+        title   = "Little grebe",
+        summary = "A beloved bird on the brink in Tokyo, brought back and inspiring a national pond restoration movement.",
+        body    = "[PLACEHOLDER - GRADEN TO PROVIDE A SHORT STORY]",
+        beneficiary = list(name = "Little grebe", alt = "Illustration of a little grebe")
       ),
       europe = list(
         continent = "Europe",
-        title   = "[PLACEHOLDER] Story title",
-        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
-        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
+        title   = "Freshwater pearl mussel",
+        summary = "The world’s oldest species of animal (up to 200 years!), recovering after decades of decline thanks to a national programme in Norway to save the Atlantic salmon.",
+        body    = "[PLACEHOLDER - HELGE TO PROVIDE A SHORT STORY WITH A SPECIFIC RIVER]",
         beneficiary = list(name = "Freshwater pearl mussel", alt = "Illustration of a freshwater pearl mussel")
-      ),
-      latin_america = list(
-        continent = "Latin America",
-        title   = "[PLACEHOLDER] Story title",
-        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
-        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
-        beneficiary = list(name = "Valcheta frog", alt = "Illustration of a Valcheta frog")
       ),
       north_america = list(
         continent = "North America",
-        title   = "[PLACEHOLDER] Story title",
-        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
-        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
-        beneficiary = list(name = "Apache trout",     alt = "Illustration of an Apache trout")
+        title   = "Apache trout",
+        summary = "An Indigenous-led revival that went so well this culturally important trout was removed from the Endangered Species List.",
+        body    = "[PLACEHOLDER - BERNIE TO PROVIDE A SHORT STORY]",
+        beneficiary = list(name = "Apache trout", alt = "Illustration of an Apache trout")
       ),
       oceania = list(
         continent = "Oceania",
-        title   = "[PLACEHOLDER] Story title",
-        summary = "[PLACEHOLDER] A sentence or two on what was removed, where, and what came back.",
-        body    = "[PLACEHOLDER] The longer account of the eradication: the site, the method, how long it took, and how the beneficiary species has responded since.",
+        title   = "Golden galaxias",
+        summary = "The world’s largest and longest ever successful carp eradication that restored both this Endangered endemic and the trout fishery!",
+        body    = "[PLACEHOLDER - JONAH TO PROVIDE A SHORT STORY]",
         beneficiary = list(name = "Golden galaxias", alt = "Illustration of a golden galaxias")
+      ),
+      latin_america = list(
+        continent = "South America",
+        title   = "Valcheta frog",
+        summary = "Critically Endangered microendemics brought back from the edge of extinction by Argentina’s first-ever freshwater eradication.",
+        body    = "[PLACEHOLDER - IGOR TO PROVIDE A SHORT STORY ABOUT THE VALCHETA]",
+        beneficiary = list(name = "Valcheta frog", alt = "Illustration of a Valcheta frog")
       )
     ),
 
@@ -288,19 +290,20 @@ FW_COPY <- list(
     # ---- The database panel --------------------------------------------------
     # The whole database, never filtered. Counts, all the same size, no rate.
     db_heading = "The database",
-    db_span = "Attempts recorded from {from} to {to}.",
-    db_attempts    = "attempts recorded",
+    db_attempts    = "recorded attempts",
     db_countries   = "countries",
     db_invasive    = "invasive species targeted",
-    db_beneficiary = "species recorded as protected",
+    db_beneficiary = "species protected",
     db_beneficiary_tip = paste(
-      "Species protected by a SUCCESSFUL eradication, as recorded by the",
-      "person reporting it. It is recorded less consistently than the species",
-      "targeted and is likely not a complete record."
+      "Species recorded as being protected. This often goes unreported. And",
+      "even when it is, relationships among species often mean that many more",
+      "species are protected than recorded (think of a frog-focused project",
+      "where birds benefit from more mayflies. That’s tens of species",
+      "protected, with only one noted)."
     ),
     in_review = "in review",
     in_review_tip = paste(
-      "Submissions waiting for review by our team. ",
+      "Submissions waiting for review by the FWISE team.",
       "They are not included here."
     ),
 
@@ -309,11 +312,11 @@ FW_COPY <- list(
 
     # ---- The summary graphics ------------------------------------------------
 
-    method = "Methods used, and how they turned out",
+    method = "Methods used (frequency and success)",
     method_note = paste(
       "One bar per method, split by outcome. An attempt that used more than one",
       "method is counted once under each of them, so the bars add up to more",
-      "than the number of attempts. Hover a segment for its count."
+      "than the number of attempts. Hover a segment for its count or success rate."
     ),
     cumulative = "Eradication attempts over time"
 
@@ -381,10 +384,10 @@ FW_COPY <- list(
   filters = list(
     continent   = "Continent",
     country     = "Country",
-    taxa        = "Kind of invasive animal",
+    taxa        = "Invasive animal",
     species     = "Invasive species",
     beneficiary = "Species protected",
-    taxa_beneficiary = "Kind of animal protected",
+    taxa_beneficiary = "Animal protected",
     family      = "Fish family",
     family_beneficiary = "Fish family protected",
     method      = "Method used",
@@ -395,8 +398,8 @@ FW_COPY <- list(
     years       = "Attempt began between",
     no_year     = "Include attempts with no recorded start year",
     no_size     = "Include attempts with no recorded size",
-    unit_ha     = "hectares, still water",
-    unit_km     = "kilometres, flowing water",
+    unit_ha     = "Hectares (still water)",
+    unit_km     = "Kilometres (flowing water)",
     size_in_ha  = "in hectares",
     size_in_km  = "in kilometres",
     size_in_both = "in hectares and kilometres",
@@ -413,34 +416,41 @@ FW_COPY <- list(
     # button when there is nothing to say.
     tip_country = paste(
       "Country of the eradication attempt(s). Only countries with attempts",
-      "recorded in FWISE are listed. If yours is not here, filter by continent",
-      "instead - that will show you the closest evidence there is."
+      "recorded in FWISE are listed. If the country you are looking for is not",
+      "here, filter by continent instead."
     ),
     tip_regime = paste(
-      "Still water is lakes, ponds and reservoirs, etc; flowing water is",
-      "rivers and streams, etc."
+      "Still water is lakes, ponds, reservoirs, etc.; flowing water is rivers,",
+      "streams, canals, etc."
     ),
     tip_taxa = paste(
-      "The broad group the invasive species belongs to - fish, crayfish, plant etc."
+      "The broad group the invasive species belongs to (fish, crayfish,",
+      "mussels, etc.)."
     ),
     tip_species = paste(
-      "The species the attempt was trying to remove. Choosing more than one."
+      "The species (often plural) targeted for eradication. You can search by",
+      "common or scientific name."
     ),
     tip_beneficiary = paste(
-      "The species the attempt was meant to help. Note - this is recorded far less",
-      "consistently than the invasive species, plus is likely not representative."
+      "The species the attempt was meant to help. This often goes unreported,",
+      "and even when it is, relationships among species often mean that many",
+      "more species are protected than recorded (think of a frog-focused",
+      "project where birds benefit from more mayflies. That’s tens of species",
+      "protected, with only one noted). So if your species of interest isn’t",
+      "here, think and filter instead by where it lives, or by species it",
+      "interacts with."
     ),
     tip_taxa_beneficiary = paste(
-      "The broad group the protected species belongs to - fish,",
-      "amphibian, bird etc. Recorded less consistently than the invasive side."
+      "The broad group the species protected belongs to (fish, amphibian,",
+      "bird, etc.). Recorded less consistently and less thoroughly than the",
+      "invasive side."
     ),
     tip_family = paste(
-      "The family the invasive fish belongs to - trout and salmon are",
-      "Salmonidae, carp and minnows Cyprinidae. Shown while Fish is picked above."
+      "The family the invasive fish belong(s) to - trout and salmon are",
+      "Salmonidae, carp and minnows Cyprinidae, etc."
     ),
     tip_family_beneficiary = paste(
-      "The family the protected fish belongs to. Shown while Fish is picked",
-      "under the kind of animal protected."
+      "The family the fish protected belong(s) to."
     ),
     tip_method = paste(
       "The eradication method used. Many attempts used more than one, so picking",
@@ -451,19 +461,17 @@ FW_COPY <- list(
     ),
     tip_size = paste(
       "The size of the water treated. Still water is measured in hectares and",
-      "flowing water in kilometres, so choosing one or the other above leaves",
-      "only that unit's slider here. An attempt is compared against the slider",
-      "for its own unit and against no other. The scale is logarithmic,",
-      "because recorded sizes run from a fraction of a hectare to tens of",
-      "thousands of them."
+      "flowing water in kilometres. The scale is logarithmic, because recorded",
+      "sizes run from a fraction of a hectare to tens of thousands of them, and",
+      "from a hundred metres to several hundred kilometres."
     ),
     tip_no_size = paste(
       "{n} attempts have no size recorded. Leaving this ticked keeps them in",
       "whatever range you choose, so they are not silently dropped."
     ),
     tip_years = paste(
-      "Filters on the year the attempt began. The record starts at {min} but",
-      "stays sparse until around 1950."
+      "The year the attempt began. The record starts at {min} but stays sparse",
+      "(<100 recorded attempts per decade) until the 1990s."
     ),
     tip_no_year = paste(
       "{n} attempts have no start year recorded. Leaving this ticked keeps",
@@ -482,7 +490,7 @@ FW_COPY <- list(
     # ---- The introduction ----------------------------------------------------
     # ONE LINE, at the client's request. The filters and the Build report
     # button explain the rest of the page by being there.
-    description = "Set the filters to match your situation, then select **Build report**.",
+    description = "View attempts similar to your situation or interest via filter selections, then click **Build report**.",
 
     # ---- The callout ---------------------------------------------------------
     # THE CLIENT'S OWN WORDING (24 Sept 2026), in the green card above the
@@ -515,8 +523,9 @@ FW_COPY <- list(
     # ---- Zero results --------------------------------------------------------
     zero_heading = "No attempts match those filters",
     zero_body = paste(
-      "That combination has nothing in it. This is common and usually says more",
-      "about what has been reported than about what is possible."
+      "That combination has nothing in it. This could be because there are no",
+      "eradication attempts meeting the filtered criteria, or that potentially",
+      "relevant attempts did not report all the data you filtered for."
     ),
     zero_hint_lead = "Try relaxing one of these first:",
     zero_hint_none = "Try clearing a filter and building again.",
@@ -527,24 +536,22 @@ FW_COPY <- list(
     download_open = "Download this report",
     download_close = "Close",
     download_lead = paste(
-      "Choose what to include. More than one and they arrive together in a zip;",
-      "on its own, a file arrives as itself."
+      "Choose what to include. More than one and they arrive together in a zip."
     ),
     download_parts = "Include in your download",
     download = "Download",
-    download_xlsx = "Attempt data, spreadsheet (.xlsx)",
+    download_xlsx = "Spreadsheet of the data (.xlsx)",
     download_xlsx_note = paste(
-      "Every field of every matching attempt, with the field definitions, the",
-      "contacts, the filters you applied and the methods and caveats on their",
-      "own sheets."
+      "Every field (columns) of every matching attempt (rows), with the field",
+      "definitions, the filters you applied, and the caveats on their own",
+      "sheets."
     ),
     # NO .csv (client, 23 Sept 2026): it was the spreadsheet's rows a second
     # time, and the picker now offers the three documents that differ from one
     # another. The order here is the order of FW_BUNDLE_PARTS in export.R.
     download_pdf = "Report (.pdf)",
     download_pdf_note = paste(
-      "This report on FWISE letterhead, ready to print or send: the summary,",
-      "species, map, charts, contacts, and the methods and caveats."
+      "This report ready to read or share."
     ),
     download_records = "Every attempt in full (.html)",
     download_records_note = paste(
@@ -635,7 +642,7 @@ FW_COPY <- list(
     # maps follow.
     r_map_missing = "{n} of these attempts have no coordinates and are not on the map.",
 
-    r_waterbody  = "What kind of water",
+    r_waterbody  = "Waterbodies (frequency and success)",
     r_waterbody_note = paste(
       "Attempts by the kind of waterbody treated, with the outcome mix in each.",
       "The {n_word} most common are named and the rest gathered into Other."
@@ -674,24 +681,23 @@ FW_COPY <- list(
     r_tile_seg = "{outcome}: {pc}% ({n} of {total})",
     r_duration   = "How long attempts took",
     r_duration_note = paste(
-      "Start to finish, on a log scale, with a dotted line at a day, a week, a",
-      "month, a year, five years and ten. Each point is one attempt that used a",
-      "single method, so the dates on it describe that one treatment."
+      "Start to finish, on a log scale going from days to years (sometimes",
+      "decades)."
     ),
     r_duration_missing = paste(
-      "Based on the {n} of these attempts that have a start, an end and a",
-      "single recorded method. Attempts using more than one method are left",
-      "out: their start and end dates span every method, not any one of them."
+      "Based on the {n} of these attempts that have a start and end, and a",
+      "single recorded method. Attempts using more than one method are",
+      "excluded."
     ),
     r_table_showing = "Showing",
 
     # ---- Potential relevant contacts -----------------------------------------
-    r_contacts = "Potential relevant contacts",
+    r_contacts = "Reach out to learn more",
     r_contacts_note = paste(
       "The people recorded against the attempts above, most involved first.",
-      "They have not been asked about your work - an address here means they",
-      "agreed to be listed in FWISE, not that they are expecting to hear from",
-      "you. Contacts who asked not to be listed appear without one."
+      "An address here means either that it is publicly associated with an",
+      "online record or that they contributed the record directly and agreed",
+      "to be listed in FWISE."
     ),
     r_contacts_none = paste(
       "None of the attempts in this selection has a contact recorded against it."

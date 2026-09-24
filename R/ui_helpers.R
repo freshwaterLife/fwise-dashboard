@@ -488,8 +488,7 @@ fw_footer <- function(last_updated, in_review = 0L) {
             # the second sentence, not the first.
             p(class = "fw-footer__built-by", fw_t("app", "data_by")),
             p(class = "fw-footer__built-by", fw_t("app", "built_by")),
-            p(class = "fw-footer__built-by", fw_t("app", "illustrated_by")),
-            fw_footer_contact()
+            p(class = "fw-footer__built-by", fw_t("app", "illustrated_by"))
           ),
           div(
             class = "fw-footer__logos",
@@ -508,26 +507,34 @@ fw_footer <- function(last_updated, in_review = 0L) {
     div(
       class = "fw-footer__meta",
       fw_container(
-        # The label takes the date's typeface, so the line does not change
-        # font halfway through. See .fw-footer__updated.
-        tags$span(
-          class = "fw-footer__updated",
-          fw_t("footer", "last_updated"), " ",
-          tags$span(class = "fw-num",
-                    if (is.na(last_updated)) fw_t("common", "empty_value")
-                    else format(last_updated, "%d %B %Y"))
-        ),
-        if (isTRUE(in_review > 0)) {
+        # THE LINKS ARE ONE ROW AND THE LICENCE A LINE OF ITS OWN UNDER THEM,
+        # smaller (client, 24 Sept 2026). Contact FWISE moved down here from
+        # under the credits in the same round, so every way out of the app sits
+        # in this one strip.
+        div(
+          class = "fw-footer__links",
+          # The label takes the date's typeface, so the line does not change
+          # font halfway through. See .fw-footer__updated.
           tags$span(
-            class = "fw-footer__review",
-            tags$span(class = "fw-num", fw_fmt_num(in_review)), " ",
-            if (in_review == 1) fw_t("footer", "in_review_one")
-            else fw_t("footer", "in_review_many")
-          )
-        },
-        tags$a(href = fw_t("footer", "doi_url"), fw_t("footer", "doi_label")),
-        tags$a(href = fw_t("footer", "github_url"), fw_t("footer", "github_label")),
-        tags$span(fw_t("footer", "licence"))
+            class = "fw-footer__updated",
+            fw_t("footer", "last_updated"), " ",
+            tags$span(class = "fw-num",
+                      if (is.na(last_updated)) fw_t("common", "empty_value")
+                      else format(last_updated, "%d %B %Y"))
+          ),
+          if (isTRUE(in_review > 0)) {
+            tags$span(
+              class = "fw-footer__review",
+              tags$span(class = "fw-num", fw_fmt_num(in_review)), " ",
+              if (in_review == 1) fw_t("footer", "in_review_one")
+              else fw_t("footer", "in_review_many")
+            )
+          },
+          tags$a(href = fw_t("footer", "doi_url"), fw_t("footer", "doi_label")),
+          tags$a(href = fw_t("footer", "github_url"), fw_t("footer", "github_label")),
+          fw_footer_contact()
+        ),
+        p(class = "fw-footer__licence", fw_t("footer", "licence"))
       )
     )
   )

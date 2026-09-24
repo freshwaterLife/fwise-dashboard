@@ -71,9 +71,12 @@ ok("absent year bounds do not empty the result",
 # able to pre-select, and method is the thing they came here to learn.
 ok("outcome is not a report-builder filter", "outcome" %in% plan_ids, FALSE)
 ok("method is not a report-builder filter",  "method" %in% plan_ids, FALSE)
-ok("and those, plus the Explore-only fish family pair, are all that is dropped",
-   sort(setdiff(fw_filter_ids(), plan_ids)),
-   sort(c("method", "outcome", "family", "family_beneficiary")))
+# The fish family pair came back on 24 Sept 2026 (client), shown only while
+# Fish is picked - see fw_filter_when_panel() in R/filters.R.
+ok("and those two are all that is dropped",
+   sort(setdiff(fw_filter_ids(), plan_ids)), sort(c("method", "outcome")))
+ok("the fish family pair is a report-builder filter",
+   all(c("family", "family_beneficiary") %in% plan_ids), TRUE)
 # Outcome is now filterable NOWHERE. It used to be the dashboard's alone; the
 # client's decision is that it is an answer on both pages. It stays visible in
 # every chart, the map and the table - it is just never used to narrow.
@@ -257,7 +260,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # built result they read as qualifications of that selection alone. They still
   # travel inside every download - asserted further down.
   ok("caveats do NOT sit beside the results", grepl(PLACEHOLDER_CAVEAT, h, fixed = TRUE), FALSE)
-  ok("the contacts block does", grepl("Potential relevant contacts", h), TRUE)
+  ok("the contacts block does", grepl(fw_t("plan", "r_contacts"), h, fixed = TRUE), TRUE)
   ok("the cumulative chart has left this page",
      grepl("How the record has", h), FALSE)
   ok("export matches the selection",

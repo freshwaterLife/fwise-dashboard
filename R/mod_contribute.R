@@ -165,9 +165,8 @@ mod_contribute_server <- function(id, data, choices) {
       if (!isTRUE(value)) fw_t("contribute", "validate", "consent")
     })
     # Deliberately NOT enabled here. Enabling at startup shows the contributor an
-    # error on the opening panel before they have touched anything, which reads
-    # as being told off for arriving. It is enabled the first time they try to
-    # start the form without ticking the box.
+    # error on a box at the foot of the form before they have reached it. It is
+    # enabled when they check their answers or try to send.
     
 
     # Gating is computed independently of the validators, on purpose.
@@ -304,15 +303,9 @@ mod_contribute_server <- function(id, data, choices) {
       )
     })
 
-    observeEvent(input$start, {
-      if (!isTRUE(input$consent_data_use)) {
-        iv_consent$enable()
-        fw_announce(session, fw_t("contribute", "announce", "consent_start"))
-        return()
-      }
-      iv_consent$enable()
-      stage("form")
-    })
+    # NOT GATED (24 Sept 2026). Consent is asked at the foot of the form now,
+    # and Send is what it gates - see all_valid() and fw_check().
+    observeEvent(input$start, stage("form"))
 
     # ---- Repeatable blocks ----------------------------------------------------
 

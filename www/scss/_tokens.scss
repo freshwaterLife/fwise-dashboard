@@ -50,11 +50,12 @@
 //                   when the user clicks elsewhere, it is the wrong token.
 //
 //   $fw-size-fine   small print that qualifies the page without competing with
-//                   it (client, 23 Sept 2026). THREE CALLERS, and the list is
-//                   the whole permission: .fw-home-footnote, .fw-map-note, and
-//                   the report's filters table on paper (fw-small, set from
+//                   it (client, 23 Sept 2026). FOUR CALLERS, and the list is
+//                   the whole permission: .fw-home-footnote, .fw-map-note,
+//                   .fw-footer__licence (client, 24 Sept 2026), and the
+//                   report's filters table on paper (fw-small, set from
 //                   FW_TYPE$size_fine in R/report_pdf.R). Do not reach for it
-//                   for a fourth thing - ask whether the floor has moved.
+//                   for a fifth thing - ask whether the floor has moved.
 //
 // Everything else on the page, including every caption and note NOT named
 // above, holds the floor.

@@ -33,11 +33,16 @@ ok <- function(lbl, got, want) {
 testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   cat("\n-- gating on an empty form --\n")
   ok("all_valid with nothing filled", all_valid(), FALSE)
-  ok("consent not given -> start blocked", { session$setInputs(start=1); stage() }, "intro")
+  # CONSENT GATES SEND, NOT START (24 Sept 2026). Both boxes sit at the foot
+  # of the form now - see fw_step_review_ui().
+  ok("start opens the form without consent", { session$setInputs(start=1); stage() }, "form")
+  ok("the data-use box is a sending error while unticked",
+     "consent_data_use" %in% vapply(fw_check()$errors, `[[`, "", "id"), TRUE)
 
-  session$setInputs(consent_data_use = TRUE, start = 2)
-  ok("consent given -> form starts", stage(), "form")
+  session$setInputs(consent_data_use = TRUE)
   ok("all_valid still false (fields empty)", all_valid(), FALSE)
+  ok("and consent is no longer among the errors once ticked",
+     "consent_data_use" %in% vapply(fw_check()$errors, `[[`, "", "id"), FALSE)
 
   cat("\n-- country must not silently default --\n")
   ok("country starts empty", is.null(input$country) || input$country == "", TRUE)
@@ -69,6 +74,12 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   # was rejected when the pattern used [^@\\s].
   session$setInputs(primary_contact_email="tester@essex.org")
   ok("address containing 's' is accepted", all_valid(), TRUE)
+  # The data-use box is the one consent that gates Send; the display one never does.
+  session$setInputs(consent_data_use = FALSE)
+  ok("a complete form without data-use consent blocks", all_valid(), FALSE)
+  session$setInputs(consent_data_use = TRUE, email_public = FALSE)
+  ok("a complete form without display consent sends", all_valid(), TRUE)
+  session$setInputs(email_public = TRUE)
 
   cat("\n-- conditional chemical section --\n")
   ok("chemical section live for Rotenone", chemical_selected(), TRUE)

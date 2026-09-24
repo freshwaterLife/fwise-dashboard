@@ -540,6 +540,50 @@ fw_link_geo_filters <- function(input, session, data, choices) {
   invisible(list(a, b))
 }
 
+#' Draw a filter only while its `when` condition holds
+#'
+#' The fish family pair: each is shown only while its kind-of-animal filter
+#' includes Fish. conditionalPanel sets display:none, which takes the cell out
+#' of a grid rather than leaving a gap. A filter with no `when` is returned
+#' as it is. Shared by Explore and Plan (Plan gained the pair on 24 Sept 2026),
+#' so the two pages hide and show it by one rule.
+#'
+#' @param ns the calling module's namespace function
+#' @param id the filter id in FW_FILTERS
+#' @param control the already-built control for that filter
+fw_filter_when_panel <- function(ns, id, control) {
+  when <- FW_FILTERS[[id]]$when
+  if (is.null(when)) return(control)
+  shiny::conditionalPanel(
+    sprintf("(input['%s'] || []).indexOf('%s') > -1", ns(when$input), when$value),
+    control
+  )
+}
+
+#' Empty a `when` filter once its condition stops holding
+#'
+#' A fish family filter hidden by deselecting Fish is emptied as well, so it
+#' does not come back already set when Fish is picked again.
+#' fw_filter_state() already ignores it while hidden; this is about what the
+#' reader sees on the way back.
+#'
+#' @param input,session the calling module's own input and session
+#' @param ids the filter ids the page draws
+fw_filter_when_observers <- function(input, session, ids) {
+  for (fid in intersect(ids, names(Filter(function(x) !is.null(x$when), FW_FILTERS)))) {
+    local({
+      id <- fid
+      when <- FW_FILTERS[[id]]$when
+      shiny::observeEvent(input[[when$input]], ignoreNULL = FALSE, {
+        if (!when$value %in% (input[[when$input]] %||% character(0)) && length(input[[id]])) {
+          shiny::updateSelectizeInput(session, id, selected = character(0))
+        }
+      })
+    })
+  }
+  invisible(NULL)
+}
+
 # ---- Applying ----------------------------------------------------------------
 
 #' Apply the filters, returning the matching attempt rows

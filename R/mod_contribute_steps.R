@@ -357,22 +357,16 @@ fw_step_contributor_ui <- function(ns, choices) {
   tagList(
     fw_step_intro("contributor"),
     # ONE CONTACT (Sept 2026 user testing). The secondary contact is gone from
-    # the form - submissions write it as NA - and the permission to show the
-    # email sits with the email it is about, rather than on the intro screen.
-    # Existing records keep their secondary contacts.
+    # the form - submissions write it as NA. Existing records keep their
+    # secondary contacts. The permission to show these details is asked at the
+    # foot of the form with the other consent - see fw_step_review_ui().
     tags$h3(fw_lab("contact_heading")),
     fw_field(fw_text_input(ns("primary_contact_name")), fw_lab("contact_name"), required = TRUE,
              tooltip = fw_tip("contact"), input_id = ns("primary_contact_name")),
     fw_field(fw_text_input(ns("primary_contact_email")), fw_lab("contact_email"), required = TRUE,
              input_id = ns("primary_contact_email")),
     fw_field(fw_text_input(ns("primary_contact_org")), fw_lab("contact_org"),
-             input_id = ns("primary_contact_org")),
-    # In fw_field() like every other question, so the printable question list
-    # (R/questions_text.R) asks it too rather than folding its help text into
-    # the organisation question above.
-    fw_field(checkboxInput(ns("email_public"), fw_lab("email_public_yes"), value = FALSE),
-             fw_lab("email_public"), help = fw_help("email_public"),
-             input_id = ns("email_public"))
+             input_id = ns("primary_contact_org"))
   )
 }
 
@@ -393,7 +387,37 @@ fw_step_review_ui <- function(ns, choices) {
     # visible further up the page anyway; this is a last read-through.
     actionButton(ns("check_answers"), fw_t("contribute", "check_action"),
                  class = "btn btn-outline-primary"),
-    uiOutput(ns("review_summary"))
+    uiOutput(ns("review_summary")),
+
+    # ---- Consent: two boxes, two jobs (24 Sept 2026) -------------------------
+    # LAST, directly above Send, so a contributor agrees to what they have
+    # actually written. They used to be split - one gating Start on the intro
+    # screen, whose statement also claimed permission to display contact
+    # details, and one in the Contributor step - and the two contradicted
+    # each other.
+    #
+    # THE FIRST IS REQUIRED: storing and using the record is what a submission
+    # is. all_valid() and fw_check() refuse Send without it.
+    #
+    # THE SECOND IS NOT, and must not become so. Showing someone's name,
+    # organisation and email in the app is consent to publication, which has
+    # to be freely given - a condition of contributing would not be. Unticked,
+    # the contact is stored "private" and every page redacts all three (see
+    # the email_public gate in data_load.R, maps.R and export.R).
+    #
+    # Both in fw_field() like every other question, so the printable question
+    # lists (R/questions_text.R) ask them too.
+    tags$h3(fw_t("contribute", "consent", "heading")),
+    p(fw_t("contribute", "consent", "statement")),
+    fw_field(checkboxInput(ns("consent_data_use"),
+                           fw_t("contribute", "consent", "agree_yes"), value = FALSE),
+             fw_t("contribute", "consent", "agree_label"), required = TRUE,
+             input_id = ns("consent_data_use")),
+    p(tags$a(href = fw_t("contribute", "consent", "terms_url"),
+             fw_t("contribute", "consent", "terms_link_label"))),
+    fw_field(checkboxInput(ns("email_public"), fw_lab("email_public_yes"), value = FALSE),
+             fw_lab("email_public"), help = fw_help("email_public"),
+             input_id = ns("email_public"))
   )
 }
 

@@ -129,17 +129,22 @@ FW_COPY_CONTRIBUTE <- list(
       start_action   = "Start the form"
     ),
 
-    # Consent controls, section 0.1 of the specification
+    # Consent controls, section 0.1 of the specification. At the foot of the
+    # form since 24 Sept 2026 - see fw_step_review_ui().
     consent = list(
-      heading = "Before you begin",
-      # This is the client's wording from the specification and should not be
-      # reworded without asking them.
+      heading = "Consent",
+      # [NEEDS CLIENT SIGN-OFF] Reworded 24 Sept 2026 at Alex's request. The
+      # specification's wording also granted permission to DISPLAY contact
+      # details, which contradicted the separate opt-in for exactly that
+      # (fields$email_public), so this now covers storing and using the record
+      # only.
       statement = paste(
-        "By submitting this information you confirm that FWISE staff may contact",
-        "you regarding your submission, and allow FWISE to display contact",
-        "information within the dashboard."
+        "By sending this record you agree that FWISE staff may store and use",
+        "the information in it to review the record, publish it in the FWISE",
+        "database, and contact you about your submission."
       ),
-      agree_label = "I agree to the above and to FWISE using this information as described",
+      agree_label = "I agree to FWISE storing and using this information as described.",
+      agree_yes   = "Yes, I agree",
       # [PLACEHOLDER] the full terms of data use are still being drafted
       terms_link_label = "Read the full terms of data use",
       terms_url = "#"
@@ -341,8 +346,12 @@ FW_COPY_CONTRIBUTE <- list(
       source           = "Where did this record come from?",
 
       contact_heading  = "Contact information",
-      email_public     = "I give permission for my email to be displayed in the app",
-      email_public_yes = "Yes, show my email",
+      email_public     = paste(
+        "I give permission for my personal information (name, organization,",
+        "email) to be displayed in app for people to contact me regarding",
+        "eradications."
+      ),
+      email_public_yes = "Yes, show",
       contact_name     = "Name",
       contact_email    = "Email",
       contact_org      = "Organisation",
@@ -363,9 +372,9 @@ FW_COPY_CONTRIBUTE <- list(
     # Help text printed under a control. Keyed like `fields`.
     help = list(
       email_public   = paste(
-        "Tick this and your address appears on the community page, so other",
-        "practitioners can reach you directly. Leave it unticked and only FWISE",
-        "staff will see it."
+        "Tick this and your name, organization and email appear in the app, so",
+        "other practitioners can contact you about eradications. Leave it",
+        "unticked and only FWISE staff will see them."
       ),
       region         = "Optional. Choose the state, province or region, or type one if it is not listed.",
       location       = "Click the map to place your site, or type coordinates below.",
@@ -456,7 +465,6 @@ FW_COPY_CONTRIBUTE <- list(
     # ---- Announcements ---------------------------------------------------------
     # Written to the polite live region so a screen reader hears them.
     announce = list(
-      consent_start     = "Please confirm you agree before starting.",
       waterbody_changed = "The waterbody types have changed to match {regime}. Please choose again.",
       regions_changed   = "The regions have changed to match {country}. Please choose again.",
       target_added      = "Target {n} added.",

@@ -340,8 +340,13 @@ for (v in list(c("attempts", nrow(a)), c("countries", length(unique(a$country)))
 # absent still existing.
 ok("explore db: the panel does NOT name a success count",
    !grepl("success", db, ignore.case = TRUE))
-ok("explore db: the year span is filled in",
-   grepl(paste0(min(a$start_year, na.rm = TRUE), " to ", max(a$start_year, na.rm = TRUE)), db, fixed = TRUE))
+# NO YEAR-SPAN SENTENCE (client, 24 Sept 2026): "Attempts recorded from ... to
+# ..." came off the panel.
+ok("explore db: the year span sentence is gone",
+   grepl(paste0(min(a$start_year, na.rm = TRUE), " to ", max(a$start_year, na.rm = TRUE)), db, fixed = TRUE),
+   FALSE)
+ok("explore db: the protected figure carries its >",
+   grepl(paste0("&gt;", fw_fmt_num(s$protected)), as.character(fw_explore_db_panel(s, 7L)), fixed = TRUE))
 ok("explore db: no placeholder left", !grepl("\\{[a-z_]+\\}", db))
 
 # Beneficiary taxa: the new filter, matched against the bridge directly.
@@ -1637,7 +1642,7 @@ scss <- paste(vapply(list.files("www/scss", pattern = "[.]scss$", full.names = T
 # DECLARATIONS, not mentions: the token is named several times in the comments
 # that explain it, and those are not callers.
 fine_users <- length(gregexpr("font-size:\\s*\\$fw-size-fine", scss)[[1]])
-ok("type: the fine size has the two page callers it is permitted", fine_users, 2L)
+ok("type: the fine size has the three page callers it is permitted", fine_users, 3L)
 ok("type: the plotly floor is the rem floor in pixels", FW_TYPE$floor_px, 16L)
 vars <- fw_sass_variables()
 ok("tokens: no empty Sass variable", !any(vapply(vars, function(v) is.null(v) || is.na(v) || !nzchar(v), logical(1))))

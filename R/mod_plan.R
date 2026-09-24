@@ -186,6 +186,10 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # FW_FILTERS is cleared without a second edit here.
     observeEvent(input$clear, fw_filter_clear(session, ids, choices))
 
+    # The fish family pair empties itself when Fish is deselected, as on
+    # Explore. See fw_filter_when_observers() in R/filters.R.
+    fw_filter_when_observers(input, session, ids)
+
 
     output$filters_summary <- renderUI({
       if (!built()) return(NULL)

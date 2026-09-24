@@ -143,15 +143,16 @@ FW_TYPE <- list(
 
   # THE THIRD EXEMPTION, and like the other two it is a client instruction
   # rather than a drift (23 Sept 2026): "smaller than 1rem", for small print
-  # that qualifies the page without competing with it. THREE PLACES ONLY -
+  # that qualifies the page without competing with it. FOUR PLACES ONLY -
   # the Welcome page's evidence footnote, the Mercator note under both maps,
+  # the footer's licence line (added 24 Sept 2026 at the client's request),
   # and, on paper, the report's "What this report covers" table (fw-small in
   # fw_pdf_tokens()).
   #
   # 0.95rem, not the 0.8rem the credits take: this is running prose a reader
   # is expected to read through, where a credit is a line they glance at.
   #
-  # THE FLOOR STILL STANDS FOR EVERYTHING ELSE. If a fourth caller wants this,
+  # THE FLOOR STILL STANDS FOR EVERYTHING ELSE. If a fifth caller wants this,
   # that is the point at which to ask the client whether the floor has moved
   # rather than to add it here.
   size_fine    = "0.95rem",    # footnotes and map notes. See $fw-size-fine.

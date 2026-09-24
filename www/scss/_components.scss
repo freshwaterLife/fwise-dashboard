@@ -377,34 +377,35 @@
 
   // THE ADDRESS IS NOT HERE UNTIL IT IS ASKED FOR - the button assembles it in
   // JavaScript and writes it into __contact-out, which is empty until then.
-  // See fw_footer_contact() in R/ui_helpers.R.
+  // See fw_footer_contact() in R/ui_helpers.R. It sits in the indigo strip
+  // with the other links (client, 24 Sept 2026), so it takes their size and
+  // their colours rather than the credits'.
   &__contact {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
     gap: $fw-space-2;
-    margin-block-start: $fw-space-2;
-    font-size: $fw-size-credit;
   }
 
   &__contact-btn {
     // A button that reads as a link: it reveals text in place rather than
-    // going anywhere, so it should not look like a call to action.
+    // going anywhere, so it should look like the links beside it.
     appearance: none;
     background: none;
     border: 0;
     padding: 0;
     font: inherit;
-    color: $fw-teal-text;
+    color: $fw-teal-light;
     text-decoration: underline;
+    text-decoration-color: rgba($fw-teal-light, 0.5);
     cursor: pointer;
 
-    &:hover { text-decoration: none; }
-    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
+    &:hover { color: $fw-on-indigo; }
+    &:focus-visible { outline: 2px solid $fw-teal-light; outline-offset: 2px; }
   }
 
   &__contact-out {
-    color: $fw-ink-muted;
+    color: $fw-on-indigo-muted;
     // The address has no spaces, so it needs somewhere to break on a phone.
     overflow-wrap: anywhere;
   }
@@ -422,13 +423,20 @@
       text-decoration-color: rgba($fw-teal-light, 0.5);
       &:hover { color: $fw-on-indigo; }
     }
+  }
 
-    .fw-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: $fw-space-1 $fw-space-4;
-      align-items: baseline;
-    }
+  &__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $fw-space-1 $fw-space-4;
+    align-items: baseline;
+  }
+
+  // ITS OWN LINE, UNDER THE LINKS AND SMALLER (client, 24 Sept 2026). The
+  // fourth caller $fw-size-fine permits - see the list in _tokens.scss.
+  &__licence {
+    font-size: $fw-size-fine;
+    margin: $fw-space-1 0 0;
   }
 }
 
@@ -715,12 +723,12 @@
 
   h2 { margin-block-end: 0; }
 
-  // THE BUTTON ITSELF READS AS A FLOATING CONTROL. Rounded rather than the
-  // card radius every button in the flow uses, because nothing else on the
-  // page is shaped like this and the reader has to recognise it as the one
-  // thing that stays put.
+  // THE BUTTON ITSELF READS AS A FLOATING CONTROL by its shadow, not its
+  // shape. It was a pill; the client asked for the same corners as every
+  // other button in the app (24 Sept 2026), so it takes .btn's radius and
+  // the lift alone says it stays put.
   .fw-plan__download-open {
-    border-radius: $fw-radius-round;
+    border-radius: $fw-radius-input;
     box-shadow: $fw-shadow-raised;
     // A comfortable touch target, and the label stays on one line.
     padding-inline: $fw-space-3;
@@ -2857,11 +2865,6 @@
   margin-block-end: $fw-space-4;
 
   h2 { margin-block-end: $fw-space-1; }
-
-  &__span {
-    color: $fw-ink-muted;
-    margin-block-end: $fw-space-3;
-  }
 }
 
 // The filter bar. One row of controls that wraps rather than a sidebar: the

@@ -81,20 +81,9 @@ mod_explore_server <- function(id, data, in_review = 0L) {
 
     fw_link_geo_filters(input, session, data, choices)
 
-    # A fish family filter hidden by deselecting Fish is emptied as well, so it
-    # does not come back already set when Fish is picked again.
-    # fw_filter_state() already ignores it while hidden.
-    for (fid in intersect(ids, names(Filter(function(x) !is.null(x$when), FW_FILTERS)))) {
-      local({
-        id <- fid
-        when <- FW_FILTERS[[id]]$when
-        observeEvent(input[[when$input]], ignoreNULL = FALSE, {
-          if (!when$value %in% (input[[when$input]] %||% character(0)) && length(input[[id]])) {
-            updateSelectizeInput(session, id, selected = character(0))
-          }
-        })
-      })
-    }
+    # The fish family pair empties itself when Fish is deselected. Shared with
+    # the report builder - see R/filters.R.
+    fw_filter_when_observers(input, session, ids)
 
 
     output$kpis <- renderUI(fw_explore_db_panel(fw_headline_stats(data), in_review))
@@ -183,17 +172,14 @@ mod_explore_server <- function(id, data, in_review = 0L) {
 
 #' The whole-database panel
 #'
-#' Six equal tiles and one sentence. Nothing here is a rate, and nothing is
-#' bigger than the rest: the client's steer is to show the shape of the record
-#' rather than push one number.
+#' Equal tiles and no sentence: the "Attempts recorded from ... to ..." line
+#' came out at the client's request (24 Sept 2026). Nothing here is a rate,
+#' and nothing is bigger than the rest: the client's steer is to show the shape
+#' of the record rather than push one number.
 fw_explore_db_panel <- function(s, in_review = 0L) {
   tags$section(
     class = "fw-explore-db",
     h2(class = "fw-visually-hidden", fw_t("explore", "db_heading")),
-    p(class = "fw-explore-db__span",
-      fw_fill(fw_t("explore", "db_span"),
-              from = as.character(s$earliest_year),
-              to = as.character(s$latest_year))),
     fw_kpi_strip(
       fw_kpi_stat(fw_fmt_num(s$attempts), fw_t("explore", "db_attempts")),
       fw_kpi_stat(fw_fmt_num(s$countries), fw_t("explore", "db_countries")),
@@ -203,7 +189,10 @@ fw_explore_db_panel <- function(s, in_review = 0L) {
       # counts them on every attempt, successful or not, and a species whose
       # eradication failed has not been protected by it. The Welcome page has
       # always used s$protected - this is the rest of the app catching up.
-      fw_kpi_stat(fw_fmt_num(s$protected), fw_t("explore", "db_beneficiary"),
+      # THE ">" IS ON THE FIGURE (client, 24 Sept 2026): beneficiaries are
+      # under-recorded, so the count is a floor. Home and Plan build theirs the
+      # same way.
+      fw_kpi_stat(paste0(">", fw_fmt_num(s$protected)), fw_t("explore", "db_beneficiary"),
                   tooltip = fw_t("explore", "db_beneficiary_tip")),
       # THE SUCCESS COUNT USED TO SIT HERE and is gone at the client's request.
       # It was the one figure in the strip that was an OUTCOME rather than a
@@ -235,16 +224,8 @@ fw_explore_filter_bar <- function(ns, ch, ids) {
     )
   }
   # A filter with a `when` (the fish family pair) is drawn only while its
-  # kind-of-animal filter includes that value. conditionalPanel sets
-  # display:none, which takes the cell out of the grid rather than leaving a gap.
-  control <- function(id) {
-    when <- FW_FILTERS[[id]]$when
-    if (is.null(when)) return(multi(id))
-    conditionalPanel(
-      sprintf("(input['%s'] || []).indexOf('%s') > -1", ns(when$input), when$value),
-      multi(id)
-    )
-  }
+  # kind-of-animal filter includes that value. See fw_filter_when_panel().
+  control <- function(id) fw_filter_when_panel(ns, id, multi(id))
   drop <- setdiff(names(FW_FILTERS), ids)
 
   tags$section(

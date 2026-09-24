@@ -42,15 +42,10 @@ fw_intro_panel <- function(ns) {
       div(class = "fw-caption", fw_t("contribute", "intro", "download_hint"))
     ),
 
-    tags$hr(),
-
-    tags$h3(fw_t("contribute", "consent", "heading")),
-    p(fw_t("contribute", "consent", "statement")),
-    checkboxInput(ns("consent_data_use"),
-                  fw_t("contribute", "consent", "agree_label"), value = FALSE),
-    p(tags$a(href = fw_t("contribute", "consent", "terms_url"),
-             fw_t("contribute", "consent", "terms_link_label"))),
-
+    # NO CONSENT HERE ANY MORE (24 Sept 2026). The tick box that gated Start
+    # moved to the foot of the form, beside the display permission, so a
+    # contributor agrees to what they have actually written - see
+    # fw_step_review_ui() in R/mod_contribute_steps.R.
     div(
       style = "margin-block-start:1.5rem;",
       actionButton(ns("start"), fw_t("contribute", "intro", "start_action"),
