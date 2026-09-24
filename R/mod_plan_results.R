@@ -253,12 +253,12 @@ fw_plan_contacts_ui <- function(contacts, page = 1L,
     tags$tbody(lapply(seq_len(nrow(rows)), function(i) {
       r <- rows[i, ]
       tags$tr(
-        tags$td(r$contact_name),
+        tags$td(r$contact_name %|na|% ""),
         tags$td(r$organisation %|na|% fw_t("networking", "no_organisation")),
         tags$td(r$continent_label),
         tags$td(r$country_label),
         tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
-        tags$td(fw_contact_action(r$contact_email, r$contact_name))
+        tags$td(fw_contact_action(r$contact_email, fw_contact_who(r)))
       )
     }))
   )

@@ -167,10 +167,10 @@ ok("so a stale bound left on the hidden slider changes nothing",
 # a hidden control - the alternative is judging them against bounds the reader
 # cannot see. It goes away on its own as the client's cleaning lands; until then
 # this test says how many rows it applies to, so a change in that number is
-# noticed.
+# noticed. It went away in the 23 Sept 2026 export: none are left.
 mismatch <- sum(d$attempt$water_regime == "Lentic" &
                   d$attempt$area_unit == "km", na.rm = TRUE)
-ok("the regime/unit mismatch is still the 6 that were measured", mismatch, 6L)
+ok("no still-water attempt is measured in kilometres", mismatch, 0L)
 tight <- modifyList(state, list(size_ha = c(fw_size_log(1), fw_size_log(2))))
 ok("a narrow hectare bound does not touch the mismatched kilometre rows",
    sum(fw_filter_apply(d, tight)$area_unit == "km" &
@@ -453,11 +453,13 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # and the records HTML also close. Still no contacts sheet.
   ok("all four sheets present, in order, and no contacts sheet",
      sheets, c("Attempts", "Field definitions", "Filters applied",
-               "Methods and caveats"))
-  ok("and the last tab carries the methods and the client's caveats",
+               fw_t("export", "sheets")$caveats))
+  ok("and the last tab carries the methods, the client's caveats and the citation",
      all(c(toupper(fw_t("export", "methods_heading")),
-           "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]") %in%
-           openxlsx::read.xlsx(path, "Methods and caveats")[[1]]), TRUE)
+           "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]",
+           toupper(fw_t("export", "citation_heading")),
+           fw_citation_text(m, nrow(d$attempt))) %in%
+           openxlsx::read.xlsx(path, fw_t("export", "sheets")$caveats)[[1]]), TRUE)
   ok("data sheet matches the selection",
      nrow(openxlsx::read.xlsx(path, "Attempts")), nrow(report()$sel))
   ok("field definitions cover every exported column",
@@ -466,7 +468,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
 
   # THE CONTROL, not the intention. An address belonging to a contact who asked
   # not to be listed must not be anywhere in the workbook.
-  private <- d$contact$contact_email[!d$contact$email_public]
+  private <- d$contact$contact_email[!d$contact$contact_public]
   private <- private[!is.na(private) & nzchar(private)]
   rows <- openxlsx::read.xlsx(path, "Attempts")
   ok("no private address reaches the attempts sheet",
@@ -502,6 +504,15 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ids <- sub('^.*id="', "", sub('"$', "", ids))
   ok("one card per attempt in the selection", length(ids), nrow(report()$sel))
   ok("in the export's order", ids, report()$export$attempt_id)
+  # STILL WATER / FLOWING WATER, never the stored Lentic / Lotic (client,
+  # 24 Sept 2026) - the words the filters and the form already use.
+  ok("water regime reads in plain English",
+     grepl("<dd>(Lentic|Lotic)</dd>", rec), FALSE)
+  ok("and the plain words are there",
+     any(vapply(FW_REGIME_LABELS, function(l) grepl(paste0("<dd>", l, "</dd>"), rec, fixed = TRUE),
+                logical(1))), TRUE)
+  ok("the records close on the citation",
+     grepl(fw_t("export", "citation_heading"), rec, fixed = TRUE), TRUE)
   cards <- strsplit(rec, '<article class="fw-rec-card"', fixed = TRUE)[[1]][-1]
   labels <- fw_t("export", "record_labels")
   ok("the labels cover every exported column",
@@ -610,16 +621,22 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     ok("the caveats travel with the document", has(PLACEHOLDER_CAVEAT), TRUE)
     ok("and the methods statement with them",
        has(fw_t("export", "methods_heading")), TRUE)
-    # NOT "How fwise was compiled". fw_caveat_title() used to lowercase
-    # everything after the first letter, which was invisible while every
-    # heading was a plain sentence and ate the acronym the moment one was not.
-    ok("with its acronym intact", has("How FWISE was compiled"), TRUE)
-    # AND THE HEADINGLESS BLOCK CARRIES NO HEADING. fw_typ_str() turns an empty
-    # value into "-" for a data cell, which here would set a bold hyphen above
-    # the caveats; the heading is passed with na = "" so the Typst partial can
-    # test for it. See fw-caveats in resources/report/typst-template.typ.
-    ok("and the headingless caveat block passes an empty title, not a dash",
-       has(paste0('("", "', PLACEHOLDER_CAVEAT, '")')), TRUE)
+    # METHODS, CAVEATS, CITATION (client, 24 Sept 2026), each titled. The
+    # headless placeholder caveat takes "Caveats" here and nowhere else.
+    ok("the caveat placeholder is titled Caveats",
+       has(paste0('("', fw_t("export", "caveats_title"), '", "', PLACEHOLDER_CAVEAT, '")')), TRUE)
+    ok("and the citation closes the section",
+       has(paste0('("', fw_t("export", "citation_heading"), '", ')), TRUE)
+    pos <- function(txt) regexpr(txt, typ, fixed = TRUE)
+    ok("in the order methods, caveats, citation",
+       pos(paste0('("', fw_t("export", "methods_heading"), '"')) <
+         pos(paste0('("', fw_t("export", "caveats_title"), '"')) &&
+         pos(paste0('("', fw_t("export", "caveats_title"), '"')) <
+         pos(paste0('("', fw_t("export", "citation_heading"), '"')), TRUE)
+    ok("the contacts carry the PDF's own note",
+       has(fw_t("plan", "report_contacts_note")), TRUE)
+    ok("the footer no longer points back at the caveats",
+       has("Read the caveats above"), FALSE)
     ok("and so do the contacts", has(fw_t("plan", "r_contacts")), TRUE)
     ok("the map is drawn", file.exists(file.path(keep, "map.png")), TRUE)
     ok("every chart is drawn",

@@ -79,7 +79,7 @@ FW_SPECIES_COLUMNS <- c(
 )
 
 FW_CONTACT_COLUMNS <- c(
-  "contact_id", "contact_name", "contact_email", "organisation", "email_public"
+  "contact_id", "contact_name", "contact_email", "organisation", "contact_public"
 )
 
 # The attempt columns that are numbers in memory. Every one of them is numeric
@@ -360,7 +360,7 @@ fw_unpack <- function(attempts, species, contacts) {
 
   species  <- species[, FW_SPECIES_COLUMNS]
   contacts <- contacts[, FW_CONTACT_COLUMNS]
-  contacts$email_public <- toupper(trimws(contacts$email_public)) %in% c("TRUE", "YES", "1")
+  contacts$contact_public <- toupper(trimws(contacts$contact_public)) %in% c("TRUE", "YES", "1")
 
   # ---- Species -----------------------------------------------------------------
   attempt_species <- bind_rows(
@@ -555,7 +555,7 @@ fw_species_label <- function(species) {
 #' A contact attached to attempts in more than one country belongs to all of
 #' them, so country and continent are list columns rather than single values.
 #'
-#' REDACTION: a contact whose email_public is FALSE is DROPPED here, name and
+#' REDACTION: a contact whose contact_public is FALSE is DROPPED here, name and
 #' all, before the data reaches any session. The Networking page and the report
 #' builder's contacts block both read only from this function, so a private
 #' contact never enters the browser and cannot be recovered from anything served
@@ -593,7 +593,7 @@ fw_contacts_summary <- function(data) {
     # THE REDACTION ITSELF. Do not move this downstream, and do not soften it
     # into a blanked column: the row must not exist, or the name is still here
     # for anything that later decides to read it.
-    filter(email_public) |>
+    filter(contact_public) |>
     left_join(derived, by = "contact_id") |>
     mutate(
       attempt_count = coalesce(attempt_count, 0L),

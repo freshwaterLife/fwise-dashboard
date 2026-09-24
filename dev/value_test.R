@@ -140,14 +140,24 @@ local({
   ok("caveats: the number substitution still works", !grepl("\\{", filled))
 })
 
-# The closing section of every export: methods first, then the caveats.
-closing <- fw_closing_blocks(d)
-ok("closing section: methods block leads",
-   closing[[1]]$heading, fw_t("export", "methods_heading"))
-ok("closing section: the caveats follow it", length(closing), length(blocks) + 1L)
-ok("closing section: the workbook text carries both",
+# The closing section of every export: methods, caveats, citation (client,
+# 24 Sept 2026), each under its own title.
+closing <- fw_closing_blocks(d, m)
+ok("closing section: titled methods, caveats, citation",
+   vapply(closing, function(b) b$heading %||% "", ""),
+   c(fw_t("export", "methods_heading"), fw_t("export", "caveats_title"),
+     fw_t("export", "citation_heading")))
+ok("closing section: the citation carries the release and the count",
+   closing[[3]]$body, fw_citation_text(m, nrow(d$attempt)))
+ok("closing section: the citation is fully filled", !grepl("\\{", closing[[3]]$body))
+ok("closing section: the About caveats panel keeps no title of its own",
+   is.null(fw_caveat_blocks(d)[[1]]$heading))
+ok("closing section: the workbook text carries all three",
    all(c(toupper(fw_t("export", "methods_heading")),
-         "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]") %in% fw_methods_caveats_text(d)))
+         toupper(fw_t("export", "caveats_title")),
+         "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]",
+         toupper(fw_t("export", "citation_heading")),
+         closing[[3]]$body) %in% fw_methods_caveats_text(d, m)))
 
 # The About page renders end to end. Its section keys are built with paste0(),
 # which dev/check_literals.R cannot see, so a missing key only shows up here.
@@ -165,6 +175,10 @@ ok("about: every section heading is present",
                 "related", "other", "images", "licence", "links"),
               function(k) grepl(fw_t("about", paste0(k, "_heading")), about_html, fixed = TRUE),
               logical(1))))
+ok("about: the sign-up heading is visible",
+   grepl(paste0("<h2>", fw_t("about", "signup_heading"), "</h2>"), about_html, fixed = TRUE))
+ok("about: no Lorem Ipsum left in How it was built",
+   grepl("perspiciatis|Nemo enim|Neque porro", about_html), FALSE)
 # The panels are click-to-open, and a <details> that lost its <summary> is a
 # block of prose nobody can close.
 ok("about: the six panels are disclosures",
@@ -538,10 +552,14 @@ ok("detail: some records have a link and some do not",
 # By its row, not its text: one attempt repeats its note in What was done.
 ok("detail: no record has a verification notes row",
    any(grepl('fw-popup__key">Verification<', details, fixed = TRUE)), FALSE)
+# The 23 Sept 2026 export holds no "Unknown" verification (the client's
+# cleaning blanked them), so this only runs while one exists.
 unk <- which(recs_all$verification_method == "Unknown")[1]
-ok("detail: an Unknown verification is shown as Unknown",
-   grepl(paste0(fw_t("species", "p_verified"), '</span><span class="fw-popup__val">Unknown<'),
-         details[unk], fixed = TRUE))
+if (!is.na(unk)) {
+  ok("detail: an Unknown verification is shown as Unknown",
+     grepl(paste0(fw_t("species", "p_verified"), '</span><span class="fw-popup__val">Unknown<'),
+           details[unk], fixed = TRUE))
+}
 two_c <- which(!is.na(recs_all$primary_contact_name) & !is.na(recs_all$secondary_contact_name))[1]
 if (!is.na(two_c)) {
   ok("detail: two contacts are two bullets",
@@ -1405,7 +1423,7 @@ if (n_c > FW_REPORT_COUNTRY_ROWS) {
      ct[[1]][nrow(ct)], fw_fill(fw_t("export", "other_countries"), n = n_c - FW_REPORT_COUNTRY_ROWS))
 }
 
-private <- d$contact$contact_email[!d$contact$email_public & !is.na(d$contact$contact_email)]
+private <- d$contact$contact_email[!d$contact$contact_public & !is.na(d$contact$contact_email)]
 if (length(private)) {
   ok("redaction: a private address is refused",
      inherits(try(fw_assert_export_safe(data.frame(primary_contact_email = private[1]), d),

@@ -68,7 +68,7 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   cat("\n-- contact validation --\n")
   session$setInputs(method_1="Rotenone", outcome="Successful",
                     primary_contact_name="A Tester", primary_contact_email="nope",
-                    email_public = TRUE)
+                    contact_public = TRUE)
   ok("malformed email blocks", all_valid(), FALSE)
   # Guards the POSIX character-class fix: an address containing the letter "s"
   # was rejected when the pattern used [^@\\s].
@@ -77,9 +77,9 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   # The data-use box is the one consent that gates Send; the display one never does.
   session$setInputs(consent_data_use = FALSE)
   ok("a complete form without data-use consent blocks", all_valid(), FALSE)
-  session$setInputs(consent_data_use = TRUE, email_public = FALSE)
+  session$setInputs(consent_data_use = TRUE, contact_public = FALSE)
   ok("a complete form without display consent sends", all_valid(), TRUE)
-  session$setInputs(email_public = TRUE)
+  session$setInputs(contact_public = TRUE)
 
   cat("\n-- conditional chemical section --\n")
   ok("chemical section live for Rotenone", chemical_selected(), TRUE)
@@ -123,7 +123,7 @@ contact_of <- function(extra) {
 }
 ok("unticked -> the address is private", grepl("\\|private$", contact_of(list())), TRUE)
 ok("ticked -> the address is public",
-   grepl("\\|public$", contact_of(list(email_public = TRUE))), TRUE)
+   grepl("\\|public$", contact_of(list(contact_public = TRUE))), TRUE)
 
 cat("\n-- check my answers: hard errors block, soft warnings never do --\n")
 testServer(mod_contribute_server, args = list(data = d, choices = ch), {

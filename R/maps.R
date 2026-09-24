@@ -218,7 +218,7 @@ fw_attempt_records <- function(data, sel) {
       .groups = "drop"
     )
 
-  # THE WHOLE CONTACT PASSES THROUGH THE email_public GATE, name included
+  # THE WHOLE CONTACT PASSES THROUGH THE contact_public GATE, name included
   # (client, 23 Sept 2026). Same rule as fw_export_frame() and
   # fw_contacts_summary(); see the note above fw_map_detail_html() for why an
   # address is shown here at all. A private contact leaves the record's
@@ -227,10 +227,10 @@ fw_attempt_records <- function(data, sel) {
   contacts <- data$contact |>
     dplyr::transmute(
       contact_id,
-      contact_name  = dplyr::if_else(email_public, contact_name, NA_character_),
-      contact_email = dplyr::if_else(email_public, contact_email,
+      contact_name  = dplyr::if_else(contact_public, contact_name, NA_character_),
+      contact_email = dplyr::if_else(contact_public, contact_email,
                                      NA_character_),
-      organisation  = dplyr::if_else(email_public, organisation, NA_character_)
+      organisation  = dplyr::if_else(contact_public, organisation, NA_character_)
     )
 
   out <- pts |>
@@ -566,7 +566,7 @@ fw_popup_thumb_unrecorded <- function() {
 #' a next step where a coloured dot is only a statistic - which is the point of
 #' the networking side of FWISE.
 #'
-#' The email_public gate is NOT reached around: fw_map_points() applies exactly
+#' The contact_public gate is NOT reached around: fw_map_points() applies exactly
 #' the same expression fw_export_frame() does, and a contact who has not made
 #' their address public arrives here as NA and is rendered as a plain name.
 #'
@@ -657,6 +657,8 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
   # A contact, as a mailto where the address is public and plain text where it
   # is not. Never an empty link.
   person <- function(name, email, org) {
+    # An organisation with no named person is the contact itself.
+    if (is.na(name) || !nzchar(name)) { name <- org; org <- NA_character_ }
     if (is.na(name) || !nzchar(name)) return(NA_character_)
     who <- if (!is.na(email) && nzchar(email)) {
       paste0('<a href="mailto:', esc(email), '">', esc(name), "</a>")

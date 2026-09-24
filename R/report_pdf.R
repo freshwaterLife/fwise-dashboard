@@ -357,7 +357,7 @@ fw_pdf_contacts_table <- function(people, limit = FW_PDF$contacts_n) {
   # one, and fw_pdf_size_estimate() no longer has to guess at it.
   people <- utils::head(people, limit)
   data.frame(
-    a = people$contact_name,
+    a = ifelse(is.na(people$contact_name), "", people$contact_name),
     b = ifelse(is.na(people$organisation), fw_t("networking", "no_organisation"),
                people$organisation),
     c = people$country_label,
@@ -416,7 +416,7 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
   people <- fw_plan_contacts(data, sel)
   # Methods then caveats, the same closing section the workbook's last tab and
   # the records HTML carry. See fw_closing_blocks() in R/export.R.
-  caveats <- fw_closing_blocks(data)
+  caveats <- fw_closing_blocks(data, meta)
 
   parts <- list(
     paste0("#fw-letterhead(title: ", fw_typ_str(fw_t("plan", "report_title")),
@@ -488,7 +488,7 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
     # The six busiest contacts (client, 23 Sept 2026) - see
     # fw_pdf_contacts_table(). No pager: a document is read, not clicked through.
     if (nrow(people)) {
-      fw_typ_block(fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note"),
+      fw_typ_block(fw_t("plan", "r_contacts"), fw_t("plan", "report_contacts_note"),
                    fw_typ_table(fw_pdf_contacts_table(people),
                                 num = fw_t("plan", "col_contact_n"),
                                 # The address the widest (client, 21 Sept

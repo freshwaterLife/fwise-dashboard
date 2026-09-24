@@ -403,7 +403,7 @@ fw_step_review_ui <- function(ns, choices) {
     # organisation and email in the app is consent to publication, which has
     # to be freely given - a condition of contributing would not be. Unticked,
     # the contact is stored "private" and every page redacts all three (see
-    # the email_public gate in data_load.R, maps.R and export.R).
+    # the contact_public gate in data_load.R, maps.R and export.R).
     #
     # Both in fw_field() like every other question, so the printable question
     # lists (R/questions_text.R) ask them too.
@@ -415,9 +415,9 @@ fw_step_review_ui <- function(ns, choices) {
              input_id = ns("consent_data_use")),
     p(tags$a(href = fw_t("contribute", "consent", "terms_url"),
              fw_t("contribute", "consent", "terms_link_label"))),
-    fw_field(checkboxInput(ns("email_public"), fw_lab("email_public_yes"), value = FALSE),
-             fw_lab("email_public"), help = fw_help("email_public"),
-             input_id = ns("email_public"))
+    fw_field(checkboxInput(ns("contact_public"), fw_lab("contact_public_yes"), value = FALSE),
+             fw_lab("contact_public"), help = fw_help("contact_public"),
+             input_id = ns("contact_public"))
   )
 }
 

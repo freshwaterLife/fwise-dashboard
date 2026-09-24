@@ -600,8 +600,15 @@ FW_COPY <- list(
     report_where     = "Attempts by country",
     report_footer = paste(
       "FWISE, the Freshwater Invasive Species Eradication database. Data",
-      "released under CC BY-NC 4.0. Read the caveats above before quoting any",
-      "figure in this report."
+      "released under CC BY-NC 4.0."
+    ),
+    # Above the PDF's contacts table, which holds the six busiest contacts
+    # rather than the Plan page's full paged list - see r_contacts_note.
+    report_contacts_note = paste(
+      "The up to six most involved people recorded against the attempts above.",
+      "An address here means either that it is publicly associated with an",
+      "online record or that they contributed the record directly and agreed",
+      "to be listed in FWISE."
     ),
 
     # ---- Filters -------------------------------------------------------------
@@ -724,7 +731,8 @@ FW_COPY <- list(
   about = list(
     title = "About FWISE",
     description = paste(
-      "What FWISE is, important caveats about the data, and how to cite it, methods, and how to keep informed on development at FWISE."
+      "Sign up to stay in the loop. And read below on how to cite FWISE, how it",
+      "was built, and more information and resources."
     ),
 
     # NO OPENING PROSE SECTION. It held Lorem Ipsum waiting on client copy and
@@ -782,29 +790,10 @@ FW_COPY <- list(
 
     method_heading = "How it was built",
     method_summary = "Where the records come from and how they were compiled",
-    method = paste(
-      "Sed ut perspiciatis unde omnis iste natus error sit voluptatem",
-      "accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab",
-      "illo inventore veritatis et quasi architecto beatae vitae dicta sunt."
-    ),
-    method2 = paste(
-      "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut",
-      "fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem",
-      "sequi nesciunt."
-    ),
-
-    method3 = paste(
-      "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet,",
-      "consectetur, adipisci velit, sed quia non numquam eius modi tempora",
-      "incidunt ut labore et dolore magnam aliquam quaerat voluptatem."
-    ),
-    method_paper_heading = "Methods, in full",
-    method_paper = c(
-      paste(
-        "[PLACEHOLDER] The methods from the FWISE paper go here, in full, once",
-        "it is written. Until then this panel carries the summary above."
-      )
-    ),
+    # [PLACEHOLDER] The client is writing this section (24 Sept 2026). The
+    # three Lorem paragraphs and the "Methods, in full" sub-panel that stood
+    # here came out rather than ship; one paragraph goes back in its place.
+    method = "[PLACEHOLDER - ANABELL PLEASE PROVIDE]",
 
     # ---- Methods glossary ----------------------------------------------------
     # ONE ENTRY PER METHOD THE DATA ACTUALLY RECORDS, and the `term` strings
@@ -834,7 +823,7 @@ FW_COPY <- list(
         "Removing water from the entire lake or stream so that no invasive",
         "fish survive.")),
       # [PLACEHOLDER] AWAITING AN EXAMPLE OR TWO FROM THE CLIENT (23 Sept
-      # 2026), marked the same way about$method_paper and export$methods are.
+      # 2026), marked the same way about$method and export$methods are.
       list(term = "Other chemical methods", body = paste(
         "[PLACEHOLDER] An example or two of the other chemical methods",
         "recorded under this heading.")),
@@ -893,9 +882,9 @@ FW_COPY <- list(
     # above: a reader who has found something wrong should not have to open
     # anything to say so.
     fb_body = paste(
-      "If a record is wrong, a species is misnamed, or something on this site",
-      "does not work, we would rather hear it than not. There are no accounts",
-      "here, so this opens a message in your own email program - you send it."
+      "FWISE is an evolving and collective tool. Please tell us how to make it",
+      "better! Also, if a record is wrong, a species is misnamed, or something",
+      "on this site does not work, we would rather hear it than not."
     ),
     fb_where = "What is this about",
     fb_label = "What would you like to tell us",
@@ -914,22 +903,16 @@ FW_COPY <- list(
   # ---- Contacts --------------------------------------------------------------
 
   networking = list(
-    title = "Networking",
-    description = "The people behind the records in FWISE, and how to reach them.",
-    # [PLACEHOLDER] framing line, to be replaced with the client's wording
-    intro = paste(
-      "Every record in FWISE has been submitted by a practitioner - the",
-      "conservationists and researchers who ran these eradications or wrote them up.",
-      "If you are planning something similar, these are the people worth talking",
-      "to. Find someone working in your region, or on the species you are dealing",
-      "with, and get in touch."
+    title = "Connect with community",
+    description = paste(
+      "Reach out to the people doing eradications in the places and of the",
+      "species you’re interested in to learn more."
     ),
-    # [PLACEHOLDER] closing note, to be replaced with the client's wording
+    # Blanked by the client (24 Sept 2026) and not drawn on the page.
+    intro = "",
+    # NO PARAGRAPH UNDER THIS ANY MORE (client, 24 Sept 2026). Its sentence
+    # moved to the end of `coverage` below, and the box keeps only its button.
     outro_heading = "Not sure who to ask?",
-    outro = paste(
-      "If the right person is not obvious from this list, write to",
-      "the FWISE team and we will try to point you to someone who can help."
-    ),
     outro_action = "Email the FWISE team",
     # IN TWO HALVES, joined in the browser - see the footer's contact_user /
     # contact_domain and the note at fw_footer_contact(). The single-string
@@ -962,8 +945,8 @@ FW_COPY <- list(
       "This directory covers {reachable} of the {total} attempts in FWISE.",
       "{no_email} of the {contacts} people listed have no published email",
       "address, and {no_contact} attempts have no contact recorded at all.",
-      "If the person you want is not here, the reference on the attempt itself",
-      "is usually the next best route."
+      "If the right person is not obvious from this list, write to the FWISE",
+      "team and we will try to point you to someone who can help."
     ),
 
     summary_contacts     = "contacts",

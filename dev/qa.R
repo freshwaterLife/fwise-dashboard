@@ -61,9 +61,11 @@ sp_label <- fw_species_label(species)
 label_of <- setNames(sp_label$label, sp_label$species_id)
 contact_label <- function(id) {
   m <- match(id, contacts$contact_id)
+  nm <- contacts$contact_name[m]; og <- contacts$organisation[m]
+  # An organisation with no named person is labelled by the organisation.
   ifelse(is.na(m), NA_character_,
-         paste0(contacts$contact_name[m],
-                ifelse(is.na(contacts$organisation[m]), "", paste0(", ", contacts$organisation[m]))))
+         ifelse(is.na(nm), coalesce(og, contacts$contact_email[m]),
+                paste0(nm, ifelse(is.na(og), "", paste0(", ", og)))))
 }
 
 # Readable form of an id cell: names for ids, [NEW] for unresolved references.
@@ -166,7 +168,7 @@ for (i in seq_len(nrow(inbox))) for (cell in c(inbox$primary_contact_id[i], inbo
     new_co[[length(new_co) + 1]] <- tibble(submitted_as = sub("^new:", "", cell), contact_name = p[1],
                                            organisation = if_else(nzchar(p[2]), p[2], NA_character_),
                                            contact_email = if_else(nzchar(p[3]), p[3], NA_character_),
-                                           email_public = !identical(p[4], "private"),
+                                           contact_public = !identical(p[4], "private"),
                                            from_attempt = inbox$attempt_id[i])
   }
 }
@@ -175,7 +177,7 @@ if (length(new_co)) {
   contacts_new <- bind_rows(new_co) |>
     group_by(submitted_as) |>
     summarise(across(c(contact_name, organisation, contact_email), first),
-              email_public = all(email_public),
+              contact_public = all(contact_public),
               from_attempt = paste(unique(from_attempt), collapse = FW_MULTI_SEP), .groups = "drop")
   key <- function(n, o) paste(n, coalesce(o, ""), sep = "|")
   exact <- unname(setNames(contacts$contact_id, key(contacts$contact_name, contacts$organisation))[
@@ -188,7 +190,7 @@ if (length(new_co)) {
     mutate(matches_existing = if_else(!is.na(exact), paste(exact, contact_label(exact)),
                                       if_else(!is.na(name_only), paste("NAME ONLY:", name_only), NA_character_)),
            action = if_else(!is.na(exact), paste0("use:", exact), NA_character_)) |>
-    select(submitted_as, contact_name, organisation, contact_email, email_public,
+    select(submitted_as, contact_name, organisation, contact_email, contact_public,
            matches_existing, action, from_attempt)
 }
 
@@ -285,7 +287,7 @@ if (!is.null(co_dec)) {
   if (any(adds)) contacts <- bind_rows(contacts, tibble(
     contact_id = ids, contact_name = co_dec$contact_name[adds], contact_email = co_dec$contact_email[adds],
     organisation = co_dec$organisation[adds],
-    email_public = toupper(as.character(toupper(co_dec$email_public[adds]) %in% c("TRUE", "YES")))))
+    contact_public = toupper(as.character(toupper(co_dec$contact_public[adds]) %in% c("TRUE", "YES")))))
   co_dec$id <- co_dec$use_id; co_dec$id[adds] <- ids
   co_map <- setNames(co_dec$id, co_dec$submitted_as)
 }

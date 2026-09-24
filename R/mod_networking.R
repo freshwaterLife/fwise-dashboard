@@ -90,8 +90,9 @@ mod_networking_ui <- function(id) {
 
           div(
             class = "fw-panel fw-prose",
+            # The button alone (client, 24 Sept 2026): its sentence now ends
+            # the coverage line at the top of the page.
             h2(class = "fw-visually-hidden", fw_t("networking", "outro_heading")),
-            p(fw_t("networking", "outro")),
             tags$a(
               class = "btn btn-primary",
               # SPLIT ACROSS TWO ATTRIBUTES and joined at click time, the same
@@ -174,7 +175,7 @@ fw_networking_filter <- function(data, contacts, f) {
 
   term <- trimws(f$search %||% "")
   if (nzchar(term)) {
-    hay <- paste(out$contact_name, coalesce(out$organisation, ""))
+    hay <- paste(coalesce(out$contact_name, ""), coalesce(out$organisation, ""))
     out <- out[grepl(term, hay, ignore.case = TRUE, fixed = FALSE), ]
   }
   out
@@ -371,7 +372,7 @@ mod_networking_server <- function(id, data) {
       rows <- lapply(seq_len(nrow(f)), function(i) {
         r <- f[i, ]
         tags$tr(
-          tags$td(r$contact_name),
+          tags$td(r$contact_name %|na|% ""),
           tags$td(r$organisation %|na|% fw_t("networking", "no_organisation")),
           # Continent as well as country. Someone looking for "anyone in
           # Africa" should not have to know which 29 countries are in the
@@ -380,7 +381,7 @@ mod_networking_server <- function(id, data) {
           tags$td(r$continent_label),
           tags$td(r$country_label),
           tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
-          tags$td(fw_contact_action(r$contact_email, r$contact_name))
+          tags$td(fw_contact_action(r$contact_email, fw_contact_who(r)))
         )
       })
 
@@ -413,7 +414,7 @@ mod_networking_server <- function(id, data) {
 #'
 #' This is a speed bump, NOT security. Anyone running the page's JavaScript, or
 #' willing to read it, can recover a public address. The real control is the
-#' email_public flag: an address flagged not-public never reaches this function
+#' contact_public flag: an address flagged not-public never reaches this function
 #' at all, because fw_contacts_summary() has already replaced it with NA.
 fw_contact_action <- function(email, name) {
   if (is.na(email) || !nzchar(email)) {
@@ -439,6 +440,9 @@ fw_contact_action <- function(email, name) {
     fw_t("networking", "email_action")
   )
 }
+
+#' What to call a contact: the person, or the organisation when no one is named
+fw_contact_who <- function(r) (r$contact_name %|na|% r$organisation) %|na|% r$contact_email
 
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0) y else x
 `%|na|%` <- function(x, y) if (is.na(x) || !nzchar(x)) y else x

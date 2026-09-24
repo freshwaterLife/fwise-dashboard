@@ -99,11 +99,7 @@ mod_about_server <- function(id, data, meta = NULL) {
           fw_disclosure(
             fw_t("about", "method_heading"),
             note = fw_t("about", "method_summary"),
-            para("method"), para("method2"), para("method3"),
-            # Reserved for the paper's methods section, which the client is
-            # writing. A vector, so it takes however many paragraphs arrive.
-            tags$h3(fw_t("about", "method_paper_heading")),
-            lapply(fw_t("about", "method_paper"), function(x) p(x))
+            para("method")
           ),
 
           fw_disclosure(
@@ -180,7 +176,9 @@ mod_about_server <- function(id, data, meta = NULL) {
 fw_about_signup <- function() {
   div(
     class = "fw-panel fw-signup",
-    tags$h2(class = "fw-visually-hidden", fw_t("about", "signup_heading")),
+    # Visible since 24 Sept 2026 (client): the card needs a name now it leads
+    # the page.
+    tags$h2(fw_t("about", "signup_heading")),
     p(fw_t("about", "signup_body")),
     tags$a(
       class = "btn btn-primary",
@@ -197,16 +195,11 @@ fw_about_signup <- function() {
 #' because a reader quoting a figure needs the release they read it in, and both
 #' are filled here from the data loaded rather than typed into the copy deck,
 #' where they would be wrong by the next release. The form itself is the
-#' client's - see about$citation_db in R/copy.R.
+#' client's - see about$citation_db in R/copy.R, and fw_citation_text() in
+#' R/export.R, which the downloads' closing section shares.
 fw_about_citations <- function(meta, s) {
-  release <- meta$release %||% format(Sys.Date())
-  year <- substr(as.character(release), 1, 4)
-
   tagList(
-    tags$pre(class = "fw-citation",
-             fw_fill(fw_t("about", "citation_db"),
-                     year = year, release = as.character(release),
-                     n = fw_fmt_num(s$attempts))),
+    tags$pre(class = "fw-citation", fw_citation_text(meta, s$attempts)),
     p(tags$a(href = fw_t("footer", "doi_url"), fw_t("footer", "doi_label")))
   )
 }

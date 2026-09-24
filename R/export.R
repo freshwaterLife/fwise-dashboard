@@ -116,9 +116,9 @@ fw_export_frame <- function(data, attempt_ids = NULL) {
   # ask about it is withheld.
   contacts <- data$contact |>
     mutate(
-      contact_name  = if_else(email_public, contact_name,  NA_character_),
-      organisation  = if_else(email_public, organisation,  NA_character_),
-      contact_email = if_else(email_public, contact_email, NA_character_)
+      contact_name  = if_else(contact_public, contact_name,  NA_character_),
+      organisation  = if_else(contact_public, organisation,  NA_character_),
+      contact_email = if_else(contact_public, contact_email, NA_character_)
     ) |>
     select(contact_id, contact_name, organisation, contact_email)
   slot <- function(id_col, prefix) {
@@ -186,7 +186,7 @@ fw_export_frame <- function(data, attempt_ids = NULL) {
 #' personally identifying detail of theirs appears anywhere in the app or its
 #' downloads. A name is identifying on its own, so it is checked here too.
 fw_assert_export_safe <- function(x, data) {
-  hidden <- !data$contact$email_public
+  hidden <- !data$contact$contact_public
   clean <- function(v) v[!is.na(v) & nzchar(v)]
 
   check <- function(values, pattern, what) {
@@ -285,35 +285,60 @@ fw_methods_blocks <- function() {
             body = fw_t("export", "methods")))
 }
 
-#' The whole closing section: how it was built, then what to watch for
+#' The database citation, filled from the release actually loaded
+#'
+#' ONE FORMATTER for the About page and the closing section of every export, so
+#' the version and attempt count a reader copies cannot differ between them.
+#'
+#' @param meta the release metadata; a missing release falls back to today
+#' @param n the number of attempts in the database
+fw_citation_text <- function(meta, n) {
+  release <- as.character(meta$release %||% format(Sys.Date()))
+  fw_fill(fw_t("about", "citation_db"),
+          year = substr(release, 1, 4), release = release, n = fw_fmt_num(n))
+}
+
+#' The whole closing section: methods, then caveats, then the citation
 #'
 #' THE LAST THING IN EVERY EXPORT - the workbook's last sheet, the PDF's last
 #' section, the records HTML's last section. It used to be a text file that
 #' travelled alongside them whatever the reader ticked; the client removed that
 #' download on 24 Sept 2026, so each document now carries the section itself,
 #' which is what the text file was for in the first place.
-fw_closing_blocks <- function(data) {
-  c(fw_methods_blocks(), fw_caveat_blocks(data))
+#'
+#' THREE TITLED PARTS (client, 24 Sept 2026): Methods, Caveats, Citation. The
+#' caveat blocks keep their own headings for the About panel, which is already
+#' titled "Data caveats"; only here does a headless first block take "Caveats".
+fw_closing_blocks <- function(data, meta = NULL) {
+  caveats <- fw_caveat_blocks(data)
+  if (length(caveats) && !length(caveats[[1]]$heading)) {
+    caveats[[1]]$heading <- fw_t("export", "caveats_title")
+  }
+  c(fw_methods_blocks(), caveats,
+    list(list(heading = fw_t("export", "citation_heading"),
+              body = fw_citation_text(meta, nrow(data$attempt)))))
 }
 
 #' The closing section as flat lines, for the workbook's last sheet
 #'
-#' The same two halves fw_closing_blocks() gives the PDF and the records HTML -
-#' how the database was built, then what to watch for in it - flattened one
-#' line per row because that is what a sheet can hold. Derived from the same
-#' fw_caveats(), so the spreadsheet and the two documents cannot say different
-#' things.
+#' The same three parts fw_closing_blocks() gives the PDF and the records
+#' HTML - methods, caveats, citation - flattened one line per row because that
+#' is what a sheet can hold. Built from fw_closing_blocks() itself, so the
+#' spreadsheet and the two documents cannot say different things.
 #'
 #' THIS USED TO BE A .txt IN EVERY DOWNLOAD. The client removed that file on
 #' 24 Sept 2026: a reader who ticks the PDF should get a PDF, not a zip holding
 #' a PDF and a text file, and the three documents can each carry the section.
-fw_methods_caveats_text <- function(data) {
-  c(
-    toupper(fw_t("export", "methods_heading")),
-    fw_t("export", "methods"),
-    "",
-    fw_caveats(data)
-  )
+fw_methods_caveats_text <- function(data, meta = NULL) {
+  blocks <- fw_closing_blocks(data, meta)
+  out <- character(0)
+  for (i in seq_along(blocks)) {
+    h <- blocks[[i]]$heading
+    if (length(h) && nzchar(h)) out <- c(out, toupper(h))
+    out <- c(out, blocks[[i]]$body)
+    if (i < length(blocks)) out <- c(out, "")
+  }
+  out
 }
 
 # ---- Field definitions -------------------------------------------------------
@@ -422,7 +447,7 @@ fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
       fw_filters_sheet(filters, nrow(export), nrow(data$attempt), meta),
       widths = c(30, 60))
   add(sheets$caveats,
-      fw_text_sheet(fw_methods_caveats_text(data), fw_t("export", "closing_heading")),
+      fw_text_sheet(fw_methods_caveats_text(data, meta), fw_t("export", "closing_heading")),
       widths = 110)
 
   openxlsx::saveWorkbook(wb, path, overwrite = TRUE)

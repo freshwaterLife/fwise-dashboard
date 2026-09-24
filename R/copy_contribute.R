@@ -136,7 +136,7 @@ FW_COPY_CONTRIBUTE <- list(
       # [NEEDS CLIENT SIGN-OFF] Reworded 24 Sept 2026 at Alex's request. The
       # specification's wording also granted permission to DISPLAY contact
       # details, which contradicted the separate opt-in for exactly that
-      # (fields$email_public), so this now covers storing and using the record
+      # (fields$contact_public), so this now covers storing and using the record
       # only.
       statement = paste(
         "By sending this record you agree that FWISE staff may store and use",
@@ -346,12 +346,12 @@ FW_COPY_CONTRIBUTE <- list(
       source           = "Where did this record come from?",
 
       contact_heading  = "Contact information",
-      email_public     = paste(
+      contact_public     = paste(
         "I give permission for my personal information (name, organization,",
         "email) to be displayed in app for people to contact me regarding",
         "eradications."
       ),
-      email_public_yes = "Yes, show",
+      contact_public_yes = "Yes, show",
       contact_name     = "Name",
       contact_email    = "Email",
       contact_org      = "Organisation",
@@ -371,7 +371,7 @@ FW_COPY_CONTRIBUTE <- list(
 
     # Help text printed under a control. Keyed like `fields`.
     help = list(
-      email_public   = paste(
+      contact_public   = paste(
         "Tick this and your name, organization and email appear in the app, so",
         "other practitioners can contact you about eradications. Leave it",
         "unticked and only FWISE staff will see them."

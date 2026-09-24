@@ -285,28 +285,49 @@ Two structural points that are settled and should not be generalised:
 | `fw_headline_stats()` | the five landing-page KPI figures |
 | `fw_country_burden()` | the choropleth source (currently a placeholder, see below) |
 
-### Email redaction
+### Contact redaction
 
-This matters, so it is worth being explicit. Where a contact's `email_public` is
-`FALSE`, `fw_contacts_summary()` replaces the address with `NA` **before the data
-reaches any session**. The contacts page reads only from that function, so there
-is no code path by which a redacted address can reach the browser. The page shows
-an empty cell rather than a "hidden" badge, because a badge advertises that there
-is something worth going after.
+This matters, so it is worth being explicit. Where a contact's `contact_public` is
+`FALSE`, none of their contact information (name, organisation or email) appears
+anywhere in the app or its downloads. `fw_contacts_summary()` drops the row
+**before the data reaches any session**. The Networking page and the Plan
+contacts table (on screen and in the PDF) read only from that function. The map
+card and the xlsx/csv exports blank all three fields, and `fw_assert_export_safe()`
+refuses any export that still carries them. The attempt itself is still shown in
+full. It just has nobody listed to contact. The page shows an empty cell rather
+than a "hidden" badge, because a badge advertises that there is something worth
+going after.
 
 Addresses that *are* public get a small speed bump: they are split across `data-`
 attributes and reassembled in JavaScript when the link is clicked, so a naive
 scraper reading the served HTML does not harvest them in one pass. **This is not
 security.** Anyone running the page's JavaScript can recover a public address.
-The real control is the `email_public` flag, held once per person in
+The real control is the `contact_public` flag, held once per person in
 `contacts.csv`.
 
 ---
 
 ## Updating the data
 
-**`attempts.csv` is the master.** There is no raw export to re-drop and no
-rebuild step. The client corrects a value by editing the row; a new record
+**Before launch, the data is rebuilt from the client's export.** Put the one
+export (`fwise_<date>.xlsx` or `.csv`) in `fwise-data/source/` in place of the
+old one, then:
+
+```bash
+Rscript dev/build_from_export.R      # writes attempts/species/contacts, the _ids map, metadata.json
+Rscript dev/reconcile_source.R       # proves every source column and value landed
+Rscript dev/fetch_species_images.R   # photos for any new species
+```
+
+The build carries species (with taxa, family and photo) and contacts over from
+the current lookups by exact name, or for a species by the same scientific
+name; attempts get new ids, reused if the same export is built twice. It writes
+`qa/species_to_check_<date>.csv` (species with no taxa or family, to fill in
+`species.csv`) and `qa/build_issues_<date>.csv` (what it could not place, to fix
+in the export). **Once the site is live, stop rebuilding:** ids are then
+permanent and the rest of this section applies.
+
+**After launch, `attempts.csv` is the master.** The client corrects a value by editing the row; a new record
 arrives through the contribute form and the review loop below; a new species or
 contact is a new row in its lookup, added by the fold step or by hand, whose id
 the attempt row then cites.

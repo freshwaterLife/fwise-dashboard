@@ -153,6 +153,9 @@ fw_record_value <- function(field, value, none) {
   }
   if (grepl("_email$", field)) return(paste0('<a href="mailto:', v, '">', v, "</a>"))
   if (field == "outcome") return(fw_record_outcome(value, none))
+  # Stored as Lentic / Lotic; read as Still water / Flowing water, the same
+  # words the filters and the form use. See FW_REGIME_LABELS in R/data_load.R.
+  if (field == "water_regime") return(htmlEscape(fw_regime_label(as.character(value))))
   v
 }
 
@@ -319,7 +322,7 @@ fw_write_records_html <- function(path, data, export, filters, meta = NULL) {
     tags$section(
       class = "fw-rec-caveats",
       h2(fw_t("export", "closing_heading")),
-      lapply(fw_closing_blocks(data), function(b) {
+      lapply(fw_closing_blocks(data, meta), function(b) {
         title <- fw_caveat_title(b$heading)
         tagList(if (nzchar(title)) h3(title), lapply(b$body, p))
       })

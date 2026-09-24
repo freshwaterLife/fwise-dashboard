@@ -19,14 +19,18 @@ FW_COPY_EXPORT <- list(
       attempts    = "Attempts",
       definitions = "Field definitions",
       filters     = "Filters applied",
-      caveats     = "Methods and caveats"
+      caveats     = "Methods, caveats and citation"
     ),
     # The title over the closing section of EVERY export - the last sheet of the
     # workbook, the last section of the PDF and of the records HTML. It covers
     # both blocks below: how the database was built, then what to watch for in
     # it. There is no longer a separate text file carrying them (client, 24 Sept
     # 2026); each document carries its own.
-    closing_heading = "Methods and caveats",
+    closing_heading = "Methods, caveats and citation",
+    # The three parts of it, in order (client, 24 Sept 2026). methods_heading
+    # is below with the methods statement.
+    caveats_title    = "Caveats",
+    citation_heading = "Citation",
     col_field      = "Field",
     col_definition = "Definition",
     col_setting    = "Setting",
@@ -57,7 +61,7 @@ FW_COPY_EXPORT <- list(
     # blocks. There is no longer a .txt file carrying them out of the building
     # (client, 24 Sept 2026) - the workbook's last sheet, the PDF's last section
     # and the records HTML's last section each carry both.
-    methods_heading  = "How FWISE was compiled",
+    methods_heading  = "Methods",
     # [PLACEHOLDER] The client is writing this. It is the account of how records
     # were gathered, screened and entered that a reader needs before quoting any
     # figure, and it is the one thing in this file we must not invent - a
@@ -258,7 +262,7 @@ FW_COPY_EXPORT <- list(
       toxin_conc_measured_mg_l = "Measured concentration (mg/L)",
       conc_measured_notes      = "Notes on measured concentration",
       neutralising_agent  = "Neutralizing agent",
-      neutralising_notes  = "Notes on neutralizing",
+      neutralising_notes  = "Notes on neutralizing agent",
       outcome             = "Outcome",
       verification_method = "Verified by",
       verification_notes  = "Notes on verification",
