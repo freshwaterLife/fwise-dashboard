@@ -134,7 +134,9 @@ FW_COPY <- list(
     # cannot drift apart (client, 24 Sept 2026). hover_of and hover_share went
     # with the assembly. See fw_hover_counts() in R/charts.R.
     # Shown in a chart's own slot when the selection gives it nothing to draw.
-    empty         = "Nothing to draw for this selection."
+    empty         = "Nothing to draw for this selection.",
+    # The camera button's tooltip. See fw_plotly_style() in R/charts.R.
+    save_png      = "Download chart as a PNG"
   ),
 
   # ---- Maps ----------------------------------------------------------------------

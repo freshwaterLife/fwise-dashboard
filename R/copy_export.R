@@ -170,7 +170,7 @@ FW_COPY_EXPORT <- list(
     # R/report_records.R. The labels are the reader's names for the columns of
     # FW_EXPORT_COLUMNS - one per column, in the same order, and the tests check
     # it covers every column and nothing else, as they do `dictionary` above.
-    records_filename = "fwise-detailed-report_{date}.html",
+    records_filename = "fwise-detailed-report_{stamp}.html",
     records_title    = "Detailed report",
     records_subtitle = "{n} attempts, generated from the FWISE database on {date}",
     records_lead = paste(

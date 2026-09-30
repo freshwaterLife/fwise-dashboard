@@ -571,6 +571,6 @@ fw_write_records_html <- function(path, data, sel, export, filters, meta = NULL)
 }
 
 #' Filename for the attempts file
-fw_records_filename <- function() {
-  fw_fill(fw_t("export", "records_filename"), date = format(Sys.Date(), "%Y%m%d"))
+fw_records_filename <- function(stamp = fw_file_stamp()) {
+  fw_fill(fw_t("export", "records_filename"), stamp = stamp)
 }

@@ -630,7 +630,7 @@ mod_contribute_server <- function(id, data, choices) {
     # document, so it cannot fall out of step with the form. See
     # R/questions_text.R.
     output$download_questions <- downloadHandler(
-      filename = function() "fwise-submission-questions.docx",
+      filename = function() paste0("fwise-submission-questions_", fw_file_stamp(), ".docx"),
       contentType = paste0("application/vnd.openxmlformats-officedocument.",
                            "wordprocessingml.document"),
       content = function(file) fw_write_questions_docx(file, choices)
@@ -640,7 +640,7 @@ mod_contribute_server <- function(id, data, choices) {
     # opens on anything, prints predictably, and can be read by a screen reader
     # without Word - and it costs one handler to keep.
     output$download_questions_txt <- downloadHandler(
-      filename = function() "fwise-submission-questions.txt",
+      filename = function() paste0("fwise-submission-questions_", fw_file_stamp(), ".txt"),
       contentType = "text/plain",
       content = function(file) {
         writeLines(fw_questions_text(choices), file, useBytes = TRUE)

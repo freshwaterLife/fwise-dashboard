@@ -669,6 +669,6 @@ fw_pdf_page_count <- function(path) {
 }
 
 #' Filename for the PDF report
-fw_pdf_filename <- function() {
-  paste0("fwise-report_", format(Sys.Date(), "%Y%m%d"), ".pdf")
+fw_pdf_filename <- function(stamp = fw_file_stamp()) {
+  paste0("fwise-report_", stamp, ".pdf")
 }

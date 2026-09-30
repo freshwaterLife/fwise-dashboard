@@ -1271,10 +1271,16 @@ for (nm in names(all_charts)) {
      isTRUE(bx$layout$xaxis$fixedrange) && isTRUE(bx$layout$yaxis$fixedrange) &&
        isFALSE(bx$layout$dragmode) && isFALSE(bx$config$scrollZoom) &&
        isFALSE(bx$config$doubleClick))
+  btn <- bx$config$modeBarButtons
   ok(paste0("plotly ", nm, ": the camera is the only button"),
-     unlist(bx$config$modeBarButtons), "toImage")
+     c(length(btn), length(btn[[1]]), btn[[1]][[1]]$name), c("1", "1", "toImage"))
+  # The button is our own so the PNG's name is stamped at the click (client,
+  # 30 Sept 2026): the scale and the stamp live in its click function.
+  click <- as.character(btn[[1]][[1]]$click)
   ok(paste0("plotly ", nm, ": PNG export at ", FW_CHART$export_dpi, " dpi"),
-     bx$config$toImageButtonOptions$scale * 96, FW_CHART$export_dpi)
+     grepl(paste0("scale: ", FW_CHART$export_dpi / 96, ","), click, fixed = TRUE))
+  ok(paste0("plotly ", nm, ": the PNG is named with the time it was taken"),
+     grepl("toISOString()", click, fixed = TRUE) && grepl("+ '_' + t", click, fixed = TRUE))
   ok(paste0("plotly ", nm, ": the button is plotly's default (hover)"),
      is.null(bx$config$displayModeBar))
 }

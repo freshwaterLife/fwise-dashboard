@@ -454,9 +454,23 @@ fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
   invisible(path)
 }
 
+#' When a download was made, for its filename
+#'
+#' DATE AND TIME, NOT THE DATE ALONE (client, 30 Sept 2026): two downloads on
+#' the same day with different filters otherwise arrive under one name, and the
+#' second becomes "(1)". UTC, because the server has no idea where the reader
+#' is - the same clock the workbook's Filters tab records. The chart PNGs build
+#' the same stamp in the browser; see fw_plotly_style() in R/charts.R.
+#'
+#' The fw.now option pins the clock, so the tests can compare a name made
+#' before a slow download with one made after it.
+fw_file_stamp <- function(time = getOption("fw.now", Sys.time())) {
+  format(time, "%Y%m%d-%H%M%S", tz = "UTC")
+}
+
 #' Filename for a download
-fw_export_filename <- function() {
-  paste0(fw_t("export", "filename_stem"), format(Sys.Date(), "%Y%m%d"), ".xlsx")
+fw_export_filename <- function(stamp = fw_file_stamp()) {
+  paste0(fw_t("export", "filename_stem"), stamp, ".xlsx")
 }
 
 # ---- The bundle --------------------------------------------------------------
@@ -509,9 +523,9 @@ fw_bundle_parts <- function(parts = character(0)) {
 #' zip. One place, so the handler's filename() and fw_write_bundle() cannot
 #' disagree about what a lone PDF is called.
 FW_BUNDLE_FILENAME <- list(
-  pdf     = function() fw_pdf_filename(),
-  records = function() fw_records_filename(),
-  xlsx    = function() fw_export_filename()
+  pdf     = function(stamp) fw_pdf_filename(stamp),
+  records = function(stamp) fw_records_filename(stamp),
+  xlsx    = function(stamp) fw_export_filename(stamp)
 )
 
 #' What a download of this selection will be called
@@ -520,10 +534,10 @@ FW_BUNDLE_FILENAME <- list(
 #' (client, 24 Sept 2026). Ticking the PDF and being handed a zip was the whole
 #' complaint, and it was the methods-and-caveats text - which always travelled -
 #' that made every download a zip of two things.
-fw_bundle_filename <- function(parts = character(0)) {
+fw_bundle_filename <- function(parts = character(0), stamp = fw_file_stamp()) {
   parts <- fw_bundle_parts(parts)
-  if (length(parts) == 1) return(FW_BUNDLE_FILENAME[[parts]]())
-  paste0(fw_t("export", "bundle_stem"), format(Sys.Date(), "%Y%m%d"), ".zip")
+  if (length(parts) == 1) return(FW_BUNDLE_FILENAME[[parts]](stamp))
+  paste0(fw_t("export", "bundle_stem"), stamp, ".zip")
 }
 
 #' Write the download
@@ -536,6 +550,12 @@ fw_bundle_filename <- function(parts = character(0)) {
 fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL,
                             progress = function(value, detail) NULL) {
   parts <- fw_bundle_parts(parts)
+
+  # EVERY NAME FROM ONE STAMP. The names carry the time to the second and the
+  # PDF takes several to make, so asking for its name again after writing it
+  # would name a file that is not there.
+  stamp <- fw_file_stamp()
+  names <- lapply(FW_BUNDLE_FILENAME, function(f) f(stamp))
 
   # THE BAR IS WEIGHTED BY WHAT TAKES THE TIME, not by the number of steps: the
   # PDF (Quarto on the server) is most of any bundle that has one, and a bar
@@ -564,26 +584,26 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
   # FW_BUNDLE_PARTS, move its block here to match.
   if ("pdf" %in% parts) {
     fw_write_pdf_report(
-      path = file.path(dir, fw_pdf_filename()), data = data, sel = sel,
+      path = file.path(dir, names$pdf), data = data, sel = sel,
       filters = filters, meta = meta,
       # The report's own sub-steps, mapped into the PDF's stretch of the bar.
       progress = function(fraction, detail)
         progress(starts[["pdf"]] + fraction * steps[["pdf"]] / sum(steps), detail)
     )
-    files <- c(files, fw_pdf_filename())
+    files <- c(files, names$pdf)
   }
   if ("records" %in% parts) {
     step("records", "progress_records")
-    fw_write_records_html(file.path(dir, fw_records_filename()), data, sel,
+    fw_write_records_html(file.path(dir, names$records), data, sel,
                           export, filters, meta)
-    files <- c(files, fw_records_filename())
+    files <- c(files, names$records)
   }
 
   if ("xlsx" %in% parts) {
     step("xlsx", "progress_xlsx")
-    fw_write_workbook(file.path(dir, fw_export_filename()), data, export,
+    fw_write_workbook(file.path(dir, names$xlsx), data, export,
                       filters, meta)
-    files <- c(files, fw_export_filename())
+    files <- c(files, names$xlsx)
   }
   # ONE FILE ARRIVES AS ITSELF (client, 24 Sept 2026). fw_bundle_filename() has
   # already named it, and it must reach the same conclusion as this branch.

@@ -8,6 +8,12 @@
 
 library(shiny)
 for (f in sort(list.files("R", full.names = TRUE), method = "radix")) source(f)
+
+# THE CLOCK IS PINNED. Download names carry the time to the second (client,
+# 30 Sept 2026), and the assertions below compare a name made after a download
+# - the PDF takes seconds - with the one the download was given. See
+# fw_file_stamp() in R/export.R.
+options(fw.now = as.POSIXct("2026-09-30 14:21:05", tz = "UTC"))
 d <- fw_load_data(); m <- fw_load_metadata(); ch <- fw_filter_choices(d)
 
 failures <- 0L
@@ -529,6 +535,15 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   session$setInputs(download_parts = character(0))
   ok("and so does one asking for nothing at all",
      fw_bundle_filename(character(0)), fw_export_filename())
+
+  # DATE AND TIME IN EVERY NAME (client, 30 Sept 2026), in UTC.
+  ok("download names carry the date and the time",
+     fw_bundle_filename(c("xlsx", "records")), "fwise-report_20260930-142105.zip")
+  ok("and so does each file on its own",
+     c(fw_export_filename(), fw_records_filename(), fw_pdf_filename()),
+     c("fwise-attempts_20260930-142105.xlsx",
+       "fwise-detailed-report_20260930-142105.html",
+       "fwise-report_20260930-142105.pdf"))
 
   # THE PROGRESS BAR (client, 21 Sept 2026). Every step reports, the bar never
   # goes backwards, it ends at 1, and every step has words from the copy deck.

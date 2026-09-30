@@ -227,8 +227,8 @@ fw_tick_gap <- function(axis = list()) {
 #' @param legend_side "top" for every chart with an x-axis, "right" for the
 #'   donuts. See the note on the side legend below.
 #' @param filename what a downloaded PNG of this chart is called, without the
-#'   extension. Every chart should pass its own: a reader who exports four of
-#'   these wants four distinguishable files, not newplot (1..4).
+#'   extension or the time stamp. Every chart should pass its own: a reader who
+#'   exports four of these wants four distinguishable files, not newplot (1..4).
 fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
                             legend_side = c("top", "right"),
                             filename = "fwise-chart") {
@@ -275,11 +275,31 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
       scrollZoom = FALSE,
       doubleClick = FALSE,
       showAxisDragHandles = FALSE,
-      modeBarButtons = list(list("toImage")),
-      toImageButtonOptions = list(format = "png",
-                                  scale = FW_CHART$export_dpi / 96,
-                                  filename = filename)
+      modeBarButtons = list(list(fw_png_button(filename)))
     )
+}
+
+#' The camera button, stamping the download with when it was taken
+#'
+#' plotly's own toImage button takes a fixed filename, set when the chart is
+#' drawn - so a chart left open overnight would name tomorrow's PNG with
+#' yesterday's date. This is the same button with the name made at the click,
+#' as YYYYMMDD-HHMMSS in UTC to match fw_file_stamp() in R/export.R. Plain
+#' browser JS with nothing from the app, because the detailed report carries
+#' these charts into a saved file with no server behind it.
+fw_png_button <- function(filename) {
+  list(
+    name  = "toImage",
+    title = fw_t("charts", "save_png"),
+    icon  = htmlwidgets::JS("Plotly.Icons.camera"),
+    click = htmlwidgets::JS(sprintf(paste0(
+      "function(gd) {",
+      "  var t = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-');",
+      "  Plotly.downloadImage(gd, {format: 'png', scale: %s,",
+      "    width: gd._fullLayout.width, height: gd._fullLayout.height,",
+      "    filename: %s + '_' + t});",
+      "}"), FW_CHART$export_dpi / 96, jsonlite::toJSON(filename, auto_unbox = TRUE)))
+  )
 }
 
 #' A chart, or a sentence saying there is none
