@@ -33,9 +33,19 @@ ok <- function(lbl, got, want) {
 testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   cat("\n-- gating on an empty form --\n")
   ok("all_valid with nothing filled", all_valid(), FALSE)
-  # CONSENT GATES SEND, NOT START (24 Sept 2026). Both boxes sit at the foot
-  # of the form now - see fw_step_review_ui().
+  # CONSENT GATES SEND, NOT START (24 Sept 2026). Both boxes sit in the
+  # form's first section, with the contact details (29 Sept 2026).
   ok("start opens the form without consent", { session$setInputs(start=1); stage() }, "form")
+  # CONTACT AND CONSENT FIRST (client, 29 Sept 2026).
+  ok("the contributor section leads the form", FW_STEPS[[1]]$id, "contributor")
+  contributor_html <- as.character(fw_step_contributor_ui(NS("c"), ch))
+  ok("both consent boxes sit with the contact details",
+     all(vapply(c("c-primary_contact_email", "c-consent_data_use", "c-contact_public"),
+                function(id) grepl(id, contributor_html, fixed = TRUE), logical(1))), TRUE)
+  ok("and the email comes before the consent",
+     regexpr("c-primary_contact_email", contributor_html) < regexpr("c-consent_data_use", contributor_html), TRUE)
+  ok("the review section carries no consent",
+     grepl("consent_data_use", as.character(fw_step_review_ui(NS("c"), ch)), fixed = TRUE), FALSE)
   ok("the data-use box is a sending error while unticked",
      "consent_data_use" %in% vapply(fw_check()$errors, `[[`, "", "id"), TRUE)
 

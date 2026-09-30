@@ -129,8 +129,9 @@ FW_COPY_CONTRIBUTE <- list(
       start_action   = "Start the form"
     ),
 
-    # Consent controls, section 0.1 of the specification. At the foot of the
-    # form since 24 Sept 2026 - see fw_step_review_ui().
+    # Consent controls, section 0.1 of the specification. In the form's first
+    # section, with the contact details, since 29 Sept 2026 - see
+    # fw_step_contributor_ui().
     consent = list(
       heading = "Consent",
       # [NEEDS CLIENT SIGN-OFF] Reworded 24 Sept 2026 at Alex's request. The
@@ -306,7 +307,7 @@ FW_COPY_CONTRIBUTE <- list(
       area_treated     = "Size of the area treated",
       area_unit        = "Unit",
       area_notes       = "Anything else about the area treated?",
-      depth_m          = "Average or estimated depth (m)",
+      depth_m          = "Estimated depth (m)",
       depth_notes      = "Notes on depth",
       volume_m3        = "Estimated volume (m3)",
       volume_notes     = "Notes on volume",

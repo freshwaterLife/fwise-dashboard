@@ -70,16 +70,36 @@ FW_CARTO_ATTRIB <- paste(
 #'
 #' Every map starts here. The limits stop a reader zooming or panning out past
 #' the edge of the world, which left grey bars above and below it. See
-#' FW_MAP$min_zoom. Set as map options rather than in an onRender hook, so the
-#' card script stays the widget's only render hook.
+#' FW_MAP$min_zoom and the band FW_MAP$lat_north to $lat_south. Set as map
+#' options rather than in an onRender hook, so the card script stays the
+#' widget's only render hook.
+#'
+#' ONE WORLD, NOT A STRIP OF THEM (client, 29 Sept 2026). The map used to wrap:
+#' the tiles repeated left and right but the markers are drawn once, so a
+#' reader who panned sideways found a world with no eradications on it. The
+#' tiles no longer wrap (fw_add_basemaps()), the pan is held inside +/-180,
+#' and fw_map_fit.js sets the zoom-out limit to the zoom at which one world
+#' fills the map's width.
 fw_leaflet <- function() {
-  leaflet::leaflet(options = leaflet::leafletOptions(
-    worldCopyJump = TRUE,
+  map <- leaflet::leaflet(options = leaflet::leafletOptions(
     minZoom = FW_MAP$min_zoom,
     maxBoundsViscosity = 1
   )) |>
-    leaflet::setMaxBounds(-FW_MAP$max_lng, -FW_MAP$max_lat,
-                          FW_MAP$max_lng, FW_MAP$max_lat)
+    leaflet::setMaxBounds(-FW_MAP$max_lng, FW_MAP$lat_south,
+                          FW_MAP$max_lng, FW_MAP$lat_north)
+  # A widget dependency, so it loads after leaflet.js itself and is inlined
+  # into the saved report with the rest.
+  map$dependencies <- c(map$dependencies, list(fw_map_fit_dependency()))
+  map
+}
+
+#' The script that fits one world to a map's width. See fw_map_fit.js.
+fw_map_fit_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "fw-map-fit", version = "1.1.4",
+    src = c(file = normalizePath("resources/js", mustWork = TRUE)),
+    script = "fw_map_fit.js"
+  )
 }
 
 #' The basemap stack and its layer control
@@ -100,19 +120,19 @@ fw_add_basemaps <- function(map, overlays = NULL) {
       urlTemplate = fw_carto_url("voyager_nolabels"),
       attribution = FW_CARTO_ATTRIB,
       group = plain,
-      options = leaflet::tileOptions(noWrap = FALSE)
+      options = leaflet::tileOptions(noWrap = TRUE)
     ) |>
     leaflet::addProviderTiles(
       "Esri.OceanBasemap", group = water,
-      options = leaflet::providerTileOptions(noWrap = FALSE)
+      options = leaflet::providerTileOptions(noWrap = TRUE)
     ) |>
     leaflet::addProviderTiles(
       "Esri.WorldTopoMap", group = terrain,
-      options = leaflet::providerTileOptions(noWrap = FALSE)
+      options = leaflet::providerTileOptions(noWrap = TRUE)
     ) |>
     leaflet::addProviderTiles(
       "Esri.WorldImagery", group = satellite,
-      options = leaflet::providerTileOptions(noWrap = FALSE)
+      options = leaflet::providerTileOptions(noWrap = TRUE)
     ) |>
     # NO PLACE LABELS. A Carto label layer used to ride above the data, in
     # local languages. The client asked for no text on the ground; Water and
@@ -126,16 +146,43 @@ fw_add_basemaps <- function(map, overlays = NULL) {
     )
 }
 
-#' A map that sizes itself to the viewport
+#' The width-to-height ratio of the band every map shows
 #'
-#' The height is a clamp() in CSS rather than an argument, because leaflet's
-#' leafletOutput() runs its height through htmltools::validateCssUnit(), which
-#' accepts only a bare number, a percentage or a single unit - it rejects
-#' clamp(), min(), max() and calc() outright. So the wrapper carries the
-#' responsive height and the widget fills it.
+#' One world is as wide as 2 pi in Mercator's units, and a latitude sits at
+#' ln(tan(pi/4 + lat/2)) up it, so a map of this shape at the zoom where one
+#' world fills its width shows the band FW_MAP$lat_north to $lat_south top to
+#' bottom and nothing more. About 1.67 for 80N to 60S.
+fw_map_aspect <- function() {
+  merc <- function(lat) log(tan(pi / 4 + lat * pi / 360))
+  2 * pi / (merc(FW_MAP$lat_north) - merc(FW_MAP$lat_south))
+}
+
+#' The inline style that gives a map wrapper its shape
+#'
+#' The numbers live in R/config.R, so they reach the stylesheet as custom
+#' properties rather than being written into it twice. See .fw-map.
+fw_map_shape_style <- function() {
+  sprintf("--fw-map-aspect: %.4f; --fw-map-max-h: %dvh;",
+          fw_map_aspect(), FW_MAP$max_height_vh)
+}
+
+#' A map at the shape of the world it shows
+#'
+#' THE WHOLE BAND IS VISIBLE ON LOAD (client, 30 Sept 2026). The wrapper keeps
+#' the band's shape (fw_map_aspect()) at whatever width its column gives it,
+#' up to FW_MAP$max_height_vh of the window, and fw_map_fit.js zooms out until
+#' one world is exactly its width - so at the zoom-out limit the band fills it
+#' both ways. It used to be a fixed-height box, which on a wide column showed
+#' a strip of the world from about 20S to 55N.
+#'
+#' The shape is CSS rather than an argument, because leaflet's leafletOutput()
+#' runs its height through htmltools::validateCssUnit(), which rejects
+#' aspect-ratio, min() and calc() outright. So the wrapper carries the size and
+#' the widget fills it.
 fw_map_output <- function(output_id, class = NULL) {
   div(
     class = paste(c("fw-map", class), collapse = " "),
+    style = fw_map_shape_style(),
     leaflet::leafletOutput(output_id, width = "100%", height = "100%")
   )
 }
@@ -536,13 +583,14 @@ fw_popup_thumb <- function(row, thumbs, ref = FALSE) {
          "</div>")
 }
 
-#' The blank tile a hover card shows where there is no photograph
+#' The blank tile a hover card shows where a species has no photograph
 #'
-#' The same markup fw_species_figure() returns for a species with no image, so
-#' one rule in _components.scss styles both, with the hover card's own wording:
-#' "None noted" answers the card's question - was anything recorded here - where
-#' "No photograph available" answers a question about the picture library.
-fw_popup_thumb_none <- function(text = fw_t("species", "fig_none")) {
+#' The same markup and wording fw_species_figure() gives a species with no
+#' image, so one rule in _components.scss styles both. It used to say "None
+#' noted" here, which read as "no protected species" beside a card naming one
+#' (client, 29 Sept 2026): a recorded species with no picture now says "No
+#' photograph available", in the hover card and the full record alike.
+fw_popup_thumb_none <- function(text = fw_t("species", "no_image")) {
   as.character(htmltools::tags$div(
     class = "fw-species-figure fw-species-figure--none",
     htmltools::tags$span(class = "fw-species-figure__placeholder", text)
@@ -551,11 +599,11 @@ fw_popup_thumb_none <- function(text = fw_t("species", "fig_none")) {
 
 #' The blank tile for a role with no species recorded at all
 #'
-#' Worded like the card's text rows ("Not noted"), at the client's request,
-#' so the tile and the row under it give the same answer. Used by the hover
-#' card and the detail panel alike.
+#' "None noted" (client, 29 Sept 2026): nothing was targeted or protected on
+#' record, which is a different answer from a species with no picture. Used by
+#' the hover card and the detail panel alike.
 fw_popup_thumb_unrecorded <- function() {
-  fw_popup_thumb_none(fw_t("species", "p_none"))
+  fw_popup_thumb_none(fw_t("species", "fig_none"))
 }
 
 #' The detail panel: the whole record, opened on click
@@ -857,6 +905,9 @@ function (el, x, data) {
   // SAME NUMBER as the media query in .fw-map-card - two copies of a breakpoint
   // that disagree is a card styled one way and positioned the other.
   var STACK_BP = {{STACKBP}};
+  // How close the map zooms to an attempt when its full record is opened
+  // (client, 30 Sept 2026). FW_MAP$record_zoom; never zooms back out.
+  var RECORD_ZOOM = {{RECORDZOOM}};
 
   // ONE card for the document. Only one map is ever on screen - they are on
   // different tabs - and a single element stops the listeners below from
@@ -1083,19 +1134,42 @@ function (el, x, data) {
   panel.fwOpenHtml = panelOpenHtml;
   panel.fwOpenDetail = panelOpenDetail;
 
+  // ZOOM TO THE ATTEMPT whose record is opening, so the reader closes the
+  // record onto its place rather than onto the world. Not in the saved
+  // report, where the click scrolls away from the map to the card anyway.
+  function zoomTo(layer) {
+    if (DETAIL_INPUT === '#' || !layer.getLatLng) return;
+    map.setView(layer.getLatLng(), Math.max(map.getZoom(), RECORD_ZOOM),
+                { animate: true });
+  }
+
   function panelOpen(layer) {
     if (!layer.fwCard) return;
+    zoomTo(layer);
     // Parsed out of the STORED STRING, not out of the card's DOM: shut() below
     // empties the card, so by the time a click is handled the detail markup may
     // no longer be anywhere on the page.
     if (panelOpenHtml(layer.fwCard)) return;
     // Nothing embedded: ask the server for the record by its id. The focus
     // to return to is taken now, before the round trip moves it.
-    if (!DETAIL_INPUT || !window.Shiny) return;
+    if (!DETAIL_INPUT) return;
     var holder = document.createElement('div');
     holder.innerHTML = layer.fwCard;
     var root = holder.querySelector('[data-fw-id]');
     if (!root) return;
+    // THE DETAILED REPORT'S MAP (detail = anchor): the record is already on
+    // the page as a card with the attempt id as its id, so a click goes there
+    // rather than to a server that is not behind a saved file.
+    if (DETAIL_INPUT === '#') {
+      var target = document.getElementById(root.getAttribute('data-fw-id'));
+      shut();
+      if (target) {
+        target.scrollIntoView();
+        if (target.focus) { target.setAttribute('tabindex', '-1'); target.focus({ preventScroll: true }); }
+      }
+      return;
+    }
+    if (!window.Shiny) return;
     shut();
     panel.fwReturn = document.activeElement;
     // The focus to return to is taken FIRST - panelPending() moves focus into
@@ -1280,6 +1354,7 @@ fw_map_card_js <- function(detail_input = NULL) {
   # The breakpoint goes in as a bare number, from the same FW_BREAKPOINTS entry
   # the stylesheet uses, so the script and .fw-map-card cannot drift apart.
   js <- gsub("{{STACKBP}}", sub("px$", "", FW_BREAKPOINTS$sm), js, fixed = TRUE)
+  js <- gsub("{{RECORDZOOM}}", as.integer(FW_MAP$record_zoom), js, fixed = TRUE)
   gsub("{{INPUT}}", lit(detail_input %||% ""), js, fixed = TRUE)
 }
 
@@ -1381,12 +1456,20 @@ fw_cluster_options <- function() {
 #'   to. Required for "lazy"; the calling module pairs it with
 #'   fw_map_detail_server().
 fw_add_attempt_markers <- function(map, data, sel, live = FALSE,
-                                   detail = c("embed", "lazy"),
+                                   detail = c("embed", "lazy", "anchor"),
                                    detail_input = NULL) {
   detail <- match.arg(detail)
   if (detail == "lazy" && is.null(detail_input)) {
     stop("detail = \"lazy\" needs detail_input, the input the map reports clicks to.",
          call. = FALSE)
+  }
+  # "anchor" IS LAZY WITH THE PAGE AS ITS SERVER: the detailed report carries
+  # every record as a card below the map, with the attempt id as its id, so a
+  # click scrolls there. Embedding the records as well made that file 8 MB of
+  # map for the whole database. "#" is the card script's sentinel for it.
+  if (detail == "anchor") {
+    detail <- "lazy"
+    detail_input <- "#"
   }
   pts <- fw_map_points(data, sel)
   lazy <- detail == "lazy"

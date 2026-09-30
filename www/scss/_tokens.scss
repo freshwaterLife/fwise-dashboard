@@ -43,7 +43,14 @@
 // the number: no text that stays on the page may be set below $fw-size-min, and
 // the way to honour that is to use the token.
 //
-// TWO TOKENS ARE EXEMPT FROM IT, and both are client instructions:
+// FOUR TOKENS ARE EXEMPT FROM IT, and all are client instructions:
+//
+//   $fw-size-credit        the footer's built-by small print (and, on paper,
+//                          the photo credits).
+//
+//   $fw-size-photo-credit  the Wikimedia credit under every photograph on the
+//                          page, at 0.6rem (client, 30 Sept 2026).
+//
 //
 //   $fw-size-popup  transient overlays only - the (i) popovers and the map
 //                   hover card. If the thing you are sizing does not disappear

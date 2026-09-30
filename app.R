@@ -108,6 +108,15 @@ ui <- page_navbar(
 
 server <- function(input, output, session) {
 
+  # "DISCONNECTED FROM THE SERVER" OFTEN (client, 29 Sept 2026). A dropped
+  # websocket - a network blip, a proxy recycling the connection, a laptop
+  # waking - used to end the session there and then. With this the browser
+  # reconnects to the same session when it can, and Shiny shows its own
+  # "reconnecting" notice rather than the grey screen. The keepalive in
+  # fw_client_script() stops an idle connection being closed in the first
+  # place.
+  session$allowReconnect(TRUE)
+
   mod_home_server("home", FW_DATA)
   mod_explore_server("explore", FW_DATA, FW_IN_REVIEW)
   mod_plan_server("plan", FW_DATA, FW_META)

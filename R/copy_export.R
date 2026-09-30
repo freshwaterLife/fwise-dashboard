@@ -170,12 +170,15 @@ FW_COPY_EXPORT <- list(
     # R/report_records.R. The labels are the reader's names for the columns of
     # FW_EXPORT_COLUMNS - one per column, in the same order, and the tests check
     # it covers every column and nothing else, as they do `dictionary` above.
-    records_filename = "fwise-attempts_{date}.html",
-    records_title    = "Every attempt in this selection",
+    records_filename = "fwise-detailed-report_{stamp}.html",
+    records_title    = "Detailed report",
     records_subtitle = "{n} attempts, generated from the FWISE database on {date}",
     records_lead = paste(
-      "Each matching attempt in full, in the same order as the spreadsheet: by",
-      "country, then site, then start year. A blank field says Not noted."
+      "The summary report's figures first, interactive: hover a chart or the",
+      "map for detail. Then each matching attempt in full, in the same order",
+      "as the spreadsheet: by country, then site, then start year. A blank",
+      "field says Not noted. The map's background and the species photographs",
+      "need an internet connection; everything else works offline."
     ),
     records_filter_label = "Find an attempt",
     records_filter_hint  = "Type a site, country, species or id",

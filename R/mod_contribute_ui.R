@@ -43,9 +43,9 @@ fw_intro_panel <- function(ns) {
     ),
 
     # NO CONSENT HERE ANY MORE (24 Sept 2026). The tick box that gated Start
-    # moved to the foot of the form, beside the display permission, so a
-    # contributor agrees to what they have actually written - see
-    # fw_step_review_ui() in R/mod_contribute_steps.R.
+    # moved into the form, beside the display permission - since 29 Sept 2026
+    # in its first section, with the contact details. See
+    # fw_step_contributor_ui() in R/mod_contribute_steps.R.
     div(
       style = "margin-block-start:1.5rem;",
       actionButton(ns("start"), fw_t("contribute", "intro", "start_action"),

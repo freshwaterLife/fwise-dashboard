@@ -5,11 +5,16 @@
 // tokens as the app and inlines the result - and the fonts it names - into the
 // file, so it opens anywhere with no connection.
 //
-// A SMALL STYLESHEET OF ITS OWN, not main.scss. This file is read as a
-// document, not used as an app: none of the app's components appear in it, and
-// the app's compiled stylesheet would be most of the file's weight.
+// A STYLESHEET OF ITS OWN, not main.scss: this file is read as a document, not
+// used as an app, and main.scss is mostly Bootstrap's frame. But since 29 Sept
+// 2026 it opens on the summary report's figures (the counts, the outcome bars,
+// the species tiles, the map, the contacts table), which are the app's own
+// components, so it takes _components.scss for those - class-scoped rules only,
+// drawn the same as on the page - and its own rules below win on its own
+// classes.
 
 @import "tokens";
+@import "components";
 
 @font-face {
   font-family: "Ubuntu";
@@ -69,6 +74,42 @@ a:hover { color: $fw-teal-hover; }
   &__subtitle { color: $fw-ink-muted; margin: 0; }
   &__lead { margin: $fw-space-2 0 0; max-width: $fw-measure; }
 }
+
+// ---- The figures ----------------------------------------------------------------------
+
+// The summary report's sequence, before the cards. Each block is a titled
+// section on the page ground, like the page's own .fw-plan__block.
+.fw-rec-report {
+  margin-block-end: $fw-space-4;
+}
+
+.fw-rec-block {
+  margin-block-end: $fw-space-4;
+
+  h2 {
+    font-size: $fw-size-h3;
+    margin-block: 0 $fw-space-1;
+  }
+
+  &__note {
+    color: $fw-ink-muted;
+    margin-block: 0 $fw-space-2;
+  }
+
+  .fw-caption {
+    color: $fw-ink-muted;
+    margin-block: $fw-space-1 0;
+  }
+}
+
+// "Number of attempts" over the first chart, "Success rate" over the second.
+.fw-rec-figure__label {
+  font-size: $fw-size-body;
+  font-weight: $fw-weight-bold;
+  margin-block: $fw-space-2 $fw-space-1;
+}
+
+.fw-rec-figure { width: 100%; }
 
 // ---- The selection and the contents ------------------------------------------------
 

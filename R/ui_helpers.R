@@ -569,6 +569,26 @@ fw_slider_prettify <- function(tag, unit) {
   mark(tag)
 }
 
+#' Run a piece of an observer without letting an error end the session
+#'
+#' AN UNCAUGHT ERROR IN AN OBSERVER CLOSES THE CONNECTION, and the reader sees
+#' "Disconnected from the server" with the whole page greyed out - which the
+#' client reported happening often (29 Sept 2026). The error is logged for the
+#' server's own log and the reader gets a notice they can dismiss.
+#'
+#' Shiny's own silent conditions (req(), validate()) pass straight through.
+#'
+#' @return the value of `expr`, or NULL if it failed
+fw_safely <- function(session, expr) {
+  tryCatch(expr, error = function(e) {
+    if (inherits(e, "shiny.silent.error")) stop(e)
+    message("[fw_safely] ", conditionMessage(e))
+    shiny::showNotification(fw_t("common", "went_wrong"), type = "error",
+                            session = session)
+    NULL
+  })
+}
+
 #' Client-side handlers shared by every page
 #'
 #' The loader: the whole page, until the app has drawn itself
@@ -624,7 +644,7 @@ fw_client_script <- function() {
   # A TOKEN AND sub(), NOT sprintf(). sprintf() caps a format string at 8192
   # characters and this script is longer than that, so threading a value
   # through it fails at load with a message about format length.
-  tags$script(HTML(sub("__FW_SPINNER_DELAY__", FW_SPINNER_DELAY_MS, "
+  tags$script(HTML(sub("{{KEEPALIVE_MS}}", FW_KEEPALIVE_MS, fixed = TRUE, sub("__FW_SPINNER_DELAY__", FW_SPINNER_DELAY_MS, "
     $(function () {
       Shiny.addCustomMessageHandler('fw-announce', function (msg) {
         var el = document.getElementById('fw_announce');
@@ -752,6 +772,22 @@ fw_client_script <- function() {
         if (!el) return;
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
+      // A KEEPALIVE. Connect Cloud's proxy closes a websocket that has been
+      // silent for a while, and a reader who stops to read a chart comes back
+      // to Disconnected from the server (client, 29 Sept 2026). A tiny input
+      // every FW_KEEPALIVE_MS keeps the line open. Paused while the tab is
+      // hidden, so a forgotten tab does not hold a session open for ever.
+      setInterval(function () {
+        if (document.hidden || !window.Shiny || !Shiny.setInputValue) return;
+        Shiny.setInputValue('fw_keepalive', Date.now());
+      }, {{KEEPALIVE_MS}});
+      // The very top of the page. Starting the contribute form swaps the intro
+      // for the form in place, and the browser kept the scroll offset of the
+      // Start button - which left the reader part way down, at the map
+      // (client, 29 Sept 2026).
+      Shiny.addCustomMessageHandler('fw-scroll-top', function (_) {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      });
       // Collapse a <details> from the server. The report builder folds its
       // filter panel away once a report has been built, so the results are not
       // pushed below a screen of controls the reader has finished with.
@@ -790,14 +826,17 @@ fw_client_script <- function() {
       // rule, which is a cost; the alternative is a server round-trip on every
       // pixel of a drag. If the thresholds there change, change them here.
       window.fwSizePretty = function (n) {
-        var v = Math.pow(10, Number(n));
+        // log10(1 + x), so the inverse takes the one back off. See
+        // fw_size_log() in R/filters.R.
+        var v = Math.pow(10, Number(n)) - 1;
+        if (Math.abs(v) < 1e-9) return '0';
         var digits = v >= 100 ? 0 : v >= 10 ? 1 : v >= 1 ? 2 : 4;
         var parts = v.toFixed(digits).split('.');
         parts[0] = parts[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');
         return parts.join('.');
       };
-      $(document).on('shiny:bound', function (e) {
-        var $el = $(e.target);
+      function fwPrettifySlider(target) {
+        var $el = $(target);
         if ($el.data('fwPrettify') !== 'size') return;
         var slider = $el.data('ionRangeSlider');
         var unit = $el.data('fwUnit');
@@ -807,6 +846,16 @@ fw_client_script <- function() {
             return window.fwSizePretty(n) + (unit ? ' ' + unit : '');
           }
         });
+      }
+      $(document).on('shiny:bound', function (e) { fwPrettifySlider(e.target); });
+      // AND AFTER EVERY SERVER UPDATE. updateSliderInput() - which Clear sends
+      // - rebuilds the slider's options from the input's data attributes,
+      // which say prettify is off, and the handles went back to showing log10
+      // values. shiny:updateinput fires before the binding applies the
+      // message, so the prettify goes back on once it has.
+      $(document).on('shiny:updateinput', function (e) {
+        var t = e.target;
+        setTimeout(function () { fwPrettifySlider(t); }, 0);
       });
       Shiny.addCustomMessageHandler('fw-mailto', function (msg) {
         var href = 'mail' + 'to:' + msg.to +
@@ -815,7 +864,7 @@ fw_client_script <- function() {
         window.location.href = href;
       });
     });
-  ", fixed = TRUE)))
+  ", fixed = TRUE))))
 }
 
 # ---- Shared blocks -----------------------------------------------------------
@@ -851,7 +900,7 @@ fw_block <- function(title, note, content, note_as = c("info", "text")) {
 #' A click-to-open panel
 #'
 #' A real <details>, not a scripted accordion. That is the same choice the
-#' report builder's filter panel already makes: the
+#' report builder's filter panel made until it was opened for good: the
 #' open and closed states, the keyboard behaviour and what a screen reader
 #' announces all come from the browser, and there is nothing to initialise after
 #' an insertUI. The server can still close one through the `fw-collapse` message

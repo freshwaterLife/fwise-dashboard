@@ -72,7 +72,10 @@ FW_COPY <- list(
     of           = "of",
     info_icon_label = "More information about this field",
     # What an empty cell or a missing figure shows.
-    empty_value  = "-"
+    empty_value  = "-",
+    # Shown when something on the server went wrong but the session survived.
+    # See fw_safely() in R/ui_helpers.R.
+    went_wrong   = "Something went wrong there. Please try again."
   ),
 
   # ---- Accessibility -----------------------------------------------------------
@@ -97,21 +100,29 @@ FW_COPY <- list(
     # SUCCESS RATE, NOT "SHARE OF ATTEMPTS" (client, 23 Sept 2026). The
     # toggles beside these charts read "Success rate", so the axis has to say
     # the same thing; two names for one view is how a reader ends up thinking
-    # they are looking at two different quantities. The bar is still the full
-    # outcome mix - see the note at the head of charts.R.
+    # they are looking at two different quantities. The bar is Successful
+    # against Failed only - see the note at the head of charts.R.
     x_share       = "Success rate (%)",
+    # The success rate over time on Explore (client, 30 Sept 2026). {from} and
+    # {to} are the years the rolling window pooled; see fw_chart_success_time().
+    y_success_time = "Success rate (%)",
+    success_time_hover = "{from}-{to}: {pc}% successful ({n} of {total} finished)",
     # NO X AXIS TITLE ON THE DURATION CHART (client, 23 Sept 2026). The named
     # ticks below say what the axis is; a title under them said it twice.
     # Named ticks on the log axis, in step with FW_CHART$duration_ticks.
     duration_ticks = c("1 day", "1 week", "1 month", "1 year", "5 years", "10 years"),
-    # THE TERMINAL TICK, at the longest attempt in the selection, so the axis
-    # labels reach the last dot rather than stopping at the fixed tick below it
-    # (client, 23 Sept 2026). {n} is a whole number of the unit named. Which
-    # unit is chosen, and when a fixed tick is dropped to make room, is
-    # fw_duration_ticks() in charts.R.
-    duration_max_days   = "{n} days",
-    duration_max_months = "{n} months",
-    duration_max_years  = "{n} years",
+    # THE TERMINAL TICK is written by fw_popup_duration(), the map card's
+    # formatter, so it reads the way the box's hover does (client, 30 Sept
+    # 2026). duration_max_days/months/years went with the old rule.
+    #
+    # The duration box's hover, every length in the map card's units. See
+    # fw_duration_box_stats().
+    duration_hover = paste0(
+      "<b>{method}</b> ({n} successful)<br>",
+      "Typical (median): {median}<br>",
+      "Middle half: {q1} to {q3}<br>",
+      "Range: {shortest} to {longest}"
+    ),
     # Under the scale bar on the PDF report's map. It NAMES THE LATITUDE the
     # bar is correct at, because the map is unprojected longitude/latitude and
     # a bar drawn on one cannot be right everywhere - see fw_gg_scale_bar().
@@ -123,7 +134,9 @@ FW_COPY <- list(
     # cannot drift apart (client, 24 Sept 2026). hover_of and hover_share went
     # with the assembly. See fw_hover_counts() in R/charts.R.
     # Shown in a chart's own slot when the selection gives it nothing to draw.
-    empty         = "Nothing to draw for this selection."
+    empty         = "Nothing to draw for this selection.",
+    # The camera button's tooltip. See fw_plotly_style() in R/charts.R.
+    save_png      = "Download chart as a PNG"
   ),
 
   # ---- Maps ----------------------------------------------------------------------
@@ -167,10 +180,10 @@ FW_COPY <- list(
   home = list(
     title = paste(
       "Freshwaters cover **<1%** of earth yet are home to **45% of all Threatened animal species**.",
-      "Eradicating freshwater invasives is a **great** way to **save them from extinction**."
+      "Eradicating freshwater invasives is **the most effective way to save them from extinction**."
     ),
     lead = c(
-      "But almost nobody knows this. Enter the **Freshwater Invasive Species Eradication Database**. It shows the world **what works**, **where**, and **how best**.",
+      "But almost nobody knows this. Enter the **Freshwater Invasive Species Eradication Database**. It shows the world **what works**, **where**, and **how**.",
       paste(
         "Use FWISE now to [[explore|understand this solution]],",
         "[[plan|plan a new eradication]], [[contribute|add your own data]],",
@@ -245,10 +258,10 @@ FW_COPY <- list(
     # blue and amber (map_now_text, map_next_text). No swatches.
     map_slider_label = "Reveal the priority countries map over the successful eradications map",
     map_caption = c(
-      "Move the map from ",
-      now  = "successes (blue)",
-      " to ",
-      later = "opportunities (yellow)",
+      "Countries with ",
+      now  = "eradications (blue)",
+      " verus top ",
+      later = "opportunity countries (yellow)",
       "."
     ),
 
@@ -312,13 +325,41 @@ FW_COPY <- list(
 
     # ---- The summary graphics ------------------------------------------------
 
-    method = "Methods used (frequency and success)",
-    method_note = paste(
-      "One bar per method, split by outcome. An attempt that used more than one",
-      "method is counted once under each of them, so the bars add up to more",
-      "than the number of attempts. Hover a segment for its count or success rate."
+    # ONE BLOCK, THREE VIEWS (client, 30 Sept 2026). The heading asks the three
+    # questions; the "Show" switch under it picks which one the charts answer.
+    views_title = paste(
+      "How many eradications have been recorded? How well do they work?",
+      "How long do they take?"
     ),
-    cumulative = "Eradication attempts over time"
+    views_show     = "Show",
+    view_count     = "Number of attempts",
+    view_rate      = "Success rate",
+    view_duration  = "Duration",
+
+    method = "Methods used",
+    method_note = paste(
+      "One bar per method, split by outcome. Only attempts that used a single",
+      "method are shown, so each outcome belongs to one method. Hover a",
+      "segment for its count or success rate."
+    ),
+    method_rate_note = paste(
+      "Successful against failed attempts for each method, from attempts that",
+      "used a single method. Ongoing and unknown attempts are left out. The",
+      "number beside each method is how many finished attempts the rate rests on."
+    ),
+    cumulative = "Eradication attempts over time",
+    success_time = "Success rate over time",
+    success_time_note = paste(
+      "Each point pools the successful and failed attempts that began in the",
+      "ten years up to and including it, so one busy or quiet year does not",
+      "swing the line. Ongoing and unknown attempts are left out. Where ten",
+      "years hold fewer than {min_n} finished attempts the line breaks."
+    ),
+    duration = "How long successful eradications took",
+
+    # THE WAY ON, under the charts (client, 29 Sept 2026). [[plan|...]] is a
+    # link to that tab - see fw_home_links().
+    to_plan = "[[plan|Dig deeper into the data to plan your own eradication]]."
 
     # NO map / map_note HERE EITHER - see maps$title and maps$note.
   ),
@@ -549,14 +590,15 @@ FW_COPY <- list(
     # NO .csv (client, 23 Sept 2026): it was the spreadsheet's rows a second
     # time, and the picker now offers the three documents that differ from one
     # another. The order here is the order of FW_BUNDLE_PARTS in export.R.
-    download_pdf = "Report (.pdf)",
+    # THE THREE NAMES ARE THE CLIENT'S (29 Sept 2026).
+    download_pdf = "Summary report (.pdf)",
     download_pdf_note = paste(
       "This report ready to read or share."
     ),
-    download_records = "Every attempt in full (.html)",
+    download_records = "Detailed report (.html)",
     download_records_note = paste(
-      "One scrollable page with each matching attempt written out in full,",
-      "one after another. Opens in any browser, with no connection needed."
+      "The summary report's charts and map, interactive, then every matching",
+      "attempt written out in full with a search box. Opens in any browser."
     ),
     # Shown under the PDF's checkbox when the estimate reaches FW_PDF$warn_pages
     # or FW_PDF$warn_mb.
@@ -618,6 +660,9 @@ FW_COPY <- list(
     # filters says it, with the part about multiple selections that this one
     # did not have. The client removed the one inside the filter card.
     f_heading   = "Describe your situation",
+    # Leads the line under Build that says what the report on screen was
+    # built from (client, 29 Sept 2026).
+    f_applied   = "Built from:",
     built_announce = "Report built. {n} attempts match your description.",
 
     # ---- Results -------------------------------------------------------------
@@ -649,10 +694,13 @@ FW_COPY <- list(
     # maps follow.
     r_map_missing = "{n} of these attempts have no coordinates and are not on the map.",
 
-    r_waterbody  = "Waterbodies (frequency and success)",
+    # STILL AGAINST FLOWING, not the kind of waterbody (client, 30 Sept 2026).
+    # Not drawn when the reader filtered to one of the two.
+    r_waterbody  = "Still and flowing water (frequency and success)",
     r_waterbody_note = paste(
-      "Attempts by the kind of waterbody treated, with the outcome mix in each.",
-      "The {n_word} most common are named and the rest gathered into Other."
+      "Attempts in still water (lakes, ponds, reservoirs) and flowing water",
+      "(rivers, streams), with the outcomes in each. The success rate counts",
+      "successful against failed attempts; ongoing and unknown are left out."
     ),
     # Its own pair, though the words match r_method_count/share today. The two
     # charts agree on their denominator by coincidence - both count attempts -
@@ -663,12 +711,16 @@ FW_COPY <- list(
 
     r_method     = "Outcomes of methods within selection",
     r_method_note = paste(
-      "Outcomes within each method, with the number of attempts beside it."
+      "Outcomes within each method, with the number of attempts beside it.",
+      "Only attempts that used a single method are shown, so each outcome",
+      "belongs to one method. The success rate counts successful against",
+      "failed attempts; ongoing and unknown are left out."
     ),
     r_method_mode  = "Show",
     r_method_share = "Success rate",
     r_method_count = "Number of attempts",
     r_method_missing = "{n} of these attempts have no method recorded and are not on the method chart.",
+    r_method_multi = "{n} of these attempts used more than one method and are not on the method chart.",
 
     # ---- The species tiles ----------------------------------------------------
 
@@ -686,15 +738,20 @@ FW_COPY <- list(
     # only added a percentage in share mode. One template, so the reader meets
     # one sentence wherever they hover. See fw_hover_counts() in R/charts.R.
     r_tile_seg = "{outcome}: {pc}% ({n} of {total})",
-    r_duration   = "How long attempts took",
+    # A NUMBER OF ATTEMPTS HOVERS AS A NUMBER (client, 30 Sept 2026): the
+    # count views of the stacked bars. See fw_hover_counts().
+    r_bar_count_seg = "{outcome}: {n}",
+    # In a tile's bar's place when none of the species' attempts has finished.
+    r_tile_none = "No finished attempts yet",
+    r_duration   = "How long successful eradications took",
     r_duration_note = paste(
-      "Start to finish, on a log scale going from days to years (sometimes",
-      "decades)."
+      "How long successful eradications took, start to finish, on a log scale",
+      "going from days to years (sometimes decades)."
     ),
     r_duration_missing = paste(
-      "Based on the {n} of these attempts that have a start and end, and a",
-      "single recorded method. Attempts using more than one method are",
-      "excluded."
+      "Based on the {n} successful attempts here that have a start and end,",
+      "and a single recorded method. Failed, ongoing and multi-method",
+      "attempts are excluded."
     ),
     r_table_showing = "Showing",
 

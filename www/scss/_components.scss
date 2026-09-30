@@ -103,10 +103,15 @@
   color: $fw-on-indigo;
   border-bottom: 7px solid $fw-brand-teal;
 
+  // THE FULL WIDTH OF THE BAND (client, 29 Sept 2026). Headings take
+  // text-wrap: balance from main.scss, which evens the lines out by breaking
+  // the first one early - on the Welcome band a two-line title stopped two
+  // thirds of the way across a wide screen. Here the lines run to the edge.
   &__title {
     font-size: $fw-size-h1;
     color: $fw-on-indigo;
     margin-block-end: $fw-space-1;
+    text-wrap: wrap;
 
     @media (max-width: $fw-bp-xs) { font-size: $fw-size-h2; }
   }
@@ -116,6 +121,7 @@
     color: $fw-on-indigo-muted;
     max-width: 100%;
     margin-block-end: 0;
+    text-wrap: wrap;
   }
 }
 
@@ -515,53 +521,22 @@
   // pickers holding values like "Common carp (Cyprinus carpio)", and below
   // about 17rem selectize wraps every chosen value onto its own line and the
   // control grows downwards as it is used.
-  // COLLAPSIBLE, AND ONLY AFTER A BUILD. A native <details>: the server closes
-  // it on Build and the reader opens it again themselves. It is never
-  // re-rendered, because that would reset every control inside it.
-  &__disclosure {
-    // The default marker is a black triangle that ignores the type scale. The
-    // chevron below replaces it, and BOTH rules are needed - Safari uses the
-    // pseudo-element, everything else uses list-style.
-    > summary {
-      list-style: none;
-      &::-webkit-details-marker { display: none; }
-    }
-  }
-
-  &__summary {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: $fw-space-1 $fw-space-2;
-    cursor: pointer;
-    padding: $fw-space-1 0;
-    border-radius: $fw-radius-input;
-
-    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
-
-    // The chevron. Rotates when the panel is open, so the control says which
-    // way it is going rather than only that it is a control.
-    &::before {
-      content: "";
-      flex: none;
-      width: 0.5rem;
-      height: 0.5rem;
-      border-right: 2px solid $fw-teal-text;
-      border-bottom: 2px solid $fw-teal-text;
-      transform: rotate(-45deg);
-      transition: transform $fw-motion-fast;
-    }
-  }
-
-  &__disclosure[open] > &__summary::before { transform: rotate(45deg); }
-
   &__summary-label {
     font-weight: $fw-weight-bold;
     color: $fw-ink;
   }
 
-  // The selection, shown while the panel is shut so a collapsed panel still
-  // says what the reader is looking at rather than reading as a lid.
+  // WHAT THE REPORT ON SCREEN WAS BUILT FROM, under the Build button and
+  // above the counts (client, 29 Sept 2026). It used to ride in the summary of
+  // a collapsible panel; the panel is always open now.
+  &__applied {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: $fw-space-1 $fw-space-2;
+    margin-block-end: $fw-space-2;
+  }
+
   &__summary-list {
     display: flex;
     flex-wrap: wrap;
@@ -853,6 +828,10 @@
 // record, or to press Build report without knowing what comes out, should find
 // that out in the first sentence. One treatment, two names, so the two cards
 // cannot drift apart.
+// The closing link on Explore needs air between it and the charts above.
+// Doubled class so it wins over .fw-callout's own margin below.
+.fw-callout.fw-explore-next { margin-block: $fw-space-4 0; }
+
 .fw-preamble,
 .fw-callout {
   padding: $fw-space-3;
@@ -1024,7 +1003,8 @@
   // of cards that each jump to a different height as the pointer moves is worse
   // than no picture.
   // ALWAYS TWO, SIDE BY SIDE - the target and the beneficiary, with a blank
-  // "None noted" tile standing in wherever there is no photograph. It used to
+  // tile standing in wherever there is no photograph ("None noted" for a role
+  // with no species, "No photograph available" for a species with no picture). It used to
   // be one or two depending on what the attempt recorded, which is what
   // data-fw-figures was for; R still writes the attribute and the two-column
   // rule below still keys on it, so a card that goes back to one tile has a
@@ -1081,7 +1061,7 @@
     // decoration (see R/species_images.R), so it is shrunk under the popup
     // exemption rather than dropped.
     .fw-species-figure__credit {
-      font-size: $fw-size-popup;
+      font-size: $fw-size-photo-credit;
       line-height: 1.3;
     }
   }
@@ -1200,9 +1180,13 @@
   .fw-popup-detail__hint,
   .fw-popup-fig__role,
   .fw-popup-fig__name,
-  .fw-species-figure__credit,
   .fw-caption {
     font-size: $fw-size-popup;
+  }
+  // Smaller again than the popup text (client, 29 and 30 Sept 2026). See
+  // size_photo_credit in R/brand.R.
+  .fw-species-figure__credit {
+    font-size: $fw-size-photo-credit;
   }
 }
 
@@ -1587,13 +1571,13 @@
   // attribution, and grid rows stretch to their tallest item anyway, so a
   // verbose credit costs alignment nothing.
   .fw-species-figure__credit {
-    // THE FLOOR, and that is a deliberate client instruction rather than an
-    // oversight: it costs the tile a line or two of height.
-    font-size: $fw-size-min;
+    // THE PHOTO CREDIT SIZE, below the floor on the client's instruction (29
+    // and 30 Sept 2026). See size_photo_credit in R/brand.R.
+    font-size: $fw-size-photo-credit;
     font-weight: $fw-weight-regular;
     color: $fw-ink-muted;
     line-height: 1.3;
-    padding: 0.2rem 0.4rem;
+    padding: 0.1rem 0.4rem;
 
     a { text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -1620,6 +1604,14 @@
 
     &:hover { filter: brightness(1.12); }
     &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: -2px; }
+  }
+
+  // In the bar's place when none of the species' attempts has finished, so
+  // there is no success rate to draw. Bottom-aligned like the bar.
+  &__none {
+    margin-block-start: auto;
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
   }
 }
 
@@ -1651,8 +1643,9 @@
 
   &__credit {
     display: block;
-    padding: 0.3rem $fw-space-1;
-    font-size: $fw-size-min;
+    padding: 0.15rem $fw-space-1;
+    font-size: $fw-size-photo-credit;
+    line-height: 1.3;
     color: $fw-ink-muted;
     background: $fw-surface;
 
@@ -1854,9 +1847,12 @@
   }
 }
 
-// Maps size to the viewport, not to a fixed box. The height lives here rather
-// than on leafletOutput() because leaflet validates its height argument through
-// htmltools::validateCssUnit(), which rejects clamp(). See fw_map_output().
+// Maps take the shape of the band of the world they show, so the whole band is
+// in view at the zoom-out limit (client, 30 Sept 2026). The ratio and the
+// height cap come from R/config.R as custom properties on the wrapper - see
+// fw_map_output() and fw_map_shape_style() in R/maps.R. The size lives here
+// rather than on leafletOutput() because leaflet validates its height argument
+// through htmltools::validateCssUnit(), which rejects aspect-ratio and min().
 // A group of markers that sit on top of one another - see FW_MAP$cluster in
 // R/config.R for when markers group. A counted ring at every zoom: the number
 // is persistent text, so it sits at the 1rem floor ($fw-size-min, NOT the
@@ -1885,8 +1881,14 @@
 // fw_cluster_options() in R/maps.R.
 
 .fw-map {
-  height: clamp(320px, 55vh, 560px);
-  width: 100%;
+  // THE COLUMN'S WIDTH, OR LESS ON A VERY WIDE SCREEN: held to the height cap,
+  // where it is narrower than its column and centred in it, rather than taller
+  // than the window. Never a different shape - a map that is wider than the
+  // band shows grey at the sides, and one that is taller cuts the band off.
+  aspect-ratio: var(--fw-map-aspect, 5 / 3);
+  // Interpolated so Sass passes min() through to the browser untouched.
+  width: #{"min(100%, calc(var(--fw-map-max-h, 70vh) * var(--fw-map-aspect, 5 / 3)))"};
+  margin-inline: auto;
   // The overlay below is absolute against this.
   position: relative;
 
@@ -2016,11 +2018,23 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .irs-min,
-  .irs-max {
-    background: transparent;
+  // THE SLIDER'S OWN END LABELS ARE OFF (client, 29 Sept 2026). ionRangeSlider
+  // hides them whenever a handle comes near, so the scale looked as if it had
+  // shrunk to the selection. .fw-field__range-ends prints the ends instead and
+  // never hides them.
+  .irs--shiny .irs-min,
+  .irs--shiny .irs-max {
+    display: none;
+  }
+
+  .fw-field__range-ends {
+    display: flex;
+    justify-content: space-between;
+    gap: $fw-space-2;
+    margin-block-start: 0.1rem;
     color: $fw-ink-muted;
     font-family: $fw-font-mono;
+    font-variant-numeric: tabular-nums;
   }
 
   .fw-field__range-readout {
@@ -2906,6 +2920,10 @@
 
   h2 { margin-block: 0 $fw-space-1; }
 
+  // MORE AIR UNDER THE QUESTIONS (client, 30 Sept 2026). This heading is not
+  // followed by a note but by the Show switch, which sat hard against it.
+  &.fw-explore-views > h2 { margin-block-end: $fw-space-3; }
+
   &__note {
     margin-block: 0 $fw-space-2;
     color: $fw-ink-muted;
@@ -2950,11 +2968,11 @@
     align-items: start;
 
     // THE TWO PLOTS SIT LEVEL. Each block is a subgrid of the parent's three
-    // rows - title, controls, chart - so a row is as tall as the taller of the
-    // two cells in it. The method chart's count/share switch sets the controls
-    // row, and the cumulative chart's empty controls cell (see mod_explore_ui())
-    // takes the same height, so its plot starts on the same line. Without this
-    // the switch pushed one chart down by its own height.
+    // rows - title, chart, caption - so a row is as tall as the taller of the
+    // two cells in it, and a title that wraps to two lines beside one that
+    // does not still leaves both plots starting on the same line. The
+    // count/share switch that used to fill a controls row here is now the
+    // single "Show" switch above both (client, 30 Sept 2026).
     grid-template-rows: auto auto auto;
     row-gap: 0;
 
@@ -3187,8 +3205,9 @@ table.dataTable,
 // ---- The About page's click-to-open panels ----------------------------------
 
 // A REAL <details>, so the browser owns the open state, the keyboard and what a
-// screen reader announces. Same choice as .fw-plan-filters__disclosure, and the
-// chevron is lifted from it - including the pair of rules that suppress the
+// screen reader announces. The report builder's filter panel made the same
+// choice until 29 Sept 2026, and the chevron came from it - including the pair
+// of rules that suppress the
 // default marker, because Safari uses the pseudo-element and everything else
 // uses list-style.
 //
@@ -3347,7 +3366,9 @@ table.dataTable,
 // two numbers are the <strong>s: teal, bold and in the numeric face, so they
 // still read as the page's figures inside the line.
 .fw-home-kpi {
-  margin: 0 0 $fw-space-3;
+  margin: 0 0 $fw-space-2;
+  // Wraps by width alone, never balanced (client, 29 Sept 2026).
+  text-wrap: wrap;
   padding: $fw-space-2 $fw-space-3;
   background: $fw-teal-wash;
   border: 1px solid $fw-brand-teal;
@@ -3368,13 +3389,19 @@ table.dataTable,
 // first, where two-thirds would leave the map too small to read.
 // STRETCH, so the picture column is as tall as the map beside it and the
 // three rows can spread over that height (client, 21 Sept 2026).
+//
+// ONE PROPORTIONAL BLOCK (client, 29 Sept 2026): the map fills its column and
+// the pictures take their size from the map, so the whole block grows and
+// shrinks with the window and nothing gets smaller as it widens. It stacks
+// only at phone width (sm), not at md: stacking at 768 made every picture
+// shrink the moment the window was widened past it.
 .fw-home-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   align-items: stretch;
-  gap: $fw-space-3;
+  gap: $fw-space-2;
 
-  @media (max-width: $fw-bp-md) { grid-template-columns: minmax(0, 1fr); }
+  @media (max-width: $fw-bp-sm) { grid-template-columns: minmax(0, 1fr); }
 }
 
 // Two columns of three, FILLED BY COLUMN, so FW_HOME_ORDER reads down the left
@@ -3400,23 +3427,23 @@ table.dataTable,
   grid-template-rows: repeat(3, auto);
   grid-auto-flow: column;
   align-content: space-between;
-  column-gap: $fw-space-4;
+  column-gap: $fw-space-2;
   row-gap: var(--fw-home-gap);
   padding-block-end: var(--fw-home-caption);
 
+  // A THIRD OF THE MAP'S HEIGHT, and no cap (client, 29 Sept 2026). The
+  // 6.5rem ceiling that used to sit here is what left the pictures small and
+  // the column half empty beside a wide screen's map.
   .fw-home-species {
-    height: #{"min(6.5rem, calc((100cqh - 2 * var(--fw-home-gap)) / 3))"};
+    height: #{"calc((100cqh - 2 * var(--fw-home-gap)) / 3)"};
   }
 
   // Stacked, there is no map beside it to take a height from.
-  @media (max-width: $fw-bp-md) {
+  @media (max-width: $fw-bp-sm) {
     container-type: normal;
     align-content: start;
     padding-block-end: 0;
 
-    .fw-home-species { height: 6.5rem; }
-  }
-  @media (max-width: $fw-bp-sm) {
     .fw-home-species { height: 5rem; }
   }
 }
@@ -3445,7 +3472,6 @@ table.dataTable,
   &:hover img { transform: scale(1.06); }
   &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
 
-  @media (max-width: $fw-bp-sm) { height: 5rem; }
   @media (prefers-reduced-motion: reduce) { img { transition: none; } }
 }
 
@@ -3570,29 +3596,18 @@ table.dataTable,
 // range input covers the whole figure invisibly, so a drag, a click or an
 // arrow key moves it; the handle is only its drawing.
 //
-// SIZED BY THE WINDOW HEIGHT. The pictures are 2400x1140, so a width of
-// (height available) x 2.105 is the widest map that still fits the screen.
-// --fw-home-chrome is everything above and below the map on this page:
-// navbar, header, the sentence and section padding. It is deliberately a little LESS
-// than all of it: the client accepts a short scroll on a laptop in exchange for
-// a map that can be read, so the caption may sit just below the fold. Tune that
-// one number if the page above the map changes. The 20rem floor keeps a short
-// window from shrinking the map to a stamp; it scrolls instead. On a laptop
-// the height rule makes the map about as tall as the three rows of pictures
-// beside it; on a wide, tall screen the two-thirds column is the limit. The
+// SIZED BY ITS COLUMN'S WIDTH (29 Sept 2026; it was sized by the window
+// height before). The pictures are 2400x1140, so the height follows. The
 // caption is not held to the map's width, so it stays on one line.
 .fw-compare-wrap {
-  // 26.5rem became 32rem when the evidence footnote landed under the map
-  // (client, 23 Sept 2026) - four or five lines of fine print at the container
-  // width. This is the one number to tune if anything above or below the map
-  // on this page changes again.
-  --fw-home-chrome: 32rem;
   margin: 0;
 
+  // THE WHOLE COLUMN, WHATEVER THE WINDOW'S HEIGHT (client, 29 Sept 2026).
+  // It used to be held to the window height so the page fitted one laptop
+  // screen, which on a wide screen stopped the map at about 820px and centred
+  // it in a column half again as wide. Now it scales with the width alone.
   .fw-compare {
-    width: #{"max(20rem, min(100%, calc((100svh - var(--fw-home-chrome)) * 2.105)))"};
-    max-width: 100%;
-    margin-inline: auto;
+    width: 100%;
   }
 }
 
@@ -3605,7 +3620,7 @@ table.dataTable,
 // size and keep their underline: a citation that cannot be seen to be a link
 // is not a citation.
 .fw-home-footnote {
-  margin-block: $fw-space-4 0;
+  margin-block: $fw-space-2 0;
   font-size: $fw-size-fine;
   color: $fw-ink-muted;
   line-height: 1.5;

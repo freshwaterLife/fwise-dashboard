@@ -1,6 +1,14 @@
 # report_records.R
-# The attempts download: one self-contained .html file with every attempt in
-# the reader's selection written out in full, one card after another.
+# The DETAILED REPORT (.html): the summary report's figures, live, followed by
+# every attempt in the reader's selection written out in full, one card after
+# another.
+#
+# THE FIGURES FIRST (client, 29 Sept 2026). A keen reader who opens only this
+# file must still get the comparisons, not only the case-by-case detail. So it
+# opens on the same sequence as the PDF - fw_pdf_body() in R/report_pdf.R - as
+# interactive plotly charts and a leaflet map, with both versions of each
+# toggled chart (number of attempts, then success rate) one above the other,
+# and then goes on to the find box and the cards. See fw_records_summary_ui().
 #
 # THE RECORD-BY-RECORD READING THE CLIENT ASKED FOR. The report builder's table
 # of attempts went because a table of truncated cells is what the CSV already
@@ -31,10 +39,12 @@
 # field that COULD have been filled and was not still says "Not noted", which
 # is the whole point of the rule.
 #
-# SELF-CONTAINED. The stylesheet, the fonts and the logos are inlined; there is
-# no script beyond the few lines of the find box, and no network request. No
-# photographs: they would make the file grow with the selection, and the PDF
-# report carries the species pictures.
+# SELF-CONTAINED. The stylesheet, the fonts, the logos and every widget
+# library (plotly.js, leaflet) are inlined, so it opens from a saved file with
+# no server behind it - most of its size is plotly.js. Two things still come
+# from the network when there is one: the map's background tiles and the
+# species photographs. Without a connection the markers, the charts and the
+# cards all still work.
 
 library(htmltools)
 
@@ -79,7 +89,75 @@ fw_html_inline_css_urls <- function(css, dir) {
   css
 }
 
-#' The attempts file's stylesheet, compiled and inlined
+#' Read a text asset as UTF-8, whatever the machine's locale says
+fw_html_read_text <- function(path) {
+  out <- rawToChar(readBin(path, "raw", file.size(path)))
+  Encoding(out) <- "UTF-8"
+  out
+}
+
+#' Where a resolved html dependency's files actually live
+fw_html_dep_dir <- function(dep) {
+  path <- dep$src$file
+  if (is.null(path)) return(NULL)
+  if (!is.null(dep$package)) path <- system.file(path, package = dep$package)
+  if (!nzchar(path) || !dir.exists(path)) NULL else path
+}
+
+#' A script or style tag whose content cannot close its own element
+#'
+#' plotly.js is three and a half megabytes of minified JavaScript. If a string
+#' literal in there contains the characters "</script", the browser's HTML
+#' parser ends the element in the middle of the library. Escaping the slash is
+#' valid inside a JS string and impossible outside one, so this is safe in both
+#' directions.
+fw_html_guard <- function(text, tag) {
+  gsub(paste0("</", tag), paste0("<\\/", tag), text, fixed = TRUE)
+}
+
+#' Every dependency of a set of widgets, inlined into head tags
+#'
+#' Order is the order htmltools resolved them in, which is the order the widgets
+#' need: htmlwidgets.js before the bindings, plotly.js before plotly's binding
+#' runs. Do not sort this.
+#'
+#' htmlwidgets.js static-renders every widget on the page on DOMContentLoaded
+#' when Shiny is absent, which is what makes the figures in a saved file draw
+#' themselves with no bootstrapping code of our own. That only works if these
+#' tags are in <head>, before the document finishes parsing.
+#'
+#' Revived from the interactive report dropped on 21 Sept 2026 (git d74d068).
+fw_html_dependency_tags <- function(deps) {
+  out <- list()
+  for (dep in htmltools::resolveDependencies(deps)) {
+    dir <- fw_html_dep_dir(dep)
+    if (is.null(dir)) next
+    for (css in unlist(dep$stylesheet)) {
+      path <- file.path(dir, css)
+      if (!file.exists(path)) next
+      out <- c(out, list(tags$style(
+        type = "text/css",
+        HTML(fw_html_guard(fw_html_inline_css_urls(
+          fw_html_read_text(path), dirname(path)), "style"))
+      )))
+    }
+    for (js in unlist(dep$script)) {
+      path <- file.path(dir, if (is.list(js)) js$src else js)
+      if (!file.exists(path)) next
+      out <- c(out, list(tags$script(
+        HTML(fw_html_guard(fw_html_read_text(path), "script"))
+      )))
+    }
+    if (!is.null(dep$head)) out <- c(out, list(HTML(dep$head)))
+  }
+  tagList(out)
+}
+
+#' The detailed report's stylesheet, compiled and inlined
+#'
+#' records.scss imports the app's own _components.scss, so the summary strip,
+#' outcome bars, species tiles and contacts table are drawn by the same rules
+#' as on the page.
 fw_records_css <- function(dir = "www/scss") {
   fw_html_inline_css_urls(fw_compile_css(file.path(dir, "records.scss")), dir)
 }
@@ -213,6 +291,130 @@ fw_record_card <- function(row, copy = fw_record_copy()) {
   )
 }
 
+# ---- The figures ---------------------------------------------------------------------
+
+#' A table in the app's own table style
+#'
+#' @param num columns set in the mono face and right-aligned
+fw_html_table <- function(df, num = character(0)) {
+  if (is.null(df) || !nrow(df)) return(NULL)
+  cls <- function(nm) if (nm %in% num) "fw-col-num" else NULL
+  tags$table(
+    class = "fw-table",
+    tags$thead(tags$tr(lapply(names(df), function(nm)
+      tags$th(scope = "col", class = cls(nm), nm)))),
+    tags$tbody(lapply(seq_len(nrow(df)), function(i) {
+      tags$tr(lapply(names(df), function(nm) {
+        v <- df[[nm]][i]
+        tags$td(class = cls(nm),
+                if (is.na(v) || !nzchar(as.character(v))) fw_t("common", "empty_value")
+                else as.character(v))
+      }))
+    }))
+  )
+}
+
+#' One titled section of the figures, or nothing when it has no content
+fw_records_block <- function(title, note, ...) {
+  content <- Filter(Negate(is.null), list(...))
+  if (!length(content)) return(NULL)
+  tags$section(
+    class = "fw-rec-block",
+    h2(title),
+    if (!is.null(note)) p(class = "fw-rec-block__note", note),
+    content
+  )
+}
+
+#' A live plotly chart, or NULL when it has nothing to draw
+fw_records_chart <- function(p) {
+  if (is.null(p)) return(NULL)
+  div(class = "fw-rec-figure", as.tags(p, standalone = FALSE))
+}
+
+#' Both versions of a toggled chart, the count above the rate, each labelled
+#' with the toggle's own words. See both_modes() in fw_pdf_body().
+fw_records_pair <- function(build, labels) {
+  figs <- lapply(c("count", "share"), function(mode) {
+    fig <- fw_records_chart(build(mode))
+    if (is.null(fig)) return(NULL)
+    tagList(h3(class = "fw-rec-figure__label", labels[[mode]]), fig)
+  })
+  figs <- Filter(Negate(is.null), figs)
+  if (length(figs)) do.call(tagList, figs)
+}
+
+#' The summary report's figures, live, in the PDF's order
+#'
+#' The selection, the counts, the outcomes, the top species, the map and the
+#' countries, the kind of water and the methods (each twice: number, then
+#' success rate), how long they took, and who to ask. The same builders the
+#' page and the PDF use, so the three cannot disagree about a figure.
+fw_records_summary_ui <- function(data, sel, filters = NULL) {
+  n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
+  method_caption <- fw_method_caption_text(data, sel)
+  n_duration <- nrow(fw_duration_sel(data, sel))
+  caption <- function(key, n) {
+    if (n > 0) p(class = "fw-caption", fw_fill(fw_t("plan", key), n = fw_fmt_num(n)))
+  }
+  species <- function(role_name) {
+    title <- fw_species_top_title(data, sel, role_name, f = filters)
+    if (is.null(title)) return(NULL)
+    fw_records_block(title, NULL,
+                     fw_species_tiles_ui(data, sel, role_name, limit = FW_PLAN_SPECIES_N,
+                                         f = filters))
+  }
+  map <- if (nrow(sel) > n_no_coords) {
+    # A click goes to the attempt's card below. See detail = "anchor" in
+    # fw_add_attempt_markers().
+    m <- fw_plan_map(data, sel, detail = "anchor")
+    m$width <- "100%"
+    m$height <- "100%"
+    div(class = "fw-map", style = fw_map_shape_style(), as.tags(m, standalone = FALSE))
+  }
+  people <- fw_plan_contacts(data, sel)
+
+  div(
+    class = "fw-rec-report",
+    fw_records_block(fw_t("plan", "r_heading"), NULL,
+                     fw_plan_summary_ui(fw_plan_summary(data, sel))),
+    fw_records_block(fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
+                     fw_outcome_bars_ui(sel)),
+    species("invasive"),
+    species("beneficiary"),
+    fw_records_block(fw_t("maps", "title"), fw_t("maps", "note"),
+                     map, if (!is.null(map)) fw_map_note(),
+                     caption("r_map_missing", n_no_coords)),
+    fw_records_block(fw_t("plan", "report_where"), NULL,
+                     fw_html_table(fw_report_country_table(sel),
+                                   num = fw_t("export", "col_attempts"))),
+    if (fw_show_waterbody(filters)) fw_records_block(
+      fw_t("plan", "r_waterbody"), fw_t("plan", "r_waterbody_note"),
+      fw_records_pair(function(mode) fw_chart_waterbody(sel, mode = mode),
+                      list(count = fw_t("plan", "r_waterbody_count"),
+                           share = fw_t("plan", "r_waterbody_share")))),
+    fw_records_block(
+      fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
+      fw_records_pair(function(mode) fw_chart_method(data, sel, mode = mode),
+                      list(count = fw_t("plan", "r_method_count"),
+                           share = fw_t("plan", "r_method_share"))),
+      if (!is.null(method_caption)) p(class = "fw-caption", method_caption)),
+    fw_records_block(
+      fw_t("plan", "r_duration"), fw_t("plan", "r_duration_note"),
+      fw_records_chart(fw_chart_duration(data, sel)),
+      p(class = "fw-caption",
+        fw_fill(fw_t("plan", "r_duration_missing"), n = fw_fmt_num(n_duration)))),
+    # EVERY CONTACT, not the PDF's six busiest: this file is scrolled, not
+    # printed. fw_plan_contacts() has already removed the address of anyone
+    # who asked not to be listed.
+    if (nrow(people)) {
+      fw_records_block(fw_t("plan", "r_contacts"), fw_t("plan", "report_contacts_note"),
+                       div(class = "fw-table-scroll",
+                           fw_plan_contacts_ui(people, page = 1L, per_page = nrow(people))))
+    }
+  )
+}
+
 # ---- The file ----------------------------------------------------------------------
 
 #' The find box's script
@@ -241,13 +443,14 @@ fw_records_script <- function(total_label) {
     })();", jsonlite::toJSON(total_label, auto_unbox = TRUE))))
 }
 
-#' Write the attempts file
+#' Write the detailed report
 #'
 #' @param path    where to write. The bundle's working directory.
 #' @param data    the loaded tables, for the caveats and the filter record
+#' @param sel     the attempt rows the figures are about
 #' @param export  fw_export_frame() for the selection: the rows, in order
 #' @param filters the filter snapshot taken when Build was pressed
-fw_write_records_html <- function(path, data, export, filters, meta = NULL) {
+fw_write_records_html <- function(path, data, sel, export, filters, meta = NULL) {
   generated <- format(Sys.time(), "%d %B %Y", tz = "UTC")
   n <- nrow(export)
   # As plain lists: a one-row data frame per card is the slow way to read a
@@ -278,7 +481,7 @@ fw_write_records_html <- function(path, data, export, filters, meta = NULL) {
     # What was asked, folded: a record of the question, not the thing read.
     tags$details(
       class = "fw-rec-panel",
-      tags$summary(fw_t("export", "records_selection")),
+      tags$summary(fw_t("plan", "report_selection")),
       tags$table(
         class = "fw-rec-table",
         tags$thead(tags$tr(lapply(names(selection), function(h) tags$th(scope = "col", h)))),
@@ -287,6 +490,9 @@ fw_write_records_html <- function(path, data, export, filters, meta = NULL) {
         }))
       )
     ),
+
+    # THE FIGURES, before a single card.
+    fw_records_summary_ui(data, sel, filters),
 
     tags$nav(
       class = "fw-rec-panel", id = "fw-rec-contents",
@@ -342,13 +548,21 @@ fw_write_records_html <- function(path, data, export, filters, meta = NULL) {
     fw_records_script(fw_t("export", "records_showing"))
   )
 
+  # The widgets' libraries come out of the tags here, and go into <head>.
+  rendered <- htmltools::renderTags(body)
   doc <- paste0(
     "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n",
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n",
     "<title>", htmlEscape(paste0(fw_t("export", "records_title"), " - ",
                                  fw_t("app", "title"))), "</title>\n",
-    "<style>", fw_records_css(), "</style>\n</head>\n<body>\n",
-    as.character(body), "\n</body>\n</html>\n"
+    as.character(fw_html_dependency_tags(rendered$dependencies)),
+    if (nzchar(rendered$head %||% "")) as.character(rendered$head) else "",
+    # AFTER the widgets' own stylesheets, so the app's rules win a tie as they
+    # do in the app: leaflet.css sets display:block on every marker, and read
+    # last it undid .fw-cluster's centring of the group count.
+    "<style>", fw_records_css(), "</style>\n",
+    "\n</head>\n<body>\n",
+    rendered$html, "\n</body>\n</html>\n"
   )
   con <- file(path, open = "wb")
   on.exit(close(con), add = TRUE)
@@ -357,6 +571,6 @@ fw_write_records_html <- function(path, data, export, filters, meta = NULL) {
 }
 
 #' Filename for the attempts file
-fw_records_filename <- function() {
-  fw_fill(fw_t("export", "records_filename"), date = format(Sys.Date(), "%Y%m%d"))
+fw_records_filename <- function(stamp = fw_file_stamp()) {
+  fw_fill(fw_t("export", "records_filename"), stamp = stamp)
 }
