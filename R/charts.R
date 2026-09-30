@@ -8,19 +8,25 @@
 # or the label in text. A reader who cannot separate the greens from the oranges
 # loses nothing.
 #
-# ALL FOUR OUTCOMES STAY VISIBLE. Successful, Failed, Ongoing and Unknown are
-# never collapsed into a single number. The client's metrics framework proposed
-# a headline "% successful" figure; it was declined, because failure teaches as
-# much as success and ongoing attempts show where the next results will come
-# from. A single rate throws away half of what the database is for, and on
-# socially sensitive methods it reads as advocacy.
+# ALL FOUR OUTCOMES STAY VISIBLE IN THE COUNTS. Successful, Failed, Ongoing and
+# Unknown are never collapsed into a single number. The client's metrics
+# framework proposed a headline "% successful" figure; it was declined, because
+# failure teaches as much as success and ongoing attempts show where the next
+# results will come from. A single rate throws away half of what the database is
+# for, and on socially sensitive methods it reads as advocacy.
 #
-# THE TOGGLE NOW SAYS "SUCCESS RATE" and that is the client's wording (23 Sept
-# 2026), not a change of mind about the paragraph above. It switches the bars
-# from counts to a 100% stack; all four outcomes are still drawn, still
-# labelled, and the bar still carries its own total. What went is the phrase
-# "share of attempts", which readers were taking to mean each method's share of
-# the selection rather than the outcome mix within that method.
+# A SUCCESS RATE IS SUCCESSFUL AGAINST FAILED, AND NOTHING ELSE (client, 30 Sept
+# 2026). Every "Success rate" view - the 100% bars, the species tiles, the rate
+# over time - drops Ongoing and Unknown and divides by the attempts that
+# finished one way or the other. An attempt still running has no outcome to
+# count yet, and folding it in made every method look less successful than its
+# finished attempts say. The count views keep all four, so nothing is hidden;
+# see fw_outcome_levels().
+#
+# THE TOGGLE SAYS "SUCCESS RATE" and that is the client's wording (23 Sept
+# 2026). What went is the phrase "share of attempts", which readers were taking
+# to mean each method's share of the selection rather than the outcome mix
+# within that method.
 #
 # ROTENONE IS NOT A HEADLINE. It is 544 of 914 attempts and is socially
 # sensitive. Nothing here foregrounds its success rate as a hero statistic; it
@@ -81,6 +87,17 @@ fw_legend_margin <- function(labels = NULL, width = 640) {
 }
 
 FW_OUTCOME_LEVELS <- c("Successful", "Failed", "Ongoing", "Unknown")
+
+# The two outcomes a success rate is made of. See the note at the top.
+FW_RATE_LEVELS <- c("Successful", "Failed")
+
+#' The outcomes a chart draws in a mode
+#'
+#' All four when counting, Successful and Failed when the chart is a success
+#' rate (client, 30 Sept 2026) - see the note at the top of this file.
+fw_outcome_levels <- function(mode = c("count", "share")) {
+  if (match.arg(mode) == "share") FW_RATE_LEVELS else FW_OUTCOME_LEVELS
+}
 
 #' The x axis shared by every horizontal stacked bar, in either mode
 #'
@@ -147,18 +164,15 @@ fw_bar_rules <- function(mode = c("count", "share")) {
 
 #' What a stacked segment's hover says
 #'
-#' THE SAME SENTENCE THE SPECIES TILES USE, in both modes (client, 24 Sept
-#' 2026): "Successful: 25% (3 of 12)". It is literally plan$r_tile_seg, the
-#' tiles' popover template, rather than a second template that says the same
-#' thing - the two drifted apart once already, the tiles leading with the
-#' percentage and the bars with the count, and one template is what stops that
-#' happening again.
+#' A NUMBER OF ATTEMPTS HOVERS AS A NUMBER (client, 30 Sept 2026): "Failed: 3".
+#' A percentage on a count view answered a question the reader had not asked,
+#' and the toggle beside it is where the rate lives.
 #'
-#' THE MODE NO LONGER CHANGES IT, and that is the point. The percentage used to
-#' appear in share mode only, so the count view answered a hover with an n and
-#' the share view had answered with an n before that; both numbers are always
-#' there now, because a share that hides how much evidence stands behind it is
-#' the fault this fragment exists to avoid.
+#' A SUCCESS RATE HOVERS AS THE TILES DO: "Successful: 75% (3 of 4)". It is
+#' literally plan$r_tile_seg, the tiles' popover template, rather than a second
+#' template that says the same thing, so the two cannot drift apart again. The
+#' count stays in it because a rate that hides how much evidence stands behind
+#' it is the fault this fragment exists to avoid.
 #'
 #' The hover reads ITS OWN NUMBERS rather than the drawn value: %{x} on a 100%
 #' stack tells the reader "Successful: 33.33333".
@@ -166,7 +180,14 @@ fw_bar_rules <- function(mode = c("count", "share")) {
 #' @param outcome the trace's outcome. One string - a trace is one outcome.
 #' @param n,total,share the segment's count, its bar's total, and n/total as a
 #'   percentage. Vectors, one element per segment in the trace.
-fw_hover_counts <- function(outcome, n, total, share) {
+#' @param mode "count" or "share", as the chart
+fw_hover_counts <- function(outcome, n, total, share, mode = c("count", "share")) {
+  mode <- match.arg(mode)
+  if (mode == "count") {
+    tpl <- fw_t("plan", "r_bar_count_seg")
+    return(vapply(n, function(x) fw_fill(tpl, outcome = outcome, n = fw_fmt_num(x)),
+                  character(1)))
+  }
   tpl <- fw_t("plan", "r_tile_seg")
   # share is 100 * n / total and total is a bar's own total, which is never
   # zero for a bar that exists - a bar is drawn because something counted into
@@ -336,6 +357,77 @@ fw_chart_cumulative <- function(sel) {
 
 
 
+# ---- Success rate over time -------------------------------------------------
+
+#' The rolling success rate, one row per start year
+#'
+#' POOLED, NOT AVERAGED. Each year's point is the Successful attempts over the
+#' Successful and Failed attempts that began in the window around it, counted
+#' together - an average of yearly rates would give a year with two attempts
+#' the same weight as a year with forty. Ongoing and Unknown are left out, as in
+#' every success rate here (see the note at the top of this file).
+#'
+#' The window is the FW_CHART$success_time$window years ending in the year,
+#' cut short at the start of the data; `from` and `to` are the years it
+#' actually spans, and the hover names them.
+#'
+#' @return a tibble of year, from, to, n (successful), total (finished), rate
+#'   (NA where total < min_n); NULL when fewer than two years can be drawn
+fw_success_time_data <- function(sel) {
+  cfg <- FW_CHART$success_time
+  y <- sel[!is.na(sel$start_year) & sel$outcome %in% FW_RATE_LEVELS,
+           c("start_year", "outcome")]
+  if (!nrow(y)) return(NULL)
+  first <- min(y$start_year)
+  last <- max(y$start_year)
+  years <- seq(first, last)
+  from <- pmax(years - (cfg$window - 1L), first)
+  to <- years
+  n <- vapply(seq_along(years), function(i)
+    sum(y$start_year >= from[i] & y$start_year <= to[i] & y$outcome == "Successful"), 1L)
+  total <- vapply(seq_along(years), function(i)
+    sum(y$start_year >= from[i] & y$start_year <= to[i]), 1L)
+  rate <- ifelse(total >= cfg$min_n, 100 * n / total, NA_real_)
+  if (sum(!is.na(rate)) < 2) return(NULL)
+  tibble(year = years, from = from, to = to, n = n, total = total, rate = rate)
+}
+
+#' Success rate over time, as a rolling line
+#'
+#' One line in the success green, on a 0-100% axis. Years whose window holds
+#' too few finished attempts are gaps, not zeros - see fw_success_time_data().
+fw_chart_success_time <- function(sel) {
+  d <- fw_success_time_data(sel)
+  if (is.null(d)) return(NULL)
+  tpl <- fw_t("charts", "success_time_hover")
+  d$hover <- vapply(seq_len(nrow(d)), function(i) {
+    fw_fill(tpl, from = d$from[i], to = d$to[i], pc = sprintf("%.0f", d$rate[i]),
+            n = fw_fmt_num(d$n[i]), total = fw_fmt_num(d$total[i]))
+  }, character(1))
+  this_year <- as.integer(format(Sys.Date(), "%Y"))
+
+  p <- plotly::plot_ly(height = FW_CHART$height$cumulative) |>
+    plotly::add_trace(
+      data = d, x = ~year, y = ~rate, type = "scatter", mode = "lines",
+      name = "", showlegend = FALSE, connectgaps = FALSE,
+      line = list(shape = "linear", width = FW_CHART$line,
+                  color = unname(FW_OUTCOME_COLOURS[["Successful"]])),
+      hovertemplate = "%{customdata}<extra></extra>", customdata = d$hover
+    )
+  fw_plotly_style(p, legend = FALSE, filename = "fwise-success-rate-over-time") |>
+    plotly::layout(
+      hovermode = "x",
+      xaxis = list(title = fw_t("charts", "x_year"), gridcolor = FW_COLOURS$border,
+                   zeroline = FALSE,
+                   # To the present, like the attempts chart beside it.
+                   range = c(min(d$year), max(max(d$year), this_year))),
+      yaxis = list(title = fw_t("charts", "y_success_time"),
+                   gridcolor = FW_COLOURS$border, zeroline = FALSE,
+                   range = c(0, 100), ticksuffix = "%",
+                   tick0 = 0, dtick = FW_CHART$share_dtick)
+    )
+}
+
 # ---- Outcome by method -------------------------------------------------------
 
 #' Outcome mix within each method
@@ -343,14 +435,25 @@ fw_chart_cumulative <- function(sel) {
 #' Two modes over one chart rather than two charts, because the sidebar leaves a
 #' narrow column and a pair side by side would crush both. "share" answers "how
 #' often does this work", "count" answers "how much evidence is there".
+#'
+#' SINGLE-METHOD ATTEMPTS ONLY (client, 30 Sept 2026), the same rule the
+#' duration chart has always had - see fw_single_method_ids(). An attempt that
+#' ran rotenone and then netting used to enter both bars with the one outcome
+#' it had, so each method was credited with a result it may have had no part
+#' in, and the bars added up to more attempts than there were.
+#'
+#' In share mode only Successful and Failed are drawn and the bar's total, the
+#' n in its label, is the attempts that finished - see fw_outcome_levels().
 fw_method_data <- function(data, sel, mode = c("count", "share")) {
   mode <- match.arg(mode)
+  one <- fw_single_method_ids(data, sel)
   me <- data$attempt_method |>
-    filter(attempt_id %in% sel$attempt_id) |>
+    filter(attempt_id %in% one) |>
     left_join(select(data$method, method_id, method_name), by = "method_id") |>
     distinct(attempt_id, method_name, method_id) |>
     left_join(select(sel, attempt_id, outcome), by = "attempt_id") |>
-    mutate(outcome = ifelse(is.na(outcome), "Unknown", outcome))
+    mutate(outcome = ifelse(is.na(outcome), "Unknown", outcome)) |>
+    filter(outcome %in% fw_outcome_levels(mode))
   if (nrow(me) == 0) return(NULL)
 
   totals <- me |>
@@ -369,6 +472,30 @@ fw_method_data <- function(data, sel, mode = c("count", "share")) {
        mode = mode)
 }
 
+#' The attempts that recorded exactly one method
+#'
+#' THE METHOD CHART AND THE DURATION CHART BOTH DRAW ONLY THESE. Each puts an
+#' attempt-level fact - its outcome, its duration - against a method, and for
+#' an attempt that used one method that is the same statement. For an attempt
+#' that used two it is not, and the database holds no per-method outcomes or
+#' dates to split it with. See fw_duration_sel() for the case that started it.
+#'
+#' @return attempt ids from `sel`
+fw_single_method_ids <- function(data, sel) {
+  am <- data$attempt_method[data$attempt_method$attempt_id %in% sel$attempt_id, ]
+  am <- unique(am[, c("attempt_id", "method_id")])
+  n <- table(am$attempt_id)
+  names(n)[n == 1L]
+}
+
+#' How many of a selection's attempts are left off the method charts because
+#' they recorded more than one method. The caption under the chart says so.
+fw_n_multi_method <- function(data, sel) {
+  with_method <- unique(data$attempt_method$attempt_id[
+    data$attempt_method$attempt_id %in% sel$attempt_id])
+  length(with_method) - length(fw_single_method_ids(data, sel))
+}
+
 fw_chart_method <- function(data, sel, mode = c("count", "share")) {
   mode <- match.arg(mode)
   md <- fw_method_data(data, sel, mode)
@@ -379,14 +506,15 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
   # space two would use.
   font <- fw_plot_font()
   p <- plotly::plot_ly(height = fw_chart_height("method", length(order_lv)))
-  for (o in FW_OUTCOME_LEVELS) {
+  levels <- fw_outcome_levels(mode)
+  for (o in levels) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
     # COMPUTED HERE, NOT AS A ~FORMULA. A formula is evaluated when plotly
     # builds the figure, by which time this loop has finished and `o` is the
     # last outcome - so every trace would hover as "Unknown". The frame is
     # already subset to this outcome, so there is nothing to defer for.
-    hover <- fw_hover_counts(o, dd$n, dd$total, dd$share)
+    hover <- fw_hover_counts(o, dd$n, dd$total, dd$share, mode)
     p <- plotly::add_trace(
       p, data = dd, type = "bar", orientation = "h",
       y = ~factor(method_label, levels = order_lv), x = ~value, name = o,
@@ -409,7 +537,7 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
     )
   }
 
-  fw_plotly_style(p, legend_labels = FW_OUTCOME_LEVELS,
+  fw_plotly_style(p, legend_labels = levels,
                   filename = paste0("fwise-methods-", mode)) |>
     plotly::layout(
       barmode = "stack",
@@ -433,7 +561,7 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
 #' the reader sees the actual spread rather than a summary of it - and a method
 #' with four durations cannot masquerade as a distribution.
 #'
-#' SINGLE-METHOD ATTEMPTS ONLY. See fw_duration_sel() for why.
+#' SINGLE-METHOD, SUCCESSFUL ATTEMPTS ONLY. See fw_duration_sel() for why.
 
 #' The attempts this chart is allowed to draw
 #'
@@ -450,18 +578,20 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
 #' The cost is small - the large majority of attempts with a duration record a
 #' single method - and the caption under the chart says what it was.
 #'
+#' SUCCESSFUL ATTEMPTS ONLY (client, 30 Sept 2026). This chart is for planning:
+#' how long does an eradication that works take. A failed attempt's duration is
+#' how long someone persisted before stopping, and an ongoing one's is how long
+#' it has run so far - neither is an answer to that question, and together they
+#' made the chart busier and harder to read.
+#'
 #' THE HONEST ALTERNATIVE IS PER-METHOD DATES, which the database does not hold.
 #' If it ever does, this filter is what should be removed first.
 #'
 #' @return the rows of `sel` this chart draws, which is what the caption counts
 fw_duration_sel <- function(data, sel) {
-  one <- data$attempt_method |>
-    filter(attempt_id %in% sel$attempt_id) |>
-    distinct(attempt_id, method_id) |>
-    count(attempt_id, name = "n_methods") |>
-    filter(n_methods == 1L)
   sel |>
-    filter(attempt_id %in% one$attempt_id,
+    filter(attempt_id %in% fw_single_method_ids(data, sel),
+           outcome %in% "Successful",
            !is.na(duration_days), duration_days > 0)
 }
 
@@ -532,15 +662,11 @@ fw_duration_ticks <- function(days) {
     return(list(vals = vals, text = text))
   }
 
-  # Name it in the largest unit that leaves a whole number above one, so a
-  # nine-month attempt is "9 months" rather than "0.7 years".
-  label <- if (mx >= 365) {
-    fw_fill(fw_t("charts", "duration_max_years"), n = round(mx / 365))
-  } else if (mx >= 30) {
-    fw_fill(fw_t("charts", "duration_max_months"), n = round(mx / 30))
-  } else {
-    fw_fill(fw_t("charts", "duration_max_days"), n = round(mx))
-  }
+  # IN THE MAP CARD'S UNITS - days under a year, years to one decimal place
+  # from there - so the last tick and the hover over the box name the same
+  # length the same way (client, 30 Sept 2026: the hover said 5475 and the
+  # axis said 15 years). See fw_popup_duration() in R/maps.R.
+  label <- fw_popup_duration(mx)
 
   crowded <- length(vals) > 0 &&
     (log10(mx) - log10(vals[length(vals)])) < FW_CHART$duration_tick_gap
@@ -630,6 +756,40 @@ fw_duration_data <- function(data, sel) {
   list(d = d, order_lv = order_lv)
 }
 
+#' The duration chart's box per row, and the hover that describes it
+#'
+#' Quartiles by R's default (type 7), fences at the furthest attempt within 1.5
+#' times the middle half of the box - the rule plotly and ggplot both draw. Every
+#' length is written by fw_popup_duration(), the map card's formatter, so the
+#' chart, the axis and the map say "1.5 years" alike.
+#'
+#' @param d fw_duration_data()$d
+#' @return one row per method row: row, q1, median, q3, lowerfence, upperfence,
+#'   hover
+fw_duration_box_stats <- function(d) {
+  rows <- sort(unique(d$row))
+  out <- lapply(rows, function(r) {
+    x <- d$duration_days[d$row == r]
+    q <- unname(stats::quantile(x, c(0.25, 0.5, 0.75), type = 7))
+    iqr <- q[3] - q[1]
+    data.frame(row = r, label = d$method_label[d$row == r][1], n = length(x),
+               q1 = q[1], median = q[2], q3 = q[3],
+               lowerfence = min(x[x >= q[1] - 1.5 * iqr]),
+               upperfence = max(x[x <= q[3] + 1.5 * iqr]),
+               shortest = min(x), longest = max(x))
+  })
+  st <- do.call(rbind, out)
+  fmt <- function(v) vapply(v, fw_popup_duration, character(1))
+  tpl <- fw_t("charts", "duration_hover")
+  st$hover <- vapply(seq_len(nrow(st)), function(i) {
+    fw_fill(tpl, method = sub("  \\([0-9]+\\)$", "", st$label[i]),
+            n = fw_fmt_num(st$n[i]), median = fmt(st$median[i]),
+            q1 = fmt(st$q1[i]), q3 = fmt(st$q3[i]),
+            shortest = fmt(st$shortest[i]), longest = fmt(st$longest[i]))
+  }, character(1))
+  st
+}
+
 fw_chart_duration <- function(data, sel) {
   dd <- fw_duration_data(data, sel)
   if (is.null(dd)) return(NULL)
@@ -638,44 +798,59 @@ fw_chart_duration <- function(data, sel) {
 
   ticks <- fw_duration_ticks(d$duration_days)
 
+  # THE BOX FROM ITS OWN NUMBERS, and the hover from the same numbers. plotly's
+  # box hover prints the raw x, which on this axis is days: the client saw
+  # "max: 5475" under a tick reading "15 years" (30 Sept 2026). A box trace has
+  # no way to reformat its own statistics, so they are computed here, handed
+  # to the box as precomputed q1/median/q3/fences, and printed in words by
+  # invisible markers on the box - see fw_duration_box_stats().
+  st <- fw_duration_box_stats(d)
   p <- plotly::plot_ly(height = fw_chart_height("duration", length(order_lv)))
   p <- plotly::add_trace(
-    p, data = d, type = "box", orientation = "h",
-    x = ~duration_days, y = ~row, width = 2 * FW_CHART$duration_swarm$spread,
-    name = "", showlegend = FALSE, hoverinfo = "x",
+    p, type = "box", orientation = "h",
+    y = st$row, q1 = st$q1, median = st$median, q3 = st$q3,
+    lowerfence = st$lowerfence, upperfence = st$upperfence,
+    width = 2 * FW_CHART$duration_swarm$spread,
+    name = "", showlegend = FALSE, hoverinfo = "skip",
     # Interface colours, deliberately. The box is chrome rather than data - the
-    # outcome markers on top of it carry the encoding - so it is the only chart
+    # markers on top of it carry the encoding - so it is the only chart
     # element drawn from the brand palette rather than the data palette.
     fillcolor = fw_rgba(FW_COLOURS$teal_tint, 0.45),
-    line = list(color = FW_COLOURS$teal_text, width = FW_CHART$box_line),
-    boxpoints = FALSE
+    line = list(color = FW_COLOURS$teal_text, width = FW_CHART$box_line)
   )
   # THE DOTS ARE PICTURE, NOT CONTROLS (Sept 2026 user testing): no hover,
-  # so nothing on them invites a click. The box under them still answers a
-  # hover with its median and quartiles.
-  for (o in FW_OUTCOME_LEVELS) {
-    dd <- d[d$outcome == o, ]
-    if (!nrow(dd)) next
-    p <- plotly::add_trace(
-      p, data = dd, type = "scatter", mode = "markers",
-      x = ~duration_days, y = ~y_dot,
-      name = o, hoverinfo = "skip",
-      marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
-                    size = FW_CHART$point$size,
-                    opacity = FW_CHART$point$opacity,
-                    line = list(color = FW_COLOURS$surface,
-                                width = FW_CHART$point$stroke))
-    )
-  }
+  # so nothing on them invites a click. ONE COLOUR, because every dot is a
+  # successful attempt now (client, 30 Sept 2026) and a key saying so would
+  # be a legend with one entry.
+  p <- plotly::add_trace(
+    p, data = d, type = "scatter", mode = "markers",
+    x = ~duration_days, y = ~y_dot,
+    name = "", showlegend = FALSE, hoverinfo = "skip",
+    marker = list(color = unname(FW_OUTCOME_COLOURS[["Successful"]]),
+                  size = FW_CHART$point$size,
+                  opacity = FW_CHART$point$opacity,
+                  line = list(color = FW_COLOURS$surface,
+                              width = FW_CHART$point$stroke))
+  )
+  # The box's hover: an invisible marker at its quartiles and median, each
+  # carrying the whole summary, so the pointer finds one anywhere along the
+  # box. Drawn last, so it is on top of the dots it shares the row with.
+  hv <- st[rep(seq_len(nrow(st)), each = 3), ]
+  hv$x <- as.vector(rbind(st$q1, st$median, st$q3))
+  p <- plotly::add_trace(
+    p, type = "scatter", mode = "markers", x = hv$x, y = hv$row,
+    name = "", showlegend = FALSE,
+    marker = list(size = FW_CHART$point$size * 2, opacity = 0),
+    hovertemplate = "%{customdata}<extra></extra>", customdata = hv$hover
+  )
 
-  fw_plotly_style(p, legend_labels = FW_OUTCOME_LEVELS,
-                  filename = "fwise-duration") |>
+  fw_plotly_style(p, legend = FALSE, filename = "fwise-duration") |>
     plotly::layout(
       boxmode = "group",
       # ROOM FOR THE TERMINAL TICK'S LABEL, which sits at the longest attempt
       # in the selection and so at the right-hand end of the axis. The shared
       # style leaves 8px there, which "20 years" centred on that tick overruns.
-      margin = list(l = 8, r = 44, t = fw_legend_margin(FW_OUTCOME_LEVELS), b = 52),
+      margin = list(l = 8, r = 44, t = 8, b = 52),
       xaxis = list(
         # NO TITLE (client, 23 Sept 2026). The named ticks below say what the
         # axis measures, and the title under them said it a second time.
@@ -759,6 +934,9 @@ fw_category_data <- function(d, limit = NA_integer_, mode = c("count", "share"))
   mode <- match.arg(mode)
   if (!nrow(d)) return(NULL)
   d$outcome <- as.character(fw_outcome_factor(d$outcome))
+  # A success rate is Successful against Failed - see fw_outcome_levels().
+  d <- d[d$outcome %in% fw_outcome_levels(mode), , drop = FALSE]
+  if (!nrow(d)) return(NULL)
   other <- fw_t("charts", "other")
 
   totals <- d |> count(category, name = "total") |> arrange(desc(total))
@@ -796,11 +974,12 @@ fw_chart_category <- function(d, limit = NA_integer_,
   font <- fw_plot_font()
 
   p <- plotly::plot_ly(height = fw_chart_height("category", length(order_lv)))
-  for (o in FW_OUTCOME_LEVELS) {
+  levels <- fw_outcome_levels(mode)
+  for (o in levels) {
     dd <- d[d$outcome == o, ]
     if (!nrow(dd)) next
     # Eager, not a ~formula - see the note in fw_chart_method().
-    hover <- fw_hover_counts(o, dd$n, dd$total, dd$share)
+    hover <- fw_hover_counts(o, dd$n, dd$total, dd$share, mode)
     p <- plotly::add_trace(
       p, data = dd, type = "bar", orientation = "h",
       y = ~factor(label, levels = order_lv), x = ~value, name = o,
@@ -824,7 +1003,7 @@ fw_chart_category <- function(d, limit = NA_integer_,
     )
   }
 
-  fw_plotly_style(p, legend_labels = FW_OUTCOME_LEVELS,
+  fw_plotly_style(p, legend_labels = levels,
                   filename = paste0(filename, "-", mode)) |>
     plotly::layout(
       barmode = "stack",
@@ -837,27 +1016,38 @@ fw_chart_category <- function(d, limit = NA_integer_,
     )
 }
 
-#' Attempts by kind of waterbody
+#' Attempts in still and flowing water
 #'
-#' The specific type rather than the still/flowing split: "Lake" and "Pond"
-#' behave differently enough that collapsing them loses the useful part, and the
-#' regime is one filter away in the sidebar.
+#' LENTIC AND LOTIC, NOT THE KIND OF WATERBODY (client, 30 Sept 2026). The
+#' chart used to name the waterbody type - lake, pond, river - and the client
+#' asked for the plain two-way split instead, in the words the regime filter
+#' uses (fw_regime_label()). Every attempt has a regime, so there is no "Other"
+#' and nothing is left off.
 #'
-#' @param mode "count" for attempts, "share" for the outcome mix in each kind of
-#'   water as a 100% bar. The segments carry counts or percentages to match;
-#'   the bar labels keep their totals in both modes, so the evidence behind a
-#'   share is never off the chart.
+#' NOT DRAWN when the reader has filtered to one regime, where it would be a
+#' single bar restating the filter - see fw_show_waterbody().
+#'
+#' @param mode "count" for attempts, "share" for the success rate in each as a
+#'   100% bar. The bar labels keep their totals in both modes, so the evidence
+#'   behind a rate is never off the chart.
 fw_chart_waterbody <- function(sel, mode = c("count", "share")) {
   mode <- match.arg(mode)
-  fw_chart_category(fw_waterbody_rows(sel), limit = FW_TOP_N,
-                    filename = "fwise-waterbody-types", mode = mode)
+  fw_chart_category(fw_waterbody_rows(sel), filename = "fwise-waterbody", mode = mode)
 }
 
-#' The kind-of-water chart's input: one row per attempt with a waterbody
+#' The still/flowing chart's input: one row per attempt with a regime
 fw_waterbody_rows <- function(sel) {
   sel |>
-    filter(!is.na(waterbody_type)) |>
-    transmute(category = waterbody_type, outcome)
+    filter(!is.na(water_regime)) |>
+    transmute(category = fw_regime_label(water_regime), outcome)
+}
+
+#' Whether the still/flowing chart belongs in a report of these filters
+#'
+#' Not when exactly one regime is picked: every bar but one would be empty.
+#' Both picked is the same as neither, and the chart stays.
+fw_show_waterbody <- function(filters) {
+  length(filters$regime %||% character(0)) != 1L
 }
 
 #' One row per (attempt, species) for a role, labelled and with its outcome
@@ -865,16 +1055,55 @@ fw_waterbody_rows <- function(sel) {
 #' DEDUPED PER ATTEMPT. An attempt listing a species twice must count once, or a
 #' messily recorded row quietly inflates its species up the ranking.
 #'
+#' INSIDE THE READER'S OWN FILTER when `f` is given (client, 30 Sept 2026). A
+#' filter to Cyprinidae keeps the attempts that targeted a cyprinid, and many of
+#' those also targeted a trout; the top three then led with the trout. With
+#' `f`, only species matching that role's kind of animal and family filters are
+#' counted - see fw_species_in_filter().
+#'
 #' @param role_name "invasive" or "beneficiary"
-fw_species_rows <- function(data, sel, role_name = c("invasive", "beneficiary")) {
+#' @param f a filter state (fw_filter_state()), or NULL for every species
+fw_species_rows <- function(data, sel, role_name = c("invasive", "beneficiary"),
+                            f = NULL) {
   role_name <- match.arg(role_name)
-  species <- fw_species_label(data$species)
+  species <- fw_species_in_filter(fw_species_label(data$species), role_name, f)
   data$attempt_species |>
     filter(role == role_name, attempt_id %in% sel$attempt_id) |>
     distinct(attempt_id, species_id) |>
-    left_join(select(species, species_id, label), by = "species_id") |>
+    inner_join(select(species, species_id, label), by = "species_id") |>
     left_join(select(sel, attempt_id, outcome), by = "attempt_id") |>
     filter(!is.na(label))
+}
+
+# Each role's kind-of-animal, family and species filters, by FW_FILTERS id.
+FW_SPECIES_ROLE_FILTERS <- list(
+  invasive    = c(taxa = "taxa", family = "family", species = "species"),
+  beneficiary = c(taxa = "taxa_beneficiary", family = "family_beneficiary",
+                  species = "beneficiary")
+)
+
+#' The species a role's filters allow, as rows of fw_species_label()
+#'
+#' The kind of animal and family narrow it, by fw_species_allowed(), the rule
+#' the pickers already follow. A species pick is not applied here: when one is
+#' set the tiles for that role are not drawn at all - see
+#' fw_species_row_shown().
+fw_species_in_filter <- function(species, role_name, f = NULL) {
+  if (is.null(f)) return(species)
+  ids <- FW_SPECIES_ROLE_FILTERS[[role_name]]
+  keep <- fw_species_allowed(species, f[[ids[["taxa"]]]] %||% character(0),
+                             f[[ids[["family"]]]] %||% character(0), species$label)
+  species[species$label %in% keep, , drop = FALSE]
+}
+
+#' Whether a role's top-species tiles are drawn for these filters
+#'
+#' Not when the reader has picked species for that role (client, 30 Sept
+#' 2026): the tiles would show back the species they chose. The other role's
+#' row stays - a pick of invasive species still leaves the protected row.
+fw_species_row_shown <- function(role_name, f = NULL) {
+  if (is.null(f)) return(TRUE)
+  !length(f[[FW_SPECIES_ROLE_FILTERS[[role_name]][["species"]]]] %||% character(0))
 }
 
 #' The top n species for a role, with their outcome split
@@ -886,8 +1115,8 @@ fw_species_rows <- function(data, sel, role_name = c("invasive", "beneficiary"))
 #'
 #' @return a tibble of species_id, label, n and one column per outcome, ordered
 #'   by n descending; zero rows if the role has none in this selection.
-fw_species_top_n <- function(data, sel, role_name, limit = FW_TOP_N) {
-  d <- fw_species_rows(data, sel, role_name)
+fw_species_top_n <- function(data, sel, role_name, limit = FW_TOP_N, f = NULL) {
+  d <- fw_species_rows(data, sel, role_name, f)
   if (!nrow(d)) return(d[0, ])
   d$outcome <- as.character(fw_outcome_factor(d$outcome))
 

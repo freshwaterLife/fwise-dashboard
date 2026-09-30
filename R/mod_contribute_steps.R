@@ -135,8 +135,9 @@ fw_step_site_ui <- function(ns, choices) {
                      tags$span(class = "fw-visually-hidden", fw_t("a11y", "required"))),
           fw_info(fw_tip("location"), tolower(fw_lab("location")))),
       div(class = "fw-field__help", fw_help("location")),
-      div(class = "fw-map-picker",
-          leaflet::leafletOutput(ns("picker"), height = 320)),
+      # The same shape as every other map, so the whole world is in view when
+      # the contributor starts looking for their water (client, 30 Sept 2026).
+      fw_map_output(ns("picker"), class = "fw-map-picker"),
       div(
         class = "fw-coord-row",
         fw_field(fw_num_input(ns("latitude"), min = -90, max = 90, step = 0.000001),

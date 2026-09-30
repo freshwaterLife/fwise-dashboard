@@ -216,17 +216,17 @@ fw_gg_method <- function(data, sel, mode = "count") {
   md <- fw_method_data(data, sel, mode)
   if (is.null(md)) return(NULL)
   d <- mutate(md$d, label = method_label)
-  fw_gg_stack(d, md$order_lv, "outcome", FW_OUTCOME_LEVELS, FW_OUTCOME_COLOURS,
+  fw_gg_stack(d, md$order_lv, "outcome", fw_outcome_levels(md$mode), FW_OUTCOME_COLOURS,
               FW_OUTCOME_LABEL_INK, md$mode,
               fw_t("charts", if (md$mode == "share") "x_share" else "x_attempts"))
 }
 
-#' Attempts by kind of water, stacked by outcome
+#' Attempts in still and flowing water, stacked by outcome
 fw_gg_waterbody <- function(sel, mode = "count") {
-  cd <- fw_category_data(fw_waterbody_rows(sel), FW_TOP_N, mode)
+  cd <- fw_category_data(fw_waterbody_rows(sel), mode = mode)
   if (is.null(cd)) return(NULL)
   # Numerals in the segments, count or %, as the page's chart now prints them.
-  fw_gg_stack(cd$d, cd$order_lv, "outcome", FW_OUTCOME_LEVELS,
+  fw_gg_stack(cd$d, cd$order_lv, "outcome", fw_outcome_levels(mode),
               FW_OUTCOME_COLOURS, FW_OUTCOME_LABEL_INK, mode,
               fw_t("charts", if (mode == "share") "x_share" else "x_attempts"))
 }
@@ -240,7 +240,6 @@ fw_gg_duration <- function(data, sel) {
   dd <- fw_duration_data(data, sel)
   if (is.null(dd)) return(NULL)
   d <- dd$d
-  d$outcome <- factor(d$outcome, levels = FW_OUTCOME_LEVELS)
   lim <- 10^fw_duration_range(d$duration_days)
   spread <- FW_CHART$duration_swarm$spread
 
@@ -259,11 +258,12 @@ fw_gg_duration <- function(data, sel) {
                  orientation = "y", width = 2 * spread, outlier.shape = NA,
                  fill = FW_COLOURS$teal_tint, alpha = 0.45,
                  colour = FW_COLOURS$teal_text, linewidth = 0.4) +
-    geom_point(aes(x = duration_days, y = y_dot, fill = outcome),
+    # One colour and no key: every dot is a successful attempt (client, 30
+    # Sept 2026), as on the page.
+    geom_point(aes(x = duration_days, y = y_dot),
+               fill = FW_OUTCOME_COLOURS[["Successful"]],
                shape = 21, size = 2.1, stroke = 0.25,
                colour = FW_COLOURS$surface, alpha = FW_CHART$point$opacity) +
-    scale_fill_manual(values = FW_OUTCOME_COLOURS, breaks = FW_OUTCOME_LEVELS,
-                      drop = TRUE) +
     scale_x_log10(limits = lim, breaks = ticks$vals,
                   labels = fw_gg_stagger(ticks$text),
                   expand = expansion(0)) +
@@ -280,8 +280,7 @@ fw_gg_duration <- function(data, sel) {
           # "20 years" centred on it runs off the panel and is clipped by the
           # default 6pt margin. Half a label's width, taken from the theme's
           # own text size.
-          plot.margin = margin(2, FW_PRINT$floor * 2.2, 2, 2)) +
-    guides(fill = guide_legend(override.aes = list(size = 3.2, alpha = 1)))
+          plot.margin = margin(2, FW_PRINT$floor * 2.2, 2, 2))
 }
 
 #' Tick labels on two alternating lines

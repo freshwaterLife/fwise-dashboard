@@ -98,8 +98,11 @@ fw_plan_results_ui <- function(ns) {
 
     # ---- What kind of water -----------------------------------------------
 
-    fw_block(
-      fw_t("plan", "r_waterbody"), fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
+    # NOT DRAWN when the build filtered to one regime (client, 30 Sept 2026):
+    # a still/flowing split of only still water is one bar restating the
+    # filter. See fw_show_waterbody() and output$waterbody_shown.
+    conditionalPanel("output.waterbody_shown == 'yes'", ns = ns, fw_block(
+      fw_t("plan", "r_waterbody"), fw_t("plan", "r_waterbody_note"),
       tagList(
         # Its own toggle, like the method chart. The denominator here is
         # the kind of water's own attempts, so share answers "in a lake, how
@@ -110,7 +113,7 @@ fw_plan_results_ui <- function(ns) {
                        fw_t("plan", "r_waterbody_share")),
         plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
       )
-    ),
+    )),
 
     fw_block(
       fw_t("plan", "r_method"), fw_t("plan", "r_method_note"),
@@ -124,7 +127,8 @@ fw_plan_results_ui <- function(ns) {
                        fw_t("plan", "r_method_count"),
                        fw_t("plan", "r_method_share")),
         plotly::plotlyOutput(ns("methods"), height = "auto"),
-        uiOutput(ns("method_missing"))
+        uiOutput(ns("method_missing")),
+        uiOutput(ns("method_multi"))
       )
     ),
 
@@ -192,8 +196,9 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # fw_link_geo_filters() in R/filters.R.
     fw_link_geo_filters(input, session, data, choices)
 
-    # The species pickers offer only what is left of the kind of animal and
-    # fish family chosen above them. See fw_link_species_filters().
+    # The invasive species follow the invasive kind of animal and family; the
+    # three protected pickers offer only what the attempts matching every other
+    # filter protected. See fw_link_species_filters().
     fw_link_species_filters(input, session, data, choices, ids)
 
     # The fish family pair empties itself when Fish is deselected, as on
@@ -336,13 +341,19 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # TWO PLAIN BLOCKS, each titled like every other block on the page: "Top
     # three invasive species targeted (of 41 total)", then "Top three species
     # protected (of >12 total)". 
+    #
+    # INSIDE THE BUILD'S OWN FILTERS (client, 30 Sept 2026): a family or kind
+    # of animal narrows the species counted, and a species pick removes that
+    # role's row. See fw_species_rows() and fw_species_row_shown().
     output$species <- renderUI({
       sel <- results()$sel
+      f <- results()$filters
       role_block <- function(role_name) {
-        title <- fw_species_top_title(data, sel, role_name)
+        title <- fw_species_top_title(data, sel, role_name, f = f)
         if (is.null(title)) return(NULL)
         fw_block(title, NULL,
-                 fw_species_tiles_ui(data, sel, role_name, limit = FW_PLAN_SPECIES_N))
+                 fw_species_tiles_ui(data, sel, role_name, limit = FW_PLAN_SPECIES_N,
+                                     f = f))
       }
       tagList(role_block("invasive"), role_block("beneficiary"))
     })
@@ -355,6 +366,11 @@ mod_plan_server <- function(id, data, meta = NULL) {
     })
     output$method_missing <- renderUI(
       caption("r_method_missing", fw_n_no_method(data, results()$sel)))
+    output$method_multi <- renderUI(
+      caption("r_method_multi", fw_n_multi_method(data, results()$sel)))
+    output$waterbody_shown <- renderText(
+      if (built() && fw_show_waterbody(report()$filters)) "yes" else "no")
+    outputOptions(output, "waterbody_shown", suspendWhenHidden = FALSE)
     output$duration_missing <- renderUI(p(
       class = "fw-caption",
       fw_fill(fw_t("plan", "r_duration_missing"),
@@ -390,7 +406,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # of which are known creation. See fw_pdf_size_estimate() in R/report_pdf.R.
     #
     # Once per build, not once per tick: the estimate reads the selection only.
-    pdf_estimate <- reactive(fw_pdf_size_estimate(data, results()$sel))
+    pdf_estimate <- reactive(fw_pdf_size_estimate(data, results()$sel, results()$filters))
     output$download_warn <- renderUI({
       if (!"pdf" %in% (input$download_parts %||% character(0))) return(NULL)
       est <- pdf_estimate()

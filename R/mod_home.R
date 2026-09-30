@@ -147,14 +147,19 @@ fw_home_card <- function(key, s, img) {
 
 #' The before/after map reveal
 #' --fw-pos is how much of the priorities map shows, from the left. The input
-#' writes it on every move; the stylesheet does the rest. It starts at 0, fully
-#' on current work, matching the input's value so the first paint is right
-#' without any script having run.
+#' writes it on every move; the stylesheet does the rest.
+#'
+#' IT STARTS IN THE MIDDLE AND SWAYS (client, 30 Sept 2026), so a reader sees
+#' that it moves before being told. Half and half on the first paint, matching
+#' the input's value so it is right without any script; then, once the map is
+#' on screen, fw_home_compare_script() swings the divide either way twice and
+#' settles back in the middle. It stops the moment the reader touches it, and
+#' does not move at all for a reader who has asked for reduced motion.
 fw_home_compare <- function(input_id) {
   tags$figure(
     class = "fw-compare-wrap",
     div(
-      class = "fw-compare", style = "--fw-pos: 0%;",
+      class = "fw-compare", style = sprintf("--fw-pos: %d%%;", FW_HOME_COMPARE$start),
       tags$img(class = "fw-compare__base", src = FW_HOME_IMG$map_now,
                alt = "", `aria-hidden` = "true"),
       div(class = "fw-compare__top",
@@ -164,13 +169,70 @@ fw_home_compare <- function(input_id) {
       # binding. The value is a percentage of the width.
       tags$input(
         type = "range", id = input_id, class = "fw-compare__range",
-        min = 0, max = 100, step = 1, value = 0,
+        min = 0, max = 100, step = 1, value = FW_HOME_COMPARE$start,
         `aria-label` = fw_t("home", "map_slider_label"),
         oninput = "this.parentNode.style.setProperty('--fw-pos', this.value + '%')"
       )
     ),
-    tags$figcaption(class = "fw-compare__caption", fw_home_map_line())
+    tags$figcaption(class = "fw-compare__caption", fw_home_map_line()),
+    fw_home_compare_script(input_id)
   )
+}
+
+#' The sway that shows the map reveal is a control. See fw_home_compare().
+#'
+#' Plain DOM, no Shiny: the input is not bound to anything. Runs each time the
+#' map comes into view (the Welcome tab shown again, or scrolled back to) until
+#' the reader has used the slider once.
+fw_home_compare_script <- function(input_id) {
+  cfg <- FW_HOME_COMPARE
+  tags$script(HTML(sprintf("
+    (function () {
+      var input = document.getElementById('%s');
+      if (!input || !window.requestAnimationFrame) return;
+      var box = input.parentNode;
+      if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      var START = %d, SWING = %d, PERIOD = %d, CYCLES = %d, DELAY = %d;
+      var touched = false, running = false;
+      function set(v) {
+        v = Math.round(v * 10) / 10;
+        box.style.setProperty('--fw-pos', v + '%%');
+        input.value = v;
+      }
+      function stop() { touched = true; }
+      ['pointerdown', 'keydown', 'focus', 'touchstart'].forEach(function (ev) {
+        input.addEventListener(ev, stop, { passive: true });
+      });
+      function sway() {
+        if (touched || running) return;
+        // NOT UNDER THE START-UP LOADER, which covers the page until the app
+        // has drawn itself (fw_loader()): it would sway unseen and be still by
+        // the time the reader could look.
+        if (document.getElementById('fw-loader')) { setTimeout(sway, 200); return; }
+        running = true;
+        var t0 = null, total = PERIOD * CYCLES;
+        function frame(t) {
+          if (touched) { running = false; return; }
+          if (t0 === null) t0 = t;
+          var e = t - t0;
+          if (e >= total) { set(START); running = false; return; }
+          // A sine either side of the middle, easing out on the last swing so
+          // it comes to rest rather than stopping dead.
+          var fade = Math.min(1, (total - e) / PERIOD);
+          set(START + SWING * fade * Math.sin(2 * Math.PI * e / PERIOD));
+          requestAnimationFrame(frame);
+        }
+        setTimeout(function () { requestAnimationFrame(frame); }, DELAY);
+      }
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function (entries) {
+          entries.forEach(function (en) { if (en.isIntersecting) sway(); });
+        }, { threshold: 0.6 }).observe(box);
+      } else {
+        sway();
+      }
+    })();",
+    input_id, cfg$start, cfg$swing, cfg$period_ms, cfg$cycles, cfg$delay_ms)))
 }
 
 #' How to use the map, with its two states in their map colours

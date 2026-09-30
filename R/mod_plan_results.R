@@ -99,9 +99,16 @@ fw_outcome_bars_ui <- function(sel) {
 #' word is the tiles actually shown, so a selection with two species says "Top
 #' two". Shared by the page and the PDF report so the two cannot disagree.
 #'
-#' @return NULL when the selection has no species in that role
-fw_species_top_title <- function(data, sel, role_name, limit = FW_PLAN_SPECIES_N) {
-  total <- dplyr::n_distinct(fw_species_rows(data, sel, role_name)$species_id)
+#' The total counts only species inside the reader's own filter for that role,
+#' as the tiles do - see fw_species_rows().
+#'
+#' @param f the filter state, or NULL for every species
+#' @return NULL when the selection has no species in that role, or when the
+#'   reader picked species for it and the row is not drawn
+fw_species_top_title <- function(data, sel, role_name, limit = FW_PLAN_SPECIES_N,
+                                 f = NULL) {
+  if (!fw_species_row_shown(role_name, f)) return(NULL)
+  total <- dplyr::n_distinct(fw_species_rows(data, sel, role_name, f)$species_id)
   if (!total) return(NULL)
   key <- if (role_name == "invasive") "r_species_top_inv" else "r_species_top_ben"
   fw_fill(fw_t("plan", key), n_word = fw_num_word(min(limit, total)),
@@ -111,8 +118,12 @@ fw_species_top_title <- function(data, sel, role_name, limit = FW_PLAN_SPECIES_N
 #' The top species for a role, as photographs
 #'
 #' A GRID OF PICTURES RATHER THAN A BAR CHART.
-fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
-  top <- fw_species_top_n(data, sel, role_name, limit)
+#'
+#' THE BAR IS A SUCCESS RATE: green and orange only (client, 30 Sept 2026),
+#' Successful against Failed. The count beside it is still every attempt, so a
+#' species with ongoing work shows it there. See fw_tile_rate().
+fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N, f = NULL) {
+  top <- fw_species_top_n(data, sel, role_name, limit, f)
   if (!nrow(top)) return(NULL)
 
   # THE COLUMN COUNT IS THE TILE COUNT.
@@ -121,7 +132,7 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
     style = sprintf("--fw-tiles:%d;", nrow(top)),
     lapply(seq_len(nrow(top)), function(i) {
       row <- top[i, ]
-      counts <- vapply(FW_OUTCOME_LEVELS, function(o) as.integer(row[[o]]), 1L)
+      counts <- fw_tile_rate(row)
       total <- sum(counts)
 
       div(
@@ -136,18 +147,23 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
           span(class = "fw-species-tile__count",
                fw_fmt_num(row$n), " ",
                fw_t("plan", if (row$n == 1) "r_tile_attempt" else "r_tile_attempts")),
-          # The outcome split as a single bar, EACH SEGMENT HOVERABLE (client,
+          # The success rate as a single bar, EACH SEGMENT HOVERABLE (client,
           # 21 Sept 2026): a popover gives its outcome and share, "Successful:
-          # 25% (3 of 12)". The same popovers as the (i) buttons, initialised by
+          # 75% (3 of 4)". The same popovers as the (i) buttons, initialised by
           # fw_popover_script() when renderUI adds them, and focusable so a
           # keyboard reaches them too. The bar's aria-label carries the whole
           # split for a screen reader in one go.
-          div(
+          #
+          # NOTHING FINISHED YET: an empty track and a line saying so, rather
+          # than a bar with no segments that reads as a rendering fault.
+          if (total == 0L) {
+            span(class = "fw-species-tile__none", fw_t("plan", "r_tile_none"))
+          } else div(
             class = "fw-species-tile__bar",
             role = "img",
-            `aria-label` = paste(paste0(FW_OUTCOME_LEVELS, ": ", counts),
+            `aria-label` = paste(paste0(names(counts), ": ", counts),
                                  collapse = ", "),
-            lapply(FW_OUTCOME_LEVELS, function(o) {
+            lapply(names(counts), function(o) {
               n <- counts[[o]]
               if (n == 0L) return(NULL)
               div(
@@ -170,6 +186,13 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
       )
     })
   )
+}
+
+#' A species tile's success-rate counts: Successful and Failed, named
+#'
+#' @param row one row of fw_species_top_n()
+fw_tile_rate <- function(row) {
+  vapply(FW_RATE_LEVELS, function(o) as.integer(row[[o]]), 1L)
 }
 
 # ---- Map ---------------------------------------------------------------------

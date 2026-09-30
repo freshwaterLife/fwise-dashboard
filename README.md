@@ -491,9 +491,18 @@ Three states, all of which must keep working:
 | Zero | filters match nothing | says so plainly and **names which filter to relax** |
 | Results | otherwise | summary, outcomes, map, method comparison, cumulative, table |
 
-**All four outcomes stay visible.** Successful, Failed, Ongoing and Unknown are
-never collapsed into a success rate. Failure teaches as much as success, and
-ongoing attempts show where the next results will come from.
+**All four outcomes stay visible in the counts.** Successful, Failed, Ongoing
+and Unknown are never collapsed into a headline success rate. Failure teaches
+as much as success, and ongoing attempts show where the next results will come
+from. Where a chart *is* a success rate (the "Success rate" views, the species
+tiles, the rate over time), it is Successful against Failed only (client, 30
+Sept 2026), because an attempt still running has no outcome yet.
+
+**Methods and durations are drawn from single-method attempts only.** Outcome
+and duration belong to the attempt, not to one method within it, so an attempt
+that used two methods would credit each with a result it may have had no part
+in. The duration chart also draws successful attempts only: it is for planning
+how long an eradication that works takes.
 
 **Rotenone is never a headline.** It is 544 of 914 attempts and is socially
 sensitive. It appears inside the method comparison alongside every other method,

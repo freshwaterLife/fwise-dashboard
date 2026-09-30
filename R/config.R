@@ -231,6 +231,13 @@ FW_TOP_N <- 10L
 # finishing within a couple of frames never flashes a badge at anyone.
 FW_SPINNER_DELAY_MS <- 150
 
+# The Welcome map reveal's opening sway (client, 30 Sept 2026): where the divide
+# starts and rests (% from the left), how far it swings either side, how long
+# one full swing takes, how many swings, and the pause before the first. See
+# fw_home_compare_script() in R/mod_home.R.
+FW_HOME_COMPARE <- list(start = 50L, swing = 30L, period_ms = 2600L,
+                        cycles = 2L, delay_ms = 500L)
+
 # How often an open tab tells the server it is still there, so an idle
 # connection is not closed by the hosting proxy. See the keepalive in
 # fw_client_script(). Well under the minute most proxies allow a silent socket.
@@ -409,23 +416,44 @@ FW_QUESTION_OPTION_CAP <- 18L
 
 # Maps.
 FW_MAP <- list(
-  # Where a map with nothing on it points: the whole world, centred a little
-  # north of the equator, where most of the land is.
-  empty_view = list(lng = 0, lat = 20, zoom = 2),
-  # HOW FAR OUT A MAP MAY GO. Zoomed out further, the world is shorter than
-  # the map and grey bars show above and below it. At zoom 2 the world is
-  # 1024 px tall, taller than any map's CSS height. Panning is held inside
-  # max_lat so the poles cannot be dragged into view either, and inside
-  # max_lng so the map no longer wraps round the world: the tiles repeated and
-  # the markers did not (client, 29 Sept 2026). A wide map raises this floor
-  # for itself - see resources/js/fw_map_fit.js.
-  min_zoom = 2L,
-  max_lat = 85,
+  # Where a map with nothing on it points: the whole world. Zoom 0 is a
+  # request for the zoom-out limit, whatever the map's width makes that (see
+  # min_zoom), and the pan limits centre the band in it.
+  empty_view = list(lng = 0, lat = 20, zoom = 0),
+  # HOW FAR OUT A MAP MAY GO. The real limit is set per map by
+  # resources/js/fw_map_fit.js: the zoom at which one world is exactly as wide
+  # as the map, which is fractional and follows the map's width. This is only
+  # the floor under it, and it is 0 so that a narrow map (the Explore map is
+  # often under 1024 px, the width of the world at zoom 2) can still zoom out
+  # far enough to show the whole band below.
+  min_zoom = 0L,
+  # THE BAND OF THE WORLD A MAP SHOWS (client, 30 Sept 2026: "not all of the
+  # map is visible when opened"). Every map is drawn at the shape of this band
+  # in Mercator - see fw_map_aspect() - so at its zoom-out limit one world
+  # fills its width and the band fills its height, and the whole of it is on
+  # screen. Panning is held inside it and inside max_lng, so the map no longer
+  # wraps round the world: the tiles repeated and the markers did not (client,
+  # 29 Sept 2026). 80N to 60S holds every attempt (they run from 46S to 69N)
+  # and all the land but Antarctica and the far Arctic, at about 5:3. The old
+  # +/-85 would have needed a square map, taller than a laptop screen.
+  lat_north = 80,
+  lat_south = -60,
   max_lng = 180,
+  # The tallest a map may be, as a share of the window. A map keeps the band's
+  # shape, so on a very wide screen it is held to this height and is narrower
+  # than its column, centred in it, rather than running off the bottom of the
+  # window. See .fw-map in _components.scss.
+  max_height_vh = 70L,
   # The closest a fit to a selection may zoom. Below cluster$fine_zoom, so a
   # single-site selection still opens with its stack as one counted group and
   # with enough of the surrounding water to place it. See fw_fit_points().
   fit_max_zoom = 10L,
+  # How close the map zooms to an attempt when its full record is opened
+  # (client, 30 Sept 2026): enough to see the water it was in and the land
+  # around it. Below cluster$fine_zoom, so neighbours stay separate dots. A map
+  # already closer than this is left where it is. See zoomTo() in the card
+  # script (R/maps.R).
+  record_zoom = 8L,
   # Attempt markers. The stroke colour is FW_COLOURS$surface.
   marker = list(radius = 6, weight = 1.5, opacity = 1, fill_opacity = 0.75),
   # The no-JavaScript fallback popup. Kept in step with .fw-map-card's width
@@ -450,6 +478,13 @@ FW_MAP <- list(
   # indistinguishable from a single attempt, which is the one thing a group must
   # not look like. If the world view ever does read as too busy, the answer is
   # to draw the ring smaller at coarse zoom, not to take the number off it.
+  #
+  # THE WHOLE MAP IN ONE GROUP AT ITS ZOOM-OUT LIMIT (client, 30 Sept 2026)
+  # was not this rule. Leaflet.markercluster builds its tree once, down to the
+  # map's minZoom at that moment, and puts everything in one group at the zoom
+  # below. fw_map_fit.js moves minZoom with the map's width, so a map that got
+  # narrower after its markers went on could zoom out onto that one group.
+  # fw_map_fit.js now rebuilds the tree when that happens.
   cluster = list(fine_zoom = 13L, fine_radius = 12L, icon_size = 28L)
 )
 
@@ -549,6 +584,16 @@ FW_CHART <- list(
   # bounds because plotly's autorange for a box trace on a log scale does not.
   duration_pad = 0.04,
   duration_pad_min = 0.05,
+  # THE SUCCESS RATE OVER TIME (Explore, client 30 Sept 2026). One start year
+  # holds a handful of attempts, so a rate year by year is mostly noise; each
+  # point pools the finished attempts of the `window` years ENDING in it - a
+  # trailing 10-year window, the client's choice after a first round at five
+  # years centred. Trailing because a ten-year window cannot be centred on a
+  # year, and because a point should not draw on years after it. A window
+  # holding fewer than `min_n` finished attempts is not drawn - the line breaks
+  # there rather than swinging between 0% and 100% on two attempts. See
+  # fw_success_time_data().
+  success_time = list(window = 10L, min_n = 5L),
   # The dots on the duration chart, and the box under them.
   point    = list(size = 7, opacity = 0.75, stroke = 1),
   box_line = 1.5,

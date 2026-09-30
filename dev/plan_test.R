@@ -271,12 +271,30 @@ salm <- fw_species_allowed(sp_lab, "Fish", "Salmonidae", ch$species)
 ok("Salmonidae offers salmonids only", length(salm) > 0 && identical(lab_family(salm), "Salmonidae"))
 ok("nothing chosen offers everything, in the same order",
    identical(fw_species_allowed(sp_lab, character(0), character(0), ch$species), ch$species))
-ok("the protected side narrows too",
+# THE PROTECTED SIDE FOLLOWS EVERYTHING ELSE (client, 30 Sept 2026): with
+# invasive Salmonidae chosen, the protected pickers list only what attempts
+# against salmonids protected - recomputed here from the bridge table.
+salm_f <- modifyList(base, list(taxa = "Fish", family = "Salmonidae"))
+salm_ids <- fw_filter_apply(d, salm_f)$attempt_id
+want_ben <- unique(d$attempt_species$species_id[d$attempt_species$role == "beneficiary" &
+                                                  d$attempt_species$attempt_id %in% salm_ids])
+prot <- fw_protected_allowed(d, sp_lab, salm_ids, character(0), character(0), ch)
+ok("salmonids: protected species are exactly those protected by salmonid attempts",
+   setequal(prot$beneficiary, intersect(ch$beneficiary, sp_lab$label[sp_lab$species_id %in% want_ben])))
+ok("salmonids: and that is fewer than everything",
+   length(prot$beneficiary) > 0 && length(prot$beneficiary) < length(ch$beneficiary))
+ok("salmonids: protected animals come from those species only",
+   setequal(prot$taxa_beneficiary,
+            intersect(ch$taxa_beneficiary, sp_lab$taxa[sp_lab$species_id %in% want_ben])))
+ok("protected: a protected animal narrows the protected species further",
    {
-     t1 <- ch$taxa_beneficiary[1]
-     b <- fw_species_allowed(sp_lab, t1, character(0), ch$beneficiary)
-     length(b) > 0 && all(lab_taxa(b) == t1)
+     t1 <- prot$taxa_beneficiary[1]
+     p2 <- fw_protected_allowed(d, sp_lab, salm_ids, t1, character(0), ch)
+     length(p2$beneficiary) > 0 && all(lab_taxa(p2$beneficiary) == t1)
    })
+ok("protected: no other filter offers every protected species",
+   identical(fw_protected_allowed(d, sp_lab, d$attempt$attempt_id, character(0),
+                                  character(0), ch)$beneficiary, ch$beneficiary))
 testServer(mod_plan_server, args = list(data = d, meta = m), {
   session$setInputs(taxa = "Crayfish")
   ok("live: picking Crayfish narrows the species picker",
@@ -769,6 +787,43 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
        fw_n_no_method(d, report()$sel) > 0)
   }
 })
+
+# ---- The still/flowing chart and the regime filter (client, 30 Sept 2026) ---
+#
+# One regime picked: the chart would be a single bar restating the filter, so
+# the PDF and the Detailed report both leave it out. Both picked, or neither:
+# it stays. fw_pdf_body() needs no Quarto, so this runs everywhere.
+cat("\n-- the still/flowing chart follows the regime filter --\n")
+for (rg in list(character(0), "Lentic", c("Lentic", "Lotic"))) {
+  fr <- base; fr$regime <- rg
+  sel_r <- fw_filter_apply(d, fr)
+  dir_r <- tempfile("fw-regime-"); dir.create(dir_r)
+  typ_r <- fw_pdf_body(dir_r, d, sel_r, fr, m)
+  rec_r <- as.character(fw_records_summary_ui(d, sel_r, fr))
+  want <- length(rg) != 1L
+  lbl <- if (length(rg)) paste(rg, collapse = "+") else "none"
+  ok(sprintf("PDF: waterbody chart with regime %s", lbl),
+     file.exists(file.path(dir_r, "waterbody-count.png")), want)
+  ok(sprintf("Detailed report: waterbody block with regime %s", lbl),
+     grepl(fw_t("plan", "r_waterbody"), rec_r, fixed = TRUE), want)
+  if (!length(rg)) {
+    ok("PDF: the duration chart is drawn", file.exists(file.path(dir_r, "duration.png")), TRUE)
+    ok("PDF: the multi-method caption is printed",
+       grepl(fw_fill(fw_t("plan", "r_method_multi"),
+                     n = fw_fmt_num(fw_n_multi_method(d, sel_r))), typ_r, fixed = TRUE), TRUE)
+    ok("PDF: species tiles are drawn", grepl("#fw-species-tiles", typ_r, fixed = TRUE), TRUE)
+  }
+  unlink(dir_r, recursive = TRUE)
+}
+# A species pick drops that role's tiles in the PDF too.
+fsp <- base; fsp$species <- ch$species[1]
+dir_s <- tempfile("fw-sp-"); dir.create(dir_s)
+typ_s <- fw_pdf_body(dir_s, d, fw_filter_apply(d, fsp), fsp, m)
+ok("PDF: an invasive species pick drops the invasive tiles",
+   grepl("Top [a-z]+ invasive species", typ_s), FALSE)
+ok("PDF: and keeps the protected tiles",
+   grepl("Top [a-z]+ species protected", typ_s), TRUE)
+unlink(dir_s, recursive = TRUE)
 
 cat("\n")
 if (failures > 0L) stop(failures, " report builder assertion(s) failed", call. = FALSE)

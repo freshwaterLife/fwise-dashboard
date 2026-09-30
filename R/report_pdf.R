@@ -314,8 +314,9 @@ fw_image_ext <- function(path) {
 #'
 #' @return the Typst call, or NULL when the selection has none of that role -
 #'   and the caller drops the block with it, as the page does
-fw_typ_species <- function(data, sel, role_name, dir) {
-  top <- fw_species_top_n(data, sel, role_name, FW_PLAN_SPECIES_N)
+fw_typ_species <- function(data, sel, role_name, dir, f = NULL) {
+  if (!fw_species_row_shown(role_name, f)) return(NULL)
+  top <- fw_species_top_n(data, sel, role_name, FW_PLAN_SPECIES_N, f)
   if (!nrow(top)) return(NULL)
   imgs <- lapply(top$species_id, function(id) fw_species_image_cached(data$species, id))
   urls <- vapply(imgs, function(x) if (is.null(x)) NA_character_ else x$url, "")
@@ -326,8 +327,9 @@ fw_typ_species <- function(data, sel, role_name, dir) {
     row <- top[i, ]
     img <- imgs[[i]]
     file <- files[row$species_id]
-    counts <- vapply(FW_OUTCOME_LEVELS, function(o) as.integer(row[[o]]), 1L)
-    segs <- vapply(FW_OUTCOME_LEVELS[counts > 0], function(o) {
+    # Successful against Failed, as on the page - see fw_tile_rate().
+    counts <- fw_tile_rate(row)
+    segs <- vapply(names(counts)[counts > 0], function(o) {
       fw_typ_array(c(sprintf("%.2f", 100 * counts[[o]] / sum(counts)),
                      fw_typ_str(FW_OUTCOME_COLOURS[[o]])))
     }, "")
@@ -388,13 +390,14 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL) {
   s <- fw_plan_summary(data, sel)
   n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
   n_no_method <- fw_n_no_method(data, sel)
+  n_multi <- fw_n_multi_method(data, sel)
   n_duration <- nrow(fw_duration_sel(data, sel))
   generated <- format(Sys.time(), "%d %B %Y", tz = "UTC")
 
   species_block <- function(role_name) {
-    tiles <- fw_typ_species(data, sel, role_name, dir)
+    tiles <- fw_typ_species(data, sel, role_name, dir, filters)
     if (is.null(tiles)) return(NULL)
-    fw_typ_block(fw_species_top_title(data, sel, role_name), NULL, tiles)
+    fw_typ_block(fw_species_top_title(data, sel, role_name, f = filters), NULL, tiles)
   }
 
   map <- fw_gg_map(data, sel)
@@ -432,9 +435,10 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL) {
     if (!is.null(dd)) fw_typ_figure(fw_gg_duration(data, sel), dir, "duration.png",
                                     fw_gg_height("duration", n_rows(dd$order_lv)))
   })
-  waterbody_fig <- both_modes(
+  # Not printed when the reader filtered to one regime - fw_show_waterbody().
+  waterbody_fig <- if (fw_show_waterbody(filters)) both_modes(
     "waterbody",
-    function(mode) fw_category_data(fw_waterbody_rows(sel), FW_TOP_N, mode)$order_lv,
+    function(mode) fw_category_data(fw_waterbody_rows(sel), mode = mode)$order_lv,
     function(mode) fw_gg_waterbody(sel, mode), "category",
     list(count = fw_t("plan", "r_waterbody_count"), share = fw_t("plan", "r_waterbody_share")))
 
@@ -490,8 +494,7 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL) {
                               widths = c("1fr", "auto"))),
 
     if (!is.null(waterbody_fig)) {
-      fw_typ_block(fw_t("plan", "r_waterbody"),
-                   fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
+      fw_typ_block(fw_t("plan", "r_waterbody"), fw_t("plan", "r_waterbody_note"),
                    waterbody_fig)
     },
 
@@ -499,7 +502,9 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL) {
       fw_typ_block(fw_t("plan", "r_method"), fw_t("plan", "r_method_note"), c(
         method_fig,
         if (n_no_method > 0) fw_typ_caption(fw_fill(fw_t("plan", "r_method_missing"),
-                                                   n = fw_fmt_num(n_no_method)))
+                                                   n = fw_fmt_num(n_no_method))),
+        if (n_multi > 0) fw_typ_caption(fw_fill(fw_t("plan", "r_method_multi"),
+                                               n = fw_fmt_num(n_multi)))
       ))
     },
 
@@ -625,7 +630,7 @@ fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = 
   mb <- file.size(path) / 1e6
   pages <- fw_pdf_page_count(path)
   if (mb >= FW_PDF$warn_mb || isTRUE(pages >= FW_PDF$warn_pages)) {
-    est <- fw_pdf_size_estimate(data, sel)
+    est <- fw_pdf_size_estimate(data, sel, filters)
     message(sprintf("FWISE PDF report: %.1f MB, %d pages for %d attempts (estimated %.1f MB, %d pages)",
                     mb, pages, nrow(sel), est$mb, est$pages))
   }
@@ -640,11 +645,11 @@ fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = 
 #' and the species photographs. Coefficients in FW_PDF, fitted to real renders.
 #'
 #' @return list(mb, pages)
-fw_pdf_size_estimate <- function(data, sel) {
+fw_pdf_size_estimate <- function(data, sel, filters = NULL) {
   # Capped the same way the table is - see fw_pdf_contacts_table().
   n_contacts <- min(nrow(fw_plan_contacts(data, sel)), FW_PDF$contacts_n)
   n_images <- sum(vapply(c("invasive", "beneficiary"), function(r) {
-    top <- fw_species_top_n(data, sel, r, FW_PLAN_SPECIES_N)
+    top <- fw_species_top_n(data, sel, r, FW_PLAN_SPECIES_N, filters)
     sum(vapply(top$species_id, function(id)
       !is.null(fw_species_image_cached(data$species, id)), logical(1)))
   }, numeric(1)))

@@ -1061,7 +1061,7 @@
     // decoration (see R/species_images.R), so it is shrunk under the popup
     // exemption rather than dropped.
     .fw-species-figure__credit {
-      font-size: $fw-size-credit;
+      font-size: $fw-size-photo-credit;
       line-height: 1.3;
     }
   }
@@ -1183,10 +1183,10 @@
   .fw-caption {
     font-size: $fw-size-popup;
   }
-  // Smaller again than the popup text (client, 29 Sept 2026). See size_credit
-  // in R/brand.R.
+  // Smaller again than the popup text (client, 29 and 30 Sept 2026). See
+  // size_photo_credit in R/brand.R.
   .fw-species-figure__credit {
-    font-size: $fw-size-credit;
+    font-size: $fw-size-photo-credit;
   }
 }
 
@@ -1571,9 +1571,9 @@
   // attribution, and grid rows stretch to their tallest item anyway, so a
   // verbose credit costs alignment nothing.
   .fw-species-figure__credit {
-    // THE CREDIT SIZE, below the floor on the client's instruction (29 Sept
-    // 2026). See size_credit in R/brand.R.
-    font-size: $fw-size-credit;
+    // THE PHOTO CREDIT SIZE, below the floor on the client's instruction (29
+    // and 30 Sept 2026). See size_photo_credit in R/brand.R.
+    font-size: $fw-size-photo-credit;
     font-weight: $fw-weight-regular;
     color: $fw-ink-muted;
     line-height: 1.3;
@@ -1604,6 +1604,14 @@
 
     &:hover { filter: brightness(1.12); }
     &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: -2px; }
+  }
+
+  // In the bar's place when none of the species' attempts has finished, so
+  // there is no success rate to draw. Bottom-aligned like the bar.
+  &__none {
+    margin-block-start: auto;
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
   }
 }
 
@@ -1636,7 +1644,7 @@
   &__credit {
     display: block;
     padding: 0.15rem $fw-space-1;
-    font-size: $fw-size-credit;
+    font-size: $fw-size-photo-credit;
     line-height: 1.3;
     color: $fw-ink-muted;
     background: $fw-surface;
@@ -1839,9 +1847,12 @@
   }
 }
 
-// Maps size to the viewport, not to a fixed box. The height lives here rather
-// than on leafletOutput() because leaflet validates its height argument through
-// htmltools::validateCssUnit(), which rejects clamp(). See fw_map_output().
+// Maps take the shape of the band of the world they show, so the whole band is
+// in view at the zoom-out limit (client, 30 Sept 2026). The ratio and the
+// height cap come from R/config.R as custom properties on the wrapper - see
+// fw_map_output() and fw_map_shape_style() in R/maps.R. The size lives here
+// rather than on leafletOutput() because leaflet validates its height argument
+// through htmltools::validateCssUnit(), which rejects aspect-ratio and min().
 // A group of markers that sit on top of one another - see FW_MAP$cluster in
 // R/config.R for when markers group. A counted ring at every zoom: the number
 // is persistent text, so it sits at the 1rem floor ($fw-size-min, NOT the
@@ -1870,8 +1881,14 @@
 // fw_cluster_options() in R/maps.R.
 
 .fw-map {
-  height: clamp(320px, 55vh, 560px);
-  width: 100%;
+  // THE COLUMN'S WIDTH, OR LESS ON A VERY WIDE SCREEN: held to the height cap,
+  // where it is narrower than its column and centred in it, rather than taller
+  // than the window. Never a different shape - a map that is wider than the
+  // band shows grey at the sides, and one that is taller cuts the band off.
+  aspect-ratio: var(--fw-map-aspect, 5 / 3);
+  // Interpolated so Sass passes min() through to the browser untouched.
+  width: #{"min(100%, calc(var(--fw-map-max-h, 70vh) * var(--fw-map-aspect, 5 / 3)))"};
+  margin-inline: auto;
   // The overlay below is absolute against this.
   position: relative;
 
@@ -2903,6 +2920,10 @@
 
   h2 { margin-block: 0 $fw-space-1; }
 
+  // MORE AIR UNDER THE QUESTIONS (client, 30 Sept 2026). This heading is not
+  // followed by a note but by the Show switch, which sat hard against it.
+  &.fw-explore-views > h2 { margin-block-end: $fw-space-3; }
+
   &__note {
     margin-block: 0 $fw-space-2;
     color: $fw-ink-muted;
@@ -2947,11 +2968,11 @@
     align-items: start;
 
     // THE TWO PLOTS SIT LEVEL. Each block is a subgrid of the parent's three
-    // rows - title, controls, chart - so a row is as tall as the taller of the
-    // two cells in it. The method chart's count/share switch sets the controls
-    // row, and the cumulative chart's empty controls cell (see mod_explore_ui())
-    // takes the same height, so its plot starts on the same line. Without this
-    // the switch pushed one chart down by its own height.
+    // rows - title, chart, caption - so a row is as tall as the taller of the
+    // two cells in it, and a title that wraps to two lines beside one that
+    // does not still leaves both plots starting on the same line. The
+    // count/share switch that used to fill a controls row here is now the
+    // single "Show" switch above both (client, 30 Sept 2026).
     grid-template-rows: auto auto auto;
     row-gap: 0;
 

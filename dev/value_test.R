@@ -270,6 +270,52 @@ sp1 <- top$species_id[1]
 oc <- table(factor(outcome_of[inv_rows$attempt_id[inv_rows$species_id == sp1]], levels = FW_OUTCOME_LEVELS))
 ok("tiles: top species outcome split", as.integer(unlist(top[1, FW_OUTCOME_LEVELS])), as.integer(oc))
 
+# THE TILE BAR IS A SUCCESS RATE: green and orange only (client, 30 Sept 2026).
+# Its segments are recomputed from the attempts, out of Successful + Failed.
+tile_html <- as.character(fw_species_tiles_ui(d, all_sel, "invasive", FW_PLAN_SPECIES_N))
+ok("tiles: bars carry only Successful and Failed segments",
+   !grepl("Ongoing:|Unknown:", tile_html) && grepl("Successful:", tile_html))
+fin1 <- oc[["Successful"]] + oc[["Failed"]]
+ok("tiles: the top species' success share is out of its finished attempts",
+   grepl(fw_fill(fw_t("plan", "r_tile_seg"), outcome = "Successful",
+                 pc = sprintf("%.0f", 100 * oc[["Successful"]] / fin1),
+                 n = fw_fmt_num(oc[["Successful"]]), total = fw_fmt_num(fin1)),
+         tile_html, fixed = TRUE))
+
+# THE TOP THREE STAY INSIDE THE FILTER (client, 30 Sept 2026). Filtered to one
+# fish family, every tile and the "(of X total)" count are species of that
+# family, recomputed from species.csv - not the trout that shared a cyprinid's
+# attempt.
+sp_lab_t <- fw_species_label(d$species)
+fam_t <- names(sort(table(sp_lab_t$family[sp_lab_t$species_id %in% inv_rows$species_id]),
+                    decreasing = TRUE))[1]
+ft <- base; ft$taxa <- "Fish"; ft$family <- fam_t
+sel_t <- fw_filter_apply(d, ft)
+top_t <- fw_species_top_n(d, sel_t, "invasive", FW_PLAN_SPECIES_N, ft)
+top_u <- fw_species_top_n(d, sel_t, "invasive", 1000L)
+fam_of_sp <- stats::setNames(sp_lab_t$family, sp_lab_t$species_id)
+ok(sprintf("tiles in filter: every tile is %s", fam_t),
+   all(fam_of_sp[top_t$species_id] %in% fam_t) && nrow(top_t) > 0)
+ok("tiles in filter: and unfiltered, the same attempts hold other species too",
+   any(!fam_of_sp[top_u$species_id] %in% fam_t))
+want_total <- length(unique(asp$species_id[asp$role == "invasive" &
+  asp$attempt_id %in% sel_t$attempt_id & asp$species_id %in% names(fam_of_sp)[fam_of_sp %in% fam_t]]))
+ok("tiles in filter: the title counts only species in the filter",
+   grepl(sprintf("(of %s total)", fw_fmt_num(want_total)),
+         fw_species_top_title(d, sel_t, "invasive", f = ft), fixed = TRUE))
+# A SPECIES PICK REMOVES THAT ROLE'S ROW, and only that role's.
+fs <- base; fs$species <- sp_lab_t$label[match(top$species_id[1], sp_lab_t$species_id)]
+sel_s <- fw_filter_apply(d, fs)
+ok("tiles: an invasive species pick drops the invasive row",
+   is.null(fw_species_top_title(d, sel_s, "invasive", f = fs)))
+ok("tiles: and keeps the protected row",
+   !is.null(fw_species_top_title(d, sel_s, "beneficiary", f = fs)))
+fb <- base; fb$beneficiary <- ch$beneficiary[1]
+sel_b <- fw_filter_apply(d, fb)
+ok("tiles: a protected species pick drops the protected row, keeps invasive",
+   c(is.null(fw_species_top_title(d, sel_b, "beneficiary", f = fb)),
+     is.null(fw_species_top_title(d, sel_b, "invasive", f = fb))), c(TRUE, FALSE))
+
 # ==============================================================================
 cat("\n-- the explore page --\n")
 
@@ -651,6 +697,26 @@ ok("map: the layer switcher has no null overlay",
 ok("map: no place-label tiles",
    any(grepl("only_labels", unlist(bm_calls), fixed = TRUE)), FALSE)
 ok("map: zoom out is capped", bm$x$options$minZoom, FW_MAP$min_zoom)
+# THE WHOLE BAND ON LOAD (client, 30 Sept 2026). The pan limits are the band,
+# every attempt is inside it, and the map's shape is the band's in Mercator -
+# recomputed here from the web Mercator y of its two edges.
+mb <- Filter(function(cl) cl$method == "setMaxBounds", bm_calls)[[1]]$args
+# leaflet stores them as south, west, north, east.
+ok("map: the pan limits are the band", unlist(mb[1:4]),
+   c(FW_MAP$lat_south, -FW_MAP$max_lng, FW_MAP$lat_north, FW_MAP$max_lng))
+ok("map: every attempt is inside the band",
+   all(is.na(a$latitude) | (a$latitude > FW_MAP$lat_south & a$latitude < FW_MAP$lat_north)))
+merc_y <- function(lat) log(tan(pi / 4 + lat * pi / 360))
+ok("map: the shape is the band's width over its height",
+   isTRUE(all.equal(fw_map_aspect(),
+                    2 * pi / (merc_y(FW_MAP$lat_north) - merc_y(FW_MAP$lat_south)))))
+ok("map: the band is wider than tall, and not so wide it is a strip",
+   fw_map_aspect() > 1.4 && fw_map_aspect() < 2)
+for (html in list(explore = as.character(fw_map_output("m")),
+                  picker = as.character(fw_step_site_ui(NS("c"), ch_all)))) {
+  ok("map: the wrapper carries the band's shape",
+     grepl(sprintf("--fw-map-aspect: %.4f", fw_map_aspect()), html, fixed = TRUE))
+}
 # CACHE ONLY. If a live lookup ever crept in, a build would reach Wikimedia
 # once per uncached species while rendering - which is the thing the cache
 # exists to prevent. Asserted by building with an empty species image column:
@@ -874,9 +940,19 @@ for (t in tr) {
 }
 ok("cumulative: outcomes sum to every dated attempt", finals, nrow(dated))
 
-# Outcome by method, count and share.
-me <- am1[am1$attempt_id %in% as.character(all_sel$attempt_id), ]
+# Outcome by method, count and share. SINGLE-METHOD ATTEMPTS ONLY (client, 30
+# Sept 2026): an attempt with two methods used to enter both bars with its one
+# outcome. The solo set is counted here from the raw bridge, not by the app's
+# helper, so a change to that helper shows up as a disagreement.
+me_all <- am1[am1$attempt_id %in% as.character(all_sel$attempt_id), ]
+solo_n <- table(me_all$attempt_id)
+me <- me_all[me_all$attempt_id %in% names(solo_n)[solo_n == 1L], ]
 me$outcome <- outcome_of[me$attempt_id]
+ok("method: the chart draws only single-method attempts",
+   sort(fw_single_method_ids(d, all_sel)), sort(unique(me$attempt_id)))
+ok("method: and that drops real rows here", nrow(me) < nrow(me_all))
+ok("method: the caption counts the attempts left off",
+   fw_n_multi_method(d, all_sel), sum(solo_n > 1L))
 tr <- traces(fw_chart_method(d, all_sel, "count"))
 mism <- 0L; hidden_ok <- TRUE
 for (t in tr) {
@@ -903,10 +979,16 @@ ok("method: in-bar count hidden exactly under the share floor", hidden_ok)
 # on the R side, and a ~formula would have plotly resolve it after the loop had
 # finished - giving every trace the last outcome. That bug is invisible unless
 # something checks the name against the trace it came from.
+# A COUNT HOVERS AS A NUMBER (client, 30 Sept 2026): "Failed: 3", no %. A
+# SUCCESS RATE hovers as the tiles do, out of Successful + Failed only.
 hover_want <- function(t, i, rows, group, name_of, mode = "count") {
   mname <- label_name(t$y[i])
   n <- sum(group == mname & name_of == t$name)
-  total <- sum(group == mname)
+  if (mode == "count") {
+    return(fw_fill(fw_t("plan", "r_bar_count_seg"), outcome = t$name,
+                   n = fw_fmt_num(n)))
+  }
+  total <- sum(group == mname & name_of %in% c("Successful", "Failed"))
   fw_fill(fw_t("plan", "r_tile_seg"), outcome = t$name,
           pc = sprintf("%.0f", round(100 * n / total)),
           n = fw_fmt_num(n), total = fw_fmt_num(total))
@@ -922,14 +1004,27 @@ for (mode in c("count", "share")) {
     if (!grepl("%{customdata}", t$hovertemplate[1], fixed = TRUE) ||
         grepl("%{text}", t$hovertemplate[1], fixed = TRUE)) all_ok <- FALSE
   }
-  ok(sprintf("method (%s): every hover is the species tile's sentence, outcome included",
+  ok(sprintf("method (%s): every hover is the recomputed sentence, outcome included",
              mode), all_ok)
-  ok(sprintf("method (%s): the %d hidden-label segments still hover a count", mode, n_hidden),
-     hidden_ok && n_hidden > 0L)
+  ok(sprintf("method (%s): the %d hidden-label segments still hover their numbers", mode, n_hidden),
+     hidden_ok && (n_hidden > 0L || mode == "share"))
+  if (mode == "count") {
+    ok("method (count): no hover carries a percentage",
+       !any(grepl("%", unlist(lapply(tr, `[[`, "customdata")), fixed = TRUE)))
+  } else {
+    ok("method (share): only Successful and Failed are drawn",
+       sort(vapply(tr, `[[`, "", "name")), c("Failed", "Successful"))
+  }
 }
 labels <- unique(unlist(lapply(tr, function(t) as.character(t$y))))
-ok("method: the (n) in each label is the method total",
-   all(vapply(labels, function(l) label_n(l) == sum(me$method == label_name(l)), logical(1))))
+ok("method (share): the (n) in each label is the method's finished attempts",
+   all(vapply(labels, function(l) label_n(l) == sum(me$method == label_name(l) &
+                                                    me$outcome %in% c("Successful", "Failed")),
+              logical(1))))
+labels_c <- unique(unlist(lapply(traces(fw_chart_method(d, all_sel, "count")),
+                                 function(t) as.character(t$y))))
+ok("method (count): the (n) in each label is the method total",
+   all(vapply(labels_c, function(l) label_n(l) == sum(me$method == label_name(l)), logical(1))))
 tr_share <- traces(fw_chart_method(d, all_sel, "share"))
 sums <- tapply(unlist(lapply(tr_share, `[[`, "x")),
                unlist(lapply(tr_share, function(t) as.character(t$y))), sum)
@@ -1015,21 +1110,49 @@ ok("method: the real methods are still ordered by frequency",
 dur <- stats::setNames(all_sel$duration_days, as.character(all_sel$attempt_id))
 n_methods <- table(unique(d$attempt_method[, c("attempt_id", "method_id")])$attempt_id)
 solo <- names(n_methods)[n_methods == 1L]
+# AND SUCCESSFUL ONLY (client, 30 Sept 2026): the chart is for planning, and
+# how long a failed attempt persisted is not how long an eradication takes.
 dm <- me; dm$dur <- dur[dm$attempt_id]
-dm <- dm[!is.na(dm$dur) & dm$dur > 0 & dm$attempt_id %in% solo, ]
+dm <- dm[!is.na(dm$dur) & dm$dur > 0 & dm$attempt_id %in% solo &
+           dm$outcome == "Successful", ]
 tr <- traces(fw_chart_duration(d, all_sel))
 box <- Filter(function(t) identical(t$type, "box"), tr)[[1]]
-pts <- Filter(function(t) identical(t$type, "scatter"), tr)
-# THE FILTER COSTS REAL ROWS and the test says how many rather than leaving it
-# to be discovered. Multi-method attempts are a third of those with a duration.
-ok("duration: the filter drops the multi-method attempts",
-   nrow(dm) < sum(!is.na(dm$dur)) || nrow(dm) < sum(!is.na(dur) & dur > 0))
-ok("duration: the box holds every positive single-method duration",
-   length(box$x), nrow(dm))
-ok("duration: one point per (attempt, method) with a duration",
+# The dots are the scatter with no hover; the box's hover rides on a second,
+# invisible scatter that carries customdata.
+pts <- Filter(function(t) identical(t$type, "scatter") && is.null(t$customdata), tr)
+hov <- Filter(function(t) identical(t$type, "scatter") && !is.null(t$customdata), tr)[[1]]
+ok("duration: the filter drops failed, ongoing and unknown attempts",
+   nrow(dm) < sum(!is.na(dur) & dur > 0))
+ok("duration: every attempt drawn is Successful",
+   all(fw_duration_sel(d, all_sel)$outcome == "Successful"))
+ok("duration: one point per successful single-method attempt with a duration",
    sum(vapply(pts, function(t) length(t$x), integer(1))), nrow(dm))
-ok("duration: per-outcome point counts",
-   all(vapply(pts, function(t) length(t$x) == sum(dm$outcome == t$name), logical(1))))
+ok("duration: the dots are one colour, the success green, with no key",
+   length(pts) == 1L &&
+     identical(pts[[1]]$marker$color, unname(FW_OUTCOME_COLOURS[["Successful"]])) &&
+     !isTRUE(plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$showlegend))
+# THE BOX FROM ITS OWN NUMBERS: R's type-7 quartiles of each row's durations,
+# recomputed here per method from dm.
+box_rows <- as.character(plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$yaxis$ticktext)
+q_ok <- all(vapply(seq_along(box_rows), function(r) {
+  x <- dm$dur[dm$method == label_name(box_rows[r])]
+  q <- unname(quantile(x, c(.25, .5, .75)))
+  i <- which(box$y == r)
+  length(i) == 1 && isTRUE(all.equal(c(box$q1[i], box$median[i], box$q3[i]), q))
+}, logical(1)))
+ok("duration: each box's quartiles are its method's durations'", q_ok)
+ok("duration: the box itself has no hover (it would print raw days)",
+   all(box$hoverinfo == "skip"))
+# THE HOVER IN THE MAP CARD'S UNITS (client, 30 Sept 2026: the hover said 5475
+# while the axis said 15 years). Every length in it is fw_popup_duration()'s.
+ok("duration: the hover names lengths in days or years, never a bare day count",
+   all(grepl("(day|days|years)<br>", hov$customdata)) &&
+     !any(grepl("[0-9]{4}(<|$)", hov$customdata)))
+ok("duration: the longest in the hover is the longest drawn",
+   any(grepl(fw_popup_duration(max(dm$dur)), hov$customdata, fixed = TRUE)))
+ok("duration: the terminal tick uses the same words",
+   fw_popup_duration(max(dm$dur)) %in%
+     plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$xaxis$ticktext)
 dur_y <- plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$yaxis
 dur_rows <- as.character(dur_y$ticktext)
 ok("duration: the (n) in each label counts durations, not attempts",
@@ -1171,87 +1294,100 @@ for (nm in names(all_charts)) {
   }
 }
 
-# A category chart with Other.
-wb <- all_sel$waterbody_type[!is.na(all_sel$waterbody_type)]
-wb_out <- outcome_of[as.character(all_sel$attempt_id[!is.na(all_sel$waterbody_type)])]
-totals <- sort(table(wb), decreasing = TRUE)
+# The still/flowing chart (client, 30 Sept 2026): lentic and lotic, named as
+# the regime filter names them, every attempt on one bar or the other.
+wb_raw <- all_sel$water_regime
+wb_keep <- !is.na(wb_raw)
+wb <- unname(c(Lentic = fw_regime_label("Lentic"), Lotic = fw_regime_label("Lotic"))[wb_raw[wb_keep]])
+wb_out <- outcome_of[as.character(all_sel$attempt_id[wb_keep])]
+totals <- table(wb)
 b <- plotly::plotly_build(fw_chart_waterbody(all_sel, "count"))
 tr <- b$x$data
 labels <- unique(unlist(lapply(tr, function(t) as.character(t$y))))
-n_named <- min(FW_TOP_N, length(totals)); has_other <- length(totals) > FW_TOP_N
-ok("category: top-n named plus Other", length(labels), n_named + has_other)
+ok("waterbody: two bars, still and flowing",
+   sort(label_name(labels)), sort(c(fw_regime_label("Lentic"), fw_regime_label("Lotic"))))
 per_label <- tapply(unlist(lapply(tr, `[[`, "x")),
                     unlist(lapply(tr, function(t) as.character(t$y))), sum)
-named <- per_label[!grepl(paste0("^", fw_t("charts", "other")), names(per_label))]
-ok("category: named totals match the data",
-   all(vapply(names(named), function(l) named[[l]] == totals[[label_name(l)]], logical(1))))
-if (has_other) {
-  ok("category: Other is the sum of the tail",
-     unname(per_label[grepl(paste0("^", fw_t("charts", "other")), names(per_label))]),
-     sum(totals[-seq_len(FW_TOP_N)]))
-  ok("category: Other is drawn first (at the bottom)",
-     grepl(paste0("^", fw_t("charts", "other")), b$x$layout$yaxis$categoryarray[1]))
-}
-wb_named <- if (has_other) ifelse(wb %in% names(totals)[seq_len(FW_TOP_N)], wb, fw_t("charts", "other")) else wb
-ok("category: every segment is the direct count",
+ok("waterbody: totals match table(water_regime)",
+   all(vapply(names(per_label), function(l) per_label[[l]] == totals[[label_name(l)]], logical(1))))
+ok("waterbody: every attempt is on a bar", sum(per_label), sum(wb_keep))
+ok("waterbody: every segment is the direct count",
    all(unlist(lapply(tr, function(t) vapply(seq_along(t$y), function(i)
-     sum(wb_named == label_name(t$y[i]) & wb_out == t$name) == t$x[i], logical(1))))))
+     sum(wb == label_name(t$y[i]) & wb_out == t$name) == t$x[i], logical(1))))))
+ok("waterbody: hidden when one regime is filtered",
+   c(fw_show_waterbody(list(regime = "Lentic")), fw_show_waterbody(list(regime = "Lotic")),
+     fw_show_waterbody(list(regime = c("Lentic", "Lotic"))), fw_show_waterbody(list())),
+   c(FALSE, FALSE, TRUE, TRUE))
 
-# THE SHARE VIEW IS OF EACH BAR, NOT OF THE SELECTION. Every kind of water
-# reaches 100%, which is what makes it the outcome mix rather than the
-# selection's composition - the two read the same on a one-category chart and
-# quite differently on a real one.
+# THE SHARE VIEW IS OF EACH BAR, AND OF FINISHED ATTEMPTS ONLY. Every bar
+# reaches 100% on Successful + Failed.
 tr_wb_share <- plotly::plotly_build(fw_chart_waterbody(all_sel, "share"))$x$data
 wb_sums <- tapply(unlist(lapply(tr_wb_share, `[[`, "x")),
                   unlist(lapply(tr_wb_share, function(t) as.character(t$y))), sum)
-ok("category: shares sum to 100 per kind of water", all(abs(wb_sums - 100) < 1e-9))
+ok("waterbody: shares sum to 100 per bar", all(abs(wb_sums - 100) < 1e-9))
+ok("waterbody (share): only Successful and Failed",
+   sort(vapply(tr_wb_share, `[[`, "", "name")), c("Failed", "Successful"))
 
-# THE HOVER IS THE SPECIES TILE'S SENTENCE, IN BOTH MODES (client, 24 Sept
-# 2026) - "Successful: 25% (3 of 12)". It used to read the drawn value, so
-# share mode would have offered "Successful: 33.33333"; then it read the count
-# only, and later the count with a percentage in share mode alone. One template
-# now, plan$r_tile_seg. Both numbers are recomputed here from the attempts, and
-# the outcome is checked against the trace it came from - see the note on the
-# method chart's hover above for why that matters.
+# The hover and the in-bar labels, recomputed. A count hovers as a number; a
+# rate as the tile sentence out of the finished attempts.
+fin <- wb_out %in% c("Successful", "Failed")
 for (mode in c("count", "share")) {
   tr_h <- plotly::plotly_build(fw_chart_waterbody(all_sel, mode))$x$data
-  all_ok <- TRUE
+  hover_ok <- TRUE; label_ok <- TRUE; n_shown <- 0
   for (t in tr_h) {
-    if (grepl("%{x}", t$hovertemplate[1], fixed = TRUE)) all_ok <- FALSE
+    if (grepl("%{x}", t$hovertemplate[1], fixed = TRUE)) hover_ok <- FALSE
     for (i in seq_along(t$y)) {
       lab <- label_name(t$y[i])
-      n <- sum(wb_named == lab & wb_out == t$name)
-      total <- sum(wb_named == lab)
-      want <- fw_fill(fw_t("plan", "r_tile_seg"), outcome = t$name,
-                      pc = sprintf("%.0f", round(100 * n / total)),
-                      n = fw_fmt_num(n), total = fw_fmt_num(total))
-      if (!identical(as.character(t$customdata[i]), want)) all_ok <- FALSE
+      n <- sum(wb == lab & wb_out == t$name)
+      total <- if (mode == "share") sum(wb == lab & fin) else sum(wb == lab)
+      share <- 100 * n / total
+      want <- if (mode == "count") {
+        fw_fill(fw_t("plan", "r_bar_count_seg"), outcome = t$name, n = fw_fmt_num(n))
+      } else {
+        fw_fill(fw_t("plan", "r_tile_seg"), outcome = t$name,
+                pc = sprintf("%.0f", round(share)),
+                n = fw_fmt_num(n), total = fw_fmt_num(total))
+      }
+      if (!identical(as.character(t$customdata[i]), want)) hover_ok <- FALSE
+      lwant <- if (share < FW_CHART$label_min_share) "" else
+        if (mode == "share") paste0(round(share), "%") else as.character(n)
+      if (!identical(as.character(t$text[i]), lwant)) label_ok <- FALSE
+      if (nzchar(lwant)) n_shown <- n_shown + 1
     }
   }
-  ok(paste0("category ", mode, ": hover is the species tile's sentence"), all_ok)
+  ok(paste0("waterbody ", mode, ": hover matches the recomputed sentence"), hover_ok)
+  ok(paste0("waterbody ", mode, ": segment labels match the recomputed values"), label_ok)
+  ok(paste0("waterbody ", mode, ": some segments are labelled"), n_shown > 0)
 }
 
-# THE SEGMENTS CARRY LABELS IN BOTH MODES (client, 21 Sept 2026: the 100% view
-# had none). Recomputed from the attempts: the count, or round(100 * n / bar
-# total) with a %, and blank only under the share floor.
-for (mode in c("count", "share")) {
-  tr_l <- plotly::plotly_build(fw_chart_waterbody(all_sel, mode))$x$data
-  all_ok <- TRUE; n_shown <- 0
-  for (t in tr_l) {
-    for (i in seq_along(t$y)) {
-      lab <- label_name(t$y[i])
-      n <- sum(wb_named == lab & wb_out == t$name)
-      share <- 100 * n / sum(wb_named == lab)
-      want <- if (share < FW_CHART$label_min_share) "" else
-        if (mode == "share") paste0(round(share), "%") else as.character(n)
-      if (!identical(as.character(t$text[i]), want)) all_ok <- FALSE
-      if (nzchar(want)) n_shown <- n_shown + 1
-    }
-  }
-  ok(paste0("category ", mode, ": segment labels match the recomputed values"),
-     all_ok)
-  ok(paste0("category ", mode, ": some segments are labelled"), n_shown > 0)
-}
+# THE SUCCESS RATE OVER TIME (Explore, client 30 Sept 2026): a 10-year
+# trailing window, pooled, finished attempts only, not drawn under min_n.
+# Recomputed here for every year straight from the attempts table.
+st <- traces(fw_chart_success_time(all_sel))[[1]]
+# plotly_build() folds each run of undrawn years into a single NA break, so
+# the drawn points are compared year by year and the breaks counted.
+drawn <- !is.na(st$x)
+cfg <- FW_CHART$success_time
+fin_a <- all_sel[!is.na(all_sel$start_year) & all_sel$outcome %in% c("Successful", "Failed"), ]
+yr0 <- min(fin_a$start_year); yr1 <- max(fin_a$start_year)
+ok("success over time: the window is ten years", cfg$window, 10L)
+want_rate <- vapply(seq(yr0, yr1), function(y) {
+  w <- fin_a[fin_a$start_year >= max(y - (cfg$window - 1), yr0) & fin_a$start_year <= y, ]
+  if (nrow(w) < cfg$min_n) NA_real_ else 100 * mean(w$outcome == "Successful")
+}, numeric(1))
+names(want_rate) <- seq(yr0, yr1)
+ok("success over time: exactly the years with enough finished attempts are drawn",
+   as.integer(st$x[drawn]), as.integer(names(want_rate)[!is.na(want_rate)]))
+ok("success over time: every rate is the pooled window, recomputed",
+   isTRUE(all.equal(as.numeric(st$y[drawn]),
+                    unname(want_rate[as.character(st$x[drawn])]))))
+ok("success over time: thin windows are breaks in the line, and there are some",
+   any(!drawn) && any(is.na(want_rate)))
+ok("success over time: it moves (the chart is worth drawing)",
+   diff(range(st$y, na.rm = TRUE)) > 10)
+ok("success over time: the hover names the window and the counts",
+   all(grepl("^[0-9]{4}-[0-9]{4}: [0-9]+% successful \\([0-9]+ of [0-9]+ finished\\)$",
+             st$customdata[!is.na(st$y)])))
 
 # The caption under the method chart: attempts with no method row at all.
 ok("method: the no-method caption count",
@@ -1351,14 +1487,18 @@ pl_total <- function(p) {
   b <- plotly::plotly_build(p)$x$data
   sum(unlist(lapply(b, function(t) if (identical(t$type, "bar")) t$x else NULL)))
 }
+# Single-method attempts only (client, 30 Sept 2026): one (attempt, method)
+# pair per attempt that recorded exactly one method.
 pairs_of <- function(s) {
   am_s <- am[as.character(am$attempt_id) %in% as.character(s$attempt_id), ]
-  unique(paste(am_s$attempt_id, am_s$method_id))
+  p <- unique(paste(am_s$attempt_id, am_s$method_id))
+  n <- table(sub(" .*$", "", p))
+  p[sub(" .*$", "", p) %in% names(n)[n == 1L]]
 }
 for (nm in c("all", "slice")) {
   s <- if (nm == "all") all_sel else sel1
   n_pairs <- length(pairs_of(s))
-  n_wb <- sum(!is.na(s$waterbody_type))
+  n_wb <- sum(!is.na(s$water_regime))
   ok(sprintf("pdf twin (%s): methods, page = recount", nm),
      pl_total(fw_chart_method(d, s, "count")), n_pairs)
   ok(sprintf("pdf twin (%s): methods, pdf = recount", nm),
@@ -1649,26 +1789,36 @@ ok("welcome: no swatch legend left", !grepl("fw-compare__swatch", home_html, fix
 ok("welcome: the caption names both map states in colour",
    grepl('class="fw-compare__now"', home_html, fixed = TRUE) &&
      grepl('class="fw-compare__later"', home_html, fixed = TRUE))
-ok("welcome: the reveal starts fully on current work",
-   grepl('value="0"', home_html) && grepl("--fw-pos: 0%", home_html, fixed = TRUE))
+# IN THE MIDDLE, and the input and the picture agree before any script runs
+# (client, 30 Sept 2026: it starts halfway and sways to show it moves).
+ok("welcome: the reveal starts in the middle",
+   grepl(sprintf('value="%d"', FW_HOME_COMPARE$start), home_html) &&
+     grepl(sprintf("--fw-pos: %d%%", FW_HOME_COMPARE$start), home_html, fixed = TRUE) &&
+     FW_HOME_COMPARE$start == 50L)
+ok("welcome: the sway stops for a reader who asks for reduced motion",
+   grepl("prefers-reduced-motion: reduce", home_html, fixed = TRUE))
 
 # ==============================================================================
 cat("\n-- design values --\n")
 
 rem <- function(x) as.numeric(sub("rem$", "", x))
-# THE THREE EXEMPTIONS ARE NAMED, so a fourth cannot be added by accident: a
+# THE FOUR EXEMPTIONS ARE NAMED, so a fifth cannot be added by accident: a
 # new size_* token under 1rem fails this until someone writes it down here and
-# says why. size_popup is for transient overlays; size_credit is the photo
-# credits in the dashboard's attempts table; size_fine is the Welcome page's
-# evidence footnote, the Mercator note under both maps, and the report's
-# filters table on paper (client, 23 Sept 2026). All three are recorded at
+# says why. size_popup is for transient overlays; size_credit is the footer's
+# small print and the photo credits on paper; size_photo_credit is the
+# Wikimedia credits on the page (client, 30 Sept 2026); size_fine is the
+# Welcome page's evidence footnote, the Mercator note under both maps, and the
+# report's filters table on paper (client, 23 Sept 2026). All four are recorded at
 # FW_TYPE in R/brand.R and in the floor note in www/scss/_tokens.scss.
-FW_TYPE_FLOOR_EXEMPT <- c("size_popup", "size_credit", "size_fine")
+FW_TYPE_FLOOR_EXEMPT <- c("size_popup", "size_credit", "size_fine",
+                          # The Wikimedia credits on the page (client, 30 Sept 2026).
+                          "size_photo_credit")
 sizes <- FW_TYPE[grepl("^size_", names(FW_TYPE)) &
                    !names(FW_TYPE) %in% FW_TYPE_FLOOR_EXEMPT]
 ok("type: nothing on the page is under the 1rem floor", all(vapply(sizes, rem, numeric(1)) >= 1))
-ok("type: the floor's exemptions are the three that are written down",
-   sum(vapply(FW_TYPE[grepl("^size_", names(FW_TYPE))], rem, numeric(1)) < 1), 3L)
+ok("type: the floor's exemptions are the four that are written down",
+   sum(vapply(FW_TYPE[grepl("^size_", names(FW_TYPE))], rem, numeric(1)) < 1), 4L)
+ok("type: the photo credits are at 0.6rem", FW_TYPE$size_photo_credit, "0.6rem")
 # AND THE EXEMPTION HAS EXACTLY THE CALLERS IT IS WRITTEN DOWN FOR. $fw-size-fine
 # is the one token that may go under the floor on a page that stays put, so the
 # stylesheet is checked for who actually uses it.

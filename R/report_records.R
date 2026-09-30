@@ -350,18 +350,20 @@ fw_records_pair <- function(build, labels) {
 #' countries, the kind of water and the methods (each twice: number, then
 #' success rate), how long they took, and who to ask. The same builders the
 #' page and the PDF use, so the three cannot disagree about a figure.
-fw_records_summary_ui <- function(data, sel) {
+fw_records_summary_ui <- function(data, sel, filters = NULL) {
   n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
   n_no_method <- fw_n_no_method(data, sel)
+  n_multi <- fw_n_multi_method(data, sel)
   n_duration <- nrow(fw_duration_sel(data, sel))
   caption <- function(key, n) {
     if (n > 0) p(class = "fw-caption", fw_fill(fw_t("plan", key), n = fw_fmt_num(n)))
   }
   species <- function(role_name) {
-    title <- fw_species_top_title(data, sel, role_name)
+    title <- fw_species_top_title(data, sel, role_name, f = filters)
     if (is.null(title)) return(NULL)
     fw_records_block(title, NULL,
-                     fw_species_tiles_ui(data, sel, role_name, limit = FW_PLAN_SPECIES_N))
+                     fw_species_tiles_ui(data, sel, role_name, limit = FW_PLAN_SPECIES_N,
+                                         f = filters))
   }
   map <- if (nrow(sel) > n_no_coords) {
     # A click goes to the attempt's card below. See detail = "anchor" in
@@ -369,7 +371,7 @@ fw_records_summary_ui <- function(data, sel) {
     m <- fw_plan_map(data, sel, detail = "anchor")
     m$width <- "100%"
     m$height <- "100%"
-    div(class = "fw-map", as.tags(m, standalone = FALSE))
+    div(class = "fw-map", style = fw_map_shape_style(), as.tags(m, standalone = FALSE))
   }
   people <- fw_plan_contacts(data, sel)
 
@@ -387,9 +389,8 @@ fw_records_summary_ui <- function(data, sel) {
     fw_records_block(fw_t("plan", "report_where"), NULL,
                      fw_html_table(fw_report_country_table(sel),
                                    num = fw_t("export", "col_attempts"))),
-    fw_records_block(
-      fw_t("plan", "r_waterbody"),
-      fw_fill(fw_t("plan", "r_waterbody_note"), n_word = fw_num_word(FW_TOP_N)),
+    if (fw_show_waterbody(filters)) fw_records_block(
+      fw_t("plan", "r_waterbody"), fw_t("plan", "r_waterbody_note"),
       fw_records_pair(function(mode) fw_chart_waterbody(sel, mode = mode),
                       list(count = fw_t("plan", "r_waterbody_count"),
                            share = fw_t("plan", "r_waterbody_share")))),
@@ -398,7 +399,8 @@ fw_records_summary_ui <- function(data, sel) {
       fw_records_pair(function(mode) fw_chart_method(data, sel, mode = mode),
                       list(count = fw_t("plan", "r_method_count"),
                            share = fw_t("plan", "r_method_share"))),
-      caption("r_method_missing", n_no_method)),
+      caption("r_method_missing", n_no_method),
+      caption("r_method_multi", n_multi)),
     fw_records_block(
       fw_t("plan", "r_duration"), fw_t("plan", "r_duration_note"),
       fw_records_chart(fw_chart_duration(data, sel)),
@@ -492,7 +494,7 @@ fw_write_records_html <- function(path, data, sel, export, filters, meta = NULL)
     ),
 
     # THE FIGURES, before a single card.
-    fw_records_summary_ui(data, sel),
+    fw_records_summary_ui(data, sel, filters),
 
     tags$nav(
       class = "fw-rec-panel", id = "fw-rec-contents",

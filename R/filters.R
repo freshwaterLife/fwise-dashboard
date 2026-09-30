@@ -505,47 +505,110 @@ fw_species_allowed <- function(sp, taxa, family, all) {
   all[all %in% sp$label[keep]]
 }
 
-#' Narrow each species picker by the kind-of-animal and family pickers above it
+# The protected side's three pickers, and the filters they are narrowed BY
+# rather than narrowing. See fw_protected_allowed().
+FW_PROTECTED_FILTERS <- c("taxa_beneficiary", "family_beneficiary", "beneficiary")
+
+#' What the protected pickers may offer, given every other filter
 #'
-#' One pair of observers per side (invasive, protected), each writing only to
-#' its species picker, so nothing here can loop. A species already chosen stays
-#' chosen only while it is still on offer, as with the geography pair.
+#' THE PROTECTED SIDE FOLLOWS THE REST (client, 30 Sept 2026): a reader who has
+#' chosen invasive Salmonidae should be offered only the animals and species
+#' that attempts against salmonids actually protected - not every beneficiary
+#' in the database, most of which would give them nothing. So the three
+#' protected pickers list what occurs in the attempts matching everything else
+#' the reader has set, and within that the protected species also follow the
+#' protected kind of animal and family, as the invasive side does.
+#'
+#' Pure, for the tests; fw_link_species_filters() does the plumbing.
+#'
+#' @param data the loaded tables
+#' @param sp fw_species_label(data$species)
+#' @param attempt_ids the attempts matching every non-protected filter
+#' @param taxa,family the reader's protected kind of animal and family
+#' @param ch fw_filter_choices(data), whose order each list keeps
+#' @return list(taxa_beneficiary, family_beneficiary, beneficiary)
+fw_protected_allowed <- function(data, sp, attempt_ids, taxa, family, ch) {
+  ben_ids <- unique(data$attempt_species$species_id[
+    data$attempt_species$role == "beneficiary" &
+      data$attempt_species$attempt_id %in% attempt_ids])
+  here <- sp[sp$species_id %in% ben_ids, ]
+  list(
+    taxa_beneficiary   = ch$taxa_beneficiary[ch$taxa_beneficiary %in% here$taxa],
+    family_beneficiary = ch$family_beneficiary[ch$family_beneficiary %in% here$family],
+    beneficiary        = fw_species_allowed(here, taxa, family, ch$beneficiary)
+  )
+}
+
+#' Wire the species pickers to the filters that should narrow them
+#'
+#' INVASIVE: the fish family picker offers the families of the kind of animal
+#' chosen, and the species picker the species of both.
+#'
+#' PROTECTED: all three pickers offer only what the attempts matching every
+#' other filter protected - see fw_protected_allowed(). Driven by the whole
+#' filter state rather than a list of inputs, so a filter added to FW_FILTERS
+#' narrows the protected side without an edit here.
+#'
+#' WHY THIS DOES NOT LOOP. Each observer writes only to pickers it does not
+#' read the choices of, and a write that leaves a selection unchanged
+#' invalidates nothing. A protected kind of animal dropped from the list
+#' changes the protected species list once, and stops.
+#'
+#' A picker that is not on the page is skipped, so Explore (no species
+#' pickers) gets the kind-of-animal and family narrowing and nothing else.
 #'
 #' FAMILY ONLY COUNTS WHILE IT IS SHOWING. It is drawn only while Fish is
 #' picked, and fw_filter_state() ignores it otherwise, so a stale family left
 #' behind by deselecting Fish must not keep narrowing the list either.
 #'
-#' @param ids the filter ids the page draws; a side whose species picker is not
-#'   on the page is skipped
+#' @param ids the filter ids the page draws
 fw_link_species_filters <- function(input, session, data, choices, ids) {
   sp <- fw_species_label(data$species)
   picked <- function(x) if (length(x)) as.character(x) else character(0)
-  sides <- list(
-    list(species = "species", taxa = "taxa", family = "family"),
-    list(species = "beneficiary", taxa = "taxa_beneficiary",
-         family = "family_beneficiary")
-  )
-  for (side in sides) {
-    if (!side$species %in% ids) next
-    local({
-      s <- side
-      family_now <- function() {
-        when <- FW_FILTERS[[s$family]]$when
-        if (!s$family %in% ids) return(character(0))
-        if (!is.null(when) && !when$value %in% picked(input[[when$input]])) {
-          return(character(0))
-        }
-        picked(input[[s$family]])
-      }
-      shiny::observeEvent(list(picked(input[[s$taxa]]), family_now()), {
-        allowed <- fw_species_allowed(sp, picked(input[[s$taxa]]), family_now(),
-                                      choices[[s$species]])
-        shiny::updateSelectizeInput(
-          session, s$species, choices = allowed,
-          selected = intersect(picked(input[[s$species]]), allowed))
-      }, ignoreNULL = FALSE, ignoreInit = TRUE)
-    })
+  shown <- function(id) {
+    if (!id %in% ids) return(character(0))
+    when <- FW_FILTERS[[id]]$when
+    if (!is.null(when) && !when$value %in% picked(input[[when$input]])) {
+      return(character(0))
+    }
+    picked(input[[id]])
   }
+  update <- function(id, allowed) {
+    shiny::updateSelectizeInput(session, id, choices = allowed,
+                                selected = intersect(picked(input[[id]]), allowed))
+  }
+
+  # ---- Invasive: within its own side ----
+  if ("family" %in% ids) {
+    shiny::observeEvent(picked(input$taxa), {
+      fam <- sp$family[!is.na(sp$family) &
+                         (!length(picked(input$taxa)) | sp$taxa %in% picked(input$taxa))]
+      update("family", choices$family[choices$family %in% fam])
+    }, ignoreNULL = FALSE, ignoreInit = TRUE)
+  }
+  if ("species" %in% ids) {
+    shiny::observeEvent(list(picked(input$taxa), shown("family")), {
+      update("species", fw_species_allowed(sp, picked(input$taxa), shown("family"),
+                                           choices$species))
+    }, ignoreNULL = FALSE, ignoreInit = TRUE)
+  }
+
+  # ---- Protected: by everything else ----
+  others <- setdiff(ids, FW_PROTECTED_FILTERS)
+  if (!length(intersect(ids, FW_PROTECTED_FILTERS))) return(invisible(NULL))
+  # DEBOUNCED, because the size and year sliders send a value per pixel of a
+  # drag, and each one would otherwise re-filter the database.
+  relevant <- shiny::debounce(shiny::reactive({
+    f <- fw_filter_state(input, others, ch = choices)
+    fw_filter_apply(data, f)$attempt_id
+  }), 300)
+  shiny::observeEvent(list(relevant(), shown("taxa_beneficiary"),
+                           shown("family_beneficiary")), {
+    allowed <- fw_protected_allowed(data, sp, relevant(),
+                                    shown("taxa_beneficiary"),
+                                    shown("family_beneficiary"), choices)
+    for (id in intersect(FW_PROTECTED_FILTERS, ids)) update(id, allowed[[id]])
+  }, ignoreInit = TRUE)
   invisible(NULL)
 }
 

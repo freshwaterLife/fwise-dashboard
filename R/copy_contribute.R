@@ -307,7 +307,7 @@ FW_COPY_CONTRIBUTE <- list(
       area_treated     = "Size of the area treated",
       area_unit        = "Unit",
       area_notes       = "Anything else about the area treated?",
-      depth_m          = "Average or estimated depth (m)",
+      depth_m          = "Estimated depth (m)",
       depth_notes      = "Notes on depth",
       volume_m3        = "Estimated volume (m3)",
       volume_notes     = "Notes on volume",

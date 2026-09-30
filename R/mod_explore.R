@@ -40,27 +40,63 @@ mod_explore_ui <- function(id, choices) {
                      note_as = "text")
           ),
 
-          div(
-            class = "fw-explore-charts",
-            # THE EMPTY CONTROLS ROW IS NOT A LEFTOVER. The method chart has a
-            # count/share switch above it and this one has none; each block is
-            # a subgrid of the same three rows (see .fw-explore-charts), so an
-            # empty row here is what keeps the two plots level side by side.
-            fw_block(fw_t("explore", "cumulative"),
-                     NULL,
-                     tagList(
-                       div(class = "fw-explore-charts__controls"),
-                       plotly::plotlyOutput(ns("cumulative"), height = "auto")
-                     )),
-            fw_block(fw_t("explore", "method"),
-                     fw_t("explore", "method_note"),
-                     tagList(
-                       div(class = "fw-explore-charts__controls",
-                           fw_mode_toggle(ns("method_mode"),
-                                          fw_t("plan", "r_method_count"),
-                                          fw_t("plan", "r_method_share"))),
-                       plotly::plotlyOutput(ns("method"), height = "auto")
-                     ))
+          # ONE BLOCK, THREE QUESTIONS (client, 30 Sept 2026). The heading asks
+          # them; "Show" picks which one the charts below answer. Number of
+          # attempts leads: how much has been done, over time and by method.
+          # Success rate puts the same two axes as rates. Duration is the
+          # planning chart, successful eradications only, full width.
+          #
+          # conditionalPanel, not a renderUI: every chart is in the page from
+          # the start and a hidden one is suspended by Shiny until its view
+          # is picked, so switching back costs nothing and the filters stay
+          # live in all three.
+          tags$section(
+            class = "fw-explore-block fw-explore-views",
+            h2(fw_t("explore", "views_title")),
+            div(
+              class = "fw-segmented",
+              radioButtons(
+                ns("view"), label = fw_t("explore", "views_show"),
+                choices = stats::setNames(
+                  c("count", "rate", "duration"),
+                  c(fw_t("explore", "view_count"), fw_t("explore", "view_rate"),
+                    fw_t("explore", "view_duration"))),
+                selected = "count", inline = TRUE
+              )
+            ),
+            # THE BLOCKS ARE SUBGRIDS of the pair's three rows - title, chart,
+            # caption - so the two plots start on the same line whatever the
+            # length of their titles. See .fw-explore-charts.
+            conditionalPanel(
+              "input.view == 'count'", ns = ns,
+              div(
+                class = "fw-explore-charts",
+                fw_block(fw_t("explore", "cumulative"), NULL,
+                         plotly::plotlyOutput(ns("cumulative"), height = "auto")),
+                fw_block(fw_t("explore", "method"), fw_t("explore", "method_note"),
+                         tagList(plotly::plotlyOutput(ns("method_count"), height = "auto"),
+                                 uiOutput(ns("method_multi_count"))))
+              )
+            ),
+            conditionalPanel(
+              "input.view == 'rate'", ns = ns,
+              div(
+                class = "fw-explore-charts",
+                fw_block(fw_t("explore", "success_time"),
+                         fw_fill(fw_t("explore", "success_time_note"),
+                                 min_n = FW_CHART$success_time$min_n),
+                         plotly::plotlyOutput(ns("success_time"), height = "auto")),
+                fw_block(fw_t("explore", "method"), fw_t("explore", "method_rate_note"),
+                         tagList(plotly::plotlyOutput(ns("method_rate"), height = "auto"),
+                                 uiOutput(ns("method_multi_rate"))))
+              )
+            ),
+            conditionalPanel(
+              "input.view == 'duration'", ns = ns,
+              fw_block(fw_t("explore", "duration"), fw_t("plan", "r_duration_note"),
+                       tagList(plotly::plotlyOutput(ns("duration"), height = "auto"),
+                               uiOutput(ns("duration_caption"))))
+            )
           ),
 
           # THE WAY ON to the report builder, last on the page (client, 29
@@ -88,6 +124,11 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     # The fish family pair empties itself when Fish is deselected. Shared with
     # the report builder - see R/filters.R.
     fw_filter_when_observers(input, session, ids)
+
+    # Invasive family follows the kind of animal; the protected pickers offer
+    # only what the attempts matching the other filters protected. See
+    # fw_link_species_filters() in R/filters.R.
+    fw_link_species_filters(input, session, data, choices, ids)
 
 
     output$kpis <- renderUI(fw_explore_db_panel(fw_headline_stats(data), in_review))
@@ -163,14 +204,33 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     }))
     fw_map_detail_server(input, session, "map_detail", data, sel)
 
-    # LIVE, like everything else on this page. These are cheap - two
-    # aggregations over at most 914 rows - and watching them move under the
-    # filters is the whole reason they are here rather than on Plan.
-    output$method <- plotly::renderPlotly(
-      fw_chart_or_empty(fw_chart_method(data, sel(),
-                                        mode = input$method_mode %||% "count")))
+    # LIVE, like everything else on this page. These are cheap - a few
+    # aggregations over at most a thousand rows - and watching them move under
+    # the filters is the whole reason they are here rather than on Plan. Only
+    # the picked view's are drawn: the others are hidden, and Shiny suspends a
+    # hidden output until it is shown.
     output$cumulative <- plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_cumulative(sel())))
+    output$method_count <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_method(data, sel(), mode = "count")))
+    output$success_time <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_success_time(sel())))
+    output$method_rate <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_method(data, sel(), mode = "share")))
+    output$duration <- plotly::renderPlotly(
+      fw_chart_or_empty(fw_chart_duration(data, sel())))
+
+    multi <- function() {
+      n <- fw_n_multi_method(data, sel())
+      if (n > 0) p(class = "fw-caption",
+                   fw_fill(fw_t("plan", "r_method_multi"), n = fw_fmt_num(n)))
+    }
+    output$method_multi_count <- renderUI(multi())
+    output$method_multi_rate <- renderUI(multi())
+    output$duration_caption <- renderUI(p(
+      class = "fw-caption",
+      fw_fill(fw_t("plan", "r_duration_missing"),
+              n = fw_fmt_num(nrow(fw_duration_sel(data, sel()))))))
   })
 }
 
