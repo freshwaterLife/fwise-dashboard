@@ -352,8 +352,7 @@ fw_records_pair <- function(build, labels) {
 #' page and the PDF use, so the three cannot disagree about a figure.
 fw_records_summary_ui <- function(data, sel, filters = NULL) {
   n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
-  n_no_method <- fw_n_no_method(data, sel)
-  n_multi <- fw_n_multi_method(data, sel)
+  method_caption <- fw_method_caption_text(data, sel)
   n_duration <- nrow(fw_duration_sel(data, sel))
   caption <- function(key, n) {
     if (n > 0) p(class = "fw-caption", fw_fill(fw_t("plan", key), n = fw_fmt_num(n)))
@@ -399,8 +398,7 @@ fw_records_summary_ui <- function(data, sel, filters = NULL) {
       fw_records_pair(function(mode) fw_chart_method(data, sel, mode = mode),
                       list(count = fw_t("plan", "r_method_count"),
                            share = fw_t("plan", "r_method_share"))),
-      caption("r_method_missing", n_no_method),
-      caption("r_method_multi", n_multi)),
+      if (!is.null(method_caption)) p(class = "fw-caption", method_caption)),
     fw_records_block(
       fw_t("plan", "r_duration"), fw_t("plan", "r_duration_note"),
       fw_records_chart(fw_chart_duration(data, sel)),

@@ -389,8 +389,7 @@ fw_pdf_contacts_table <- function(people, limit = FW_PDF$contacts_n) {
 fw_pdf_body <- function(dir, data, sel, filters, meta = NULL) {
   s <- fw_plan_summary(data, sel)
   n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
-  n_no_method <- fw_n_no_method(data, sel)
-  n_multi <- fw_n_multi_method(data, sel)
+  method_caption <- fw_method_caption_text(data, sel)
   n_duration <- nrow(fw_duration_sel(data, sel))
   generated <- format(Sys.time(), "%d %B %Y", tz = "UTC")
 
@@ -501,10 +500,7 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL) {
     if (!is.null(method_fig)) {
       fw_typ_block(fw_t("plan", "r_method"), fw_t("plan", "r_method_note"), c(
         method_fig,
-        if (n_no_method > 0) fw_typ_caption(fw_fill(fw_t("plan", "r_method_missing"),
-                                                   n = fw_fmt_num(n_no_method))),
-        if (n_multi > 0) fw_typ_caption(fw_fill(fw_t("plan", "r_method_multi"),
-                                               n = fw_fmt_num(n_multi)))
+        if (!is.null(method_caption)) fw_typ_caption(method_caption)
       ))
     },
 

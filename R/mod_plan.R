@@ -127,8 +127,7 @@ fw_plan_results_ui <- function(ns) {
                        fw_t("plan", "r_method_count"),
                        fw_t("plan", "r_method_share")),
         plotly::plotlyOutput(ns("methods"), height = "auto"),
-        uiOutput(ns("method_missing")),
-        uiOutput(ns("method_multi"))
+        uiOutput(ns("method_caption"))
       )
     ),
 
@@ -364,10 +363,10 @@ mod_plan_server <- function(id, data, meta = NULL) {
       sel <- results()$sel
       caption("r_map_missing", sum(is.na(sel$latitude) | is.na(sel$longitude)))
     })
-    output$method_missing <- renderUI(
-      caption("r_method_missing", fw_n_no_method(data, results()$sel)))
-    output$method_multi <- renderUI(
-      caption("r_method_multi", fw_n_multi_method(data, results()$sel)))
+    output$method_caption <- renderUI({
+      txt <- fw_method_caption_text(data, results()$sel)
+      if (!is.null(txt)) p(class = "fw-caption", txt)
+    })
     output$waterbody_shown <- renderText(
       if (built() && fw_show_waterbody(report()$filters)) "yes" else "no")
     outputOptions(output, "waterbody_shown", suspendWhenHidden = FALSE)
@@ -575,6 +574,19 @@ fw_mode_toggle <- function(id, count_label, share_label) {
 
 fw_n_no_method <- function(data, sel) {
   sum(!sel$attempt_id %in% data$attempt_method$attempt_id)
+}
+
+# ONE LINE UNDER THE METHOD CHART (client, 30 Sept 2026): the no-method and
+# more-than-one-method counts, joined by " - " when both apply. NULL when
+# neither does. Plan page, Detailed report and PDF all print this.
+fw_method_caption_text <- function(data, sel) {
+  parts <- c(
+    if ((n <- fw_n_no_method(data, sel)) > 0)
+      fw_fill(fw_t("plan", "r_method_missing"), n = fw_fmt_num(n)),
+    if ((n <- fw_n_multi_method(data, sel)) > 0)
+      fw_fill(fw_t("plan", "r_method_multi"), n = fw_fmt_num(n))
+  )
+  if (length(parts)) paste0(paste(sub("\\.$", "", parts), collapse = " - "), ".")
 }
 
 fw_plan_download_ui <- function(ns, pdf = fw_pdf_available()) {

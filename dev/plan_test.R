@@ -449,7 +449,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
                 logical(1))))
   ok("no output nested in a results renderUI",
      any(vapply(list(output$summary, output$species, output$outcome_bars,
-                     output$map_missing, output$method_missing,
+                     output$map_missing, output$method_caption,
                      output$duration_missing, output$zero),
                 function(x) grepl("shiny-(html|text|plot)-output|html-widget-output",
                                   as.character(x$html %||% "")),
@@ -781,10 +781,9 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     ok("no private address reaches the PDF",
        any(vapply(private, function(e) has(gsub("([@.])", "\\1\u200b", e)) || has(e),
                   logical(1))), FALSE)
-    ok("the no-method caption is there when it should be",
-       has(fw_fill(fw_t("plan", "r_method_missing"),
-                   n = fw_fmt_num(fw_n_no_method(d, report()$sel)))),
-       fw_n_no_method(d, report()$sel) > 0)
+    ok("the method caption is there when it should be",
+       has(fw_method_caption_text(d, report()$sel) %||% "\u0001"),
+       fw_n_no_method(d, report()$sel) + fw_n_multi_method(d, report()$sel) > 0)
   }
 })
 
@@ -808,9 +807,8 @@ for (rg in list(character(0), "Lentic", c("Lentic", "Lotic"))) {
      grepl(fw_t("plan", "r_waterbody"), rec_r, fixed = TRUE), want)
   if (!length(rg)) {
     ok("PDF: the duration chart is drawn", file.exists(file.path(dir_r, "duration.png")), TRUE)
-    ok("PDF: the multi-method caption is printed",
-       grepl(fw_fill(fw_t("plan", "r_method_multi"),
-                     n = fw_fmt_num(fw_n_multi_method(d, sel_r))), typ_r, fixed = TRUE), TRUE)
+    ok("PDF: the method caption is one line",
+       grepl(fw_typ_caption(fw_method_caption_text(d, sel_r)), typ_r, fixed = TRUE), TRUE)
     ok("PDF: species tiles are drawn", grepl("#fw-species-tiles", typ_r, fixed = TRUE), TRUE)
   }
   unlink(dir_r, recursive = TRUE)
