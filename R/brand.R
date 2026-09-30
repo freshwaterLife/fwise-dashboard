@@ -168,7 +168,11 @@ FW_TYPE <- list(
   # 0.8rem, roughly 13px, NOT the half of 1rem the instruction says literally:
   # 8px attribution is not legible at arm's length on a laptop and would fail
   # the obligation it exists to meet. Raise or lower it here, in one place.
-  size_credit  = "0.8rem",     # photo credits in the table, and the footer credits
+  #
+  # EVERY PHOTOGRAPH CREDIT since 29 Sept 2026: the client asked for the credit
+  # under the hover card, the full record and the report tiles to be smaller,
+  # so all of them take this step rather than the floor or the popup size.
+  size_credit  = "0.8rem",     # photo credits everywhere, and the footer credits
 
   # Narrow screens (under FW_BREAKPOINTS$xs) step the headings down.
   size_h1_narrow = "2.1rem",

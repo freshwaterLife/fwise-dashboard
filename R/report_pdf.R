@@ -213,6 +213,11 @@ fw_typ_block <- function(title, note = NULL, body = "[]") {
 #' A caption line under a figure
 fw_typ_caption <- function(txt) paste0("#fw-caption(", fw_typ_str(txt), ")")
 
+#' A small bold label over one of a pair of figures ("Number of attempts")
+fw_typ_subhead <- function(txt) {
+  paste0("#v(2mm)\n#text(weight: \"bold\")[#", fw_typ_str(txt), "]\n#v(1mm)")
+}
+
 #' A figure drawn to PNG in the render directory, as an fw-figure() call
 #'
 #' @return the Typst call, or NULL when the chart had nothing to draw - and the
@@ -379,8 +384,7 @@ fw_pdf_contacts_table <- function(people, limit = FW_PDF$contacts_n) {
 #' this text and these files.
 #'
 #' @return the Typst body as one string
-fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
-                        method_mode = "count", waterbody_mode = "count") {
+fw_pdf_body <- function(dir, data, sel, filters, meta = NULL) {
   s <- fw_plan_summary(data, sel)
   n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
   n_no_method <- fw_n_no_method(data, sel)
@@ -397,21 +401,42 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
   map_fig <- if (!is.null(map)) fw_typ_figure(map$plot, dir, "map.png", map$height_mm)
 
   n_rows <- function(order_lv) length(order_lv)
-  method_fig <- local({
-    md <- fw_method_data(data, sel, method_mode)
-    if (!is.null(md)) fw_typ_figure(fw_gg_method(data, sel, method_mode), dir,
-                                    "methods.png", fw_gg_height("method", n_rows(md$order_lv)))
-  })
+  # BOTH VERSIONS OF THE TWO TOGGLED CHARTS, ONE ABOVE THE OTHER (client, 29
+  # Sept 2026): the number of attempts, then the success rate. The document
+  # used to print whichever the reader's toggle was on, so a reader who never
+  # touched it went away with half the comparison. Each is labelled with the
+  # toggle's own words, so the pair reads the same as the screen.
+  #
+  # NULL for a chart with nothing to draw; its block is dropped, heading and all.
+  both_modes <- function(stem, rows_for, gg_for, kind, labels) {
+    figs <- lapply(c("count", "share"), function(mode) {
+      rows <- rows_for(mode)
+      if (is.null(rows)) return(NULL)
+      fig <- fw_typ_figure(gg_for(mode), dir, paste0(stem, "-", mode, ".png"),
+                           fw_gg_height(kind, n_rows(rows)))
+      # ONE UNBREAKABLE BLOCK, so the label never ends a page with its chart
+      # starting the next.
+      paste0("#block(breakable: false)[\n", fw_typ_subhead(labels[[mode]]), "\n",
+             fig, "\n]")
+    })
+    figs <- Filter(Negate(is.null), figs)
+    if (length(figs)) unlist(figs)
+  }
+  method_fig <- both_modes(
+    "methods",
+    function(mode) fw_method_data(data, sel, mode)$order_lv,
+    function(mode) fw_gg_method(data, sel, mode), "method",
+    list(count = fw_t("plan", "r_method_count"), share = fw_t("plan", "r_method_share")))
   duration_fig <- local({
     dd <- fw_duration_data(data, sel)
     if (!is.null(dd)) fw_typ_figure(fw_gg_duration(data, sel), dir, "duration.png",
                                     fw_gg_height("duration", n_rows(dd$order_lv)))
   })
-  waterbody_fig <- local({
-    cd <- fw_category_data(fw_waterbody_rows(sel), FW_TOP_N, waterbody_mode)
-    if (!is.null(cd)) fw_typ_figure(fw_gg_waterbody(sel, waterbody_mode), dir,
-                                    "waterbody.png", fw_gg_height("category", n_rows(cd$order_lv)))
-  })
+  waterbody_fig <- both_modes(
+    "waterbody",
+    function(mode) fw_category_data(fw_waterbody_rows(sel), FW_TOP_N, mode)$order_lv,
+    function(mode) fw_gg_waterbody(sel, mode), "category",
+    list(count = fw_t("plan", "r_waterbody_count"), share = fw_t("plan", "r_waterbody_share")))
 
   people <- fw_plan_contacts(data, sel)
   # Methods then caveats, the same closing section the workbook's last tab and
@@ -517,16 +542,13 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL,
 #' Write the PDF report
 #'
 #' @param path where to write. The download handler's temp file.
-#' @param method_mode,waterbody_mode whichever mode each chart's toggle is
-#'   showing, so the document matches the screen
 #' @param keep a directory to copy the render directory into, for debugging
 #'   and the tests. NULL removes it.
 #' @param progress called as progress(fraction, detail) as the report is built,
 #'   fraction running 0 to 1 across this report alone. fw_write_bundle() maps
 #'   it onto its own bar; the default does nothing, so tests need no Shiny.
 fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = NULL,
-                                method_mode = "count",
-                                waterbody_mode = "count", keep = NULL,
+                                keep = NULL,
                                 progress = function(fraction, detail) NULL) {
   quarto <- fw_quarto_path()
   if (!nzchar(quarto)) {
@@ -553,8 +575,7 @@ fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = 
   writeLines(fw_pdf_tokens(logos), file.path(dir, "fwise-tokens.typ"), useBytes = TRUE)
 
   progress(0, fw_t("plan", "progress_charts"))
-  body <- fw_pdf_body(dir, data, sel, filters, meta, method_mode = method_mode,
-                      waterbody_mode = waterbody_mode)
+  body <- fw_pdf_body(dir, data, sel, filters, meta)
 
   qmd <- c(
     "---",

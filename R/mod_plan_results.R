@@ -182,7 +182,8 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N) {
 #' @param detail,detail_input passed to fw_add_attempt_markers(): the page
 #'   fetches each record on click; "embed" carries every record inside its
 #'   marker, for a map with no server behind it.
-fw_plan_map <- function(data, sel, detail = c("embed", "lazy"), detail_input = NULL) {
+fw_plan_map <- function(data, sel, detail = c("embed", "lazy", "anchor"),
+                        detail_input = NULL) {
   fw_leaflet() |>
     fw_add_basemaps() |>
     fw_add_attempt_markers(data, sel, detail = detail, detail_input = detail_input)

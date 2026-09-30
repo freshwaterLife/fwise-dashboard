@@ -224,6 +224,65 @@ ok("no underscore-nested taxa",
    any(grepl("_", full$invasive_taxa[!is.na(full$invasive_taxa)])), FALSE)
 ok("contributor notes are not exported", "notes_for_fwise" %in% names(full), FALSE)
 
+cat("\n-- the size scale (29 Sept 2026) --\n")
+# log10(1 + x), from 0 to a round number above the data maximum, in even steps
+# - never values from the data.
+ok("size: the scale round-trips",
+   isTRUE(all.equal(fw_size_unlog(fw_size_log(c(0, 0.0014, 3.4, 237500))),
+                    c(0, 0.0014, 3.4, 237500))))
+ok("size: both sliders start at 0", c(ha_full[1], km_full[1]), c(0, 0))
+ok("size: the top is at or above the data max",
+   fw_size_unlog(ha_full[2]) >= ch$size$ha[2] && fw_size_unlog(km_full[2]) >= ch$size$km[2])
+ok("size: the top is a 1-2-5 round number",
+   all(vapply(fw_size_unlog(c(ha_full[2], km_full[2])), function(x) {
+     x <- round(x)
+     m <- x / 10^floor(log10(x))
+     isTRUE(any(abs(m - c(1, 2, 5)) < 1e-6))
+   }, logical(1))))
+ok("size: nice ceiling", vapply(c(3, 12345, 237500, 500, 0.004), fw_nice_ceiling, numeric(1)),
+   c(5, 20000, 500000, 500, 0.005))
+ok("size: the step divides the range into equal positions",
+   isTRUE(all.equal(fw_size_log_step(ha_full) * FW_SIZE_POSITIONS, ha_full[2])))
+ok("size: a record sitting on the top end is kept",
+   nrow(fw_filter_apply(list(attempt = data.frame(
+     attempt_id = 1, area_treated = 20000, area_unit = "ha")),
+     list(.ids = "size", size_ha = c(0, fw_size_log(20000)), include_no_size = TRUE))), 1L)
+ok("size: the bottom label is 0", fw_size_label(fw_size_unlog(0)), fw_fmt_num(0))
+
+cat("\n-- clear and the default state --\n")
+# Clear builds from fw_filter_defaults(), because the reset controls only
+# reach the browser after the flush. It has to be the state a freshly reset
+# page would report.
+reset_input <- list(years = c(ch$year_min, ch$year_max),
+                    size_ha = ha_full, size_km = km_full,
+                    include_no_size = TRUE, include_no_year = TRUE)
+ok("defaults match a freshly reset page",
+   identical(fw_filter_defaults(plan_ids, ch), fw_filter_state(reset_input, plan_ids, ch = ch)))
+ok("defaults build the whole database",
+   nrow(fw_filter_apply(d, fw_filter_defaults(plan_ids, ch))), nrow(d$attempt))
+
+cat("\n-- species pickers follow kind and family (29 Sept 2026) --\n")
+sp_lab <- fw_species_label(d$species)
+lab_taxa <- function(l) unique(sp_lab$taxa[sp_lab$label %in% l])
+lab_family <- function(l) unique(sp_lab$family[sp_lab$label %in% l])
+cray <- fw_species_allowed(sp_lab, "Crayfish", character(0), ch$species)
+ok("Crayfish offers crayfish only", length(cray) > 0 && identical(lab_taxa(cray), "Crayfish"))
+salm <- fw_species_allowed(sp_lab, "Fish", "Salmonidae", ch$species)
+ok("Salmonidae offers salmonids only", length(salm) > 0 && identical(lab_family(salm), "Salmonidae"))
+ok("nothing chosen offers everything, in the same order",
+   identical(fw_species_allowed(sp_lab, character(0), character(0), ch$species), ch$species))
+ok("the protected side narrows too",
+   {
+     t1 <- ch$taxa_beneficiary[1]
+     b <- fw_species_allowed(sp_lab, t1, character(0), ch$beneficiary)
+     length(b) > 0 && all(lab_taxa(b) == t1)
+   })
+testServer(mod_plan_server, args = list(data = d, meta = m), {
+  session$setInputs(taxa = "Crayfish")
+  ok("live: picking Crayfish narrows the species picker",
+     length(fw_species_allowed(sp_lab, input$taxa, character(0), ch$species)) < length(ch$species))
+})
+
 cat("\n-- the build gate and the three states --\n")
 # THE RESULTS ARE A STATIC SKELETON now, shown by a conditionalPanel that reads
 # output$state, with small HTML-only uiOutputs for what varies. The charts and
@@ -321,9 +380,38 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   head_html <- skeleton
   ok("the download button is in the results head",
      grepl("fw-plan__download-open", head_html, fixed = TRUE))
-  # Ahead of the summary strip, which is the first thing under the heading.
-  ok("and it comes before the summary",
-     regexpr("download_open", head_html) < regexpr("plan-summary", head_html))
+  # THE COUNTS ARE NOT IN THE RESULTS ANY MORE (client, 29 Sept 2026). They
+  # sit under Build and Clear with the applied-filter line, filters first,
+  # then what was built from them, then the counts, then the results.
+  page_html <- as.character(mod_plan_ui("plan"))
+  ok("the counts left the results skeleton",
+     grepl('id="plan-summary"', head_html, fixed = TRUE), FALSE)
+  ok("page order: filters, applied filters, counts, results",
+     all(diff(vapply(c('id="plan-filters"', 'id="plan-filters_summary"',
+                       'id="plan-summary"', 'id="plan-results_anchor"'),
+                     function(x) regexpr(x, page_html, fixed = TRUE)[1],
+                     numeric(1))) > 0))
+  ok("the filter panel is not a disclosure",
+     grepl("<details", as.character(fw_plan_filters_ui(NS("plan"), ch)), fixed = TRUE),
+     FALSE)
+  ok("the applied-filter line says what was built",
+     grepl(fw_t("plan", "f_applied"), strip(output$filters_summary), fixed = TRUE))
+  # The slider sends doubles; an untouched range must still read as untouched.
+  session$setInputs(country = character(0), years = as.numeric(c(ch$year_min, ch$year_max)),
+                    build = input$build + 1)
+  ok("an untouched year slider is not listed as a filter",
+     grepl(fw_filter_label("years"), strip(output$filters_summary), fixed = TRUE), FALSE)
+
+  # CLEAR RESETS AND REBUILDS (client, 29 Sept 2026). It used to empty the
+  # controls and leave the last report on screen.
+  session$setInputs(country = "Norway", build = input$build + 1)
+  ok("clear: a narrowed build first", nrow(report()$sel) < nrow(d$attempt))
+  session$setInputs(clear = 1)
+  ok("clear: rebuilds the whole database", nrow(report()$sel), nrow(d$attempt))
+  ok("clear: and the applied-filter line says All",
+     grepl(fw_t("filters", "all"), strip(output$filters_summary), fixed = TRUE))
+  ok("clear: rebuilt from the defaults",
+     identical(report()$filters, fw_filter_defaults(plan_ids, ch)))
   # EXACTLY ONE PICKER EXISTS AT A TIME. Every input in this module shares one
   # DOM id space, so a copy on the page AND a copy in the modal would put two
   # controls called download_parts in the document and the handler would read
@@ -613,7 +701,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     # the PDF was set from - the PDF's own text streams are compressed.
     keep <- tempfile()
     fw_write_pdf_report(tempfile(fileext = ".pdf"), d, report()$sel, filters = report()$filters,
-                        meta = m, method_mode = "count", keep = keep)
+                        meta = m, keep = keep)
     typ <- paste(readLines(file.path(keep, "report.typ"), warn = FALSE), collapse = "\n")
     has <- function(txt) grepl(txt, typ, fixed = TRUE)
     ok("the letterhead carries the title", has(fw_t("plan", "report_title")), TRUE)
@@ -639,9 +727,17 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
        has("Read the caveats above"), FALSE)
     ok("and so do the contacts", has(fw_t("plan", "r_contacts")), TRUE)
     ok("the map is drawn", file.exists(file.path(keep, "map.png")), TRUE)
+    # BOTH VERSIONS OF THE TOGGLED CHARTS, one above the other (client, 29
+    # Sept 2026), whatever the toggles on screen were set to.
     ok("every chart is drawn",
-       all(file.exists(file.path(keep, c("methods.png", "duration.png",
-                                         "waterbody.png")))), TRUE)
+       all(file.exists(file.path(keep, c("methods-count.png", "methods-share.png",
+                                         "duration.png", "waterbody-count.png",
+                                         "waterbody-share.png")))), TRUE)
+    ok("the number of attempts comes before the success rate",
+       pos('"methods-count.png"') < pos('"methods-share.png"') &&
+         pos('"waterbody-count.png"') < pos('"waterbody-share.png"'), TRUE)
+    ok("and each is labelled",
+       has(fw_t("plan", "r_method_share")) && has(fw_t("plan", "r_waterbody_count")), TRUE)
     # AND THE DELETED ONE IS NOT (client, 23 Sept 2026).
     ok("the methods-by-water chart is gone",
        file.exists(file.path(keep, "method-waterbody.png")), FALSE)

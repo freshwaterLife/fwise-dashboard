@@ -3790,118 +3790,115 @@
   },
   "files": {
     ".Rprofile": {
-      "checksum": "8a10858d8c25dc0d7595823f838cfa03"
+      "checksum": "6fa275dcac2c5b3178e076560de718d4"
     },
     "app.R": {
-      "checksum": "3cc52e11887694473b10147514000278"
+      "checksum": "9f413d2ec99ec500d3f9de44f0368052"
     },
     "HANDOVER.md": {
-      "checksum": "5be3f8beb060ebefa8b84d709e1933d2"
+      "checksum": "55b8ef9e7ec8a46a7c8c08224b3d2535"
     },
     "LICENSE": {
       "checksum": "6e91ae45f5f62c5162562a7747ef8fbc"
     },
     "R/brand.R": {
-      "checksum": "ee361d3c06364255377330962fc21abc"
+      "checksum": "0554d0c21aa00f0f2415a63d82fb09cf"
     },
     "R/charts_static.R": {
-      "checksum": "6ed18bbb9cfae69af709c6b9aa8ca12e"
+      "checksum": "98a303f803b66aea9c62b9f4ab5bd0dd"
     },
     "R/charts.R": {
-      "checksum": "0dee201570cffee227788890e8f0d75b"
+      "checksum": "68697c56636217eef3b2299a6aad6301"
     },
     "R/config.R": {
-      "checksum": "f46eb7ad7dc6c8dd702e1329ee23aff8"
+      "checksum": "ce4a1e66b926443a95daac0a7e995687"
     },
     "R/copy_contribute.R": {
-      "checksum": "9b44d8b1102d25ad65a78fff6f6653ea"
+      "checksum": "40537284aacdad6ab2d5fa04589a3c78"
     },
     "R/copy_export.R": {
-      "checksum": "c4b36172ca8727cc0d2cab846bff2881"
+      "checksum": "35b97896dc8b9b9d93fa26e2b7bb9beb"
     },
     "R/copy.R": {
-      "checksum": "5b09773271e86ac3d292e0d877baa449"
+      "checksum": "e3c659a99a5c3855fcabb04398d6d476"
     },
     "R/data_load.R": {
-      "checksum": "56efa2368299f10465c7273f811c0888"
+      "checksum": "50c9207a5fcbd2a94938c85d8cac22f8"
     },
     "R/export.R": {
-      "checksum": "b04c5030eaa0eaa4da307db73c0446e7"
+      "checksum": "c91115ee339e03f2c535e4fc364ec0aa"
     },
     "R/filters.R": {
-      "checksum": "de50149d0e746dcee50c1e8ecf4b9d3d"
+      "checksum": "6de6620eb8de6339f2bf7e8e4270e449"
     },
     "R/github.R": {
-      "checksum": "c40609606a5ba9bc2987ee7514cf183f"
+      "checksum": "c8a861fdc303cfae7d13809fd619cae5"
     },
     "R/maps.R": {
-      "checksum": "b6af1092941656b9a3cd78fb4517ae41"
+      "checksum": "5f474e2d234bc60df659f2a53c91d6d4"
     },
     "R/mod_about.R": {
-      "checksum": "a3ef40244867f836fd3008d8cf68aea4"
+      "checksum": "093b199b67e3e2e9362e95329a61fef1"
     },
     "R/mod_contribute_steps.R": {
-      "checksum": "65dbaf71c66a2876d3f4c3a5f26740d0"
+      "checksum": "e909973fbcdd8321f6f888d690f33861"
     },
     "R/mod_contribute_ui.R": {
-      "checksum": "6638546ce7906eca428da6f689e7b4e3"
+      "checksum": "a2099680b7bc071a93af56d6faa79c41"
     },
     "R/mod_contribute.R": {
-      "checksum": "d2c5ab5c55b07752d65a461bd5c7f322"
+      "checksum": "1413409de51684a41341196e381edbcc"
     },
     "R/mod_explore.R": {
-      "checksum": "e1691ecc406dc4d4fb03afdb6b404262"
+      "checksum": "3e3a95453fef136e8d651b24d0d6f4a2"
     },
     "R/mod_home.R": {
-      "checksum": "8ea58b1ac92b4b2416c657aa2f359720"
+      "checksum": "cadcd2b90747e06ce4a48e6beec9bc5c"
     },
     "R/mod_networking.R": {
-      "checksum": "a073ebeda2dec98d8026e9e8e3315fde"
+      "checksum": "6ad69f6dbe68ed93de60a358bbc60b41"
     },
     "R/mod_plan_filters.R": {
-      "checksum": "b9d3430de6928256151bfe9193203f9f"
+      "checksum": "20f6915f342a11dac0a2fd0dbbf623bd"
     },
     "R/mod_plan_results.R": {
-      "checksum": "5ff2c3f5ffceeeccbf571c40b48b07a0"
+      "checksum": "67dea24331163d40a42abb0d6c0d99cf"
     },
     "R/mod_plan.R": {
-      "checksum": "30355aa5c1139fc0498d0a94e6d48ada"
+      "checksum": "504418268a672b7e015eafd2675a2790"
     },
     "R/questions_docx.R": {
-      "checksum": "2aa3d1e8bf632dd5a81d740c5b9b695c"
+      "checksum": "71fb44e881be5580fe63affa46fd9a1d"
     },
     "R/questions_text.R": {
       "checksum": "24313d14af5f4bc7984b6958cbaa220b"
     },
     "R/report_pdf.R": {
-      "checksum": "affc96e08a549bb3eba129a9f881f3ef"
+      "checksum": "23d0a44b853a364f76c7f73a816f725c"
     },
     "R/report_records.R": {
-      "checksum": "3a6d68461270d934de00ae6324c897ac"
+      "checksum": "211870be963456fe44fda122f18d38de"
     },
     "R/species_images.R": {
       "checksum": "db59149782bdb84749f67060b14f0375"
     },
     "R/submit.R": {
-      "checksum": "52c64f4743e4fadeb948753ef8e83086"
+      "checksum": "064b5b583682919962613b2e2978d9d3"
     },
     "R/theme.R": {
       "checksum": "38fc2dd8989e53a04fcd80875a97ee16"
     },
     "R/ui_helpers.R": {
-      "checksum": "a8bc88b9b4effecd085ae2ab17ba7574"
+      "checksum": "1f70617a8f53dd8f2f23343d30b26a04"
     },
     "README.md": {
-      "checksum": "376a1f7d7120af7bf56588ac9025ef5f"
+      "checksum": "bf6f30438221ee2d22ed2a10c7339091"
     },
     "renv.lock": {
       "checksum": "87deca0ea2d8f687119405673fe7f5b7"
     },
-    "resources/map-before-after/fwise_next_900dpi.png": {
-      "checksum": "31b75c5070914a6371dd6d1b61bf5831"
-    },
-    "resources/map-before-after/fwise_now_900dpi.png": {
-      "checksum": "e3773326fdcc6c582959b955b16f8d2c"
+    "resources/js/fw_map_fit.js": {
+      "checksum": "68d0bb8a737533450559871e3c5e043a"
     },
     "resources/report/fonts/Ubuntu-Bold.ttf": {
       "checksum": "d0fc30856a541539009e73c787a68bc1"
@@ -3918,8 +3915,8 @@
     "resources/report/fonts/UFL.txt": {
       "checksum": "325a1a9029112a2405e743c7f816427b"
     },
-    "resources/report/ne_110m_countries.rds": {
-      "checksum": "76203a9b0e0505f0b20cf14f80e8f05b"
+    "resources/report/ne_110m_basemap.rds": {
+      "checksum": "aeeae6adb6a59fa64f0671d4e50c9f3c"
     },
     "resources/report/page.typ": {
       "checksum": "8769888bbd01f9c75c35d6cb9e501587"
@@ -3928,37 +3925,7 @@
       "checksum": "92eec3046ca3f5fe0aaae46d7be80b7d"
     },
     "resources/report/typst-template.typ": {
-      "checksum": "4b0c42aedccd256d78ae80991775f6d1"
-    },
-    "resources/success-pic/africa_fiery_redfin.png": {
-      "checksum": "85bab7c6e2c45c8a143fb97509db5536"
-    },
-    "resources/success-pic/africa_smallmouth_bass_greyscale.png": {
-      "checksum": "862b42907d77e7a851a71c51b24dd779"
-    },
-    "resources/success-pic/as-little-grebe.png": {
-      "checksum": "80f0846be65f63568cdd78fb2e5b69fa"
-    },
-    "resources/success-pic/eu_pearl_mussel.png": {
-      "checksum": "e918d5aeab79ccc20d7ad7c896a5e4e5"
-    },
-    "resources/success-pic/eu_salmon_fluke_greyscale.png": {
-      "checksum": "5da3148756ac3e44b414e48125c942ba"
-    },
-    "resources/success-pic/la_rainbow_trout_greyscale.png": {
-      "checksum": "0d13d16dd46b8424edf568c655ebc7b4"
-    },
-    "resources/success-pic/la_valchetta_frog.png": {
-      "checksum": "a612f478cbf03a6783ec5ff3432e1047"
-    },
-    "resources/success-pic/na_apache_trout.png": {
-      "checksum": "255a5e770214d449382d84532d213bac"
-    },
-    "resources/success-pic/oc_common_carp_greyscale.png": {
-      "checksum": "de10f9ca3e0609bd50ddc240649a3fc6"
-    },
-    "resources/success-pic/oc_golden_galaxias.png": {
-      "checksum": "9cdb655d931653285ac8e94b3fc95266"
+      "checksum": "fdd1b74ae7452500ab4935be8ec876d4"
     },
     "www/fonts/ubuntu-400.woff2": {
       "checksum": "6e27639876db7e5665251406484519c5"
@@ -4066,16 +4033,16 @@
       "checksum": "84a5e18a213a7cd3a2a482b8ddaede38"
     },
     "www/scss/_components.scss": {
-      "checksum": "edeb50969b5ea9bf2405dd79b265495d"
+      "checksum": "357b6c70da34c938d63df3072f3cf604"
     },
     "www/scss/_tokens.scss": {
-      "checksum": "6c9d792a32e0ddd2e672b070cbb99912"
+      "checksum": "30f5ce2c8192614180ae2c3caa112412"
     },
     "www/scss/main.scss": {
       "checksum": "388261f8d8ee5c4fe8d6acc590ae40b8"
     },
     "www/scss/records.scss": {
-      "checksum": "3829d8b161f9f8301e148e5fc2c765b7"
+      "checksum": "0696b3e55a51291dacf488a8ab8567eb"
     }
   },
   "users": null

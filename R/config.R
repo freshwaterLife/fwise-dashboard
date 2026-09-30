@@ -231,6 +231,11 @@ FW_TOP_N <- 10L
 # finishing within a couple of frames never flashes a badge at anyone.
 FW_SPINNER_DELAY_MS <- 150
 
+# How often an open tab tells the server it is still there, so an idle
+# connection is not closed by the hosting proxy. See the keepalive in
+# fw_client_script(). Well under the minute most proxies allow a silent socket.
+FW_KEEPALIVE_MS <- 30000
+
 FW_LOGO <- list(
   mark_web   = "img/FWISE-SIMPLE.png",
   mark_file  = "www/img/FWISE-SIMPLE-1200.png",
@@ -345,7 +350,10 @@ FW_PDF <- list(
   # bytes: the fixed part (fonts, logos, charts), then per species photograph,
   # per map dot (the map's PNG grows with its dots, up to about 300 of them,
   # after which they overlap and add nothing), and per contact row.
-  est_base = 460000,
+  # 460000 until 29 Sept 2026, when the waterbody and methods charts started
+  # printing twice (number of attempts, then success rate): two more PNGs in
+  # every report. Re-measured on the three dev/value_test.R selections.
+  est_base = 610000,
   est_per_image = 80000,
   est_per_point = 1750,
   est_point_cap = 300,
@@ -365,7 +373,10 @@ FW_PDF <- list(
   # page. Measured across the three selections dev/value_test.R renders: 8, 6
   # and 5 pages, which 6 covers and 7 no longer did. RE-MEASURE WHEN THE REAL
   # CAVEATS ARRIVE; they will push it back up.
-  est_pages_base = 6,
+  #
+  # SEVEN (29 Sept 2026): both versions of the waterbody and methods charts now
+  # print, one above the other. Measured at 9, 7 and 6 pages.
+  est_pages_base = 7,
   # A4, in mm. The width is what every figure is drawn to.
   page_margin_mm = 18,
   text_width_mm = 174
@@ -404,11 +415,13 @@ FW_MAP <- list(
   # HOW FAR OUT A MAP MAY GO. Zoomed out further, the world is shorter than
   # the map and grey bars show above and below it. At zoom 2 the world is
   # 1024 px tall, taller than any map's CSS height. Panning is held inside
-  # max_lat so the poles cannot be dragged into view either; max_lng is wide
-  # on purpose, so the map still wraps round the world. See fw_leaflet().
+  # max_lat so the poles cannot be dragged into view either, and inside
+  # max_lng so the map no longer wraps round the world: the tiles repeated and
+  # the markers did not (client, 29 Sept 2026). A wide map raises this floor
+  # for itself - see resources/js/fw_map_fit.js.
   min_zoom = 2L,
   max_lat = 85,
-  max_lng = 100000,
+  max_lng = 180,
   # The closest a fit to a selection may zoom. Below cluster$fine_zoom, so a
   # single-site selection still opens with its stack as one counted group and
   # with enough of the surrounding water to place it. See fw_fit_points().

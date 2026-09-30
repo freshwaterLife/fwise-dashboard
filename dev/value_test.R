@@ -461,8 +461,26 @@ ok("hover: a role with no photograph gets the blank tile",
 ok("hover: and the blank tile says so in words",
    all(vapply(cards[grepl("fw-species-figure--none", cards, fixed = TRUE)],
               function(x) grepl(fw_t("species", "fig_none"), x, fixed = TRUE) ||
-                          grepl(fw_t("species", "p_none"), x, fixed = TRUE),
+                          grepl(fw_t("species", "no_image"), x, fixed = TRUE),
               logical(1))))
+# A RECORDED SPECIES WITH NO PHOTOGRAPH SAYS SO, and does not say "None noted"
+# (client, 29 Sept 2026: the card read "no protected species" beside a card
+# naming one). Checked on the inline path and on the lazy path's dictionary
+# fallback, which is where the bug was.
+ok("hover: a recorded species with no photo says no photograph",
+   grepl(fw_t("species", "no_image"), fw_popup_thumb_none(), fixed = TRUE) &&
+     !grepl(fw_t("species", "fig_none"), fw_popup_thumb_none(), fixed = TRUE))
+ok("hover: a role with no species says none noted",
+   grepl(fw_t("species", "fig_none"), fw_popup_thumb_unrecorded(), fixed = TRUE))
+no_photo <- map_pts[!is.na(map_pts$ben_ids) &
+                      vapply(map_pts$ben_ids, function(x) {
+                        id <- fw_popup_parts(x)[1]
+                        !id %in% names(thumbs) || !nzchar(thumbs[[id]])
+                      }, logical(1)), ]
+if (nrow(no_photo)) {
+  ok("hover: a protected species with no photo shows no photograph (inline)",
+     grepl(fw_popup_thumb_none(), fw_popup_thumb(no_photo[1, ], thumbs), fixed = TRUE))
+}
 # A ROLE WITH NO SPECIES SAYS NOT RECORDED, in the text rows' words, on the
 # hover tile and in the detail panel alike. Picked from the data, not by id.
 no_ben <- map_pts[is.na(map_pts$ben_ids), ]

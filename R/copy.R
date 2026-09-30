@@ -72,7 +72,10 @@ FW_COPY <- list(
     of           = "of",
     info_icon_label = "More information about this field",
     # What an empty cell or a missing figure shows.
-    empty_value  = "-"
+    empty_value  = "-",
+    # Shown when something on the server went wrong but the session survived.
+    # See fw_safely() in R/ui_helpers.R.
+    went_wrong   = "Something went wrong there. Please try again."
   ),
 
   # ---- Accessibility -----------------------------------------------------------
@@ -318,7 +321,11 @@ FW_COPY <- list(
       "method is counted once under each of them, so the bars add up to more",
       "than the number of attempts. Hover a segment for its count or success rate."
     ),
-    cumulative = "Eradication attempts over time"
+    cumulative = "Eradication attempts over time",
+
+    # THE WAY ON, under the charts (client, 29 Sept 2026). [[plan|...]] is a
+    # link to that tab - see fw_home_links().
+    to_plan = "[[plan|Dig deeper into the data to plan your own eradication]]."
 
     # NO map / map_note HERE EITHER - see maps$title and maps$note.
   ),
@@ -549,14 +556,15 @@ FW_COPY <- list(
     # NO .csv (client, 23 Sept 2026): it was the spreadsheet's rows a second
     # time, and the picker now offers the three documents that differ from one
     # another. The order here is the order of FW_BUNDLE_PARTS in export.R.
-    download_pdf = "Report (.pdf)",
+    # THE THREE NAMES ARE THE CLIENT'S (29 Sept 2026).
+    download_pdf = "Summary report (.pdf)",
     download_pdf_note = paste(
       "This report ready to read or share."
     ),
-    download_records = "Every attempt in full (.html)",
+    download_records = "Detailed report (.html)",
     download_records_note = paste(
-      "One scrollable page with each matching attempt written out in full,",
-      "one after another. Opens in any browser, with no connection needed."
+      "The summary report's charts and map, interactive, then every matching",
+      "attempt written out in full with a search box. Opens in any browser."
     ),
     # Shown under the PDF's checkbox when the estimate reaches FW_PDF$warn_pages
     # or FW_PDF$warn_mb.
@@ -618,6 +626,9 @@ FW_COPY <- list(
     # filters says it, with the part about multiple selections that this one
     # did not have. The client removed the one inside the filter card.
     f_heading   = "Describe your situation",
+    # Leads the line under Build that says what the report on screen was
+    # built from (client, 29 Sept 2026).
+    f_applied   = "Built from:",
     built_announce = "Report built. {n} attempts match your description.",
 
     # ---- Results -------------------------------------------------------------

@@ -81,6 +81,7 @@ fw_plan_filters_ui <- function(ns, ch) {
                     value = c(ch$year_min, ch$year_max),
                     step = 1, sep = "", ticks = FALSE, dragRange = TRUE,
                     width = "100%"),
+        fw_range_ends(ch$year_min, ch$year_max),
         div(class = "fw-field__range-readout",
             textOutput(ns("years_readout"), inline = TRUE))
       ),
@@ -126,29 +127,16 @@ fw_plan_filters_ui <- function(ns, ch) {
     # optional. Fields default to 'All'." - the green callout above this card
     # already says it, and says more. See the note on plan$f_heading in copy.R.
 
-    # COLLAPSIBLE, AND ONLY AFTER A BUILD. A native <details> rather than a
-    # scripted panel: it opens and closes without JavaScript, it is a disclosure
-    # to a screen reader for free, and the server only ever has to close it
-    # (fw-collapse in R/ui_helpers.R). It is rendered ONCE and open; nothing
-    # re-renders it, because that would reset every control inside.
-    #
-    # The summary carries a description of what was built, so a collapsed panel
-    # still says what the reader is looking at rather than reading as a lid.
-    tags$details(
-      id = ns("filters_disclosure"), class = "fw-plan-filters__disclosure",
-      open = NA,
-      tags$summary(
-        class = "fw-plan-filters__summary",
-        span(class = "fw-plan-filters__summary-label", fw_t("plan", "f_heading")),
-        uiOutput(ns("filters_summary"), inline = TRUE)
-      ),
-      div(class = "fw-plan-filters__grid", controls),
-      div(
-        class = "fw-plan-filters__actions",
-        actionButton(ns("build"), fw_t("plan", "build"), class = "btn btn-primary"),
-        actionButton(ns("clear"), fw_t("plan", "clear"),
-                     class = "btn btn-outline-primary")
-      )
+    # ALWAYS OPEN (client, 29 Sept 2026). This was a <details> the server shut
+    # on Build, and a shut panel hid the one thing that tells a reader there
+    # is something here for them to do. The applied-filter summary that used
+    # to ride in its <summary> now sits under the buttons, in mod_plan_ui().
+    div(class = "fw-plan-filters__grid", controls),
+    div(
+      class = "fw-plan-filters__actions",
+      actionButton(ns("build"), fw_t("plan", "build"), class = "btn btn-primary"),
+      actionButton(ns("clear"), fw_t("plan", "clear"),
+                   class = "btn btn-outline-primary")
     )
   )
 }
@@ -168,9 +156,15 @@ fw_plan_filters_ui <- function(ns, ch) {
 #'
 #' LOG SCALED, and not for elegance. Hectares run from 0.0014 to 237,500 with a
 #' median of 3.4; on a linear slider every value a reader might want sits inside
-#' the first pixel. The positions are log10 and the reader never sees one: the
-#' readout underneath prints the bounds in real units, and the handle's own
-#' bubble is converted by fwSizePretty in R/ui_helpers.R.
+#' the first pixel. The positions are log10(1 + x), so the slider starts at 0,
+#' and the reader never sees one: the readout underneath prints the bounds in
+#' real units, and the handle's own bubble is converted by fwSizePretty in
+#' R/ui_helpers.R. See fw_size_log() in R/filters.R.
+#'
+#' THE WHOLE SCALE IS ALWAYS SHOWN (client, 29 Sept 2026). ionRangeSlider hides
+#' its own end labels whenever a handle comes near them, which read as the
+#' scale shrinking to the reader's selection. Its ends are switched off in
+#' _components.scss and fw_range_ends() prints them as a fixed line instead.
 #'
 #' @param units "ha", "km", or both, from fw_size_units()
 fw_plan_size_ui <- function(ns, ch, units = FW_SIZE_UNITS) {
@@ -202,9 +196,13 @@ fw_plan_size_ui <- function(ns, ch, units = FW_SIZE_UNITS) {
       fw_slider_prettify(
         sliderInput(ns(paste0("size_", unit)), label = NULL,
                     min = r[1], max = r[2], value = r,
-                    step = FW_SIZE_LOG_STEP, sep = "", ticks = FALSE,
+                    step = fw_size_log_step(r), sep = "", ticks = FALSE,
                     dragRange = TRUE, width = "100%"),
         unit
+      ),
+      fw_range_ends(
+        paste(fw_size_label(fw_size_unlog(r[1])), fw_t("filters", paste0("unit_short_", unit))),
+        paste(fw_size_label(fw_size_unlog(r[2])), fw_t("filters", paste0("unit_short_", unit)))
       ),
       div(class = "fw-field__range-readout",
           textOutput(ns(paste0("size_readout_", unit)), inline = TRUE))
@@ -233,4 +231,13 @@ fw_plan_size_ui <- function(ns, ch, units = FW_SIZE_UNITS) {
               fw_t("filters", "no_size"))
     )
   )
+}
+
+#' A slider's two ends, printed as a fixed line under it
+#'
+#' Always the whole scale, whatever the handles are set to. See the note on
+#' fw_plan_size_ui(); the year slider shares it.
+fw_range_ends <- function(lo, hi) {
+  div(class = "fw-field__range-ends", `aria-hidden` = "true",
+      span(lo), span(hi))
 }

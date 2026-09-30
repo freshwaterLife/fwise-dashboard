@@ -29,16 +29,15 @@ mod_explore_ui <- function(id, choices) {
           fw_explore_filter_bar(ns, choices, ids),
           uiOutput(ns("summary")),
 
-          # A TITLED BLOCK LIKE EVERY OTHER, since 23 Sept 2026: the map's
-          # note used to be a paragraph above it and is now the (i) beside a
-          # heading, which is the rule the rest of the app already followed.
-          # The Mercator note stays a visible line under the map - it is a
-          # statement about the picture the reader is looking at, not an
-          # explanation they have to ask for.
+          # A TITLED BLOCK LIKE EVERY OTHER. The map's note is visible text
+          # above the map again (client, 29 Sept 2026): it tells the reader how
+          # to use the map, which they need before they touch it, not behind
+          # an (i). The Mercator note stays a visible line under the map.
           div(
             class = "fw-explore-block",
             fw_block(fw_t("maps", "title"), fw_t("maps", "note"),
-                     tagList(fw_map_output(ns("map")), fw_map_note()))
+                     tagList(fw_map_output(ns("map")), fw_map_note()),
+                     note_as = "text")
           ),
 
           div(
@@ -62,7 +61,12 @@ mod_explore_ui <- function(id, choices) {
                                           fw_t("plan", "r_method_share"))),
                        plotly::plotlyOutput(ns("method"), height = "auto")
                      ))
-          )
+          ),
+
+          # THE WAY ON to the report builder, last on the page (client, 29
+          # Sept 2026). The same card as the Plan page's own callout.
+          div(class = "fw-callout fw-explore-next",
+              p(fw_home_links(fw_t("explore", "to_plan"))))
         )
       )
     )
@@ -131,7 +135,9 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     # so a rerun that would draw the same thing - the tab being shown again -
     # sends nothing.
     drawn <- NULL
-    observe({
+    # fw_safely(): a failed redraw leaves the old markers up and says so,
+    # rather than ending the session. See R/ui_helpers.R.
+    observe(fw_safely(session, {
       req(map_ready())
       s <- sel()
       # NOT WHILE THE TAB IS HIDDEN. Leaflet fits bounds against a hidden
@@ -154,7 +160,7 @@ mod_explore_server <- function(id, data, in_review = 0L) {
       # layers added to the map, not only for the ones there when it ran.
       fw_add_marker_layer(proxy, data, pts, detail = "lazy",
                           thumbs = fw_map_thumbs_all(data))
-    })
+    }))
     fw_map_detail_server(input, session, "map_detail", data, sel)
 
     # LIVE, like everything else on this page. These are cheap - two

@@ -24,6 +24,13 @@ mod_plan_ui <- function(id) {
           div(class = "fw-callout",
               lapply(fw_t("plan", "callout"), function(x) p(fw_emphasis(x)))),
           uiOutput(ns("filters")),
+          # THE ORDER UNDER THE BUTTONS IS THE CLIENT'S (29 Sept 2026): the
+          # filters, Build and Clear, then what was built - the filters it was
+          # built from, then the counts - then the results. Both are empty
+          # until the first build.
+          div(id = ns("built_anchor"), class = "fw-plan__built",
+              uiOutput(ns("filters_summary")),
+              uiOutput(ns("summary"))),
           div(id = ns("results_anchor"), class = "fw-plan__results",
               uiOutput(ns("zero")),
               # Shown only while the last build matched something. See
@@ -68,8 +75,9 @@ fw_plan_results_ui <- function(ns) {
     # it happened in, then what was done, then how long it took. Setting and
     # outcome before method, so a reader meets the evidence base before the
     # techniques. The PDF report follows the same sequence - see fw_pdf_body()
-    # in R/report_pdf.R - with one exception noted there.
-    uiOutput(ns("summary")),
+    # in R/report_pdf.R - with one exception noted there. The counts
+    # (output$summary) moved up under the Build button on 29 Sept 2026 - see
+    # mod_plan_ui().
     uiOutput(ns("species")),
 
     fw_block(
@@ -78,7 +86,9 @@ fw_plan_results_ui <- function(ns) {
         fw_map_output(ns("map")),
         fw_map_note(),
         uiOutput(ns("map_missing"))
-      )
+      ),
+      # Visible above the map, as on Explore (client, 29 Sept 2026).
+      note_as = "text"
     ),
 
     fw_block(
@@ -182,9 +192,9 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # fw_link_geo_filters() in R/filters.R.
     fw_link_geo_filters(input, session, data, choices)
 
-    # Driven from the same id list as everything else, so a filter added to
-    # FW_FILTERS is cleared without a second edit here.
-    observeEvent(input$clear, fw_filter_clear(session, ids, choices))
+    # The species pickers offer only what is left of the kind of animal and
+    # fish family chosen above them. See fw_link_species_filters().
+    fw_link_species_filters(input, session, data, choices, ids)
 
     # The fish family pair empties itself when Fish is deselected, as on
     # Explore. See fw_filter_when_observers() in R/filters.R.
@@ -195,23 +205,28 @@ mod_plan_server <- function(id, data, meta = NULL) {
       if (!built()) return(NULL)
       f <- report()$filters
       rows <- fw_filter_summary(f)
-      full_years <- identical(f$year_from, choices$year_min) &&
-        identical(f$year_to, choices$year_max)
-      years_label <- fw_filter_label("years")
 
+      # An untouched year slider is not a filter. fw_filter_summary() already
+      # says which it is; comparing the bounds here with identical() never
+      # matched, because the slider sends doubles and the data's ends are
+      # integers, so every build listed "1934 to 2025".
       set <- Filter(function(r) {
         if (identical(r$value, fw_t("export", "filter_all"))) return(FALSE)
         if (identical(r$value, fw_t("export", "filter_yes"))) return(FALSE)
-        if (full_years && identical(r$setting, years_label)) return(FALSE)
+        if (isTRUE(r$untouched)) return(FALSE)
         TRUE
       }, rows)
-      if (!length(set)) return(span(class = "fw-caption", fw_t("filters", "all")))
-      span(
-        class = "fw-plan-filters__summary-list",
-        lapply(set, function(r) {
-          span(class = "fw-plan-filters__summary-item",
-               tags$b(r$setting), ": ", r$value)
-        })
+      div(
+        class = "fw-plan-filters__applied",
+        span(class = "fw-plan-filters__summary-label", fw_t("plan", "f_applied")),
+        if (!length(set)) span(class = "fw-plan-filters__summary-list", fw_t("filters", "all"))
+        else span(
+          class = "fw-plan-filters__summary-list",
+          lapply(set, function(r) {
+            span(class = "fw-plan-filters__summary-item",
+                 tags$b(r$setting), ": ", r$value)
+          })
+        )
       )
     })
 
@@ -246,21 +261,45 @@ mod_plan_server <- function(id, data, meta = NULL) {
       })
     }
 
-    report <- eventReactive(input$build, {
-      f <- fw_filter_state(input, ids, ch = choices)
-      sel <- fw_filter_apply(data, f)
-      list(
-        filters = f,
-        sel     = sel,
-        export  = fw_export_frame(data, sel$attempt_id)
-      )
-    })
+    # ---- Building ----------------------------------------------------------
+    #
+    # A VALUE, SET BY TWO BUTTONS. Build snapshots the controls; Clear resets
+    # them and builds the default report straight away (client, 29 Sept 2026)
+    # rather than leaving the last report on screen under a cleared panel.
+    #
+    # CLEAR BUILDS FROM fw_filter_defaults(), NOT FROM THE INPUTS. The update
+    # calls in fw_filter_clear() only reach the browser at the end of this
+    # flush, so the inputs still hold the old selection while this runs.
+    report <- reactiveVal(NULL)
+    build_from <- function(f) {
+      # AN ERROR HERE MUST NOT END THE SESSION. fw_export_frame() refuses, by
+      # design, to hand over anything that fails its privacy check, and an
+      # uncaught error in an observer closes the connection - the reader saw
+      # "Disconnected from the server". See fw_safely() in R/ui_helpers.R.
+      fw_safely(session, {
+        sel <- fw_filter_apply(data, f)
+        report(list(
+          filters = f,
+          sel     = sel,
+          export  = fw_export_frame(data, sel$attempt_id)
+        ))
+        TRUE
+      })
+    }
 
-    built <- reactive(!is.null(input$build) && input$build > 0)
+    built <- reactive(!is.null(report()))
 
     observeEvent(input$build, {
-      session$sendCustomMessage("fw-collapse", ns("filters_disclosure"))
-      session$sendCustomMessage("fw-scroll-to", ns("results_anchor"))
+      if (!isTRUE(build_from(fw_filter_state(input, ids, ch = choices)))) return()
+      session$sendCustomMessage("fw-scroll-to", ns("built_anchor"))
+      session$sendCustomMessage("fw-announce", fw_fill(fw_t("plan", "built_announce"), n = fw_fmt_num(nrow(report()$sel))))
+    })
+
+    # Driven from the same id list as everything else, so a filter added to
+    # FW_FILTERS is cleared without a second edit here.
+    observeEvent(input$clear, {
+      fw_filter_clear(session, ids, choices)
+      if (!isTRUE(build_from(fw_filter_defaults(ids, choices)))) return()
       session$sendCustomMessage("fw-announce", fw_fill(fw_t("plan", "built_announce"), n = fw_fmt_num(nrow(report()$sel))))
     })
 
@@ -321,8 +360,8 @@ mod_plan_server <- function(id, data, meta = NULL) {
       fw_fill(fw_t("plan", "r_duration_missing"),
               n = fw_fmt_num(nrow(fw_duration_sel(data, results()$sel))))))
 
-    # COUNT LEADS ON EVERY BUILD. toggle for %.
-    observeEvent(input$build, {
+    # COUNT LEADS ON EVERY BUILD, and on every Clear. toggle for %.
+    observeEvent(report(), {
       for (id in c("method_mode", "waterbody_mode")) {
         if (!identical(input[[id]] %||% "count", "count")) {
           updateRadioButtons(session, id, selected = "count")
@@ -379,7 +418,9 @@ mod_plan_server <- function(id, data, meta = NULL) {
     map_ready <- reactiveVal(FALSE)
     observeEvent(input$map_bounds, map_ready(TRUE))
     drawn <- NULL
-    observe({
+    # fw_safely(): a failed redraw leaves the old markers up and says so,
+    # rather than ending the session. See R/ui_helpers.R.
+    observe(fw_safely(session, {
       req(map_ready())
       s <- results()$sel
       if (isTRUE(session$clientData[[paste0("output_", ns("map"), "_hidden")]])) return()
@@ -397,7 +438,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
       }
       fw_add_marker_layer(proxy, data, pts, detail = "lazy",
                           thumbs = fw_map_thumbs_all(data))
-    })
+    }))
     fw_map_detail_server(input, session, "map_detail", data, reactive(results()$sel))
 
     # The mode toggle is the ONE control that redraws without a rebuild. It does
@@ -482,8 +523,6 @@ mod_plan_server <- function(id, data, meta = NULL) {
           fw_write_bundle(
             path = file, parts = input$download_parts, data = data,
             sel = r$sel, export = r$export, filters = r$filters, meta = meta,
-            method_mode = input$method_mode %||% "count",
-            waterbody_mode = input$waterbody_mode %||% "count",
             progress = function(value, detail) setProgress(value, detail = detail)
           )
         })
@@ -561,7 +600,9 @@ fw_plan_download_ui <- function(ns, pdf = fw_pdf_available()) {
                     span(class = "fw-download-picker__note", p$note))
           }),
           choiceValues = vapply(parts, function(p) p$id, character(1)),
-          selected = if (pdf) c("xlsx", "pdf") else "xlsx"
+          # The two reports (client, 29 Sept 2026: the detailed report is the
+          # one a keen reader lives in).
+          selected = if (pdf) c("pdf", "records") else "records"
         ),
         if (!pdf) p(class = "fw-plan__note", fw_t("plan", "pdf_unavailable")),
         p(class = "fw-plan__note", fw_t("plan", "download_none")),

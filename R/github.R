@@ -36,8 +36,17 @@ fw_gh_request <- function(path, accept = "application/vnd.github+json") {
       `X-GitHub-Api-Version` = "2022-11-28"
     ) |>
     httr2::req_user_agent("fwise-dashboard") |>
-    httr2::req_error(is_error = function(resp) FALSE)
+    httr2::req_error(is_error = function(resp) FALSE) |>
+    # A TIMEOUT AND ONE RETRY. These run on the session's own thread, so a
+    # GitHub call that hangs holds up every reader on the same process until
+    # the proxy gives up on them - and they see "Disconnected from the server"
+    # (client, 29 Sept 2026). Only transient failures are retried.
+    httr2::req_timeout(FW_GH_TIMEOUT_S) |>
+    httr2::req_retry(max_tries = 2)
 }
+
+# Seconds before a GitHub call is abandoned. See fw_gh_request().
+FW_GH_TIMEOUT_S <- 15
 
 #' What a failed call actually means, in words someone can act on
 #'

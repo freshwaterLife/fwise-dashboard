@@ -14,6 +14,10 @@ library(bslib)
 # validator and the progress indicator key on. `conditional` marks a step that is
 # skipped unless its predicate returns TRUE.
 FW_STEPS <- list(
+  # WHO IS SENDING IT COMES FIRST (client, 29 Sept 2026): name and email, and
+  # the two consent boxes with them, before a single question about the
+  # attempt. It was second to last, with the consent at the foot.
+  list(id = "contributor", title_key = "contributor"),
   list(id = "site",        title_key = "site"),
   list(id = "waterbody",   title_key = "waterbody"),
   list(id = "invasive",    title_key = "invasive"),
@@ -23,7 +27,6 @@ FW_STEPS <- list(
   # Shown only when a chemical method has been selected. See fw_step_visible().
   list(id = "chemical",    title_key = "chemical", conditional = TRUE),
   list(id = "outcome",     title_key = "outcome"),
-  list(id = "contributor", title_key = "contributor"),
   list(id = "other",       title_key = "other"),
   list(id = "review",      title_key = "review")
 )
@@ -358,43 +361,22 @@ fw_step_contributor_ui <- function(ns, choices) {
     fw_step_intro("contributor"),
     # ONE CONTACT (Sept 2026 user testing). The secondary contact is gone from
     # the form - submissions write it as NA. Existing records keep their
-    # secondary contacts. The permission to show these details is asked at the
-    # foot of the form with the other consent - see fw_step_review_ui().
+    # secondary contacts. The permission to show these details is asked just
+    # below, with the other consent.
     tags$h3(fw_lab("contact_heading")),
     fw_field(fw_text_input(ns("primary_contact_name")), fw_lab("contact_name"), required = TRUE,
              tooltip = fw_tip("contact"), input_id = ns("primary_contact_name")),
     fw_field(fw_text_input(ns("primary_contact_email")), fw_lab("contact_email"), required = TRUE,
              input_id = ns("primary_contact_email")),
     fw_field(fw_text_input(ns("primary_contact_org")), fw_lab("contact_org"),
-             input_id = ns("primary_contact_org"))
-  )
-}
-
-fw_step_other_ui <- function(ns, choices) {
-  tagList(
-    fw_step_intro("other"),
-    fw_field(fw_area_input(ns("notes_for_fwise"), rows = 6), fw_lab("notes"),
-             tooltip = fw_tip("notes"), input_id = ns("notes_for_fwise"))
-  )
-}
-
-fw_step_review_ui <- function(ns, choices) {
-  tagList(
-    fw_step_intro("review"),
-    # ON DEMAND, not live. Rebuilding this table on every keystroke means a
-    # server render per character typed anywhere on the page, which is exactly
-    # the lag a single scrolling form is meant to avoid. Everything it shows is
-    # visible further up the page anyway; this is a last read-through.
-    actionButton(ns("check_answers"), fw_t("contribute", "check_action"),
-                 class = "btn btn-outline-primary"),
-    uiOutput(ns("review_summary")),
+             input_id = ns("primary_contact_org")),
 
     # ---- Consent: two boxes, two jobs (24 Sept 2026) -------------------------
-    # LAST, directly above Send, so a contributor agrees to what they have
-    # actually written. They used to be split - one gating Start on the intro
-    # screen, whose statement also claimed permission to display contact
-    # details, and one in the Contributor step - and the two contradicted
-    # each other.
+    # WITH THE CONTACT DETAILS, at the top of the form (client, 29 Sept 2026).
+    # They sat at the foot, directly above Send, from 24 Sept; before that
+    # they were split - one gating Start on the intro screen, whose statement
+    # also claimed permission to display contact details, and one in the
+    # Contributor step - and the two contradicted each other.
     #
     # THE FIRST IS REQUIRED: storing and using the record is what a submission
     # is. all_valid() and fw_check() refuse Send without it.
@@ -418,6 +400,27 @@ fw_step_review_ui <- function(ns, choices) {
     fw_field(checkboxInput(ns("contact_public"), fw_lab("contact_public_yes"), value = FALSE),
              fw_lab("contact_public"), help = fw_help("contact_public"),
              input_id = ns("contact_public"))
+  )
+}
+
+fw_step_other_ui <- function(ns, choices) {
+  tagList(
+    fw_step_intro("other"),
+    fw_field(fw_area_input(ns("notes_for_fwise"), rows = 6), fw_lab("notes"),
+             tooltip = fw_tip("notes"), input_id = ns("notes_for_fwise"))
+  )
+}
+
+fw_step_review_ui <- function(ns, choices) {
+  tagList(
+    fw_step_intro("review"),
+    # ON DEMAND, not live. Rebuilding this table on every keystroke means a
+    # server render per character typed anywhere on the page, which is exactly
+    # the lag a single scrolling form is meant to avoid. Everything it shows is
+    # visible further up the page anyway; this is a last read-through.
+    actionButton(ns("check_answers"), fw_t("contribute", "check_action"),
+                 class = "btn btn-outline-primary"),
+    uiOutput(ns("review_summary"))
   )
 }
 

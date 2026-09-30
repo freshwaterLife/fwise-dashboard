@@ -530,14 +530,10 @@ fw_bundle_filename <- function(parts = character(0)) {
 #'
 #' @param path where to write - the download handler's temp file
 #' @param parts what the reader ticked. Anything not recognised is ignored.
-#' @param method_mode,waterbody_mode the chart toggles, passed to
-#'   fw_write_pdf_report() so the document matches the screen it came from.
 #' @param progress called as progress(value, detail) before each step, value
 #'   running 0 to 1 across the whole bundle. The handler passes Shiny's
 #'   setProgress(); the default does nothing, so the tests need no session.
 fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL,
-                            method_mode = "count",
-                            waterbody_mode = "count",
                             progress = function(value, detail) NULL) {
   parts <- fw_bundle_parts(parts)
 
@@ -569,8 +565,7 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
   if ("pdf" %in% parts) {
     fw_write_pdf_report(
       path = file.path(dir, fw_pdf_filename()), data = data, sel = sel,
-      filters = filters, meta = meta, method_mode = method_mode,
-      waterbody_mode = waterbody_mode,
+      filters = filters, meta = meta,
       # The report's own sub-steps, mapped into the PDF's stretch of the bar.
       progress = function(fraction, detail)
         progress(starts[["pdf"]] + fraction * steps[["pdf"]] / sum(steps), detail)
@@ -579,8 +574,8 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
   }
   if ("records" %in% parts) {
     step("records", "progress_records")
-    fw_write_records_html(file.path(dir, fw_records_filename()), data, export,
-                          filters, meta)
+    fw_write_records_html(file.path(dir, fw_records_filename()), data, sel,
+                          export, filters, meta)
     files <- c(files, fw_records_filename())
   }
 

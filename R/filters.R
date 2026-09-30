@@ -242,32 +242,45 @@ fw_size_bounds <- function(a) {
   out
 }
 
-# The sliders work in log10 and the matching works in real units. These two are
-# the only places that conversion happens, so the control and the comparison
-# cannot drift apart.
+# The sliders work in log10(1 + x) and the matching works in real units. These
+# two are the only places that conversion happens, so the control and the
+# comparison cannot drift apart.
 #
-# A zero or negative area has no logarithm. There are none in the data, and
-# fw_size_bounds() excludes them from the bounds, but a value that cannot be
-# placed on the slider must not be silently dropped by it either - see the
-# is.na() guard in fw_size_match().
-fw_size_log <- function(x) log10(x)
-fw_size_unlog <- function(x) 10^x
+# log10(1 + x) RATHER THAN log10(x), so both sliders start at 0 (client, 29
+# Sept 2026): a plain logarithm has no zero, and its left end sat on whatever
+# the smallest recorded area happened to be. Above about 10 the two scales are
+# indistinguishable, so the spread that made a log scale necessary is kept.
+fw_size_log <- function(x) log10(1 + x)
+fw_size_unlog <- function(x) 10^x - 1
 
-# The step the log sliders move in, and the rounding used when a bound is
-# printed back in real units. A tenth of a decade is fine enough to land on a
-# meaningful figure and coarse enough that the handle does not feel stuck.
-FW_SIZE_LOG_STEP <- 0.1
+# HOW MANY POSITIONS a size slider has, end to end. The step is the range
+# divided by this, so the handles move continuously rather than jumping between
+# values that happen to be in the data (client, 29 Sept 2026), and both ends
+# land exactly on the step grid - a max that fell between steps would be
+# unreachable, and a slider at its ends would not read as untouched.
+FW_SIZE_POSITIONS <- 1000
 
-#' Widen a log range out to whole steps
+#' The next round number at or above x: 1, 2 or 5 times a power of ten
 #'
-#' So the slider ends sit on round numbers and the reader can always reach the
-#' true minimum and maximum, which a truncated range would leave just inside.
+#' The top of each size slider (client, 29 Sept 2026: "a rounded number above
+#' the max"), so its right end reads 500,000 ha rather than 237,500.
+fw_nice_ceiling <- function(x) {
+  if (!length(x) || is.na(x) || x <= 0) return(1)
+  k <- 10^floor(log10(x))
+  for (m in c(1, 2, 5, 10)) if (m * k >= x * (1 - 1e-9)) return(m * k)
+}
+
+#' A size slider's ends, in slider units: 0 up to a round number above the max
+#'
+#' From the whole database, never the current selection, so the scale a reader
+#' sees does not shrink to what they last filtered for.
 fw_size_log_range <- function(bounds) {
   if (is.null(bounds)) return(NULL)
-  lo <- floor(fw_size_log(bounds[1]) / FW_SIZE_LOG_STEP) * FW_SIZE_LOG_STEP
-  hi <- ceiling(fw_size_log(bounds[2]) / FW_SIZE_LOG_STEP) * FW_SIZE_LOG_STEP
-  c(lo, hi)
+  c(0, fw_size_log(fw_nice_ceiling(bounds[2])))
 }
+
+#' The step a size slider moves in. See FW_SIZE_POSITIONS.
+fw_size_log_step <- function(r) diff(r) / FW_SIZE_POSITIONS
 
 #' A size printed for a human, at a sensible number of digits
 #'
@@ -278,6 +291,8 @@ fw_size_log_range <- function(bounds) {
 #' hectare.
 fw_size_label <- function(x) {
   if (!length(x) || is.na(x)) return(fw_t("common", "empty_value"))
+  # The slider's left end, which floating point brings back as 1e-16 or so.
+  if (abs(x) < 1e-9) return(fw_fmt_num(0))
   digits <- if (x >= 100) 0 else if (x >= 10) 1 else if (x >= 1) 2 else 4
   fw_fmt_num(round(x, digits))
 }
@@ -295,8 +310,11 @@ fw_size_match <- function(a, f) {
   for (unit in FW_SIZE_UNITS) {
     b <- f[[paste0("size_", unit)]]
     if (length(b) != 2 || anyNA(b)) next
-    lo <- fw_size_unlog(b[1])
-    hi <- fw_size_unlog(b[2])
+    # A hair of slack each way: 10^log10(1 + x) - 1 comes back a few ulps off
+    # x, and a record sitting exactly on the slider's round-number end must not
+    # fall outside it.
+    lo <- fw_size_unlog(b[1]) * (1 - 1e-9) - 1e-12
+    hi <- fw_size_unlog(b[2]) * (1 + 1e-9) + 1e-12
     is_unit <- !is.na(a$area_unit) & a$area_unit == unit & !is.na(a$area_treated)
     keep[is_unit] <- a$area_treated[is_unit] >= lo & a$area_treated[is_unit] <= hi
   }
@@ -450,6 +468,85 @@ fw_filter_clear <- function(session, ids, ch) {
     updateSliderInput(session, "years", value = c(ch$year_min, ch$year_max))
     updateCheckboxInput(session, "include_no_year", value = TRUE)
   }
+}
+
+#' The state a page's controls are in straight after fw_filter_clear()
+#'
+#' The same shape fw_filter_state() reads off the inputs, built without them,
+#' so Clear can build the default report in the same flush that resets the
+#' controls. dev/plan_test.R asserts the two agree.
+fw_filter_defaults <- function(ids, ch) {
+  input <- list(include_no_size = TRUE, include_no_year = TRUE)
+  if ("size" %in% ids) {
+    for (unit in FW_SIZE_UNITS) {
+      input[[paste0("size_", unit)]] <- fw_size_log_range(ch$size[[unit]])
+    }
+  }
+  if ("years" %in% ids) input$years <- c(ch$year_min, ch$year_max)
+  fw_filter_state(input, ids, ch = ch)
+}
+
+# ---- Linked species ----------------------------------------------------------
+
+#' The species labels a picker may offer, given the kind of animal and family
+#'
+#' Crayfish chosen, crayfish offered; Salmonidae chosen, salmonids offered
+#' (client, 29 Sept 2026). An empty kind or family is no narrowing at all, the
+#' same rule as fw_geo_allowed(). The order of `all` is kept, which is most
+#' frequent first.
+#'
+#' @param sp species labels with their taxa and family, from fw_species_label()
+#' @param taxa,family what the reader chose, possibly empty
+#' @param all the picker's full list of labels
+fw_species_allowed <- function(sp, taxa, family, all) {
+  keep <- rep(TRUE, nrow(sp))
+  if (length(taxa)) keep <- keep & sp$taxa %in% taxa
+  if (length(family)) keep <- keep & sp$family %in% family
+  all[all %in% sp$label[keep]]
+}
+
+#' Narrow each species picker by the kind-of-animal and family pickers above it
+#'
+#' One pair of observers per side (invasive, protected), each writing only to
+#' its species picker, so nothing here can loop. A species already chosen stays
+#' chosen only while it is still on offer, as with the geography pair.
+#'
+#' FAMILY ONLY COUNTS WHILE IT IS SHOWING. It is drawn only while Fish is
+#' picked, and fw_filter_state() ignores it otherwise, so a stale family left
+#' behind by deselecting Fish must not keep narrowing the list either.
+#'
+#' @param ids the filter ids the page draws; a side whose species picker is not
+#'   on the page is skipped
+fw_link_species_filters <- function(input, session, data, choices, ids) {
+  sp <- fw_species_label(data$species)
+  picked <- function(x) if (length(x)) as.character(x) else character(0)
+  sides <- list(
+    list(species = "species", taxa = "taxa", family = "family"),
+    list(species = "beneficiary", taxa = "taxa_beneficiary",
+         family = "family_beneficiary")
+  )
+  for (side in sides) {
+    if (!side$species %in% ids) next
+    local({
+      s <- side
+      family_now <- function() {
+        when <- FW_FILTERS[[s$family]]$when
+        if (!s$family %in% ids) return(character(0))
+        if (!is.null(when) && !when$value %in% picked(input[[when$input]])) {
+          return(character(0))
+        }
+        picked(input[[s$family]])
+      }
+      shiny::observeEvent(list(picked(input[[s$taxa]]), family_now()), {
+        allowed <- fw_species_allowed(sp, picked(input[[s$taxa]]), family_now(),
+                                      choices[[s$species]])
+        shiny::updateSelectizeInput(
+          session, s$species, choices = allowed,
+          selected = intersect(picked(input[[s$species]]), allowed))
+      }, ignoreNULL = FALSE, ignoreInit = TRUE)
+    })
+  }
+  invisible(NULL)
 }
 
 # ---- Linked geography --------------------------------------------------------

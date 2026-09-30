@@ -165,8 +165,8 @@ mod_contribute_server <- function(id, data, choices) {
       if (!isTRUE(value)) fw_t("contribute", "validate", "consent")
     })
     # Deliberately NOT enabled here. Enabling at startup shows the contributor an
-    # error on a box at the foot of the form before they have reached it. It is
-    # enabled when they check their answers or try to send.
+    # error on a box they have not had the chance to tick yet. It is enabled
+    # when they check their answers or try to send.
     
 
     # Gating is computed independently of the validators, on purpose.
@@ -303,9 +303,13 @@ mod_contribute_server <- function(id, data, choices) {
       )
     })
 
-    # NOT GATED (24 Sept 2026). Consent is asked at the foot of the form now,
-    # and Send is what it gates - see all_valid() and fw_check().
-    observeEvent(input$start, stage("form"))
+    # NOT GATED (24 Sept 2026). Consent is asked in the form's first section,
+    # with the contact details, and Send is what it gates - see all_valid()
+    # and fw_check(). The page goes to its top, where the form starts.
+    observeEvent(input$start, {
+      stage("form")
+      session$sendCustomMessage("fw-scroll-top", TRUE)
+    })
 
     # ---- Repeatable blocks ----------------------------------------------------
 
@@ -595,7 +599,11 @@ mod_contribute_server <- function(id, data, choices) {
         session$sendCustomMessage("fw-scroll-to-error", ns("form"))
         return()
       }
-      out <- fw_submit_attempt(assemble_record(), data)
+      # fw_safely(): only the GitHub write inside fw_submit_attempt() was
+      # guarded, and an error while assembling the record ended the session
+      # with the contributor's answers still on the page.
+      out <- fw_safely(session, fw_submit_attempt(assemble_record(), data))
+      if (is.null(out)) return()
       if (!isTRUE(out$success)) {
         showNotification(out$message, type = "error", duration = NULL)
         return()
