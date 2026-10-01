@@ -154,7 +154,9 @@ FW_COPY <- list(
     title = "Where attempts happened",
     note = paste(
       "Each marker is one eradication attempt, coloured and labelled by",
-      "outcome. Hover for a summary, select for the full record. Toggle",
+      # A LINE OF ITS OWN for the layers sentence (client, 1 Oct 2026). The
+      # note is drawn with white-space: pre-line, so the \n is the break.
+      "outcome. Hover for a summary, select for the full record.\nToggle",
       "between layers for hydrological, topographic, and satellite imagery."
     ),
     # The basemap switcher. Named so it reads as a question the reader might
@@ -781,7 +783,9 @@ FW_COPY <- list(
       "None of the attempts in this selection has a contact recorded against it."
     ),
     r_contacts_size = "Contacts per page",
-    r_contacts_all  = "Browse every contact in FWISE",
+    # A link to the Connect page in the same green box as Explore's to_plan
+    # (client, 1 Oct 2026).
+    r_contacts_all  = "[[networking|Browse every contact in FWISE]].",
     col_contact_name = "Name",
     col_contact_org  = "Organisation",
     col_contact_n    = "# Attempts",
@@ -981,10 +985,14 @@ FW_COPY <- list(
     ),
     # Blanked by the client (24 Sept 2026) and not drawn on the page.
     intro = "",
-    # NO PARAGRAPH UNDER THIS ANY MORE (client, 24 Sept 2026). Its sentence
-    # moved to the end of `coverage` below, and the box keeps only its button.
-    outro_heading = "Not sure who to ask?",
-    outro_action = "Email the FWISE team",
+    # THE BOX AT THE FOOT OF THE PAGE is a green callout about the contacts
+    # themselves (client, 1 Oct 2026). It was a lone "Email the FWISE team"
+    # button under a hidden "Not sure who to ask?" heading.
+    outro_text   = paste(
+      "If you spot a problem with a contact, or need details updated or",
+      "removed, please let us know:"
+    ),
+    outro_action = "email the FWISE team",
     # IN TWO HALVES, joined in the browser - see the footer's contact_user /
     # contact_domain and the note at fw_footer_contact(). The single-string
     # outro_email that was here served the whole address in the markup.

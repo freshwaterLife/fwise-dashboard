@@ -713,9 +713,11 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("its fonts are inlined, unwrapped",
      grepl("url(\"data:font/woff2;base64,", rec, fixed = TRUE) &&
        !grepl("data:[a-z/+.-]+;base64,[A-Za-z0-9+/=]*\\n", rec), TRUE)
+  # The FWISE mark twice - the masthead and, since 1 Oct 2026, first in the
+  # footer - then Weird Fishes and the collaborators.
   ok("every logo the footer carries is in it",
      lengths(regmatches(rec, gregexpr('src="data:image/png', rec, fixed = TRUE))),
-     2L + length(FW_LOGO$collab_files))
+     3L + length(FW_LOGO$collab_files))
 
   # ---- The PDF report -------------------------------------------------------
   #

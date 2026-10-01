@@ -88,29 +88,33 @@ mod_networking_ui <- function(id) {
           div(class = "fw-table-scroll", uiOutput(ns("table"))),
           uiOutput(ns("pager")),
 
+          # A GREEN CALLOUT, the same box as the "way on" links on Explore and
+          # the report builder (client, 1 Oct 2026). It asks for corrections to
+          # the directory rather than offering a general contact button.
           div(
-            class = "fw-panel fw-prose",
-            # The button alone (client, 24 Sept 2026): its sentence now ends
-            # the coverage line at the top of the page.
-            h2(class = "fw-visually-hidden", fw_t("networking", "outro_heading")),
-            tags$a(
-              class = "btn btn-primary",
-              # SPLIT ACROSS TWO ATTRIBUTES and joined at click time, the same
-              # way fw_contact_action() below handles every contact's address.
-              #
-              # IT USED TO BE THE WHOLE STRING in this onclick, which was
-              # harmless only while it was a [PLACEHOLDER]: the moment the real
-              # FWISE address landed here (23 Sept 2026) the one address the
-              # site most wants to protect was the one address served in full
-              # in the markup. Do not put it back together here.
-              href = "#",
-              `data-u` = fw_t("networking", "outro_user"),
-              `data-d` = fw_t("networking", "outro_domain"),
-              onclick = paste0(
-                "window.location.href='mail'+'to:'+this.dataset.u",
-                "+String.fromCharCode(64)+this.dataset.d; return false;"
+            class = "fw-callout fw-callout--next",
+            p(
+              fw_t("networking", "outro_text"), " ",
+              tags$a(
+                .noWS = "outside",
+                # SPLIT ACROSS TWO ATTRIBUTES and joined at click time, the same
+                # way fw_contact_action() below handles every contact's address.
+                #
+                # IT USED TO BE THE WHOLE STRING in this onclick, which was
+                # harmless only while it was a [PLACEHOLDER]: the moment the real
+                # FWISE address landed here (23 Sept 2026) the one address the
+                # site most wants to protect was the one address served in full
+                # in the markup. Do not put it back together here.
+                href = "#",
+                `data-u` = fw_t("networking", "outro_user"),
+                `data-d` = fw_t("networking", "outro_domain"),
+                onclick = paste0(
+                  "window.location.href='mail'+'to:'+this.dataset.u",
+                  "+String.fromCharCode(64)+this.dataset.d; return false;"
+                ),
+                fw_t("networking", "outro_action")
               ),
-              fw_t("networking", "outro_action")
+              "."
             )
           )
         )

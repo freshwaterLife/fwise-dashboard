@@ -930,13 +930,21 @@ fw_client_script <- function() {
 #' Was fw_plan_block() in mod_plan.R. It lives here because the dashboard draws
 #' summary graphics of its own now, and two pages laying out a titled block in
 #' two different ways is how they drifted apart the first time.
-fw_block <- function(title, note, content, note_as = c("info", "text")) {
+#'
+#' @param tools controls drawn on the title's row, right-aligned, wrapping
+#'   under the title on a narrow screen (the contacts table's page size)
+#' @param figure TRUE for a block holding a chart or map, which sits on a card
+#'   (client, 1 Oct 2026); tables and tiles are left as they are
+fw_block <- function(title, note, content, note_as = c("info", "text"),
+                     tools = NULL, figure = FALSE) {
   note_as <- match.arg(note_as)
   info <- !is.null(note) && note_as == "info"
+  heading <- h3(class = if (info) "fw-block__title",
+                fw_with_info(title, if (info) fw_info(note, title)))
   div(
-    class = "fw-plan__block",
-    h3(class = if (info) "fw-block__title",
-       fw_with_info(title, if (info) fw_info(note, title))),
+    class = paste(c("fw-plan__block", if (figure) "fw-plan__block--figure"),
+                  collapse = " "),
+    if (is.null(tools)) heading else div(class = "fw-block__head", heading, tools),
     if (!is.null(note) && !info) p(class = "fw-plan__note", note),
     content
   )

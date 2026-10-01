@@ -645,6 +645,9 @@
     margin-block: 0 $fw-space-2;
     color: $fw-ink-muted;
     font-size: $fw-size-caption;
+    // A \n in the copy is a line break (the map note's layers sentence,
+    // client, 1 Oct 2026). Notes without one are unaffected.
+    white-space: pre-line;
   }
 
   // The empty state is gone - the page's introduction moved into the page
@@ -668,6 +671,33 @@
     .fw-caption { margin-block-start: $fw-space-1; }
   }
 
+}
+
+// CONTROLS ON THE TITLE'S ROW (client, 1 Oct 2026): the contacts table's page
+// size sits right of its heading rather than on a line of its own under it,
+// and wraps beneath the heading when the row is too narrow for both.
+.fw-plan__block .fw-block__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: $fw-space-1 $fw-space-2;
+  margin-block-end: $fw-space-2;
+
+  h3, .fw-table-toolbar { margin-block: 0; }
+}
+
+// A CARD FOR EVERY PLOT (client, 1 Oct 2026: the map in particular felt
+// isolated floating on the page). The same surface and shadow as the tables'
+// own, so a chart and a table sit on the page the same way. Tables and species
+// tiles are not wrapped: they already carry a surface of their own. A hairline
+// outline and a map-only card were drafted beside this and not chosen.
+.fw-plan__block--figure {
+  background: $fw-surface;
+  box-shadow: $fw-shadow-card;
+  border-radius: $fw-radius-card;
+  padding: $fw-space-3;
+  @media (min-width: $fw-bp-md) { padding: $fw-space-4; }
 }
 
 // THE DOWNLOAD, FLOATING OVER THE RESULTS.
@@ -850,9 +880,11 @@
 // record, or to press Build report without knowing what comes out, should find
 // that out in the first sentence. One treatment, two names, so the two cards
 // cannot drift apart.
-// The closing link on Explore needs air between it and the charts above.
+// THE WAY ON: a closing link in the same green card - Explore's to the report
+// builder, the report builder's and the Connect page's to the whole contact
+// directory (client, 1 Oct 2026). It needs air between it and what is above.
 // Doubled class so it wins over .fw-callout's own margin below.
-.fw-callout.fw-explore-next { margin-block: $fw-space-4 0; }
+.fw-callout.fw-callout--next { margin-block: $fw-space-4 0; }
 
 .fw-preamble,
 .fw-callout {

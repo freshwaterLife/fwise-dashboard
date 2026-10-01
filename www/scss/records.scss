@@ -94,6 +94,8 @@ a:hover { color: $fw-teal-hover; }
   &__note {
     color: $fw-ink-muted;
     margin-block: 0 $fw-space-2;
+    // A \n in the copy is a line break, as on the app's own notes.
+    white-space: pre-line;
   }
 
   .fw-caption {
@@ -204,7 +206,8 @@ a:hover { color: $fw-teal-hover; }
   // THREE TO A ROW, WITH ROOM (client, 1 Oct 2026: "quite squished"). The
   // five logos used to run on in one wrapping line with a small gap; a grid
   // puts them in two rows of three and two, each centred in an equal cell, and
-  // two to a row on a phone.
+  // two to a row on a phone. The FWISE wordmark joined them on 1 Oct 2026, so
+  // it is now two full rows of three.
   &__logos {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -37,7 +37,7 @@ mod_explore_ui <- function(id, choices) {
             class = "fw-explore-block",
             fw_block(fw_t("maps", "title"), fw_t("maps", "note"),
                      tagList(fw_map_output(ns("map")), fw_map_note()),
-                     note_as = "text")
+                     note_as = "text", figure = TRUE)
           ),
 
           # ONE BLOCK, THREE QUESTIONS (client, 30 Sept 2026). The heading asks
@@ -79,18 +79,21 @@ mod_explore_ui <- function(id, choices) {
               div(
                 class = "fw-explore-charts",
                 fw_block(fw_t("explore", "cumulative"), NULL,
-                         plotly::plotlyOutput(ns("cumulative"), height = "auto")),
+                         plotly::plotlyOutput(ns("cumulative"), height = "auto"),
+                         figure = TRUE),
                 conditionalPanel(
                   "input.view == 'count'", ns = ns,
                   fw_block(fw_t("explore", "method"), fw_t("explore", "method_note"),
                            tagList(plotly::plotlyOutput(ns("method_count"), height = "auto"),
-                                   uiOutput(ns("method_multi_count"))))
+                                   uiOutput(ns("method_multi_count"))),
+                           figure = TRUE)
                 ),
                 conditionalPanel(
                   "input.view == 'rate'", ns = ns,
                   fw_block(fw_t("explore", "method"), fw_t("explore", "method_rate_note"),
                            tagList(plotly::plotlyOutput(ns("method_rate"), height = "auto"),
-                                   uiOutput(ns("method_multi_rate"))))
+                                   uiOutput(ns("method_multi_rate"))),
+                           figure = TRUE)
                 )
               )
             ),
@@ -98,13 +101,14 @@ mod_explore_ui <- function(id, choices) {
               "input.view == 'duration'", ns = ns,
               fw_block(fw_t("explore", "duration"), fw_t("plan", "r_duration_note"),
                        tagList(plotly::plotlyOutput(ns("duration"), height = "auto"),
-                               uiOutput(ns("duration_caption"))))
+                               uiOutput(ns("duration_caption"))),
+                       figure = TRUE)
             )
           ),
 
           # THE WAY ON to the report builder, last on the page (client, 29
           # Sept 2026). The same card as the Plan page's own callout.
-          div(class = "fw-callout fw-explore-next",
+          div(class = "fw-callout fw-callout--next",
               p(fw_home_links(fw_t("explore", "to_plan"))))
         )
       )

@@ -88,12 +88,13 @@ fw_plan_results_ui <- function(ns) {
         uiOutput(ns("map_missing"))
       ),
       # Visible above the map, as on Explore (client, 29 Sept 2026).
-      note_as = "text"
+      note_as = "text", figure = TRUE
     ),
 
     fw_block(
       fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
-      uiOutput(ns("outcome_bars"))
+      uiOutput(ns("outcome_bars")),
+      figure = TRUE
     ),
 
     # ---- What kind of water -----------------------------------------------
@@ -112,7 +113,8 @@ fw_plan_results_ui <- function(ns) {
                        fw_t("plan", "r_waterbody_count"),
                        fw_t("plan", "r_waterbody_share")),
         plotly::plotlyOutput(ns("chart_waterbody"), height = "auto")
-      )
+      ),
+      figure = TRUE
     )),
 
     fw_block(
@@ -128,7 +130,8 @@ fw_plan_results_ui <- function(ns) {
                        fw_t("plan", "r_method_share")),
         plotly::plotlyOutput(ns("methods"), height = "auto"),
         uiOutput(ns("method_caption"))
-      )
+      ),
+      figure = TRUE
     ),
 
     # ---- How long ---------------------------------------------------------
@@ -144,7 +147,8 @@ fw_plan_results_ui <- function(ns) {
       tagList(
         plotly::plotlyOutput(ns("duration"), height = "auto"),
         uiOutput(ns("duration_missing"))
-      )
+      ),
+      figure = TRUE
     ),
 
     fw_block(
@@ -155,25 +159,26 @@ fw_plan_results_ui <- function(ns) {
       # nothing on the results page carries a note as a paragraph any more.
       fw_t("plan", "r_contacts"), fw_t("plan", "r_contacts_note"),
       tagList(
-        div(
-          class = "fw-table-toolbar",
-          div(
-            class = "fw-table-toolbar__size",
-            tags$label(class = "form-label", `for` = ns("contacts_size"),
-                       fw_t("plan", "r_contacts_size")),
-            selectInput(ns("contacts_size"), label = NULL,
-                        choices = FW_PLAN_CONTACTS_PAGE_SIZES,
-                        selected = FW_PLAN_CONTACTS_PAGE_SIZES[1],
-                        selectize = FALSE, width = "auto")
-          )
-        ),
         div(class = "fw-table-scroll", uiOutput(ns("contacts_body"))),
         uiOutput(ns("contacts_pager")),
-        p(tags$a(
-          href = "#",
-          onclick = "Shiny.setInputValue('fw_nav_to','networking',{priority:'event'}); return false;",
-          fw_t("plan", "r_contacts_all")
-        ))
+        # The way on to the whole directory, in the green box Explore uses for
+        # its own (client, 1 Oct 2026).
+        div(class = "fw-callout fw-callout--next",
+            p(fw_home_links(fw_t("plan", "r_contacts_all"))))
+      ),
+      # ON THE TITLE'S ROW (client, 1 Oct 2026), so the page size does not
+      # cost a line of its own between the heading and the table.
+      tools = div(
+        class = "fw-table-toolbar",
+        div(
+          class = "fw-table-toolbar__size",
+          tags$label(class = "form-label", `for` = ns("contacts_size"),
+                     fw_t("plan", "r_contacts_size")),
+          selectInput(ns("contacts_size"), label = NULL,
+                      choices = FW_PLAN_CONTACTS_PAGE_SIZES,
+                      selected = FW_PLAN_CONTACTS_PAGE_SIZES[1],
+                      selectize = FALSE, width = "auto")
+        )
       )
     ),
 
