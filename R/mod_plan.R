@@ -175,6 +175,30 @@ fw_plan_results_ui <- function(ns) {
           fw_t("plan", "r_contacts_all")
         ))
       )
+    ),
+
+    # ---- Finding one record (client, 1 Oct 2026) ----------------------------
+    #
+    # LAST, so the report reads as before and this is the place to look a
+    # record up. A page of ten rows rather than the Detailed report's scroll
+    # of every card, so the footer and its links stay in reach below it.
+    fw_block(
+      fw_t("plan", "r_records"), fw_t("plan", "r_records_note"),
+      tagList(
+        div(
+          class = "fw-records",
+          div(
+            class = "fw-records__find",
+            tags$label(class = "form-label", `for` = ns("records_q"),
+                       fw_t("export", "records_filter_label")),
+            textInput(ns("records_q"), label = NULL, width = "100%",
+                      placeholder = fw_t("export", "records_filter_hint"))
+          ),
+          div(class = "fw-table-scroll", uiOutput(ns("records_body"))),
+          uiOutput(ns("records_pager"))
+        ),
+        fw_plan_records_script()
+      )
     )
   )
 }
@@ -505,6 +529,50 @@ mod_plan_server <- function(id, data, meta = NULL) {
                   fw_fmt_num(from), fw_fmt_num(to), fw_t("common", "of"),
                   fw_fmt_num(n_rows))),
         fw_page_numbers(ns("contacts_page_to"), contacts_shown(), n_pages)
+      )
+    })
+
+    # ---- The record search --------------------------------------------------
+    #
+    # The same paging as the contacts above. The search strings are built once
+    # per report, not per keystroke; the box is debounced so typing a word is
+    # one search, not one per letter.
+    records_haystack <- reactive(fw_plan_records_haystack(results()$export))
+    records_q <- debounce(reactive(input$records_q %||% ""), FW_PLAN_RECORDS_DEBOUNCE_MS)
+    records_rows <- reactive(fw_plan_records_find(records_haystack(), records_q()))
+
+    records_page <- reactiveVal(1L)
+    observeEvent(input$records_page_to, {
+      n <- suppressWarnings(as.integer(input$records_page_to))
+      if (length(n) == 1 && !is.na(n)) records_page(max(1L, n))
+    })
+    observeEvent(report(), records_page(1L))
+    observeEvent(records_q(), records_page(1L), ignoreInit = TRUE)
+    # A new build starts with an empty box: the last report's search would
+    # otherwise quietly narrow the new one.
+    observeEvent(report(), updateTextInput(session, "records_q", value = ""),
+                 ignoreInit = TRUE)
+
+    records_shown <- reactive(
+      min(records_page(), fw_plan_pages(length(records_rows()), FW_PLAN_RECORDS_PAGE_SIZE)))
+
+    output$records_body <- renderUI(
+      fw_plan_records_ui(results()$export, records_rows(), records_shown()))
+
+    output$records_pager <- renderUI({
+      n_rows <- length(records_rows())
+      if (n_rows == 0) return(NULL)
+      per <- FW_PLAN_RECORDS_PAGE_SIZE
+      n_pages <- fw_plan_pages(n_rows, per)
+      from <- (records_shown() - 1L) * per + 1L
+      to <- min(n_rows, records_shown() * per)
+      div(
+        class = "fw-pager",
+        p(class = "fw-caption",
+          sprintf("%s %s-%s %s %s", fw_t("plan", "r_table_showing"),
+                  fw_fmt_num(from), fw_fmt_num(to), fw_t("common", "of"),
+                  fw_fmt_num(n_rows))),
+        fw_page_numbers(ns("records_page_to"), records_shown(), n_pages)
       )
     })
 

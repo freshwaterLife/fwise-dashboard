@@ -79,6 +79,7 @@ fw_emphasis <- function(text) {
 #' intro used to be split across the header and a second block below the filter
 #' panel, in three different treatments; that is what this replaces.
 #'
+#' @param title    one string, or several to start each on its own line
 #' @param format   turns one paragraph of copy into tags; the Welcome page
 #'   passes one that also makes [[page|words]] links
 #' @param modifier adds .fw-page-header--{modifier} for a page-specific size
@@ -92,10 +93,18 @@ fw_page_header <- function(title, description = NULL, format = fw_emphasis,
                   collapse = " "),
     fw_container(
       # **bold** works in a title as it does in the description. A title with
-      # no ** comes back from fw_emphasis() as the same plain string.
+      # no ** comes back from fw_emphasis() as the same plain string. A title
+      # of several strings puts each on its own line; the space between the
+      # spans keeps the sentences apart for screen readers and copy-paste.
       h1(class = paste(c("fw-page-header__title",
                          if (!show_title) "fw-visually-hidden"), collapse = " "),
-         fw_emphasis(title)),
+         if (length(title) > 1) {
+           lapply(title, function(line) {
+             tagList(span(class = "fw-page-header__line", fw_emphasis(line)), " ")
+           })
+         } else {
+           fw_emphasis(title)
+         }),
       lapply(description, function(para) {
         p(class = "fw-page-header__description", format(para))
       })
@@ -530,13 +539,49 @@ fw_footer <- function(last_updated, in_review = 0L) {
               else fw_t("footer", "in_review_many")
             )
           },
-          tags$a(href = fw_t("footer", "doi_url"), fw_t("footer", "doi_label")),
+          fw_doi_link(fw_t("footer", "doi_label")),
           tags$a(href = fw_t("footer", "github_url"), fw_t("footer", "github_label")),
           fw_footer_contact()
         ),
-        p(class = "fw-footer__licence", fw_t("footer", "licence"))
+        p(class = "fw-footer__licence", fw_t("footer", "licence")),
+        fw_doi_soon()
       )
     )
+  )
+}
+
+#' A link to the dataset's DOI, or "coming soon" until there is one
+#'
+#' THE DATASET IS NOT ON ZENODO YET (client, 1 Oct 2026). While footer$doi_url
+#' is still "#", every DOI link - the footer and the About page - is a button
+#' that opens one small "coming soon" card, rather than a link that goes
+#' nowhere. Setting doi_url to the real address in R/copy.R turns them all back
+#' into plain links; nothing else needs touching at launch.
+#'
+#' The card is drawn once, by the footer (fw_doi_soon()), which is on every
+#' page; a native popover can be opened from anywhere in the document.
+fw_doi_link <- function(label) {
+  url <- fw_t("footer", "doi_url")
+  if (!identical(url, "#") && nzchar(url)) return(tags$a(href = url, label))
+  tags$button(type = "button", class = "fw-link-button",
+              popovertarget = FW_DOI_SOON_ID, label)
+}
+
+FW_DOI_SOON_ID <- "fw-doi-soon"
+
+#' The "coming soon" card behind fw_doi_link(). NULL once there is a DOI.
+fw_doi_soon <- function() {
+  url <- fw_t("footer", "doi_url")
+  if (!identical(url, "#") && nzchar(url)) return(NULL)
+  div(
+    id = FW_DOI_SOON_ID, popover = "auto", class = "fw-soon-card",
+    role = "dialog", `aria-labelledby` = paste0(FW_DOI_SOON_ID, "-title"),
+    tags$button(type = "button", class = "fw-soon-card__close",
+                popovertarget = FW_DOI_SOON_ID, popovertargetaction = "hide",
+                `aria-label` = fw_t("home", "card_close"), HTML("&times;")),
+    tags$h2(id = paste0(FW_DOI_SOON_ID, "-title"), class = "fw-soon-card__title",
+            fw_t("footer", "doi_soon_title")),
+    p(fw_t("footer", "doi_soon"))
   )
 }
 

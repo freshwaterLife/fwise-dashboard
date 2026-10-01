@@ -98,11 +98,9 @@ FW_FILTERS <- list(
     bridge = "species", role = "beneficiary", match = "family",
     when = list(input = "taxa_beneficiary", value = "Fish")
   ),
-  # NO TIP (client, 23 Sept 2026). Its tooltip only restated the label, and
-  # fw_filter_tip() returns NULL for a filter without one, which fw_field()
-  # draws as no (i) button at all. Same for `continent` below.
-  waterbody = list(copy = "waterbody", kind = "multi",
-                   column = "waterbody_type"),
+  # THE KIND-OF-WATERBODY FILTER (lake, pond, river...) WENT on 1 Oct 2026, at
+  # the client's request. Still or flowing water (`regime`, below) is the one
+  # water filter now, matching the still/flowing chart.
   country   = list(copy = "country",   kind = "multi", tip = "tip_country",
                    column = "country"),
   # `labels` names a function that turns stored values into the wording the
@@ -150,7 +148,7 @@ fw_filter_ids <- function(drop = character(0)) {
 # zero-hints want, so the UI walks this instead of names(FW_FILTERS). The
 # protected side runs kind, family, species - the same way round as the invasive
 # side, so the two read as a pair (client, Sept 2026 user testing).
-FW_FILTER_ORDER <- c("continent", "country", "regime", "waterbody",
+FW_FILTER_ORDER <- c("continent", "country", "regime",
                      "taxa", "family", "species", "method",
                      "taxa_beneficiary", "family_beneficiary", "beneficiary",
                      "outcome", "size", "years")
@@ -366,7 +364,6 @@ fw_filter_choices <- function(data) {
     # Lentic / Lotic. See fw_regime_choices() in data_load.R.
     regime      = fw_regime_choices(
       sort(unique(data$attempt$water_regime[!is.na(data$attempt$water_regime)]))),
-    waterbody   = sort(unique(data$attempt$waterbody_type[!is.na(data$attempt$waterbody_type)])),
     taxa        = taxa_for(inv),
     species     = by_freq(inv$species_id, sp_labels),
     beneficiary = by_freq(ben$species_id, sp_labels),

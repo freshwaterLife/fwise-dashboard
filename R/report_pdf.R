@@ -137,7 +137,9 @@ fw_pdf_tokens <- function(logos) {
     # at 8mm the six logos and the page count shared one line and there was no
     # room to grow. The logos now have the line to themselves with the page
     # count under them - see fw-footer in typst-template.typ - so 11mm fits.
-    "#let fw-logo-h = 11mm",
+    # 10mm since 1 Oct 2026, when they went to two rows of three to give each
+    # one room (client: "quite squished"); two rows of 11mm took too much page.
+    "#let fw-logo-h = 10mm",
     # The FWISE mark on the letterhead, which the client asked to be bigger
     # still: it is the masthead of the document, not one logo among seven.
     "#let fw-mark-h = 30mm",

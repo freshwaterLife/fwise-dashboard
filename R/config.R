@@ -211,7 +211,7 @@ FW_TOP_N <- 10L
 # square mark turns on its own centre and a wordmark would not.
 #
 # EXCEPT THE NAVBAR AND THE FOOTER, which serve the full-resolution original
-# at the client's request (September 2026): the navbar mark is 7rem tall and
+# at the client's request (September 2026): the navbar mark is 5.5rem tall and
 # the client wants it drawn from the uncompressed file. The footer carried the
 # badge until the client asked for the long SIMPLE wordmark there too; the
 # full-size FWISE-BADGE.png stays in www/img but nothing serves it.
@@ -234,8 +234,9 @@ FW_SPINNER_DELAY_MS <- 150
 # The Welcome map reveal's opening sway (client, 30 Sept 2026): where the divide
 # starts and rests (% from the left), how far it swings either side, how long
 # one full swing takes, how many swings, and the pause before the first. See
-# fw_home_compare_script() in R/mod_home.R.
-FW_HOME_COMPARE <- list(start = 50L, swing = 30L, period_ms = 2600L,
+# fw_home_compare_script() in R/mod_home.R. The swing went from 30 to 40 (client,
+# 1 Oct 2026): the divide now reaches 10% and 90% of the map.
+FW_HOME_COMPARE <- list(start = 50L, swing = 40L, period_ms = 2600L,
                         cycles = 2L, delay_ms = 500L)
 
 # How often an open tab tells the server it is still there, so an idle
@@ -404,6 +405,14 @@ FW_CONTACTS_PAGE_SIZES <- c(25L, 50L, 100L)
 # The client asked for ten specifically.
 FW_PLAN_CONTACTS_PAGE_SIZES <- c(10L, 25L, 50L, 100L)
 
+# THE RECORD SEARCH ON THE REPORT BUILDER (client, 1 Oct 2026): ten attempts
+# a page, and no choice of size. The Detailed report lists every record in
+# full; this is a table to find one in, short enough that the footer and its
+# links stay within reach below it.
+FW_PLAN_RECORDS_PAGE_SIZE <- 10L
+# How long the search box waits after the last keystroke before it filters.
+FW_PLAN_RECORDS_DEBOUNCE_MS <- 300L
+
 # The years a contributor may enter. Nothing before FW_YEAR_MIN is plausible,
 # and an end year may run this many years past today for planned work.
 FW_YEAR_MIN    <- 1500L
@@ -551,9 +560,9 @@ FW_CHART <- list(
   # the only chart that ever stacked method against method.
   separator_outcome = 0,
   # The weight of the vertical rules on the stacked bar charts, in px. A
-  # hairline: unlike the duration chart's dotted breaks below, these are solid
-  # and are drawn OVER the bars (fw_bar_rules() in charts.R), so they need no
-  # extra weight to be seen and would read as stripes if they had any.
+  # hairline: unlike the duration chart's dotted breaks below, these are solid,
+  # and they are drawn BEHIND the bars (fw_bar_rules() in charts.R, client 1
+  # Oct 2026), so they show in the gaps between rows and need no extra weight.
   bar_grid = 1,
   # How far apart the success-rate axis's ticks sit, in percentage points. Set
   # rather than left to plotly, because the rules over the bars are drawn at
@@ -584,25 +593,28 @@ FW_CHART <- list(
   # bounds because plotly's autorange for a box trace on a log scale does not.
   duration_pad = 0.04,
   duration_pad_min = 0.05,
-  # THE SUCCESS RATE OVER TIME (Explore, client 30 Sept 2026). One start year
-  # holds a handful of attempts, so a rate year by year is mostly noise; each
-  # point pools the finished attempts of the `window` years ENDING in it - a
-  # trailing 10-year window, the client's choice after a first round at five
-  # years centred. Trailing because a ten-year window cannot be centred on a
-  # year, and because a point should not draw on years after it. A window
-  # holding fewer than `min_n` finished attempts is not drawn - the line breaks
-  # there rather than swinging between 0% and 100% on two attempts. See
-  # fw_success_time_data().
-  success_time = list(window = 10L, min_n = 5L),
-  # The dots on the duration chart, and the box under them.
-  point    = list(size = 7, opacity = 0.75, stroke = 1),
+  # The dots on the duration chart, and the box under them. The FILL is
+  # see-through (fill_alpha) and the OUTLINE is not: a lighter dot inside a
+  # darker brand-teal ring (client, 30 Sept 2026). Opacity on the whole marker
+  # would have faded the ring with it.
+  point    = list(size = 7, fill_alpha = 0.55, stroke = 1),
+  # The duration box's hover targets: invisible markers laid along each row
+  # from its shortest attempt to its longest, one every `step` (log10 days),
+  # each `size` px across - about the box's height - so the summary comes up
+  # anywhere on the box or its whiskers, not just at the quartiles.
+  duration_hover = list(step = 0.04, size = 22),
   box_line = 1.5,
   # The step line on the cumulative chart.
   line = 1,
   # The gap between an axis and its tick labels, in px. Made by invisible
   # outside ticks of this length - see fw_tick_gap(). The axis-line A/B test
   # that used to sit here ended with the client choosing bare axes (Sept 2026).
-  tick_gap = 8,
+  # 8 until 1 Oct 2026, when the client asked for more room round the labels.
+  tick_gap = 12,
+  # The gap between the tick labels and the axis title, in px - plotly's
+  # title standoff. See fw_axis_title(). Added 1 Oct 2026 for the same ask:
+  # "Year" sat tight under the years.
+  title_gap = 14,
   # The duration chart's dots are spread across their row rather than drawn on
   # one line, so a pile of identical durations shows as a column you can count.
   # `bin` is how close two durations have to be (in log10 days) to count as

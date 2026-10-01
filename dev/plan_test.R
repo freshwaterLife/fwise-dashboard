@@ -838,6 +838,78 @@ ok("PDF: and keeps the protected tiles",
    grepl("Top [a-z]+ species protected", typ_s), TRUE)
 unlink(dir_s, recursive = TRUE)
 
+# ---- The record search (client, 1 Oct 2026) ----------------------------------
+#
+# RECOMPUTED, NOT RE-READ: what each search should find is worked out here
+# from the export frame's own columns with base R, and the page's table is
+# checked against it - match counts, the ten-a-page cut, the last page, and
+# that every shown row carries its full card, hidden until opened.
+cat("\n-- record search --\n")
+ex_all <- fw_export_frame(d, fw_filter_apply(d, base)$attempt_id)
+hay <- fw_plan_records_haystack(ex_all)
+recount <- function(q) {
+  q <- tolower(q)
+  fields <- c("attempt_id", "site_name", "country", "region", "invasive_species",
+              "beneficiary_species", "methods")
+  sum(vapply(seq_len(nrow(ex_all)), function(i) {
+    v <- unlist(ex_all[i, fields, drop = FALSE]); v <- v[!is.na(v)]
+    any(grepl(q, tolower(v), fixed = TRUE)) || grepl(q, tolower(paste(v, collapse = " ")), fixed = TRUE)
+  }, logical(1)))
+}
+ok("records: blank search matches every attempt",
+   length(fw_plan_records_find(hay, "  ")), nrow(ex_all))
+q_country <- ex_all$country[!is.na(ex_all$country)][1]
+q_species <- ex_all$invasive_species[!is.na(ex_all$invasive_species)][1]
+for (q in c(q_country, toupper(q_country), q_species, ex_all$attempt_id[5], "rotenone")) {
+  ok(sprintf("records: '%s' finds the recounted number", q),
+     length(fw_plan_records_find(hay, q)), recount(q))
+}
+ok("records: the id search finds exactly that attempt",
+   ex_all$attempt_id[fw_plan_records_find(hay, ex_all$attempt_id[5])][1], ex_all$attempt_id[5])
+ok("records: nonsense finds nothing", length(fw_plan_records_find(hay, "zzqxj")), 0L)
+
+rows_all <- seq_len(nrow(ex_all))
+pg <- function(page) as.character(fw_plan_records_ui(ex_all, rows_all, page))
+n_rows_on <- function(h) lengths(regmatches(h, gregexpr('class="fw-records__row"', h, fixed = TRUE)))
+last <- fw_plan_pages(nrow(ex_all), FW_PLAN_RECORDS_PAGE_SIZE)
+ok("records: ten rows on page one", n_rows_on(pg(1L)), FW_PLAN_RECORDS_PAGE_SIZE)
+ok("records: the last page holds the remainder",
+   n_rows_on(pg(last)),
+   nrow(ex_all) - (last - 1L) * FW_PLAN_RECORDS_PAGE_SIZE)
+h1 <- pg(1L)
+ok("records: every row has its card, hidden",
+   lengths(regmatches(h1, gregexpr('class="fw-records__detail" id="[^"]+" hidden', h1))),
+   FW_PLAN_RECORDS_PAGE_SIZE)
+ok("records: the cards carry no contents link and no element id",
+   identical(c(grepl("fw-rec-contents", h1, fixed = TRUE),
+               grepl('<article class="fw-rec-card" id=', h1, fixed = TRUE)), c(FALSE, FALSE)))
+ok("records: page one is the export's first ten, in order",
+   identical(regmatches(h1, gregexpr('aria-controls="fw-records-[^"]+"', h1))[[1]],
+             sprintf('aria-controls="fw-records-%s"', ex_all$attempt_id[1:FW_PLAN_RECORDS_PAGE_SIZE])))
+ok("records: no match says so",
+   grepl(fw_t("plan", "r_records_none"),
+         as.character(fw_plan_records_ui(ex_all, integer(0))), fixed = TRUE), TRUE)
+
+testServer(mod_plan_server, args = list(data = d, meta = m), {
+  session$setInputs(build = 1)
+  body <- output$records_body$html
+  ok("records (server): page one on build", n_rows_on(body), FW_PLAN_RECORDS_PAGE_SIZE)
+  session$setInputs(records_q = q_country)
+  session$elapse(FW_PLAN_RECORDS_DEBOUNCE_MS + 100)
+  ok("records (server): the search narrows the table",
+     length(records_rows()), recount(q_country))
+  ok("records (server): the pager counts the matches",
+     grepl(paste(fw_t("common", "of"), fw_fmt_num(recount(q_country))),
+           output$records_pager$html, fixed = TRUE), TRUE)
+  session$setInputs(records_q = "zzqxj")
+  session$elapse(FW_PLAN_RECORDS_DEBOUNCE_MS + 100)
+  ok("records (server): nothing found says so",
+     grepl(fw_t("plan", "r_records_none"), output$records_body$html, fixed = TRUE), TRUE)
+})
+
+# The waterbody-type filter went on 1 Oct 2026 (client).
+ok("filters: no waterbody-type filter", "waterbody" %in% fw_filter_ids(), FALSE)
+
 cat("\n")
 if (failures > 0L) stop(failures, " report builder assertion(s) failed", call. = FALSE)
 cat("All report builder tests passed.\n")

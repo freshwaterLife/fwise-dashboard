@@ -135,8 +135,7 @@ mod_about_server <- function(id, data, meta = NULL) {
                              fw_t("footer", "github_label"))),
               tags$li(tags$a(href = fw_t("footer", "fwl_url"),
                              fw_t("about", "link_fwise"))),
-              tags$li(tags$a(href = fw_t("footer", "doi_url"),
-                             fw_t("about", "link_zenodo")))
+              tags$li(fw_doi_link(fw_t("about", "link_zenodo")))
             )
           )
         )
@@ -200,7 +199,7 @@ fw_about_signup <- function() {
 fw_about_citations <- function(meta, s) {
   tagList(
     tags$pre(class = "fw-citation", fw_citation_text(meta, s$attempts)),
-    p(tags$a(href = fw_t("footer", "doi_url"), fw_t("footer", "doi_label")))
+    p(fw_doi_link(fw_t("footer", "doi_label")))
   )
 }
 

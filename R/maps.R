@@ -391,16 +391,23 @@ fw_popup_years <- function(start, end) {
 #' How long an attempt lasted, from duration_days
 #'
 #' Days under a year ("1 day", "20 days"), years to one decimal place from 365
-#' on ("1.0 years", "1.1 years"), at the client's request (21 Sept 2026). NA
-#' when no duration is recorded, which the row shows as "Not noted".
+#' on ("1.1 years"), at the client's request (21 Sept 2026). NA when no
+#' duration is recorded, which the row shows as "Not noted".
+#'
+#' NO ".0" (client, 1 Oct 2026): a figure that rounds to a whole number of
+#' years prints as one - "15 years", not "15.0 years" - and exactly one year is
+#' "1 year". Every duration in the app comes through here: the map cards, the
+#' record cards, the duration chart's hover and its last tick.
 fw_popup_duration <- function(days) {
   if (length(days) != 1 || is.na(days)) return(NA_character_)
   if (days < 365) {
     d <- round(days)
     return(paste(d, fw_t("maps", if (d == 1) "day_one" else "day_many")))
   }
-  paste(formatC(round(days / 365, 1), format = "f", digits = 1),
-        fw_t("maps", "year_many"))
+  y <- round(days / 365, 1)
+  whole <- y == round(y)
+  paste(formatC(y, format = "f", digits = if (whole) 0 else 1),
+        fw_t("maps", if (y == 1) "year_one" else "year_many"))
 }
 
 #' The treated size, with its unit

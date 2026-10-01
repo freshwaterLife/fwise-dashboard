@@ -118,36 +118,36 @@ fw_outcome_levels <- function(mode = c("count", "share")) {
 fw_bar_x_axis <- function(mode = c("count", "share")) {
   mode <- match.arg(mode)
   if (mode == "share") {
-    list(title = fw_t("charts", "x_share"), range = c(0, 100), ticksuffix = "%",
+    list(title = fw_axis_title(fw_t("charts", "x_share")), range = c(0, 100), ticksuffix = "%",
          zeroline = FALSE, showgrid = FALSE,
          tick0 = 0, dtick = FW_CHART$share_dtick)
   } else {
     # zeroline stays FALSE: the rule at zero is a shape too, because plotly's
     # own zeroline is drawn under the bars like the grid.
-    list(title = fw_t("charts", "x_attempts"), zeroline = FALSE,
+    list(title = fw_axis_title(fw_t("charts", "x_attempts")), zeroline = FALSE,
          gridcolor = FW_COLOURS$border, gridwidth = FW_CHART$bar_grid)
   }
 }
 
-#' The vertical rules a stacked bar chart draws OVER its bars
+#' The vertical rules a stacked bar chart draws BEHIND its bars
 #'
-#' SHAPES, NOT GRIDLINES, AND THAT IS NOT A PREFERENCE. The client asked for a
-#' light grey vertical line at each % on the success-rate view, "like you have
-#' for n attempts" (23 Sept 2026). The gridlines were already there and already
-#' the right colour; what was wrong is that plotly draws every gridline
-#' underneath every trace, and a 100% stacked bar spans the whole axis, so each
-#' line was painted over end to end and only showed in the gaps between rows.
+#' BEHIND, AT THE CLIENT'S REQUEST (1 Oct 2026). From 23 Sept to 1 Oct these
+#' were drawn over the bars: the client had asked for a light grey line at
+#' each % on the success-rate view, "like you have for n attempts", and
+#' plotly's own gridlines could not do it because a 100% stacked bar spans the
+#' whole axis and paints over every one. The client has since asked for every
+#' plot line to sit behind the data, so on the success-rate view the rules now
+#' show only in the gaps between rows. That is accepted, not overlooked.
 #'
-#' xaxis.layer = "above traces" LOOKS LIKE THE FIX AND IS NOT. plotly's own
-#' wording is that the axis is drawn above the traces "but above the grid
-#' lines" - it lifts the axis line and the tick labels and leaves the grid
-#' where it was. The rendered DOM says the same: gridlayer is a sibling BEFORE
-#' plot inside the subplot, in 2.25 and in every version since. A shape with
-#' layer = "above" is the one thing that genuinely draws over a trace.
+#' STILL SHAPES, NOT GRIDLINES. A shape at layer = "below" draws in the same
+#' place a gridline would, and keeping them shapes means the share view's
+#' rules stay pinned to the same dtick as its labels (see fw_bar_x_axis()),
+#' and the count view keeps its rule at zero, which plotly's zeroline would
+#' also draw under the bars.
 #'
-#' In count mode there is only one: the rule at zero, which the client asked to
-#' see tried. The rest of that view's lines are real gridlines and stay so,
-#' because its bars stop short of the right-hand edge and the lines read there.
+#' xaxis.layer = "above traces" does NOT lift gridlines over a trace - it moves
+#' the axis line and tick labels only. Worth knowing if anyone asks for these
+#' over the bars again: a shape with layer = "above" is the only way.
 #'
 #' @param mode the chart's mode
 #' @return a list of plotly shapes, spanning the plot's full height (yref
@@ -156,7 +156,7 @@ fw_bar_rules <- function(mode = c("count", "share")) {
   mode <- match.arg(mode)
   at <- if (mode == "share") seq(0, 100, FW_CHART$share_dtick) else 0
   lapply(at, function(v) {
-    list(type = "line", layer = "above", xref = "x", yref = "paper",
+    list(type = "line", layer = "below", xref = "x", yref = "paper",
          x0 = v, x1 = v, y0 = 0, y1 = 1,
          line = list(color = FW_COLOURS$border, width = FW_CHART$bar_grid))
   })
@@ -198,6 +198,19 @@ fw_hover_counts <- function(outcome, n, total, share, mode = c("count", "share")
     fw_fill(tpl, outcome = outcome, pc = pc[i],
             n = fw_fmt_num(n[i]), total = fw_fmt_num(total[i]))
   }, character(1))
+}
+
+#' An axis title, set off from the tick labels above it
+#'
+#' MORE ROOM UNDER THE LABELS (client, 1 Oct 2026: "Year" sat tight against
+#' the years). plotly's own standoff is a function of the font and came out
+#' too close; FW_CHART$title_gap says it once for every axis. plotly R turns
+#' axis automargin on, so the margin grows to fit rather than clipping.
+#'
+#' A LIST, so every axis title in the app has to come through here: a plain
+#' string passed to layout() would replace it, standoff and all.
+fw_axis_title <- function(text) {
+  list(text = text, standoff = FW_CHART$title_gap)
 }
 
 #' Room between an axis and its tick labels
@@ -365,88 +378,17 @@ fw_chart_cumulative <- function(sel) {
                   filename = "fwise-cumulative-attempts") |>
     plotly::layout(
       hovermode = "x unified",
-      xaxis = list(title = fw_t("charts", "x_year"), gridcolor = FW_COLOURS$border,
+      xaxis = list(title = fw_axis_title(fw_t("charts", "x_year")), gridcolor = FW_COLOURS$border,
                    zeroline = FALSE,
                    # Explicit, so the axis ends at the present rather than at
                    # whatever the data happens to reach.
                    range = c(min(years), last_year)),
-      yaxis = list(title = fw_t("charts", "y_cumulative"), gridcolor = FW_COLOURS$border,
+      yaxis = list(title = fw_axis_title(fw_t("charts", "y_cumulative")), gridcolor = FW_COLOURS$border,
                    zeroline = FALSE, rangemode = "tozero")
     )
 }
 
 
-
-# ---- Success rate over time -------------------------------------------------
-
-#' The rolling success rate, one row per start year
-#'
-#' POOLED, NOT AVERAGED. Each year's point is the Successful attempts over the
-#' Successful and Failed attempts that began in the window around it, counted
-#' together - an average of yearly rates would give a year with two attempts
-#' the same weight as a year with forty. Ongoing and Unknown are left out, as in
-#' every success rate here (see the note at the top of this file).
-#'
-#' The window is the FW_CHART$success_time$window years ending in the year,
-#' cut short at the start of the data; `from` and `to` are the years it
-#' actually spans, and the hover names them.
-#'
-#' @return a tibble of year, from, to, n (successful), total (finished), rate
-#'   (NA where total < min_n); NULL when fewer than two years can be drawn
-fw_success_time_data <- function(sel) {
-  cfg <- FW_CHART$success_time
-  y <- sel[!is.na(sel$start_year) & sel$outcome %in% FW_RATE_LEVELS,
-           c("start_year", "outcome")]
-  if (!nrow(y)) return(NULL)
-  first <- min(y$start_year)
-  last <- max(y$start_year)
-  years <- seq(first, last)
-  from <- pmax(years - (cfg$window - 1L), first)
-  to <- years
-  n <- vapply(seq_along(years), function(i)
-    sum(y$start_year >= from[i] & y$start_year <= to[i] & y$outcome == "Successful"), 1L)
-  total <- vapply(seq_along(years), function(i)
-    sum(y$start_year >= from[i] & y$start_year <= to[i]), 1L)
-  rate <- ifelse(total >= cfg$min_n, 100 * n / total, NA_real_)
-  if (sum(!is.na(rate)) < 2) return(NULL)
-  tibble(year = years, from = from, to = to, n = n, total = total, rate = rate)
-}
-
-#' Success rate over time, as a rolling line
-#'
-#' One line in the success green, on a 0-100% axis. Years whose window holds
-#' too few finished attempts are gaps, not zeros - see fw_success_time_data().
-fw_chart_success_time <- function(sel) {
-  d <- fw_success_time_data(sel)
-  if (is.null(d)) return(NULL)
-  tpl <- fw_t("charts", "success_time_hover")
-  d$hover <- vapply(seq_len(nrow(d)), function(i) {
-    fw_fill(tpl, from = d$from[i], to = d$to[i], pc = sprintf("%.0f", d$rate[i]),
-            n = fw_fmt_num(d$n[i]), total = fw_fmt_num(d$total[i]))
-  }, character(1))
-  this_year <- as.integer(format(Sys.Date(), "%Y"))
-
-  p <- plotly::plot_ly(height = FW_CHART$height$cumulative) |>
-    plotly::add_trace(
-      data = d, x = ~year, y = ~rate, type = "scatter", mode = "lines",
-      name = "", showlegend = FALSE, connectgaps = FALSE,
-      line = list(shape = "linear", width = FW_CHART$line,
-                  color = unname(FW_OUTCOME_COLOURS[["Successful"]])),
-      hovertemplate = "%{customdata}<extra></extra>", customdata = d$hover
-    )
-  fw_plotly_style(p, legend = FALSE, filename = "fwise-success-rate-over-time") |>
-    plotly::layout(
-      hovermode = "x",
-      xaxis = list(title = fw_t("charts", "x_year"), gridcolor = FW_COLOURS$border,
-                   zeroline = FALSE,
-                   # To the present, like the attempts chart beside it.
-                   range = c(min(d$year), max(max(d$year), this_year))),
-      yaxis = list(title = fw_t("charts", "y_success_time"),
-                   gridcolor = FW_COLOURS$border, zeroline = FALSE,
-                   range = c(0, 100), ticksuffix = "%",
-                   tick0 = 0, dtick = FW_CHART$share_dtick)
-    )
-}
 
 # ---- Outcome by method -------------------------------------------------------
 
@@ -846,22 +788,35 @@ fw_chart_duration <- function(data, sel) {
     p, data = d, type = "scatter", mode = "markers",
     x = ~duration_days, y = ~y_dot,
     name = "", showlegend = FALSE, hoverinfo = "skip",
-    marker = list(color = unname(FW_OUTCOME_COLOURS[["Successful"]]),
+    # A lighter fill in a darker brand-teal ring (client, 30 Sept 2026).
+    marker = list(color = fw_rgba(unname(FW_OUTCOME_COLOURS[["Successful"]]),
+                                  FW_CHART$point$fill_alpha),
                   size = FW_CHART$point$size,
-                  opacity = FW_CHART$point$opacity,
-                  line = list(color = FW_COLOURS$surface,
+                  line = list(color = FW_COLOURS$teal_hover,
                               width = FW_CHART$point$stroke))
   )
-  # The box's hover: an invisible marker at its quartiles and median, each
-  # carrying the whole summary, so the pointer finds one anywhere along the
-  # box. Drawn last, so it is on top of the dots it shares the row with.
-  hv <- st[rep(seq_len(nrow(st)), each = 3), ]
-  hv$x <- as.vector(rbind(st$q1, st$median, st$q3))
+  # The box's hover: invisible markers laid along the whole row, shortest
+  # attempt to longest, each carrying the whole summary. It used to be three,
+  # at the quartiles and median, and the client found the summary came up too
+  # rarely (30 Sept 2026). Drawn last, so it is on top of the dots.
+  hc <- FW_CHART$duration_hover
+  hv <- do.call(rbind, lapply(seq_len(nrow(st)), function(i) {
+    lx <- log10(c(st$shortest[i], st$longest[i]))
+    n <- max(3L, ceiling(diff(lx) / hc$step) + 1L)
+    data.frame(x = 10^seq(lx[1], lx[2], length.out = n),
+               row = st$row[i], hover = st$hover[i])
+  }))
   p <- plotly::add_trace(
     p, type = "scatter", mode = "markers", x = hv$x, y = hv$row,
     name = "", showlegend = FALSE,
-    marker = list(size = FW_CHART$point$size * 2, opacity = 0),
-    hovertemplate = "%{customdata}<extra></extra>", customdata = hv$hover
+    marker = list(size = hc$size, opacity = 0),
+    hovertemplate = "%{customdata}<extra></extra>", customdata = hv$hover,
+    # THE SITE'S POP-UP, not plotly's default. An invisible trace has no
+    # colour of its own, so plotly filled its label with its default green.
+    # Surface and ink with a teal edge, as the map cards and (i) popovers are.
+    hoverlabel = list(bgcolor = FW_COLOURS$surface,
+                      bordercolor = FW_COLOURS$teal_text,
+                      align = "left", font = fw_plot_font())
   )
 
   fw_plotly_style(p, legend = FALSE, filename = "fwise-duration") |>

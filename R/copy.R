@@ -33,7 +33,15 @@ FW_COPY <- list(
     in_review_one  = "record in review",
     in_review_many = "records in review",
     doi_label     = "DOI on Zenodo",
-    doi_url       = "#",          
+    # "#" until the dataset is on Zenodo: every DOI link opens the "coming
+    # soon" card below instead (client, 1 Oct 2026). Put the real address here
+    # at launch and they become plain links. See fw_doi_link().
+    doi_url       = "#",
+    doi_soon_title = "Coming soon",
+    doi_soon      = paste(
+      "The archived FWISE dataset will be published on Zenodo, with a DOI you",
+      "can cite. Check back soon."
+    ),
     github_label  = "Source code on GitHub",
     github_url    = "https://github.com/freshwaterLife/fwise-dashboard", 
     licence       = "Data released under CC BY-NC 4.0 (non-commercial data). Code released under the MIT license.",
@@ -103,10 +111,6 @@ FW_COPY <- list(
     # they are looking at two different quantities. The bar is Successful
     # against Failed only - see the note at the head of charts.R.
     x_share       = "Success rate (%)",
-    # The success rate over time on Explore (client, 30 Sept 2026). {from} and
-    # {to} are the years the rolling window pooled; see fw_chart_success_time().
-    y_success_time = "Success rate (%)",
-    success_time_hover = "{from}-{to}: {pc}% successful ({n} of {total} finished)",
     # NO X AXIS TITLE ON THE DURATION CHART (client, 23 Sept 2026). The named
     # ticks below say what the axis is; a title under them said it twice.
     # Named ticks on the log axis, in step with FW_CHART$duration_ticks.
@@ -120,7 +124,9 @@ FW_COPY <- list(
     duration_hover = paste0(
       "<b>{method}</b> ({n} successful)<br>",
       "Typical (median): {median}<br>",
-      "Middle half: {q1} to {q3}<br>",
+      # "Box", not "Middle half" (client, 30 Sept 2026): the word for the
+      # shape the reader is pointing at.
+      "Box: {q1} to {q3}<br>",
       "Range: {shortest} to {longest}"
     ),
     # Under the scale bar on the PDF report's map. It NAMES THE LATITUDE the
@@ -160,7 +166,8 @@ FW_COPY <- list(
     year_one  = "year",
     year_many = "years",
     # The Duration field on the hover card and the record: days under a year,
-    # years to one decimal place from there. See fw_popup_duration().
+    # years to one decimal place from there, without a ".0" on a whole number
+    # (client, 1 Oct 2026). See fw_popup_duration().
     day_one   = "day",
     day_many  = "days",
     # Under both interactive maps. Worded by the client. Set below the type
@@ -178,7 +185,10 @@ FW_COPY <- list(
   # ---- Home (the Welcome page) -----------------------------------------------
 
   home = list(
-    title = paste(
+    # ONE SENTENCE PER LINE (client, 30 Sept 2026). Two strings, not one:
+    # fw_page_header() starts each on its own line, so "Eradicating..." never
+    # follows on after "species." whatever the zoom or screen width.
+    title = c(
       "Freshwaters cover **<1%** of earth yet are home to **45% of all Threatened animal species**.",
       "Eradicating freshwater invasives is **the most effective way to save them from extinction**."
     ),
@@ -260,7 +270,7 @@ FW_COPY <- list(
     map_caption = c(
       "Countries with ",
       now  = "eradications (blue)",
-      " verus top ",
+      " versus top ",
       later = "opportunity countries (yellow)",
       "."
     ),
@@ -348,13 +358,6 @@ FW_COPY <- list(
       "number beside each method is how many finished attempts the rate rests on."
     ),
     cumulative = "Eradication attempts over time",
-    success_time = "Success rate over time",
-    success_time_note = paste(
-      "Each point pools the successful and failed attempts that began in the",
-      "ten years up to and including it, so one busy or quiet year does not",
-      "swing the line. Ongoing and unknown attempts are left out. Where ten",
-      "years hold fewer than {min_n} finished attempts the line breaks."
-    ),
     duration = "How long successful eradications took",
 
     # THE WAY ON, under the charts (client, 29 Sept 2026). [[plan|...]] is a
@@ -433,7 +436,6 @@ FW_COPY <- list(
     family_beneficiary = "Fish family protected",
     method      = "Method used",
     regime      = "Still or flowing water",
-    waterbody   = "Kind of waterbody",
     outcome     = "Outcome",
     size        = "Size of the area treated",
     years       = "Attempt began between",
@@ -451,10 +453,10 @@ FW_COPY <- list(
     # ---- The tips -------------------------------------------------------------
     #
 
-    # NO tip_continent AND NO tip_waterbody (client, 23 Sept 2026). Both
-    # tooltips only restated their label, so the (i) has gone from those two
-    # filters; FW_FILTERS carries tip = NULL for them and fw_field() draws no
-    # button when there is nothing to say.
+    # NO tip_continent (client, 23 Sept 2026). Its tooltip only restated the
+    # label, so the (i) has gone from that filter; FW_FILTERS carries tip = NULL
+    # for it and fw_field() draws no button when there is nothing to say. The
+    # waterbody filter it shared this note with went on 1 Oct 2026.
     tip_country = paste(
       "Country of the eradication attempt(s). Only countries with attempts",
       "recorded in FWISE are listed. If the country you are looking for is not",
@@ -754,6 +756,18 @@ FW_COPY <- list(
       "attempts are excluded."
     ),
     r_table_showing = "Showing",
+
+    # ---- The record search (client, 1 Oct 2026) ------------------------------
+    # The last block of the results: the attempts behind the report, ten a
+    # page, each opening in full. See fw_plan_records_ui().
+    r_records = "Find a record",
+    r_records_note = paste(
+      "Every attempt in this report. Search by site, country, species, method",
+      "or FWISE id, then click a row to read the full record, including its",
+      "reference. The Detailed report download holds all of them."
+    ),
+    r_records_none = "No attempt in this report matches that search.",
+    col_record_years = "Years",
 
     # ---- Potential relevant contacts -----------------------------------------
     r_contacts = "Reach out to learn more",

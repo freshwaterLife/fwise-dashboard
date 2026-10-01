@@ -255,7 +255,13 @@ fw_record_years <- function(row) {
 #'
 #' @param row one row of fw_export_frame(), as a list
 #' @param copy fw_record_copy()
-fw_record_card <- function(row, copy = fw_record_copy()) {
+#' @param top whether to end on the "back to the contents" link. The Plan
+#'   page's record search opens a card under its own table row, where there is
+#'   no contents list to go back to.
+#' @param id whether the card carries the attempt id as its element id, which
+#'   the report's contents list links to. Off on the Plan page, where a map
+#'   card or another output could carry the same id.
+fw_record_card <- function(row, copy = fw_record_copy(), top = TRUE, id = TRUE) {
   esc <- function(x) htmlEscape(as.character(x))
   place <- c(row$region, row$country)
   place <- paste(place[!is.na(place) & nzchar(place)], collapse = ", ")
@@ -279,14 +285,16 @@ fw_record_card <- function(row, copy = fw_record_copy()) {
            paste(fields, collapse = ""), "</dl>")
   }, character(1))
   paste0(
-    '<article class="fw-rec-card" id="', esc(row$attempt_id), '" data-search="',
-    htmlEscape(fw_record_search(row), attribute = TRUE), '">',
+    '<article class="fw-rec-card"',
+    if (id) paste0(' id="', esc(row$attempt_id), '"') else "",
+    ' data-search="', htmlEscape(fw_record_search(row), attribute = TRUE), '">',
     '<div class="fw-rec-card__head"><div><h2>', esc(title), "</h2>",
     if (nzchar(place)) paste0('<p class="fw-rec-card__place">', esc(place), "</p>") else "",
     '</div><div class="fw-rec-card__meta">', fw_record_outcome(row$outcome, copy$none),
     '<span class="fw-rec-id">', esc(row$attempt_id), "</span></div></div>",
     paste(groups, collapse = ""),
-    '<p class="fw-rec-card__top"><a href="#fw-rec-contents">', esc(copy$top), "</a></p>",
+    if (top) paste0('<p class="fw-rec-card__top"><a href="#fw-rec-contents">',
+                    esc(copy$top), "</a></p>") else "",
     "</article>"
   )
 }
