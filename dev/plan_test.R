@@ -912,6 +912,256 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
 # The waterbody-type filter went on 1 Oct 2026 (client).
 ok("filters: no waterbody-type filter", "waterbody" %in% fw_filter_ids(), FALSE)
 
+cat("\n-- email addresses (revealed on a click, 2 Oct 2026) --\n")
+# THE HARVESTER'S VIEW: anything shaped like an address, bare or in a mailto.
+# Every live-app surface must show none until a click; the downloaded report
+# must show every public one. The expected set is recomputed here from the
+# contacts table and the contact_public flag, not taken from the renderers.
+EMAIL_RX <- "[[:alnum:]._%+-]+@[[:alnum:].-]+[.][[:alpha:]]{2,}"
+has_addr <- function(html) grepl(EMAIL_RX, html) || grepl("mailto:", html, fixed = TRUE)
+decoded <- function(html) {
+  enc <- regmatches(html, gregexpr('data-fw-email="[^"]+"', html))[[1]]
+  vapply(sub('^data-fw-email="(.*)"$', "\\1", enc), fw_email_decode, "", USE.NAMES = FALSE)
+}
+fwise_addr <- fw_t("footer", "contact_email")
+
+ok("email: the encoding round-trips",
+   identical(fw_email_decode(fw_email_encode("a.b-c+d@ex.example.org")), "a.b-c+d@ex.example.org"))
+ok("email: and for a non-ASCII address",
+   identical(fw_email_decode(fw_email_encode("josé@café.example")), "josé@café.example"))
+ok("email: the encoded form carries neither the @ nor the domain",
+   !grepl("@|fwlife", fw_email_encode(fwise_addr)))
+ok("email: the FWISE address is written in the copy deck once",
+   sum(grepl(fwise_addr, unlist(fw_copy_all()), fixed = TRUE)), 1L)
+
+foot <- as.character(fw_footer(as.Date("2026-10-02")))
+ok("email: the footer serves no address", has_addr(foot), FALSE)
+# Not "fwlife" at all: the Freshwater Life logo links to fwlife.org, rightly.
+ok("email: nor the old split halves", grepl("data-u=|data-d=", foot), FALSE)
+ok("email: the footer's button decodes to the FWISE address", decoded(foot), fwise_addr)
+
+fb <- as.character(fw_feedback_panel())
+ok("email: the About band serves no address", has_addr(fb), FALSE)
+ok("about: the band's button opens the feedback form (2 Oct 2026)",
+   grepl('data-fw-open="feedback"', fb, fixed = TRUE))
+ok("about: and no longer reveals the address", grepl("data-fw-email", fb, fixed = TRUE), FALSE)
+ok("about: the sign-up card opens the newsletter form",
+   grepl('data-fw-open="newsletter"', as.character(fw_about_signup()), fixed = TRUE))
+ok("about: and is no longer a link", grepl("<a ", as.character(fw_about_signup()), fixed = TRUE), FALSE)
+ok("email: the About page's script sends no mailto any more",
+   grepl("fw-mailto", as.character(fw_client_script()), fixed = TRUE), FALSE)
+
+net <- as.character(mod_networking_ui("n"))
+ok("email: the Networking page shell serves no address", has_addr(net), FALSE)
+ok("email: its outro decodes to the FWISE address", decoded(net), fwise_addr)
+
+contacts_all <- fw_contacts_summary(d)
+pub <- contacts_all[!is.na(contacts_all$contact_email), ]
+ok("email: the fixture has public addresses to test against", nrow(pub) > 0L)
+ok("email: no private address survives the summary",
+   any(contacts_all$contact_id %in% d$contact$contact_id[!d$contact$contact_public] &
+         !is.na(contacts_all$contact_email)), FALSE)
+r1 <- pub[1, ]
+live_cell <- as.character(fw_contact_action(r1$contact_email, fw_contact_who(r1)))
+ok("email: a directory cell serves no address", has_addr(live_cell), FALSE)
+ok("email: and decodes to that contact's address", decoded(live_cell), r1$contact_email)
+ok("email: a contact known only by address keeps it out of the aria-label",
+   has_addr(as.character(fw_contact_action("x@ex.example.org", "x@ex.example.org"))), FALSE)
+ok("email: a contact with no public address gets no button",
+   grepl("data-fw-email", as.character(fw_contact_action(NA_character_, "Someone"))), FALSE)
+
+people <- fw_plan_contacts(d, ex_all)
+want <- sort(unique(people$contact_email[!is.na(people$contact_email)]))
+live_tbl <- as.character(fw_plan_contacts_ui(people, per_page = nrow(people)))
+ok("email: the report builder's contacts table serves no address", has_addr(live_tbl), FALSE)
+ok("email: and reveals exactly the public addresses",
+   identical(sort(unique(decoded(live_tbl))), want))
+saved_tbl <- as.character(fw_plan_contacts_ui(people, per_page = nrow(people), reveal = FALSE))
+# Matched as written rather than by EMAIL_RX: two addresses in the source data
+# carry a stray space ("mark buktenica@...", "andrew.stump@ ky.gov"), which a
+# pattern would cut short, and the report shows what the data holds.
+ok("email: the downloaded report writes every public address out",
+   all(vapply(want, function(e) grepl(paste0(">", htmltools::htmlEscape(e), "<"),
+                                      saved_tbl, fixed = TRUE), logical(1))))
+ok("email: and no button that would need the app's script",
+   grepl("data-fw-email", saved_tbl, fixed = TRUE), FALSE)
+
+recs <- fw_attempt_records(d, fw_filter_apply(d, base))
+with_pub <- which(!is.na(recs$primary_contact_email) & nzchar(recs$primary_contact_email))
+ok("email: the fixture has a record with a public contact", length(with_pub) > 0L)
+rec_html <- fw_record_detail_html(recs[with_pub[1], ], d$species)
+ok("email: the map's record panel serves no address", has_addr(rec_html), FALSE)
+ok("email: and its button decodes to the record's contact",
+   recs$primary_contact_email[with_pub[1]] %in% decoded(rec_html))
+
+# ---- Newsletter, feedback and the privacy page (2 Oct 2026) ------------------
+#
+# No network and no Google key. The local store is pointed at a temporary
+# directory, and the sheet settings are cleared for the duration, so a
+# developer whose .Renviron holds the real key cannot write test rows into the
+# live sheet by running this.
+cat("\n-- newsletter and feedback forms --\n")
+
+saved_sheet <- FWISE_FORMS_SHEET_ID; saved_key <- GS4_SA_KEY_B64; saved_dev <- FW_DEV_DIR
+FWISE_FORMS_SHEET_ID <- NULL; GS4_SA_KEY_B64 <- NULL
+FW_DEV_DIR <- file.path(tempdir(), "fw-forms-test"); unlink(FW_DEV_DIR, recursive = TRUE)
+ok("forms: mode is local with no settings", fw_forms_mode(), "local")
+
+ok("forms: an address with an s in it is an address", fw_is_email("sam.s@example.org"))
+ok("forms: a space is not", fw_is_email("sam s@example.org"), FALSE)
+ok("forms: no dot after the @ is not", fw_is_email("sam@example"), FALSE)
+
+v <- fw_newsletter_values("  Ada Lovelace ", " Ada.L@Example.ORG ", " ", TRUE)
+ok("newsletter: name trimmed", v$name, "Ada Lovelace")
+ok("newsletter: email trimmed and lowercased", v$email, "ada.l@example.org")
+ok("newsletter: blank organisation is empty", v$organisation, "")
+ok("newsletter: a valid sign-up has no problems", length(fw_newsletter_problems(v)), 0L)
+
+empty <- fw_newsletter_problems(fw_newsletter_values(NULL, NULL, NULL, NULL))
+ok("newsletter: empty form names exactly the three required fields",
+   identical(sort(names(empty)), c("consent", "email", "name")))
+lim <- FW_FORM_LIMITS
+at_lim  <- fw_newsletter_values(strrep("a", lim$name), "a@b.co", strrep("o", lim$organisation), TRUE)
+over    <- fw_newsletter_values(strrep("a", lim$name + 1), "a@b.co", strrep("o", lim$organisation + 1), TRUE)
+ok("newsletter: name and organisation AT the limit pass", length(fw_newsletter_problems(at_lim)), 0L)
+ok("newsletter: one over the limit fails both",
+   identical(sort(names(fw_newsletter_problems(over))), c("name", "organisation")))
+long_email <- paste0(strrep("e", lim$email), "@b.co")
+ok("newsletter: an over-long email says so, not 'invalid'",
+   fw_newsletter_problems(fw_newsletter_values("A", long_email, "", TRUE))$email,
+   fw_fill(fw_t("newsletter", "validate", "email_long"), n = lim$email))
+ok("newsletter: consent unticked is a problem",
+   names(fw_newsletter_problems(fw_newsletter_values("A", "a@b.co", "", FALSE))), "consent")
+
+rec <- fw_newsletter_record(v, "Foot<er>!", now = as.POSIXct("2026-10-02 09:30:00", tz = "UTC"))
+ok("newsletter: record carries exactly the sheet's columns", identical(names(rec), FW_NEWSLETTER_COLUMNS))
+ok("newsletter: time in UTC ISO form", rec$submitted_at, "2026-10-02T09:30:00Z")
+ok("newsletter: consent wording is the ticked sentence", rec$consent_wording,
+   fw_t("newsletter", "consent"))
+ok("newsletter: terms version is the copy deck's", rec$terms_version, fw_t("privacy", "version"))
+ok("newsletter: entry point cleaned", rec$entry_point, "footer")
+ok("newsletter: empty entry point is 'unknown'", fw_entry_point(NULL), "unknown")
+
+pages <- fw_feedback_pages()
+ok("feedback: six pages plus General and Other", identical(unname(pages),
+   c("home", "explore", "plan", "contribute", "networking", "about", "general", "other")))
+ok("feedback: labels are the navbar's", names(pages)[3], fw_t("nav", "plan"))
+ok("feedback: pre-selects the page the reader is on", fw_feedback_default_page("plan"), "plan")
+ok("feedback: from the privacy page, General", fw_feedback_default_page("privacy"), "general")
+fv <- fw_feedback_values("plan", "  The legend overlaps.  ", " ")
+ok("feedback: message trimmed, blank email allowed", length(fw_feedback_problems(fv)), 0L)
+ok("feedback: a page not on the list is refused",
+   names(fw_feedback_problems(fw_feedback_values("<script>", "x", ""))), "page")
+ok("feedback: message one over the limit is refused",
+   names(fw_feedback_problems(fw_feedback_values("plan", strrep("m", lim$message + 1), ""))), "message")
+ok("feedback: message AT the limit passes",
+   length(fw_feedback_problems(fw_feedback_values("plan", strrep("m", lim$message), ""))), 0L)
+ok("feedback: a bad optional email is refused",
+   names(fw_feedback_problems(fw_feedback_values("plan", "x", "nope"))), "email")
+frec <- fw_feedback_record(fv)
+ok("feedback: record carries exactly the sheet's columns", identical(names(frec), FW_FEEDBACK_COLUMNS))
+
+ok("forms: formula starts escaped, the rest untouched",
+   identical(fw_sheet_cells(c("=1+1", "+x", "-3", "@a", "ok", "a=b", "")),
+             c("'=1+1", "'+x", "'-3", "'@a", "ok", "a=b", "")))
+ok("forms: a missing field is a blank cell",
+   identical(fw_form_row(list(a = "1", c = NA), c("a", "b", "c")), c("1", "", "")))
+
+ok("forms: an email input is type=email, not 'text email'",
+   grepl('type="email"', as.character(fw_form_text("x", type = "email")), fixed = TRUE))
+ok("forms: the honeypot is out of the tab order and closed to autofill",
+   all(vapply(c('tabindex="-1"', 'autocomplete="off"', 'aria-hidden="true"'), grepl,
+              logical(1), as.character(fw_honeypot("hp")), fixed = TRUE)))
+
+# The local store, twice: the header is written once.
+res1 <- store_newsletter_signup(rec); res2 <- store_newsletter_signup(rec)
+local <- utils::read.csv(file.path(fw_forms_dir(), "newsletter.csv"), colClasses = "character")
+ok("forms: local store reports success", res2$success)
+ok("forms: local file has the sheet's columns", identical(names(local), FW_NEWSLETTER_COLUMNS))
+ok("forms: two writes, two rows", nrow(local), 2L)
+ok("forms: local email as recorded", local$email[1], "ada.l@example.org")
+
+# The Sheets request, built and inspected, never sent.
+req <- fw_sheet_request("newsletter", c("a", "=b"), token = "TOKEN", sheet_id = "SHEET")
+ok("sheets: append URL on the named tab",
+   startsWith(req$url, paste0(FW_SHEETS_API, "/SHEET/values/newsletter%21A1:append?")))
+ok("sheets: RAW, never USER_ENTERED", grepl("valueInputOption=RAW", req$url, fixed = TRUE))
+ok("sheets: rows inserted, not overwritten", grepl("insertDataOption=INSERT_ROWS", req$url, fixed = TRUE))
+ok("sheets: POST", httr2::req_get_method(req), "POST")
+ok("sheets: body is one row in column order",
+   as.character(jsonlite::toJSON(req$body$data, auto_unbox = TRUE)), '{"values":[["a","=b"]]}')
+
+# The service-account token: a throwaway key, signed and verified.
+tk <- openssl::rsa_keygen(2048)
+key_json <- jsonlite::toJSON(list(type = "service_account", client_email = "sa@p.iam.gserviceaccount.com",
+                                  private_key = openssl::write_pem(tk)), auto_unbox = TRUE)
+k1 <- fw_google_key(as.character(key_json))
+k2 <- fw_google_key(jsonlite::base64_enc(charToRaw(as.character(key_json))))
+ok("google: the key reads the same as JSON or base64", identical(k1, k2))
+ok("google: token address defaults to Google's", k1$token_uri, "https://oauth2.googleapis.com/token")
+ok("google: a key with no private key is refused",
+   inherits(tryCatch(fw_google_key('{"client_email":"x"}'), error = identity), "error"))
+jwt <- strsplit(fw_google_jwt(k1, now = 1700000000L), ".", fixed = TRUE)[[1]]
+b64d <- function(x) { x <- chartr("-_", "+/", x); x <- paste0(x, strrep("=", (4 - nchar(x) %% 4) %% 4)); jsonlite::base64_dec(x) }
+claim <- jsonlite::fromJSON(rawToChar(b64d(jwt[2])))
+ok("google: three-part token", length(jwt), 3L)
+ok("google: RS256", jsonlite::fromJSON(rawToChar(b64d(jwt[1])))$alg, "RS256")
+ok("google: the scope is in the claim", claim$scope, FW_SHEETS_SCOPE)
+ok("google: issued by the service account", claim$iss, "sa@p.iam.gserviceaccount.com")
+ok("google: an hour long", claim$exp - claim$iat, 3600L)
+ok("google: the signature verifies against the key",
+   isTRUE(openssl::signature_verify(charToRaw(paste(jwt[1:2], collapse = ".")), b64d(jwt[3]),
+                                    hash = openssl::sha256, pubkey = tk$pubkey)))
+
+ok("analytics: a listed event is accepted", is.null(track_event("feedback_submitted", page = "plan")))
+ok("analytics: an unlisted event is refused",
+   inherits(tryCatch(track_event("signup_with_email"), error = identity), "error"))
+ok("analytics: page must be one string",
+   inherits(tryCatch(track_event("newsletter_signup", page = list(email = "a@b.co")), error = identity), "error"))
+
+FWISE_FORMS_SHEET_ID <- saved_sheet; GS4_SA_KEY_B64 <- saved_key
+unlink(FW_DEV_DIR, recursive = TRUE); FW_DEV_DIR <- saved_dev
+
+cat("\n-- the privacy page --\n")
+
+doc <- fw_privacy_html()
+md <- paste(readLines(FW_PRIVACY_FILE, warn = FALSE), collapse = "\n")
+html <- paste(as.character(doc$intro), as.character(doc$html))
+ok("privacy: the opening paragraph sits above the contents",
+   grepl("This page explains", as.character(doc$intro), fixed = TRUE))
+ok("privacy: every deep-link section has its anchor", all(FW_PRIVACY_SECTIONS %in% doc$toc$id))
+ok("privacy: anchors are unique", anyDuplicated(doc$toc$id), 0L)
+ok("privacy: every anchor is on a heading in the HTML",
+   all(vapply(doc$toc$id, function(id) grepl(sprintf('<h[23] id="%s"', id), html), logical(1))))
+toc_html <- as.character(fw_privacy_contents(NS("privacy"), doc$toc))
+hrefs <- regmatches(toc_html, gregexpr('href="#[^"]+"', toc_html))[[1]]
+ok("privacy: the contents list links every heading, in order",
+   identical(sub('href="#(.*)"', "\\1", hrefs), doc$toc$id))
+n_mark <- lengths(regmatches(html, gregexpr('<mark class="fw-placeholder">[TO CONFIRM:', html, fixed = TRUE)))
+ok("privacy: the file's editing notes are not served", grepl("HEADINGS carry", html, fixed = TRUE), FALSE)
+n_md_body <- lengths(regmatches(gsub("(?s)<!--.*?-->", "", md, perl = TRUE),
+                                gregexpr("[TO CONFIRM:", gsub("(?s)<!--.*?-->", "", md, perl = TRUE), fixed = TRUE)))
+ok("privacy: every [TO CONFIRM: ...] is highlighted", n_mark, n_md_body)
+ok("privacy: there are placeholders to confirm", n_mark > 0L)
+ok("privacy: no address served in the page", grepl("fwise@", html, fixed = TRUE), FALSE)
+ok("privacy: the contact token was replaced", grepl("{contact_email}", html, fixed = TRUE), FALSE)
+ok("privacy: the current version has a dated line under Changes",
+   grepl(paste0("- ", fw_terms_version(), ","), md, fixed = TRUE))
+pui <- as.character(mod_privacy_ui("privacy"))
+ok("privacy: the page shows the version", grepl(fw_terms_version(), pui, fixed = TRUE))
+ok("privacy: a section not on the list is refused",
+   inherits(tryCatch(fw_privacy_href("anything"), error = identity), "error"))
+ok("privacy: form links open the right section", fw_privacy_href("feedback"),
+   "?page=privacy&section=feedback")
+
+foot <- as.character(fw_footer(as.Date("2026-09-23")))
+ok("privacy: the footer has the privacy link", grepl('id="fw_privacy_link"', foot, fixed = TRUE))
+ok("feedback: the footer opens the feedback form", grepl('data-fw-open="feedback"', foot, fixed = TRUE))
+contrib <- as.character(fw_step_contributor_ui(NS("contribute"), NULL))
+ok("contribute: the terms link goes to the submissions section",
+   grepl('href="?page=privacy&amp;section=submissions"', contrib, fixed = TRUE))
+ok("contribute: and opens in a new tab", grepl('target="_blank" rel="noopener"', contrib, fixed = TRUE))
+
 cat("\n")
 if (failures > 0L) stop(failures, " report builder assertion(s) failed", call. = FALSE)
 cat("All report builder tests passed.\n")

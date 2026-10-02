@@ -403,39 +403,23 @@
     + .fw-footer__built-by { margin-block-start: $fw-space-1; }
   }
 
-  // THE ADDRESS IS NOT HERE UNTIL IT IS ASKED FOR - the button assembles it in
-  // JavaScript and writes it into __contact-out, which is empty until then.
-  // See fw_footer_contact() in R/ui_helpers.R. It sits in the indigo strip
-  // with the other links (client, 24 Sept 2026), so it takes their size and
-  // their colours rather than the credits'.
+  // THE ADDRESS IS NOT HERE UNTIL IT IS ASKED FOR - fw_email_reveal() puts it
+  // in place of the button on a click. See R/ui_helpers.R. It sits in the
+  // indigo strip with the other links (client, 24 Sept 2026), so it takes their
+  // colours: the revealed link is picked up by &__meta a below, and the button
+  // and the Copy button are matched to it here.
   &__contact {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: $fw-space-2;
-  }
+    .fw-email__btn {
+      color: $fw-teal-light;
+      text-decoration-color: rgba($fw-teal-light, 0.5);
+      &:hover { color: $fw-on-indigo; }
+    }
 
-  &__contact-btn {
-    // A button that reads as a link: it reveals text in place rather than
-    // going anywhere, so it should look like the links beside it.
-    appearance: none;
-    background: none;
-    border: 0;
-    padding: 0;
-    font: inherit;
-    color: $fw-teal-light;
-    text-decoration: underline;
-    text-decoration-color: rgba($fw-teal-light, 0.5);
-    cursor: pointer;
-
-    &:hover { color: $fw-on-indigo; }
-    &:focus-visible { outline: 2px solid $fw-teal-light; outline-offset: 2px; }
-  }
-
-  &__contact-out {
-    color: $fw-on-indigo-muted;
-    // The address has no spaces, so it needs somewhere to break on a phone.
-    overflow-wrap: anywhere;
+    .fw-email__copy {
+      color: $fw-teal-light;
+      border-color: rgba($fw-teal-light, 0.6);
+      &:hover { color: $fw-on-indigo; border-color: $fw-on-indigo; }
+    }
   }
 
   &__meta {
@@ -945,7 +929,8 @@
   &__panels h2 { margin-block-start: 0; }
 }
 
-// Hear about new releases. A link out, not a form - see fw_about_signup().
+// Hear about new releases. The button opens the newsletter dialog - see
+// fw_about_signup().
 .fw-signup {
   margin-block-start: $fw-space-4;
 
@@ -994,6 +979,58 @@
   textarea.form-control { width: 100%; }
   .fw-caption { margin-block-start: $fw-space-1; }
 }
+
+// ---- Email addresses, revealed on request -----------------------------------
+
+// fw_email_reveal() in R/ui_helpers.R. A button until it is pressed, then the
+// address as a mailto link with a Copy button after it. The Copy button is the
+// part that matters to a reader whose mail is in a browser tab: a mailto link
+// does nothing for them.
+.fw-email {
+  // The address has no spaces, so it needs somewhere to break on a phone.
+  overflow-wrap: anywhere;
+
+  // A button that reads as a link: it reveals text in place rather than going
+  // anywhere, so it should look like the links around it. Not when the caller
+  // asked for a real button (the About band's btn btn-primary).
+  &__btn:not(.btn) {
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: $fw-teal-text;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+    cursor: pointer;
+
+    &:hover { color: $fw-ink; }
+    &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  }
+
+  // Small and outlined, so it reads as belonging to the address before it
+  // rather than as the next thing on the page. font: inherit, never a smaller
+  // size: inside a caption-sized table an em fraction would fall below the
+  // floor.
+  &__copy {
+    appearance: none;
+    background: none;
+    font: inherit;
+    line-height: 1.2;
+    color: $fw-teal-text;
+    border: 1px solid currentColor;
+    border-radius: $fw-radius-input;
+    padding: 0 $fw-space-1;
+    cursor: pointer;
+
+    &:hover { color: $fw-ink; }
+    &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  }
+}
+
+// The About band's button sits a step below its paragraph.
+.fw-feedback__action { margin-block: $fw-space-2 0; }
 
 // ---- Map popups and species imagery ----------------------------------------
 
@@ -4034,3 +4071,141 @@ table.dataTable,
   .fw-rec-card { margin-block-end: 0; }
 }
 
+
+// ---- The privacy page's hidden navbar link ---------------------------------
+//
+// The page is a nav_panel (value "privacy") so nav_select() can show it, but it
+// has no place in the navbar: it is reached from the footer and from
+// ?page=privacy links. Hidden HERE rather than with nav_hide() from the server,
+// because the stylesheet is in place before the first paint and a server call
+// is not - the link would show and then vanish. The <li> goes as well as the
+// link, so the row's spacing is not left with an empty item. See
+// R/mod_privacy.R.
+.fw-navbar .nav-item:has(> .nav-link[data-value="privacy"]),
+.fw-navbar .nav-link[data-value="privacy"] {
+  display: none !important;
+}
+
+// ---- The newsletter and feedback dialogs -----------------------------------
+//
+// R/mod_newsletter.R and R/mod_feedback.R, built from the pieces in R/forms.R.
+// NOT .fw-form, which is the contribute form and carries room for its sticky
+// footer.
+
+// The honeypot. OFF-SCREEN, NOT display:none - see fw_honeypot() for why.
+.fw-hp {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.fw-modal-form {
+  // The modal body positions the off-screen honeypot.
+  position: relative;
+
+  .fw-field:last-of-type { margin-block-end: $fw-space-2; }
+
+  // The consent box: the sentence is the label, so it wraps beside the box
+  // rather than under it.
+  &__consent .checkbox label { display: inline; }
+
+  &__data-line {
+    color: $fw-ink-muted;
+    margin-block: $fw-space-1 $fw-space-3;
+  }
+
+  &__counter {
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+    margin-block: $fw-space-1 0;
+  }
+
+  &__required-note {
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+    margin-block: 0 $fw-space-2;
+  }
+
+  &__actions { margin-block-end: $fw-space-2; }
+
+  // A failure or the cooldown notice. A rule beside it as well as the words,
+  // so it is not marked by colour alone.
+  &__status {
+    padding: $fw-space-2;
+    background: $fw-sunken;
+    border-inline-start: 3px solid $fw-data-vermilion;
+    border-radius: $fw-radius-input;
+  }
+
+  // The thank-you that replaces the form.
+  &__done {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $fw-space-2;
+  }
+  &__done-text {
+    font-size: $fw-size-h3;
+    font-weight: $fw-weight-medium;
+    margin: 0;
+  }
+}
+
+// ---- The privacy page ------------------------------------------------------
+
+.fw-privacy {
+  &__version {
+    color: $fw-ink-muted;
+    margin-block-end: $fw-space-2;
+  }
+
+  &__intro { margin-block-end: $fw-space-3; }
+
+  // As wide as its links, not the page: a full-width box around a short list
+  // is mostly empty card.
+  &__contents {
+    width: fit-content;
+    max-width: 100%;
+    padding: $fw-space-2 $fw-space-3;
+    margin-block-end: $fw-space-4;
+    background: $fw-surface;
+    border: $fw-hairline;
+    border-radius: $fw-radius-card;
+
+    ul { margin-block: 0; padding-inline-start: $fw-space-3; }
+    > ul { padding-inline-start: 0; list-style: none; }
+    > ul > li + li { margin-block-start: $fw-space-1; }
+  }
+  &__contents-title {
+    font-size: $fw-size-h3;
+    margin-block: 0 $fw-space-1;
+  }
+
+  // A deep link scrolls a heading to the top of the window; leave it a little
+  // air rather than butting it against the edge.
+  [id] { scroll-margin-top: $fw-space-3; }
+
+  // Focus arrives on a heading from a deep link, for a screen reader's sake;
+  // it is not a control, so it gets no ring.
+  h2[tabindex="-1"]:focus,
+  h3[tabindex="-1"]:focus { outline: none; }
+
+  &__body h2 { margin-block-start: $fw-space-5; }
+  &__body h3 { margin-block-start: $fw-space-4; }
+}
+
+// [TO CONFIRM: ...] in the privacy text: a fact Freshwater Life still has to
+// supply. Marked loudly on purpose, so none goes live unseen.
+.fw-placeholder {
+  background: $fw-teal-tint;
+  color: $fw-ink;
+  padding: 0 0.2em;
+  border-radius: 2px;
+  outline: 1px dashed $fw-teal-text;
+  // A placeholder that wraps keeps its box on both lines.
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}

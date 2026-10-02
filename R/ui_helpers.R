@@ -407,46 +407,78 @@ fw_brand <- function() {
 #'   somewhere, not a call to action. Omitted entirely when there are none, so
 #'   the footer never says "0 records in review", which reads as a broken pipe
 #'   rather than an empty queue.
-#' The footer's "Contact FWISE" button
+#' An email address, kept out of the served page until a reader asks for it
 #'
-#' THE ADDRESS IS NOT IN THE SERVED MARKUP. It is split into a local part and a
-#' domain on two data attributes and joined in JavaScript when the button is
-#' pressed, which is the same speed bump fw_contact_action() applies to every
-#' address in the Networking directory. It is not security - anyone who runs or
-#' reads the page's JavaScript recovers it - it just means a scraper reading the
-#' HTML does not harvest it in one pass.
+#' EVERY ADDRESS THE LIVE APP SHOWS GOES THROUGH HERE: the footer, the About
+#' page's feedback band, the Networking directory and its outro, the report
+#' builder's contacts table and the map's record panel. Five hand-rolled
+#' versions of this used to exist and they disagreed.
 #'
-#' PRESSING IT REVEALS THE ADDRESS RATHER THAN JUMPING STRAIGHT TO A MAIL
-#' CLIENT. A reader on a machine with no mail client configured gets nothing at
-#' all from a bare mailto:, so the assembled address is written into the page as
-#' a real mailto link they can read, copy, or follow.
-fw_footer_contact <- function() {
-  div(
-    class = "fw-footer__contact",
+#' A BUTTON THAT REVEALS, NOT A LINK THAT LEAVES. The old controls sent the
+#' browser to a bare mailto:, which does nothing at all for anyone whose mail is
+#' Gmail or Outlook in a browser - most readers - and left them nothing to copy
+#' (Alex, 2 Oct 2026). Pressing this writes the address into the page as text,
+#' as a mailto link for those who have a mail program and beside a Copy button
+#' for those who do not. The script is in fw_client_script(); it is delegated
+#' from the document, so it works in markup Shiny never bound - the map panel's
+#' innerHTML included.
+#'
+#' THE ADDRESS IS NOT IN THE MARKUP UNTIL THEN. It is reversed and base64'd into
+#' one attribute, so neither the @ nor the domain appears in the HTML. Harvesters
+#' work by pattern-matching x@y and mailto: over fetched pages; this defeats that
+#' and nothing more. It is a speed bump, not security - a headless browser that
+#' presses every button recovers every address. The real control is
+#' contact_public: an address that was not made public never reaches this
+#' function, because fw_contacts_summary() has already replaced it with NA.
+#'
+#' @param email the address, in full
+#' @param label the button's text
+#' @param aria the button's accessible name, when the label alone does not say
+#'   whose address it is
+#' @param class extra classes on the wrapper, for a context that restyles it
+#' @param btn_class extra classes on the button. By default it reads as a link,
+#'   because it reveals text in place rather than going anywhere; the About
+#'   band passes "btn btn-primary", where it is the band's one action.
+fw_email_reveal <- function(email, label, aria = NULL, class = NULL,
+                            btn_class = NULL) {
+  tags$span(
+    class = paste(c("fw-email", class), collapse = " "),
     tags$button(
       type = "button",
-      class = "fw-footer__contact-btn",
-      `data-u` = fw_t("footer", "contact_user"),
-      `data-d` = fw_t("footer", "contact_domain"),
-      `aria-label` = fw_t("footer", "contact_aria"),
-      `aria-controls` = "fw-footer-contact-out",
-      onclick = paste0(
-        "var a=this.dataset.u+String.fromCharCode(64)+this.dataset.d,",
-        "o=document.getElementById('fw-footer-contact-out');",
-        "o.innerHTML='';",
-        "var l=document.createElement('a');",
-        "l.href='mail'+'to:'+a; l.textContent=a;",
-        "o.appendChild(l); this.hidden=true; l.focus(); return false;"
-      ),
-      fw_t("footer", "contact_label")
-    ),
-    # Filled by the button above. aria-live so the revealed address is
-    # announced rather than appearing silently.
-    tags$span(
-      id = "fw-footer-contact-out",
-      class = "fw-footer__contact-out",
-      `aria-live` = "polite"
+      class = paste(c("fw-email__btn", btn_class), collapse = " "),
+      `data-fw-email` = fw_email_encode(email),
+      `aria-label` = aria,
+      label
     )
+  )
+}
+
+#' The attribute fw_email_reveal() carries: the address reversed, then base64
+#'
+#' Reversed by character, not by byte, and encoded as UTF-8, so the script's
+#' TextDecoder and Array.from() undo it exactly for a non-ASCII address too.
+fw_email_encode <- function(email) {
+  rev_chr <- paste(rev(strsplit(enc2utf8(email), "", fixed = TRUE)[[1]]), collapse = "")
+  jsonlite::base64_enc(charToRaw(rev_chr))
+}
+
+#' The inverse, which the page never needs - it is here for the tests
+fw_email_decode <- function(x) {
+  s <- rawToChar(jsonlite::base64_dec(x))
+  Encoding(s) <- "UTF-8"
+  paste(rev(strsplit(s, "", fixed = TRUE)[[1]]), collapse = "")
+}
+
+#' The footer's "Contact FWISE" button
+#'
+#' fw_email_reveal() in the indigo strip, which restyles it - see
+#' .fw-footer__contact in _components.scss.
+fw_footer_contact <- function() {
+  fw_email_reveal(
+    fw_t("footer", "contact_email"),
+    label = fw_t("footer", "contact_label"),
+    aria = fw_t("footer", "contact_aria"),
+    class = "fw-footer__contact"
   )
 }
 
@@ -541,7 +573,14 @@ fw_footer <- function(last_updated, in_review = 0L) {
           },
           fw_doi_link(fw_t("footer", "doi_label")),
           tags$a(href = fw_t("footer", "github_url"), fw_t("footer", "github_label")),
-          fw_footer_contact()
+          fw_footer_contact(),
+          # Opens the feedback dialog in place; see fw_form_open().
+          fw_form_open("feedback", fw_t("feedback", "open_label"),
+                       source = "footer", class = "fw-link-button"),
+          # The privacy page has no navbar link, so this is its way in. An
+          # actionLink rather than a ?page=privacy href: it changes page without
+          # reloading the app. app.R's observer selects the page.
+          actionLink("fw_privacy_link", fw_t("privacy", "footer_link"))
         ),
         p(class = "fw-footer__licence", fw_t("footer", "licence")),
         fw_doi_soon()
@@ -689,7 +728,22 @@ fw_client_script <- function() {
   # A TOKEN AND sub(), NOT sprintf(). sprintf() caps a format string at 8192
   # characters and this script is longer than that, so threading a value
   # through it fails at load with a message about format length.
-  tags$script(HTML(sub("{{KEEPALIVE_MS}}", FW_KEEPALIVE_MS, fixed = TRUE, sub("__FW_SPINNER_DELAY__", FW_SPINNER_DELAY_MS, "
+  #
+  # THE EMAIL BUTTONS' WORDS COME IN THE SAME WAY, as JSON string literals, so
+  # the copy deck stays the one place they are written. gsub() because Copy
+  # appears twice.
+  js_str <- function(x) as.character(jsonlite::toJSON(x, auto_unbox = TRUE))
+  words <- c(
+    "{{EMAIL_COPY}}"       = js_str(fw_t("common", "email_copy")),
+    "{{EMAIL_COPY_ARIA}}"  = js_str(fw_t("common", "email_copy_aria")),
+    "{{EMAIL_COPIED}}"     = js_str(fw_t("common", "email_copied")),
+    "{{EMAIL_COPIED_SAY}}" = js_str(fw_t("common", "email_copied_say"))
+  )
+  fill_words <- function(js) {
+    for (k in names(words)) js <- gsub(k, words[[k]], js, fixed = TRUE)
+    js
+  }
+  tags$script(HTML(fill_words(sub("{{KEEPALIVE_MS}}", FW_KEEPALIVE_MS, fixed = TRUE, sub("__FW_SPINNER_DELAY__", FW_SPINNER_DELAY_MS, "
     $(function () {
       Shiny.addCustomMessageHandler('fw-announce', function (msg) {
         var el = document.getElementById('fw_announce');
@@ -846,9 +900,6 @@ fw_client_script <- function() {
         var el = document.getElementById(id);
         if (el) el.open = false;
       });
-      // The feedback box. The address is assembled here rather than served as
-      // a mailto href, for the same scraping reason as the contacts page, and
-      // the message never reaches the server at all.
       // THE SIZE SLIDERS' TOOLTIPS, IN REAL UNITS. Their positions are log10 -
       // hectares run from 0.0014 to 237,500, so a linear slider puts every
       // usable value in the first pixel - and the one thing the reader must
@@ -902,14 +953,75 @@ fw_client_script <- function() {
         var t = e.target;
         setTimeout(function () { fwPrettifySlider(t); }, 0);
       });
-      Shiny.addCustomMessageHandler('fw-mailto', function (msg) {
-        var href = 'mail' + 'to:' + msg.to +
-          '?subject=' + encodeURIComponent(msg.subject) +
-          '&body=' + encodeURIComponent(msg.body);
-        window.location.href = href;
+      // AN EMAIL ADDRESS, REVEALED. See fw_email_reveal() in R/ui_helpers.R.
+      // Delegated from the document, so it reaches buttons in a renderUI
+      // table and in the map panel's innerHTML alike, neither of which Shiny
+      // ever binds.
+      //
+      // THE BUTTON IS REPLACED, NOT HIDDEN, by the address as a mailto link
+      // with a Copy button beside it. Focus moves to the link, so a screen
+      // reader reads the address out and the keyboard is left on it.
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest && e.target.closest('.fw-email__btn');
+        if (!btn) return;
+        e.preventDefault();
+        var bytes = Uint8Array.from(atob(btn.getAttribute('data-fw-email')),
+                                    function (c) { return c.charCodeAt(0); });
+        var addr = Array.from(new TextDecoder().decode(bytes)).reverse().join('');
+        var out = document.createElement('span');
+        out.className = 'fw-email__out';
+        var link = document.createElement('a');
+        link.href = 'mail' + 'to:' + addr;
+        link.textContent = addr;
+        var copy = document.createElement('button');
+        copy.type = 'button';
+        copy.className = 'fw-email__copy';
+        copy.textContent = {{EMAIL_COPY}};
+        copy.setAttribute('aria-label', {{EMAIL_COPY_ARIA}}.replace('{address}', addr));
+        copy.setAttribute('data-fw-copy', addr);
+        out.appendChild(link);
+        out.appendChild(document.createTextNode(' '));
+        out.appendChild(copy);
+        btn.replaceWith(out);
+        link.focus();
+      });
+      // Copy. The clipboard API needs a secure context, which fwise.org and
+      // localhost both are; the textarea fallback is for anything that is
+      // not, and for browsers that refuse the API without a permission.
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest && e.target.closest('.fw-email__copy');
+        if (!btn) return;
+        var text = btn.getAttribute('data-fw-copy');
+        var done = function () {
+          btn.textContent = {{EMAIL_COPIED}};
+          var live = document.getElementById('fw_announce');
+          if (live) {
+            live.textContent = '';
+            setTimeout(function () { live.textContent = {{EMAIL_COPIED_SAY}}; }, 60);
+          }
+          clearTimeout(btn.fwReset);
+          btn.fwReset = setTimeout(function () { btn.textContent = {{EMAIL_COPY}}; }, 2500);
+        };
+        var fallback = function () {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); done(); } catch (err) {}
+          ta.remove();
+          btn.focus();
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(done, fallback);
+        } else {
+          fallback();
+        }
       });
     });
-  ", fixed = TRUE))))
+  ", fixed = TRUE)))))
 }
 
 # ---- Shared blocks -----------------------------------------------------------

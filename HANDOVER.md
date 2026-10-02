@@ -59,8 +59,7 @@ All in `R/copy.R` unless stated. Search the file for `[PLACEHOLDER]` to find the
 | `footer$wfa_url` | Weird Fishes Advisory website, currently a guess |
 | `networking$intro` | Framing line at the top of the networking page |
 | `networking$outro` | Closing note offering a route to the FWISE team |
-| `networking$outro_email` | Currently `hello@example.org` |
-| `about$feedback_email` | Where the About feedback box addresses its mail. Currently `hello@example.org` |
+| `footer$contact_email` | The one copy of the FWISE address. The footer, the About feedback band and the Networking outro all show it, revealed on a click by `fw_email_reveal()` |
 | `about$method2` | The search strategy and review protocol |
 | `about$method_paper` | The FWISE paper's methods section, in full. A character vector - the panel renders one paragraph per element |
 | `about$citation_db` | The DOI inside database citation |

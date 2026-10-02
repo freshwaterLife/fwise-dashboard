@@ -95,26 +95,14 @@ mod_networking_ui <- function(id) {
             class = "fw-callout fw-callout--next",
             p(
               fw_t("networking", "outro_text"), " ",
-              tags$a(
-                .noWS = "outside",
-                # SPLIT ACROSS TWO ATTRIBUTES and joined at click time, the same
-                # way fw_contact_action() below handles every contact's address.
-                #
-                # IT USED TO BE THE WHOLE STRING in this onclick, which was
-                # harmless only while it was a [PLACEHOLDER]: the moment the real
-                # FWISE address landed here (23 Sept 2026) the one address the
-                # site most wants to protect was the one address served in full
-                # in the markup. Do not put it back together here.
-                href = "#",
-                `data-u` = fw_t("networking", "outro_user"),
-                `data-d` = fw_t("networking", "outro_domain"),
-                onclick = paste0(
-                  "window.location.href='mail'+'to:'+this.dataset.u",
-                  "+String.fromCharCode(64)+this.dataset.d; return false;"
-                ),
-                fw_t("networking", "outro_action")
-              ),
-              "."
+              # Revealed in place, like every other address on the site. See
+              # fw_email_reveal(). It was once served whole in an onclick here
+              # (23 Sept 2026) - the one address the site most wants to protect
+              # was the one in the markup. Do not put it back together here.
+              # NO FULL STOP AFTER IT: once revealed, the sentence ends in the
+              # Copy button, and a stop stranded after a button reads as a stray.
+              fw_email_reveal(fw_t("footer", "contact_email"),
+                              label = fw_t("networking", "outro_action"))
             )
           )
         )
@@ -210,10 +198,6 @@ fw_networking_choices <- function(data, contacts) {
                    either = by_freq(asp$species_id))
   )
 }
-
-# Small helper so the address is assembled in JavaScript rather than sitting in
-# the served markup as a mailto href.
-jsonlite_quote <- function(x) paste0("'", gsub("'", "\\\\'", x), "'")
 
 mod_networking_server <- function(id, data) {
   moduleServer(id, function(input, output, session) {
@@ -410,17 +394,18 @@ mod_networking_server <- function(id, data) {
   })
 }
 
-#' Render a contact action without serving the address in the markup
+#' A contact's address, in a directory row
 #'
-#' Public addresses on a public site are a scraping target. The address is split
-#' and reassembled in JavaScript at click time, so a naive scraper reading the
-#' served HTML does not harvest it in one pass.
+#' In the live app it is fw_email_reveal() - see the note there for what that
+#' does and does not protect against. In a downloaded report (reveal = FALSE) it
+#' is the address written out as a mailto link: an export is a file a person
+#' chose to take away, not a page a crawler fetches, and a saved file should not
+#' need a script to show what it contains (Alex, 2 Oct 2026).
 #'
-#' This is a speed bump, NOT security. Anyone running the page's JavaScript, or
-#' willing to read it, can recover a public address. The real control is the
-#' contact_public flag: an address flagged not-public never reaches this function
-#' at all, because fw_contacts_summary() has already replaced it with NA.
-fw_contact_action <- function(email, name) {
+#' The real control is the contact_public flag either way: an address flagged
+#' not-public never reaches this function, because fw_contacts_summary() has
+#' already replaced it with NA.
+fw_contact_action <- function(email, name, reveal = TRUE) {
   if (is.na(email) || !nzchar(email)) {
     # An empty cell, not a "hidden" badge. A badge advertises that there is
     # something to go looking for.
@@ -428,20 +413,14 @@ fw_contact_action <- function(email, name) {
       tags$span(class = "fw-visually-hidden", fw_t("networking", "email_none_label"))
     ))
   }
-  parts <- strsplit(email, "@", fixed = TRUE)[[1]]
-  if (length(parts) != 2) return(tags$span(""))
-
-  tags$a(
-    href = "#",
-    class = "fw-contact-link",
-    `data-u` = parts[1],
-    `data-d` = parts[2],
-    `aria-label` = fw_fill(fw_t("a11y", "email_name"), name = name),
-    onclick = paste0(
-      "window.location.href='mail'+'to:'+this.dataset.u+String.fromCharCode(64)",
-      "+this.dataset.d; return false;"
-    ),
-    fw_t("networking", "email_action")
+  if (!reveal) return(tags$a(href = paste0("mailto:", email), email))
+  fw_email_reveal(
+    email,
+    label = fw_t("networking", "email_action"),
+    # NOT WHEN THE "NAME" IS THE ADDRESS. fw_contact_who() falls back to it for
+    # a contact with neither a name nor an organisation, and an aria-label is
+    # served markup like any other.
+    aria = if (!identical(name, email)) fw_fill(fw_t("a11y", "email_name"), name = name)
   )
 }
 

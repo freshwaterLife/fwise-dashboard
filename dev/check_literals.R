@@ -54,7 +54,7 @@ for (f in list.files("resources/report", pattern = "[.]typ$", full.names = TRUE)
 }
 
 # ---- 4: every fw_t() key resolves ------------------------------------------
-source("R/copy.R"); source("R/copy_contribute.R"); source("R/copy_export.R")
+source("R/copy.R"); source("R/copy_contribute.R"); source("R/copy_export.R"); source("R/copy_forms.R")
 pattern <- 'fw_t\\(("[^"]+"(, *"[^"]+")*)\\)'
 keys <- character(0)
 for (f in list.files("R", pattern = "[.]R$", full.names = TRUE)) {

@@ -6,7 +6,8 @@
 # ../fwise-data/ and writes submissions to ../fwise-data/inbox/.
 
 # ---- The data repository -----------------------------------------------------
-# THE ONE VARIABLE A DEPLOYMENT NEEDS, and the only secret in the project.
+# THE VARIABLE THE DATA NEEDS. The newsletter and feedback forms need two more;
+# see the last section.
 #
 # fwise-data is private, so an unauthenticated raw.githubusercontent.com URL
 # returns 404. Set this to a fine-grained GitHub PAT - resource owner
@@ -40,3 +41,20 @@
 # submissions are committed to inbox/ in the same repository the data is read
 # from. Without a token they are written to ../fwise-data/inbox/ instead, in the
 # same one-file-per-submission shape, so the QA loop is identical.
+
+# ---- Newsletter sign-ups and feedback ----------------------------------------
+# Both forms write to one private Google Sheet, a tab each ("newsletter" and
+# "feedback"), through a Google Cloud service account. BOTH variables must be
+# set; with either missing the forms write to dev/forms/<tab>.csv on this
+# machine instead, which is what you want locally.
+#
+# The sheet must be shared with the key's client_email as an Editor, and the
+# Google Sheets API must be enabled in the key's Cloud project. Row 1 of each
+# tab holds the column headers - see FW_NEWSLETTER_COLUMNS and
+# FW_FEEDBACK_COLUMNS in R/forms_store.R - and `Rscript dev/check_sheets.R`
+# checks them.
+#
+# The key may be the JSON itself or base64 of it. Base64 (`base64 -i key.json`)
+# is one line with no quotes or newlines, so it survives a deployment console.
+# FWISE_FORMS_SHEET_ID=1AbC...the id between /d/ and /edit in the sheet's URL
+# GS4_SA_KEY_B64=eyJ0eXBlIjoic2VydmljZV9hY2NvdW50Ii...

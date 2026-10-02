@@ -25,7 +25,10 @@ FW_COPY <- list(
     plan       = "Plan an eradication",
     contribute = "Add a record",
     networking = "Connect with community",
-    about      = "About"
+    about      = "About",
+    # Not in the navbar: the link is hidden by CSS and the page is reached
+    # from the footer and from ?page=privacy links. See R/mod_privacy.R.
+    privacy    = "Privacy and data terms"
   ),
 
   footer = list(
@@ -45,14 +48,17 @@ FW_COPY <- list(
     github_label  = "Source code on GitHub",
     github_url    = "https://github.com/freshwaterLife/fwise-dashboard", 
     licence       = "Data released under CC BY-NC 4.0 (non-commercial data). Code released under the MIT license.",
-    # THE ADDRESS IS NOT IN THE MARKUP, in two halves that JavaScript joins at
-    # click time - the same speed bump the Networking directory uses, and for
-    # the same reason. See fw_contact_action() in mod_networking.R and
-    # fw_footer_contact() in ui_helpers.R.
+    # THE ONE COPY OF THE FWISE ADDRESS. The footer, the About page's feedback
+    # band and the Networking outro all read it from here. It is never served
+    # as written: fw_email_reveal() encodes it into the page and decodes it on
+    # a click.
+    #
+    # PASTED TOGETHER RATHER THAN WRITTEN WHOLE because this file is public on
+    # GitHub, and repository scrapers pattern-match x@y exactly as page
+    # scrapers do.
+    contact_email  = paste0("fwise", "@", "fwlife.org"),
     contact_label  = "Contact FWISE",
-    contact_aria   = "Show the FWISE contact address",
-    contact_user   = "fwise",
-    contact_domain = "fwlife.org",
+    contact_aria   = "Show the FWISE contact email address",
     logo_alt_fwise = "FWISE, the Freshwater Invasive Species Eradication database",
     logo_alt_wfa   = "Weird Fishes Advisory",
     # The collaborators names.
@@ -83,7 +89,12 @@ FW_COPY <- list(
     empty_value  = "-",
     # Shown when something on the server went wrong but the session survived.
     # See fw_safely() in R/ui_helpers.R.
-    went_wrong   = "Something went wrong there. Please try again."
+    went_wrong   = "Something went wrong there. Please try again.",
+    # The revealed email address's Copy button. See fw_email_reveal().
+    email_copy       = "Copy",
+    email_copy_aria  = "Copy {address}",
+    email_copied     = "Copied",
+    email_copied_say = "Email address copied"
   ),
 
   # ---- Accessibility -----------------------------------------------------------
@@ -95,7 +106,7 @@ FW_COPY <- list(
     more_about  = "More information about {label}",
     page_n      = "Page {n}",
     pagination  = "Pagination",
-    email_name  = "Email {name}"
+    email_name  = "Show the email address for {name}"
   ),
 
   # ---- Charts --------------------------------------------------------------------
@@ -817,9 +828,8 @@ FW_COPY <- list(
     # add "database" to the heading list in dev/value_test.R.
 
     # ---- Sign-up -------------------------------------------------------------
-    # NO ADDRESS IS COLLECTED HERE. The button is a link out to the list, so the
-    # app never holds an email address, never has a form to secure and never has
-    # a delivery failure to hide. Same reasoning as the feedback box below.
+    # The button opens the newsletter dialog; its words are under `newsletter`
+    # in R/copy_forms.R.
     signup_heading = "Keep up with FWISE",
     signup_body = paste(
       "We send an occasional update when a new release of the",
@@ -827,7 +837,6 @@ FW_COPY <- list(
       "a few times a year."
     ),
     signup_action = "Sign up for updates",
-    signup_url = "#", # [PLACEHOLDER] awaiting the mailing list URL
 
     # ---- Citation ------------------------------------------------------------
     cite_heading = "How to cite FWISE",
@@ -952,27 +961,16 @@ FW_COPY <- list(
     link_zenodo = "The archived dataset on Zenodo",
 
     # ---- Feedback ------------------------------------------------------------
-    # NO BACKEND. See the note at the top of mod_about.R. It sits in a band of
-    # its own at the foot of the page and is deliberately NOT one of the panels
-    # above: a reader who has found something wrong should not have to open
-    # anything to say so.
+    # The button opens the feedback dialog (Alex, 2 Oct 2026). It sits in a
+    # band of its own at the foot of the page and is deliberately NOT one of
+    # the panels above: a reader who has found something wrong should not have
+    # to open anything to say so.
     fb_body = paste(
       "FWISE is an evolving and collective tool. Please tell us how to make it",
-      "better! Also, if a record is wrong, a species is misnamed, or something",
-      "on this site does not work, we would rather hear it than not."
+      "better. If a record is wrong, a species is misnamed, or something",
+      "on this a page or this site does not work, please tell us about it."
     ),
-    fb_where = "What is this about",
-    fb_label = "What would you like to tell us",
-    fb_placeholder = "",
-    fb_action = "Open this in your email",
-    fb_note = paste(
-      "Nothing is sent from this page. Your message opens in your own email",
-      "program so you can see it and send it yourself."
-    ),
-    fb_empty = "Write your message first, then select Open this in your email.",
-    fb_sent = "Your email program should now be open with the message ready.",
-    fb_subject = "FWISE feedback",
-    feedback_email = "fwise@fwlife.org"
+    fb_action = "Send feedback"
   ),
 
   # ---- Contacts --------------------------------------------------------------
@@ -992,12 +990,9 @@ FW_COPY <- list(
       "If you spot a problem with a contact, or need details updated or",
       "removed, please let us know:"
     ),
-    outro_action = "email the FWISE team",
-    # IN TWO HALVES, joined in the browser - see the footer's contact_user /
-    # contact_domain and the note at fw_footer_contact(). The single-string
-    # outro_email that was here served the whole address in the markup.
-    outro_user   = "fwise",
-    outro_domain = "fwlife.org",
+    # The button's words. Pressing it puts footer$contact_email in its place;
+    # see fw_email_reveal().
+    outro_action = "Contact the FWISE team",
 
     filter_continent = "Continent",
     filter_country   = "Country",
@@ -1040,7 +1035,7 @@ FW_COPY <- list(
     col_attempts     = "Attempts",
     col_contact      = "Contact",
 
-    email_action     = "Email",
+    email_action     = "Show email",
     email_none_label = "No public email address",
     no_organisation  = "Not recorded",
 
@@ -1053,13 +1048,13 @@ FW_COPY <- list(
 
 #' The whole copy deck as one list
 #'
-#' Assembled on every call rather than once at startup, because the three files
+#' Assembled on every call rather than once at startup, because the four files
 #' are sourced in an order that depends on who is sourcing them (Shiny uses C
 #' byte order; a test script using list.files() gets the locale's order), and a
 #' merge cached on the first call could be missing a file. It is three list
 #' concatenations, which costs nothing.
 fw_copy_all <- function() {
-  c(FW_COPY, FW_COPY_CONTRIBUTE, FW_COPY_EXPORT)
+  c(FW_COPY, FW_COPY_CONTRIBUTE, FW_COPY_EXPORT, FW_COPY_FORMS)
 }
 
 #' A string from the deck: fw_t("networking", "title")

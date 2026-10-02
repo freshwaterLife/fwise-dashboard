@@ -418,7 +418,8 @@ fw_records_summary_ui <- function(data, sel, filters = NULL) {
     if (nrow(people)) {
       fw_records_block(fw_t("plan", "r_contacts"), fw_t("plan", "report_contacts_note"),
                        div(class = "fw-table-scroll",
-                           fw_plan_contacts_ui(people, page = 1L, per_page = nrow(people))))
+                           fw_plan_contacts_ui(people, page = 1L, per_page = nrow(people),
+                                               reveal = FALSE)))
     }
   )
 }

@@ -22,13 +22,14 @@
 # APPLY the definition is. On About it was two headings of scope rules before a
 # reader had been told what they were reading about.
 #
-# THE FEEDBACK BOX HAS NO BACKEND. It composes a mailto: and hands the message
-# to the reader's own mail client. No service account, no sheet, no inbox to go
-# stale, and nothing that can silently swallow a message - if the mail client
-# does not open, the reader can see that it did not. The cost is that they have
-# to press send themselves, so the button says exactly that. It sits in a band
-# of its own at the foot of the page and is deliberately NOT one of the panels:
-# a reader who has found something wrong should not have to open anything first.
+# THE SIGN-UP CARD AND THE FEEDBACK BAND OPEN THE TWO FORMS (Alex, 2 Oct 2026).
+# Both are buttons made by fw_form_open() - the newsletter and feedback dialogs
+# in R/mod_newsletter.R and R/mod_feedback.R, which write to the forms sheet.
+# The band used to show the FWISE address through fw_email_reveal(); the
+# button replaced it, and the address is still in the footer for anyone who
+# would rather write. The band sits on its own at the foot of the page and is
+# deliberately NOT one of the panels: a reader who has found something wrong
+# should not have to open anything first.
 
 library(shiny)
 
@@ -142,25 +143,7 @@ mod_about_server <- function(id, data, meta = NULL) {
       )
     })
 
-    output$feedback <- renderUI(fw_feedback_panel(ns))
-
-    # The whole of the feedback box. Building the mailto in the browser keeps
-    # the address out of the served markup, the same anti-scraping reasoning as
-    # the Networking page, and means the message never touches the server.
-    observeEvent(input$send_feedback, {
-      body <- trimws(input$feedback %||% "")
-      if (!nzchar(body)) {
-        session$sendCustomMessage("fw-announce", fw_t("about", "fb_empty"))
-        return()
-      }
-      session$sendCustomMessage("fw-mailto", list(
-        to = fw_t("about", "feedback_email"),
-        subject = paste0(fw_t("about", "fb_subject"), " (",
-                         input$feedback_page %||% "-", ")"),
-        body = body
-      ))
-      session$sendCustomMessage("fw-announce", fw_t("about", "fb_sent"))
-    })
+    output$feedback <- renderUI(fw_feedback_panel())
   })
 }
 
@@ -168,10 +151,9 @@ mod_about_server <- function(id, data, meta = NULL) {
 
 #' Hear about new releases
 #'
-#' A LINK OUT, NOT A FORM. The app collects no address, so there is nothing here
-#' to secure, nothing to store and no delivery that can fail silently - the same
-#' reasoning as the feedback box, which hands the message to the reader's own
-#' mail client rather than pretending to send it.
+#' The button opens the "Get FWISE updates" dialog (R/mod_newsletter.R). It
+#' used to be a link to a mailing list that did not exist yet, which with no
+#' address opened the app's own home page in a new tab.
 fw_about_signup <- function() {
   div(
     class = "fw-panel fw-signup",
@@ -179,12 +161,7 @@ fw_about_signup <- function() {
     # the page.
     tags$h2(fw_t("about", "signup_heading")),
     p(fw_t("about", "signup_body")),
-    tags$a(
-      class = "btn btn-primary",
-      href = fw_t("about", "signup_url"),
-      target = "_blank", rel = "noopener noreferrer",
-      fw_t("about", "signup_action")
-    )
+    fw_form_open("newsletter", fw_t("about", "signup_action"), source = "about")
   )
 }
 
@@ -246,7 +223,9 @@ fw_about_glossary <- function() {
 }
 
 #' Tell us it is wrong
-fw_feedback_panel <- function(ns) {
+#'
+#' The paragraph and a button that opens the feedback dialog.
+fw_feedback_panel <- function() {
   div(
     class = "fw-feedback",
     # NO HIDDEN HEADING (client, 23 Sept 2026). fb_heading - "Tell us what is
@@ -254,22 +233,9 @@ fw_feedback_panel <- function(ns) {
     # deleting it costs sighted readers nothing and removes a line nobody
     # could see. The body paragraph opens the panel now.
     p(fw_t("about", "fb_body")),
-    div(
-      class = "fw-field",
-      tags$label(class = "form-label", `for` = ns("feedback_page"),
-                 fw_t("about", "fb_where")),
-      selectInput(ns("feedback_page"), label = NULL, selectize = FALSE,
-                  choices = unname(unlist(FW_COPY$nav)))
-    ),
-    div(
-      class = "fw-field",
-      tags$label(class = "form-label", `for` = ns("feedback"),
-                 fw_t("about", "fb_label")),
-      tags$textarea(id = ns("feedback"), class = "form-control", rows = 5,
-                    placeholder = fw_t("about", "fb_placeholder"))
-    ),
-    actionButton(ns("send_feedback"), fw_t("about", "fb_action"),
-                 class = "btn btn-primary"),
-    p(class = "fw-caption", fw_t("about", "fb_note"))
+    p(
+      class = "fw-feedback__action",
+      fw_form_open("feedback", fw_t("about", "fb_action"), source = "about")
+    )
   )
 }

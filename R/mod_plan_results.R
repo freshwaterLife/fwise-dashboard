@@ -383,9 +383,12 @@ fw_plan_contacts <- function(data, sel) {
 }
 
 #' One page of the relevant contacts
-
+#'
+#' @param reveal FALSE in the downloaded report, which writes each address out
+#'   rather than behind a button. See fw_contact_action().
 fw_plan_contacts_ui <- function(contacts, page = 1L,
-                                per_page = FW_PLAN_CONTACTS_PAGE_SIZES[1]) {
+                                per_page = FW_PLAN_CONTACTS_PAGE_SIZES[1],
+                                reveal = TRUE) {
   if (!nrow(contacts)) return(p(fw_t("plan", "r_contacts_none")))
 
   from <- (page - 1L) * per_page + 1L
@@ -410,7 +413,7 @@ fw_plan_contacts_ui <- function(contacts, page = 1L,
         tags$td(r$continent_label),
         tags$td(r$country_label),
         tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
-        tags$td(fw_contact_action(r$contact_email, fw_contact_who(r)))
+        tags$td(fw_contact_action(r$contact_email, fw_contact_who(r), reveal = reveal))
       )
     }))
   )

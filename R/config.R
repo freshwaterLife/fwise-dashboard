@@ -120,6 +120,20 @@ FWISE_DATA_TOKEN <- fw_env("FWISE_DATA_TOKEN", default = NULL)
 # slash is tolerated.
 FWISE_DATA_SOURCE <- fw_env("FWISE_DATA_SOURCE", default = NULL)
 
+# WHERE NEWSLETTER SIGN-UPS AND FEEDBACK GO (Oct 2026). One private Google
+# Sheet, one tab each, written by a service account. BOTH must be set for the
+# app to write to it; with either missing the forms write to dev/forms/ on this
+# machine instead - see fw_forms_mode() in R/forms_store.R.
+#
+#   FWISE_FORMS_SHEET_ID     the long id in the sheet's URL, between /d/ and /edit
+#   GS4_SA_KEY_B64   the service account's JSON key, either as the JSON
+#                      itself or base64 of it (`base64 -i key.json`), which
+#                      survives a deployment console's single-line field
+#
+# The sheet must be shared with the key's client_email as an Editor.
+FWISE_FORMS_SHEET_ID   <- fw_env("FWISE_FORMS_SHEET_ID", default = NULL)
+GS4_SA_KEY_B64 <- fw_env("GS4_SA_KEY_B64", default = NULL)
+
 # ---- Data visualisation palette ----------------------------------------------
 
 # Wong (2011) colourblind-safe palette. The associated academic paper uses this,
@@ -191,6 +205,20 @@ FW_COORD_DP <- 6
 # gathers the rest into Other. The copy that says "ten" in words is filled from
 # this as well, so changing it here changes the sentence under the chart.
 FW_TOP_N <- 10L
+
+# The newsletter and feedback forms. Character limits per field (the email
+# limit is the RFC maximum), and how long one session waits between two pieces
+# of feedback, which stops a double press or an impatient resend writing the
+# same message twice. More than one piece of feedback per visit is fine.
+FW_FORM_LIMITS <- list(name = 100L, organisation = 200L, email = 254L,
+                       message = 2000L)
+FW_FEEDBACK_COOLDOWN_S <- 30
+
+# The sections of the privacy page a link may jump to with ?section=. Each is
+# the anchor of one heading in content/privacy_and_data_terms.md, and
+# dev/plan_test.R checks every one of them exists there.
+FW_PRIVACY_SECTIONS <- c("newsletter", "feedback", "submissions", "contacts",
+                         "usage", "data-terms")
 
 # ---- Logo files ---------------------------------------------------------------
 #

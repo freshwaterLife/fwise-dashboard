@@ -146,9 +146,9 @@ FW_COPY_CONTRIBUTE <- list(
       ),
       agree_label = "I agree to FWISE storing and using this information as described.",
       agree_yes   = "Yes, I agree",
-      # [PLACEHOLDER] the full terms of data use are still being drafted
-      terms_link_label = "Read the full terms of data use",
-      terms_url = "#"
+      # Links to the submissions section of the Privacy and data terms page
+      # (Oct 2026), whose text is itself still a draft awaiting the client.
+      terms_link_label = "Read the full terms of data use"
     ),
 
     # Step titles, shown in the progress indicator
