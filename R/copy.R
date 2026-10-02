@@ -25,7 +25,10 @@ FW_COPY <- list(
     plan       = "Plan an eradication",
     contribute = "Add a record",
     networking = "Connect with community",
-    about      = "About"
+    about      = "About",
+    # Not in the navbar: the link is hidden by CSS and the page is reached
+    # from the footer and from ?page=privacy links. See R/mod_privacy.R.
+    privacy    = "Privacy and data terms"
   ),
 
   footer = list(
@@ -33,18 +36,29 @@ FW_COPY <- list(
     in_review_one  = "record in review",
     in_review_many = "records in review",
     doi_label     = "DOI on Zenodo",
-    doi_url       = "#",          
+    # "#" until the dataset is on Zenodo: every DOI link opens the "coming
+    # soon" card below instead (client, 1 Oct 2026). Put the real address here
+    # at launch and they become plain links. See fw_doi_link().
+    doi_url       = "#",
+    doi_soon_title = "Coming soon",
+    doi_soon      = paste(
+      "The archived FWISE dataset will be published on Zenodo, with a DOI you",
+      "can cite. Check back soon."
+    ),
     github_label  = "Source code on GitHub",
     github_url    = "https://github.com/freshwaterLife/fwise-dashboard", 
     licence       = "Data released under CC BY-NC 4.0 (non-commercial data). Code released under the MIT license.",
-    # THE ADDRESS IS NOT IN THE MARKUP, in two halves that JavaScript joins at
-    # click time - the same speed bump the Networking directory uses, and for
-    # the same reason. See fw_contact_action() in mod_networking.R and
-    # fw_footer_contact() in ui_helpers.R.
+    # THE ONE COPY OF THE FWISE ADDRESS. The footer, the About page's feedback
+    # band and the Networking outro all read it from here. It is never served
+    # as written: fw_email_reveal() encodes it into the page and decodes it on
+    # a click.
+    #
+    # PASTED TOGETHER RATHER THAN WRITTEN WHOLE because this file is public on
+    # GitHub, and repository scrapers pattern-match x@y exactly as page
+    # scrapers do.
+    contact_email  = paste0("fwise", "@", "fwlife.org"),
     contact_label  = "Contact FWISE",
-    contact_aria   = "Show the FWISE contact address",
-    contact_user   = "fwise",
-    contact_domain = "fwlife.org",
+    contact_aria   = "Show the FWISE contact email address",
     logo_alt_fwise = "FWISE, the Freshwater Invasive Species Eradication database",
     logo_alt_wfa   = "Weird Fishes Advisory",
     # The collaborators names.
@@ -75,7 +89,12 @@ FW_COPY <- list(
     empty_value  = "-",
     # Shown when something on the server went wrong but the session survived.
     # See fw_safely() in R/ui_helpers.R.
-    went_wrong   = "Something went wrong there. Please try again."
+    went_wrong   = "Something went wrong there. Please try again.",
+    # The revealed email address's Copy button. See fw_email_reveal().
+    email_copy       = "Copy",
+    email_copy_aria  = "Copy {address}",
+    email_copied     = "Copied",
+    email_copied_say = "Email address copied"
   ),
 
   # ---- Accessibility -----------------------------------------------------------
@@ -87,7 +106,7 @@ FW_COPY <- list(
     more_about  = "More information about {label}",
     page_n      = "Page {n}",
     pagination  = "Pagination",
-    email_name  = "Email {name}"
+    email_name  = "Show the email address for {name}"
   ),
 
   # ---- Charts --------------------------------------------------------------------
@@ -103,10 +122,6 @@ FW_COPY <- list(
     # they are looking at two different quantities. The bar is Successful
     # against Failed only - see the note at the head of charts.R.
     x_share       = "Success rate (%)",
-    # The success rate over time on Explore (client, 30 Sept 2026). {from} and
-    # {to} are the years the rolling window pooled; see fw_chart_success_time().
-    y_success_time = "Success rate (%)",
-    success_time_hover = "{from}-{to}: {pc}% successful ({n} of {total} finished)",
     # NO X AXIS TITLE ON THE DURATION CHART (client, 23 Sept 2026). The named
     # ticks below say what the axis is; a title under them said it twice.
     # Named ticks on the log axis, in step with FW_CHART$duration_ticks.
@@ -120,7 +135,9 @@ FW_COPY <- list(
     duration_hover = paste0(
       "<b>{method}</b> ({n} successful)<br>",
       "Typical (median): {median}<br>",
-      "Middle half: {q1} to {q3}<br>",
+      # "Box", not "Middle half" (client, 30 Sept 2026): the word for the
+      # shape the reader is pointing at.
+      "Box: {q1} to {q3}<br>",
       "Range: {shortest} to {longest}"
     ),
     # Under the scale bar on the PDF report's map. It NAMES THE LATITUDE the
@@ -148,7 +165,9 @@ FW_COPY <- list(
     title = "Where attempts happened",
     note = paste(
       "Each marker is one eradication attempt, coloured and labelled by",
-      "outcome. Hover for a summary, select for the full record. Toggle",
+      # A LINE OF ITS OWN for the layers sentence (client, 1 Oct 2026). The
+      # note is drawn with white-space: pre-line, so the \n is the break.
+      "outcome. Hover for a summary, select for the full record.\nToggle",
       "between layers for hydrological, topographic, and satellite imagery."
     ),
     # The basemap switcher. Named so it reads as a question the reader might
@@ -160,7 +179,8 @@ FW_COPY <- list(
     year_one  = "year",
     year_many = "years",
     # The Duration field on the hover card and the record: days under a year,
-    # years to one decimal place from there. See fw_popup_duration().
+    # years to one decimal place from there, without a ".0" on a whole number
+    # (client, 1 Oct 2026). See fw_popup_duration().
     day_one   = "day",
     day_many  = "days",
     # Under both interactive maps. Worded by the client. Set below the type
@@ -178,7 +198,10 @@ FW_COPY <- list(
   # ---- Home (the Welcome page) -----------------------------------------------
 
   home = list(
-    title = paste(
+    # ONE SENTENCE PER LINE (client, 30 Sept 2026). Two strings, not one:
+    # fw_page_header() starts each on its own line, so "Eradicating..." never
+    # follows on after "species." whatever the zoom or screen width.
+    title = c(
       "Freshwaters cover **<1%** of earth yet are home to **45% of all Threatened animal species**.",
       "Eradicating freshwater invasives is **the most effective way to save them from extinction**."
     ),
@@ -260,7 +283,7 @@ FW_COPY <- list(
     map_caption = c(
       "Countries with ",
       now  = "eradications (blue)",
-      " verus top ",
+      " versus top ",
       later = "opportunity countries (yellow)",
       "."
     ),
@@ -348,13 +371,6 @@ FW_COPY <- list(
       "number beside each method is how many finished attempts the rate rests on."
     ),
     cumulative = "Eradication attempts over time",
-    success_time = "Success rate over time",
-    success_time_note = paste(
-      "Each point pools the successful and failed attempts that began in the",
-      "ten years up to and including it, so one busy or quiet year does not",
-      "swing the line. Ongoing and unknown attempts are left out. Where ten",
-      "years hold fewer than {min_n} finished attempts the line breaks."
-    ),
     duration = "How long successful eradications took",
 
     # THE WAY ON, under the charts (client, 29 Sept 2026). [[plan|...]] is a
@@ -433,7 +449,6 @@ FW_COPY <- list(
     family_beneficiary = "Fish family protected",
     method      = "Method used",
     regime      = "Still or flowing water",
-    waterbody   = "Kind of waterbody",
     outcome     = "Outcome",
     size        = "Size of the area treated",
     years       = "Attempt began between",
@@ -451,10 +466,10 @@ FW_COPY <- list(
     # ---- The tips -------------------------------------------------------------
     #
 
-    # NO tip_continent AND NO tip_waterbody (client, 23 Sept 2026). Both
-    # tooltips only restated their label, so the (i) has gone from those two
-    # filters; FW_FILTERS carries tip = NULL for them and fw_field() draws no
-    # button when there is nothing to say.
+    # NO tip_continent (client, 23 Sept 2026). Its tooltip only restated the
+    # label, so the (i) has gone from that filter; FW_FILTERS carries tip = NULL
+    # for it and fw_field() draws no button when there is nothing to say. The
+    # waterbody filter it shared this note with went on 1 Oct 2026.
     tip_country = paste(
       "Country of the eradication attempt(s). Only countries with attempts",
       "recorded in FWISE are listed. If the country you are looking for is not",
@@ -755,6 +770,18 @@ FW_COPY <- list(
     ),
     r_table_showing = "Showing",
 
+    # ---- The record search (client, 1 Oct 2026) ------------------------------
+    # The last block of the results: the attempts behind the report, ten a
+    # page, each opening in full. See fw_plan_records_ui().
+    r_records = "Find a record",
+    r_records_note = paste(
+      "Every attempt in this report. Search by site, country, species, method",
+      "or FWISE id, then click a row to read the full record, including its",
+      "reference. The Detailed report download holds all of them."
+    ),
+    r_records_none = "No attempt in this report matches that search.",
+    col_record_years = "Years",
+
     # ---- Potential relevant contacts -----------------------------------------
     r_contacts = "Reach out to learn more",
     r_contacts_note = paste(
@@ -767,7 +794,9 @@ FW_COPY <- list(
       "None of the attempts in this selection has a contact recorded against it."
     ),
     r_contacts_size = "Contacts per page",
-    r_contacts_all  = "Browse every contact in FWISE",
+    # A link to the Connect page in the same green box as Explore's to_plan
+    # (client, 1 Oct 2026).
+    r_contacts_all  = "[[networking|Browse every contact in FWISE]].",
     col_contact_name = "Name",
     col_contact_org  = "Organisation",
     col_contact_n    = "# Attempts",
@@ -799,9 +828,8 @@ FW_COPY <- list(
     # add "database" to the heading list in dev/value_test.R.
 
     # ---- Sign-up -------------------------------------------------------------
-    # NO ADDRESS IS COLLECTED HERE. The button is a link out to the list, so the
-    # app never holds an email address, never has a form to secure and never has
-    # a delivery failure to hide. Same reasoning as the feedback box below.
+    # The button opens the newsletter dialog; its words are under `newsletter`
+    # in R/copy_forms.R.
     signup_heading = "Keep up with FWISE",
     signup_body = paste(
       "We send an occasional update when a new release of the",
@@ -809,7 +837,6 @@ FW_COPY <- list(
       "a few times a year."
     ),
     signup_action = "Sign up for updates",
-    signup_url = "#", # [PLACEHOLDER] awaiting the mailing list URL
 
     # ---- Citation ------------------------------------------------------------
     cite_heading = "How to cite FWISE",
@@ -934,27 +961,16 @@ FW_COPY <- list(
     link_zenodo = "The archived dataset on Zenodo",
 
     # ---- Feedback ------------------------------------------------------------
-    # NO BACKEND. See the note at the top of mod_about.R. It sits in a band of
-    # its own at the foot of the page and is deliberately NOT one of the panels
-    # above: a reader who has found something wrong should not have to open
-    # anything to say so.
+    # The button opens the feedback dialog (Alex, 2 Oct 2026). It sits in a
+    # band of its own at the foot of the page and is deliberately NOT one of
+    # the panels above: a reader who has found something wrong should not have
+    # to open anything to say so.
     fb_body = paste(
       "FWISE is an evolving and collective tool. Please tell us how to make it",
-      "better! Also, if a record is wrong, a species is misnamed, or something",
-      "on this site does not work, we would rather hear it than not."
+      "better. If a record is wrong, a species is misnamed, or something",
+      "on this a page or this site does not work, please tell us about it."
     ),
-    fb_where = "What is this about",
-    fb_label = "What would you like to tell us",
-    fb_placeholder = "",
-    fb_action = "Open this in your email",
-    fb_note = paste(
-      "Nothing is sent from this page. Your message opens in your own email",
-      "program so you can see it and send it yourself."
-    ),
-    fb_empty = "Write your message first, then select Open this in your email.",
-    fb_sent = "Your email program should now be open with the message ready.",
-    fb_subject = "FWISE feedback",
-    feedback_email = "fwise@fwlife.org"
+    fb_action = "Send feedback"
   ),
 
   # ---- Contacts --------------------------------------------------------------
@@ -967,15 +983,16 @@ FW_COPY <- list(
     ),
     # Blanked by the client (24 Sept 2026) and not drawn on the page.
     intro = "",
-    # NO PARAGRAPH UNDER THIS ANY MORE (client, 24 Sept 2026). Its sentence
-    # moved to the end of `coverage` below, and the box keeps only its button.
-    outro_heading = "Not sure who to ask?",
-    outro_action = "Email the FWISE team",
-    # IN TWO HALVES, joined in the browser - see the footer's contact_user /
-    # contact_domain and the note at fw_footer_contact(). The single-string
-    # outro_email that was here served the whole address in the markup.
-    outro_user   = "fwise",
-    outro_domain = "fwlife.org",
+    # THE BOX AT THE FOOT OF THE PAGE is a green callout about the contacts
+    # themselves (client, 1 Oct 2026). It was a lone "Email the FWISE team"
+    # button under a hidden "Not sure who to ask?" heading.
+    outro_text   = paste(
+      "If you spot a problem with a contact, or need details updated or",
+      "removed, please let us know:"
+    ),
+    # The button's words. Pressing it puts footer$contact_email in its place;
+    # see fw_email_reveal().
+    outro_action = "Contact the FWISE team",
 
     filter_continent = "Continent",
     filter_country   = "Country",
@@ -1018,7 +1035,7 @@ FW_COPY <- list(
     col_attempts     = "Attempts",
     col_contact      = "Contact",
 
-    email_action     = "Email",
+    email_action     = "Show email",
     email_none_label = "No public email address",
     no_organisation  = "Not recorded",
 
@@ -1031,13 +1048,13 @@ FW_COPY <- list(
 
 #' The whole copy deck as one list
 #'
-#' Assembled on every call rather than once at startup, because the three files
+#' Assembled on every call rather than once at startup, because the four files
 #' are sourced in an order that depends on who is sourcing them (Shiny uses C
 #' byte order; a test script using list.files() gets the locale's order), and a
 #' merge cached on the first call could be missing a file. It is three list
 #' concatenations, which costs nothing.
 fw_copy_all <- function() {
-  c(FW_COPY, FW_COPY_CONTRIBUTE, FW_COPY_EXPORT)
+  c(FW_COPY, FW_COPY_CONTRIBUTE, FW_COPY_EXPORT, FW_COPY_FORMS)
 }
 
 #' A string from the deck: fw_t("networking", "title")

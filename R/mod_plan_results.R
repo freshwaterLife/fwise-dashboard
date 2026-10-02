@@ -231,6 +231,134 @@ fw_plan_pages <- function(n_rows, per_page) {
   max(1L, as.integer(ceiling(n_rows / per_page)))
 }
 
+# ---- The record search -------------------------------------------------------
+#
+# THE TABLE CAME BACK, AS A WAY TO FIND A RECORD (client, 1 Oct 2026). The
+# Detailed report's find box narrows an endless scroll of full cards; here the
+# matches are a page of ten table rows, and a click opens a row's full card
+# beneath it, so the reader can look one up without scrolling past the footer.
+# The match is the report's own (fw_record_search(), a plain substring), so the
+# page and the file find the same attempts for the same words.
+
+#' The rows of a report's export frame that match what was typed
+#'
+#' @param haystack fw_record_search() of each export row, lower case
+#' @param q what was typed. Blank matches every row.
+#' @return row indices, in the export's order
+fw_plan_records_find <- function(haystack, q) {
+  q <- tolower(trimws(q %||% ""))
+  if (!nzchar(q)) return(seq_along(haystack))
+  which(grepl(q, haystack, fixed = TRUE))
+}
+
+#' The search strings of an export frame, one per row. Built once per report.
+fw_plan_records_haystack <- function(export) {
+  vapply(seq_len(nrow(export)), function(i) {
+    fw_record_search(as.list(export[i, , drop = FALSE]))
+  }, character(1))
+}
+
+#' One page of matching records, as a table whose rows open their cards
+#'
+#' Each attempt is two rows: the summary, and under it a hidden row holding
+#' its full card (fw_record_card(), the Detailed report's own). Opening is done
+#' in the browser by fw_plan_records_script() - the cards for the page are
+#' already here, so nothing goes back to the server.
+#'
+#' @param export fw_export_frame() of the report
+#' @param rows the matching row indices (fw_plan_records_find())
+fw_plan_records_ui <- function(export, rows, page = 1L,
+                               per_page = FW_PLAN_RECORDS_PAGE_SIZE) {
+  if (!length(rows)) return(p(class = "fw-caption", fw_t("plan", "r_records_none")))
+  from <- (page - 1L) * per_page + 1L
+  to <- min(length(rows), page * per_page)
+  shown <- if (from > length(rows)) integer(0) else rows[seq(from, to)]
+
+  copy <- fw_record_copy()
+  lab <- copy$labels
+  n_cols <- 6L
+  # Each column's class sizes it, and hides it on a phone, where only the
+  # site and the outcome are shown - the rest is in the card a tap away.
+  cls <- function(k) paste0("fw-records__c-", k)
+  body <- lapply(shown, function(i) {
+    r <- as.list(export[i, , drop = FALSE])
+    detail_id <- paste0("fw-records-", r$attempt_id)
+    site <- if (fw_record_blank(r$site_name)) copy$none else r$site_name
+    tagList(
+      tags$tr(
+        class = "fw-records__row", tabindex = "0", role = "button",
+        `aria-expanded` = "false", `aria-controls` = detail_id,
+        tags$td(class = cls("id"),
+                tags$span(class = "fw-records__chev", `aria-hidden` = "true",
+                          HTML("&#9656;")),
+                tags$span(class = "fw-rec-id", r$attempt_id)),
+        tags$td(class = cls("site"), site),
+        tags$td(class = cls("country"), r$country %|na|% copy$none),
+        tags$td(class = cls("species"), r$invasive_species %|na|% copy$none),
+        # The map card's years: "2022", not "2022-2022". See fw_popup_years().
+        tags$td(class = paste("fw-num", cls("years")),
+                fw_popup_years(r$start_year, r$end_year) %|na|% copy$none),
+        tags$td(class = cls("outcome"), HTML(fw_record_outcome(r$outcome, copy$none)))
+      ),
+      tags$tr(
+        class = "fw-records__detail", id = detail_id, hidden = NA,
+        tags$td(colspan = n_cols,
+                HTML(fw_record_card(r, copy, top = FALSE, id = FALSE)))
+      )
+    )
+  })
+
+  # FIXED LAYOUT (see .fw-records__table): an opened card is a cell spanning
+  # the row, and under the automatic layout its longest note set the width of
+  # the whole table. Under a fixed layout the header row's widths rule.
+  tags$table(
+    class = "fw-table fw-records__table",
+    tags$thead(tags$tr(
+      tags$th(scope = "col", class = cls("id"), lab[["attempt_id"]]),
+      tags$th(scope = "col", class = cls("site"), lab[["site_name"]]),
+      tags$th(scope = "col", class = cls("country"), lab[["country"]]),
+      tags$th(scope = "col", class = cls("species"), lab[["invasive_species"]]),
+      tags$th(scope = "col", class = cls("years"), fw_t("plan", "col_record_years")),
+      tags$th(scope = "col", class = cls("outcome"), lab[["outcome"]])
+    )),
+    tags$tbody(body)
+  )
+}
+
+#' The record search's one script: a row opens and closes its card
+#'
+#' DELEGATED, from the document, so it survives every re-render of the table
+#' (a new search or page replaces the rows, not the listener). Enter and Space
+#' do what a click does, since each row is announced as a button.
+fw_plan_records_script <- function() {
+  tags$script(HTML("
+    (function () {
+      if (window.fwRecordsWired) return;
+      window.fwRecordsWired = true;
+      function toggle(row) {
+        var detail = document.getElementById(row.getAttribute('aria-controls'));
+        if (!detail) return;
+        var open = row.getAttribute('aria-expanded') !== 'true';
+        row.setAttribute('aria-expanded', open ? 'true' : 'false');
+        detail.hidden = !open;
+      }
+      document.addEventListener('click', function (e) {
+        var row = e.target.closest && e.target.closest('.fw-records__row');
+        if (!row) return;
+        // A link inside the row still works as a link.
+        if (e.target.closest('a')) return;
+        toggle(row);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var row = e.target.classList && e.target.classList.contains('fw-records__row') && e.target;
+        if (!row) return;
+        e.preventDefault();
+        toggle(row);
+      });
+    })();"))
+}
+
 # ---- Potential relevant contacts ---------------------------------------------
 
 #' The people attached to the attempts in this selection
@@ -255,9 +383,12 @@ fw_plan_contacts <- function(data, sel) {
 }
 
 #' One page of the relevant contacts
-
+#'
+#' @param reveal FALSE in the downloaded report, which writes each address out
+#'   rather than behind a button. See fw_contact_action().
 fw_plan_contacts_ui <- function(contacts, page = 1L,
-                                per_page = FW_PLAN_CONTACTS_PAGE_SIZES[1]) {
+                                per_page = FW_PLAN_CONTACTS_PAGE_SIZES[1],
+                                reveal = TRUE) {
   if (!nrow(contacts)) return(p(fw_t("plan", "r_contacts_none")))
 
   from <- (page - 1L) * per_page + 1L
@@ -282,7 +413,7 @@ fw_plan_contacts_ui <- function(contacts, page = 1L,
         tags$td(r$continent_label),
         tags$td(r$country_label),
         tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
-        tags$td(fw_contact_action(r$contact_email, fw_contact_who(r)))
+        tags$td(fw_contact_action(r$contact_email, fw_contact_who(r), reveal = reveal))
       )
     }))
   )

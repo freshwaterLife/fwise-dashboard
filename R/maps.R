@@ -391,16 +391,23 @@ fw_popup_years <- function(start, end) {
 #' How long an attempt lasted, from duration_days
 #'
 #' Days under a year ("1 day", "20 days"), years to one decimal place from 365
-#' on ("1.0 years", "1.1 years"), at the client's request (21 Sept 2026). NA
-#' when no duration is recorded, which the row shows as "Not noted".
+#' on ("1.1 years"), at the client's request (21 Sept 2026). NA when no
+#' duration is recorded, which the row shows as "Not noted".
+#'
+#' NO ".0" (client, 1 Oct 2026): a figure that rounds to a whole number of
+#' years prints as one - "15 years", not "15.0 years" - and exactly one year is
+#' "1 year". Every duration in the app comes through here: the map cards, the
+#' record cards, the duration chart's hover and its last tick.
 fw_popup_duration <- function(days) {
   if (length(days) != 1 || is.na(days)) return(NA_character_)
   if (days < 365) {
     d <- round(days)
     return(paste(d, fw_t("maps", if (d == 1) "day_one" else "day_many")))
   }
-  paste(formatC(round(days / 365, 1), format = "f", digits = 1),
-        fw_t("maps", "year_many"))
+  y <- round(days / 365, 1)
+  whole <- y == round(y)
+  paste(formatC(y, format = "f", digits = if (whole) 0 else 1),
+        fw_t("maps", if (y == 1) "year_one" else "year_many"))
 }
 
 #' The treated size, with its unit
@@ -618,12 +625,9 @@ fw_popup_thumb_unrecorded <- function() {
 #' the same expression fw_export_frame() does, and a contact who has not made
 #' their address public arrives here as NA and is rendered as a plain name.
 #'
-#' The trade-off this accepts is that a published address is scrapeable. The app
-#' has a handler that avoids it - fw-mailto in ui_helpers.R assembles the
-#' address client-side so it never enters the DOM - but that needs a Shiny
-#' binding, and this card's content is injected with innerHTML and never bound.
-#' If the client would rather have obfuscation than a working link, that is the
-#' thing to change, not the gate.
+#' A published address is not written into the card: it goes through
+#' fw_email_reveal(), whose script is delegated from the document and so works
+#' in this injected, never-bound markup.
 #'
 #' @param figure_cache an optional named character vector of ready-made figure
 #'   HTML keyed by species_id, from fw_map_figure_cache(). A species found
@@ -702,18 +706,25 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
     )
   }
 
-  # A contact, as a mailto where the address is public and plain text where it
-  # is not. Never an empty link.
+  # A contact: the name and organisation as text, then a button revealing the
+  # address where it is public. See fw_email_reveal().
+  #
+  # IT WAS THE NAME AS A mailto: LINK, which did nothing for a reader whose
+  # mail is in a browser and showed no address to copy (Alex, 2 Oct 2026). It
+  # also served every public address in the widget's data. The button is
+  # delegated from the document, so this innerHTML needs no Shiny binding.
   person <- function(name, email, org) {
     # An organisation with no named person is the contact itself.
     if (is.na(name) || !nzchar(name)) { name <- org; org <- NA_character_ }
     if (is.na(name) || !nzchar(name)) return(NA_character_)
-    who <- if (!is.na(email) && nzchar(email)) {
-      paste0('<a href="mailto:', esc(email), '">', esc(name), "</a>")
-    } else {
-      esc(name)
-    }
-    if (!is.na(org) && nzchar(org)) paste0(who, ", ", esc(org)) else who
+    who <- esc(name)
+    if (!is.na(org) && nzchar(org)) who <- paste0(who, ", ", esc(org))
+    if (is.na(email) || !nzchar(email)) return(who)
+    paste0(who, " ", as.character(fw_email_reveal(
+      email,
+      label = fw_t("networking", "email_action"),
+      aria = fw_fill(fw_t("a11y", "email_name"), name = name)
+    )))
   }
 
   area <- fw_popup_area(row)

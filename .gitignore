@@ -28,6 +28,7 @@ dev/*
 !dev/check_literals.R
 !dev/smoke_test.R
 !dev/plan_test.R
+!dev/check_sheets.R
 !dev/value_test.R
 !dev/qa.R
 !dev/reconcile_source.R

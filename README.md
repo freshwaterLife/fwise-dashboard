@@ -29,6 +29,7 @@ back to **1934**.
 - [The record browser](#the-record-browser)
 - [The report builder](#the-report-builder)
 - [Submissions](#submissions)
+- [Newsletter, feedback and the privacy page](#newsletter-feedback-and-the-privacy-page)
 - [Environment variables](#environment-variables)
 - [The design system](#the-design-system)
 - [Deploying to Posit Connect Cloud](#deploying-to-posit-connect-cloud)
@@ -127,6 +128,8 @@ separation in OKLab.
 │   ├── copy.R                  EVERY user-facing string, part 1: chrome and pages
 │   ├── copy_contribute.R       ...part 2: the contribute form
 │   ├── copy_export.R           ...part 3: spreadsheet, report tables, question lists
+│   ├── copy_forms.R            ...part 4: newsletter, feedback, privacy page,
+│   │                           and the terms version
 │   ├── theme.R                 the bslib theme, mapped from brand.R
 │   ├── ui_helpers.R            reusable UI components
 │   ├── data_load.R             the data contract: reads the three data files
@@ -137,6 +140,11 @@ separation in OKLab.
 │   ├── maps.R                  basemaps, markers and popups, shared likewise
 │   ├── species_images.R        the Wikimedia photo cache and its fallback
 │   ├── submit.R                the write path, and record assembly
+│   ├── forms.R                 the newsletter and feedback forms' rules,
+│   │                           records, honeypot and browser script
+│   ├── forms_store.R           where those two forms write: Google Sheets,
+│   │                           or dev/forms/ with no credentials
+│   ├── analytics.R             track_event(), a no-op until a tool is chosen
 │   ├── export.R                the export contract. SHARED with the future
 │   │                           Zenodo release, so the two cannot disagree
 │   ├── questions_text.R        the offline question list, plain text
@@ -157,6 +165,7 @@ separation in OKLab.
 │   │                           _components.scss
 │   ├── fonts/                  self-hosted Ubuntu woff2
 │   └── img/                    logos and favicon
+├── content/                    privacy_and_data_terms.md, the privacy page's text
 ├── resources/report/           the PDF's Typst template partials, Ubuntu
 │                               TTFs and the Natural Earth world outlines
 ├── dev/                        local scratch, gitignored except the scripts
@@ -199,9 +208,11 @@ Bootstrap, and the charts, maps, workbook and Word output read them directly.
 `www/scss/_tokens.scss` contains no literal values at all. Change a value in
 `brand.R`, restart, and re-run `dev/check_contrast.R`.
 
-**Every user-facing string lives in the copy deck**, which is three files read
-as one list: `R/copy.R` (chrome and pages), `R/copy_contribute.R` (the form)
-and `R/copy_export.R` (spreadsheet, report tables, question-list downloads).
+**Every user-facing string lives in the copy deck**, which is four files read
+as one list: `R/copy.R` (chrome and pages), `R/copy_contribute.R` (the form),
+`R/copy_export.R` (spreadsheet, report tables, question-list downloads) and
+`R/copy_forms.R` (newsletter, feedback, privacy page). The privacy page's own
+text is the exception: it is `content/privacy_and_data_terms.md`.
 `fw_t("section", "key")` reads any of them; `fw_fill()` fills `{placeholders}`.
 
 **Every behaviour number lives in `R/config.R`** under "Behaviour": the top-n
@@ -706,6 +717,62 @@ visits only rows with a blank `image_url`, so run it afterwards.
 
 ---
 
+## Newsletter, feedback and the privacy page
+
+Two dialogs and a page, added October 2026.
+
+- **"Get FWISE updates"** (`R/mod_newsletter.R`): name, email, optional
+  organisation and a consent box. One sign-up per visit; after it, every button
+  that opens the form shows the thank-you instead.
+- **"Send feedback"** (`R/mod_feedback.R`): the page it is about (pre-selected
+  from the page the reader is on), the message, and an optional email for a
+  reply. More than one per visit, with a `FW_FEEDBACK_COOLDOWN_S` pause between
+  them.
+- **"Privacy and data terms"** (`R/mod_privacy.R`): a `nav_panel` whose navbar
+  link is hidden by CSS. It is reached from the footer and from
+  `?page=privacy&section=<anchor>` links, which open the page and scroll to the
+  section. While it is open the address bar says `?page=privacy`; Back and
+  Forward work.
+
+Any button made with `fw_form_open("newsletter" | "feedback", label, source)`
+opens a form, wherever it is; `source` is stored with a sign-up so you can see
+which button people use. Both forms carry an off-screen honeypot: a bot that
+fills it is shown the thank-you and nothing is written.
+
+**Where the rows go.** With `FWISE_FORMS_SHEET_ID` and `GS4_SA_KEY_B64` set, one
+row is appended to the `newsletter` or `feedback` tab of a private Google Sheet
+(RAW, so nothing typed is ever run as a formula). Without them, rows go to
+`dev/forms/<tab>.csv`. There is no fallback from one to the other: a failed
+sheet write tells the visitor so and keeps what they typed.
+
+**Setting up the sheet.**
+
+1. In Google Cloud, enable the Google Sheets API and create a service account
+   with a JSON key.
+2. Make the sheet with two tabs, `newsletter` and `feedback`. Row 1 of each
+   holds the headers in `FW_NEWSLETTER_COLUMNS` / `FW_FEEDBACK_COLUMNS`
+   (`R/forms_store.R`). Your own columns can go to the right of them.
+3. Share the sheet with the key's `client_email` as an Editor.
+4. Set the two variables in `.Renviron` and run `Rscript dev/check_sheets.R`,
+   which reads the headers and writes nothing. Add `--write-headers` to have
+   it fill in row 1 of any tab that is still completely empty.
+5. Make one real sign-up and one real feedback locally, check the rows land,
+   delete them, then set the same two variables on Connect Cloud.
+
+**The terms version** is `privacy$version` in `R/copy_forms.R`. It is written
+into every newsletter and feedback row and shown at the top of the privacy
+page. Submissions do not store it; their `submitted_at` date read against the
+dated list under "Changes to this notice" says which terms applied, so **every
+version change needs a dated line there**. `dev/plan_test.R` checks the
+current version has one.
+
+**Analytics.** Both forms call `track_event()` (`R/analytics.R`) on success. It
+does nothing until a tool is wired in, and its signature takes an event name
+from a fixed list and a page name, nothing else, so personal data cannot be
+passed to it by accident.
+
+---
+
 ## Environment variables
 
 All optional. The app runs with none of them set. See `.Renviron.example`, and
@@ -713,7 +780,9 @@ copy it to `.Renviron` (gitignored) for local use.
 
 | Variable | Set where | Purpose |
 |---|---|---|
-| `FWISE_DATA_TOKEN` | Connect Cloud settings | **The only thing a deployment needs.** A fine-grained GitHub PAT with Contents: Read and write on `freshwaterLife/fwise-data`. Set means read and write over the GitHub API; unset means the local sibling checkout and no network calls. Expires — see "Serving data without redeploying". |
+| `FWISE_DATA_TOKEN` | Connect Cloud settings | **The one thing the data needs.** A fine-grained GitHub PAT with Contents: Read and write on `freshwaterLife/fwise-data`. Set means read and write over the GitHub API; unset means the local sibling checkout and no network calls. Expires — see "Serving data without redeploying". |
+| `FWISE_FORMS_SHEET_ID` | Connect Cloud settings | The Google Sheet the newsletter and feedback forms write to. With `GS4_SA_KEY_B64` unset as well, the forms write to `dev/forms/` instead. |
+| `GS4_SA_KEY_B64` | Connect Cloud settings | The service account's JSON key, as JSON or base64 of it. See "Newsletter, feedback and the privacy page". |
 | `FWISE_DATA_SOURCE` | rarely, for a test deploy | Overrides the above. A path reads that directory; an `https://` base reads over plain HTTPS with no credential and cannot write. Point it at the directory holding `attempts.csv` and `metadata.json`. |
 
 **Never commit a credential.** `.Renviron` and `*.json` are gitignored, with

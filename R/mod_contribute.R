@@ -178,12 +178,8 @@ mod_contribute_server <- function(id, data, choices) {
     # own the DISPLAY of errors; this function owns whether the form may be sent.
     #
     # Keep the two in step: a required rule added above needs a line here.
-    # POSIX [:space:] rather than \\s. R's default regex engine does NOT read \\s
-    # as a whitespace shorthand inside a character class, so [^@\\s] excludes the
-    # LETTER s and quietly rejects any address containing one.
-    fw_is_email <- function(x) {
-      grepl("^[^[:space:]@]+@[^[:space:]@]+\\.[^[:space:]@]+$", x %||% "")
-    }
+    # fw_is_email() is shared with the newsletter and feedback forms; it lives
+    # in R/forms.R.
 
     filled <- function(nm) {
       v <- input[[nm]]

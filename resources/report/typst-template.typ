@@ -31,11 +31,14 @@
 #let fw-footer = context {
   line(length: 100%, stroke: 0.5pt + fw-border)
   v(2mm)
-  // Fractional spacing: the logos spread to fill the width and close up
-  // rather than bunching at the left.
-  stack(
-    dir: ltr,
-    spacing: 1fr,
+  // TWO ROWS OF THREE (client, 1 Oct 2026: the six on one line were "quite
+  // squished"). Each logo is centred in an equal column, so the rows line up
+  // and there is clear space between every pair.
+  grid(
+    columns: (1fr, 1fr, 1fr),
+    row-gutter: 4mm,
+    column-gutter: 6mm,
+    align: center + horizon,
     ..(fw-logo-mark, ..fw-logos).map(p => image(p, height: fw-logo-h)),
   )
   v(1.5mm)
@@ -50,9 +53,10 @@
     paper: "a4",
     fill: fw-page-fill,
     // The bottom margin reserves the footer. It grew with the footer when the
-    // logos went to 11mm on a line of their own (23 Sept 2026); too small a
-    // value here and the last block of a page prints over the logos.
-    margin: (x: fw-margin, top: fw-margin, bottom: fw-margin + 24mm),
+    // logos went to 11mm on a line of their own (23 Sept 2026), and again when
+    // they went to two rows (1 Oct 2026); too small a value here and the last
+    // block of a page prints over the logos.
+    margin: (x: fw-margin, top: fw-margin, bottom: fw-margin + 32mm),
     footer: fw-footer,
     footer-descent: 5mm,
   )

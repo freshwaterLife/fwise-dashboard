@@ -677,9 +677,17 @@ ok("methods: every hover card's bullets are too",
 ok("duration: 1 day",    fw_popup_duration(1),   "1 day")
 ok("duration: 20 days",  fw_popup_duration(20),  "20 days")
 ok("duration: 364 days", fw_popup_duration(364), "364 days")
-ok("duration: 365 is 1.0 years", fw_popup_duration(365), "1.0 years")
+# No ".0" on a whole number of years, and one year is singular (1 Oct 2026).
+ok("duration: 365 is 1 year", fw_popup_duration(365), "1 year")
 ok("duration: 400 is 1.1 years", fw_popup_duration(400), "1.1 years")
-ok("duration: 10220 is 28.0 years", fw_popup_duration(10220), "28.0 years")
+ok("duration: 10220 is 28 years", fw_popup_duration(10220), "28 years")
+ok("duration: 5475 is 15 years", fw_popup_duration(5475), "15 years")
+ok("duration: 900 is 2.5 years", fw_popup_duration(900), "2.5 years")
+ok("duration: 383 rounds to 1 year", fw_popup_duration(383), "1 year")
+# Every year figure the formatter can produce, checked independently: no
+# trailing ".0" anywhere in the data's durations.
+dur_txt <- vapply(a$duration_days[!is.na(a$duration_days)], fw_popup_duration, character(1))
+ok("duration: no '.0' on any recorded duration", any(grepl("\\.0 year", dur_txt)), FALSE)
 ok("duration: none is NA", fw_popup_duration(NA), NA_character_)
 ok("years: a range", fw_popup_years(1998, 2004), "1998-2004")
 ok("years: start only", fw_popup_years(1998, NA), "1998")
@@ -1048,14 +1056,10 @@ tr_count <- traces(fw_chart_method(d, all_sel, "count"))
 ok("method: count mode labels stay counts",
    all(grepl("^[0-9]+$", label_text(tr_count))))
 
-# THE VERTICAL RULES ARE DRAWN OVER THE BARS (client, 23 Sept 2026: "add light
-# grey vertical lines for each %"). They have to be SHAPES: plotly draws every
-# gridline under every trace, and a 100% stack spans the whole axis, so the
-# share view's grid was painted over end to end and showed only in the gaps
-# between rows. xaxis.layer = "above traces" does not fix it - by plotly's own
-# definition it lifts the axis line and the labels and leaves the grid where it
-# was. What is pinned here is that the shapes exist, that they sit above the
-# data, and that every one of them lands on a tick the axis labels.
+# THE VERTICAL RULES ARE DRAWN BEHIND THE BARS (client, 1 Oct 2026; they were
+# over them from 23 Sept). They are still SHAPES, so they sit exactly on the
+# breaks the axis labels. What is pinned here is that the shapes exist, that
+# they sit below the data, and that every one of them lands on a labelled tick.
 bar_layout <- function(p) plotly::plotly_build(p)$x$layout
 for (mode in c("count", "share")) {
   for (nm in c("method", "waterbody")) {
@@ -1066,9 +1070,9 @@ for (mode in c("count", "share")) {
        length(lay$shapes), length(want_at))
     ok(sprintf("%s (%s): each rule is at a break the axis names", nm, mode),
        vapply(lay$shapes, function(s) s$x0, numeric(1)), want_at)
-    ok(sprintf("%s (%s): and drawn above the bars, full height", nm, mode),
+    ok(sprintf("%s (%s): and drawn behind the bars, full height", nm, mode),
        all(vapply(lay$shapes, function(s)
-         identical(s$layer, "above") && identical(s$yref, "paper") &&
+         identical(s$layer, "below") && identical(s$yref, "paper") &&
            identical(s$line$color, FW_COLOURS$border), logical(1))))
     # THE AXIS DRAWS NO GRID OF ITS OWN IN SHARE MODE, or every rule would have
     # a half-hidden twin under the bars. The count view keeps its gridlines:
@@ -1127,9 +1131,12 @@ ok("duration: every attempt drawn is Successful",
    all(fw_duration_sel(d, all_sel)$outcome == "Successful"))
 ok("duration: one point per successful single-method attempt with a duration",
    sum(vapply(pts, function(t) length(t$x), integer(1))), nrow(dm))
+# A lighter fill in a darker brand-teal ring (client, 30 Sept 2026).
 ok("duration: the dots are one colour, the success green, with no key",
    length(pts) == 1L &&
-     identical(pts[[1]]$marker$color, unname(FW_OUTCOME_COLOURS[["Successful"]])) &&
+     identical(pts[[1]]$marker$color,
+               fw_rgba(unname(FW_OUTCOME_COLOURS[["Successful"]]), FW_CHART$point$fill_alpha)) &&
+     identical(pts[[1]]$marker$line$color, FW_COLOURS$teal_hover) &&
      !isTRUE(plotly::plotly_build(fw_chart_duration(d, all_sel))$x$layout$showlegend))
 # THE BOX FROM ITS OWN NUMBERS: R's type-7 quartiles of each row's durations,
 # recomputed here per method from dm.
@@ -1148,6 +1155,19 @@ ok("duration: the box itself has no hover (it would print raw days)",
 ok("duration: the hover names lengths in days or years, never a bare day count",
    all(grepl("(day|days|years)<br>", hov$customdata)) &&
      !any(grepl("[0-9]{4}(<|$)", hov$customdata)))
+# THE HOVER COVERS THE WHOLE ROW, shortest attempt to longest, and not only
+# the three quartile points it used to sit on (client, 30 Sept 2026).
+ok("duration: the hover targets span each row from shortest to longest",
+   all(vapply(seq_along(box_rows), function(r) {
+     x <- dm$dur[dm$method == label_name(box_rows[r])]
+     hx <- hov$x[hov$y == r]
+     length(hx) >= 3L && isTRUE(all.equal(range(hx), range(x)))
+   }, logical(1))))
+ok("duration: the hover is the site's pop-up - surface and ink, not plotly green",
+   identical(hov$hoverlabel$bgcolor, FW_COLOURS$surface) &&
+     identical(hov$hoverlabel$font$color, FW_COLOURS$ink))
+ok("duration: the box is named Box in the hover",
+   all(grepl("<br>Box: ", hov$customdata, fixed = TRUE)))
 ok("duration: the longest in the hover is the longest drawn",
    any(grepl(fw_popup_duration(max(dm$dur)), hov$customdata, fixed = TRUE)))
 ok("duration: the terminal tick uses the same words",
@@ -1297,6 +1317,15 @@ for (nm in names(all_charts)) {
        c(TRUE, TRUE))
     ok(paste0("axis ", nm, " ", ax, ": the spacing ticks are not drawn"),
        axl$tickcolor, FW_TRANSPARENT)
+    # A TITLED AXIS SETS ITS TITLE FW_CHART$title_gap OFF THE LABELS (client,
+    # 1 Oct 2026). Untitled axes ("" or none) have nothing to set off.
+    ttl <- axl$title
+    if (is.list(ttl) && length(ttl$text) && nzchar(ttl$text)) {
+      ok(paste0("axis ", nm, " ", ax, ": title stands ", FW_CHART$title_gap, "px off"),
+         ttl$standoff, FW_CHART$title_gap)
+    }
+    ok(paste0("axis ", nm, " ", ax, ": no bare-string title (it would lose the standoff)"),
+       is.character(ttl) && length(ttl) && nzchar(ttl), FALSE)
   }
 }
 
@@ -1366,34 +1395,11 @@ for (mode in c("count", "share")) {
   ok(paste0("waterbody ", mode, ": some segments are labelled"), n_shown > 0)
 }
 
-# THE SUCCESS RATE OVER TIME (Explore, client 30 Sept 2026): a 10-year
-# trailing window, pooled, finished attempts only, not drawn under min_n.
-# Recomputed here for every year straight from the attempts table.
-st <- traces(fw_chart_success_time(all_sel))[[1]]
-# plotly_build() folds each run of undrawn years into a single NA break, so
-# the drawn points are compared year by year and the breaks counted.
-drawn <- !is.na(st$x)
-cfg <- FW_CHART$success_time
-fin_a <- all_sel[!is.na(all_sel$start_year) & all_sel$outcome %in% c("Successful", "Failed"), ]
-yr0 <- min(fin_a$start_year); yr1 <- max(fin_a$start_year)
-ok("success over time: the window is ten years", cfg$window, 10L)
-want_rate <- vapply(seq(yr0, yr1), function(y) {
-  w <- fin_a[fin_a$start_year >= max(y - (cfg$window - 1), yr0) & fin_a$start_year <= y, ]
-  if (nrow(w) < cfg$min_n) NA_real_ else 100 * mean(w$outcome == "Successful")
-}, numeric(1))
-names(want_rate) <- seq(yr0, yr1)
-ok("success over time: exactly the years with enough finished attempts are drawn",
-   as.integer(st$x[drawn]), as.integer(names(want_rate)[!is.na(want_rate)]))
-ok("success over time: every rate is the pooled window, recomputed",
-   isTRUE(all.equal(as.numeric(st$y[drawn]),
-                    unname(want_rate[as.character(st$x[drawn])]))))
-ok("success over time: thin windows are breaks in the line, and there are some",
-   any(!drawn) && any(is.na(want_rate)))
-ok("success over time: it moves (the chart is worth drawing)",
-   diff(range(st$y, na.rm = TRUE)) > 10)
-ok("success over time: the hover names the window and the counts",
-   all(grepl("^[0-9]{4}-[0-9]{4}: [0-9]+% successful \\([0-9]+ of [0-9]+ finished\\)$",
-             st$customdata[!is.na(st$y)])))
+# THE SUCCESS RATE OVER TIME CHART WENT on 1 Oct 2026 (client): Explore's
+# Show switch now changes only the methods chart. Its code must be gone too.
+ok("success over time: the chart and its settings are gone",
+   c(exists("fw_chart_success_time"), exists("fw_success_time_data"),
+     !is.null(FW_CHART$success_time)), c(FALSE, FALSE, FALSE))
 
 # The caption under the method chart: attempts with no method row at all.
 ok("method: the no-method caption count",
@@ -1483,9 +1489,15 @@ ok("workbook: header fill is the teal text token",
 # from the counting function its plotly original uses; this recomputes each
 # total in base R and checks the page's traces and the PDF's drawn bars
 # against it, in both modes, for the whole database and for one method's slice.
+# The bars are found by their geom, not by index: the rules are now the first
+# layer, drawn behind the bars (1 Oct 2026).
+gg_bar_layer <- function(p) {
+  which(vapply(p$layers, function(l) inherits(l$geom, "GeomCol") ||
+                 inherits(l$geom, "GeomBar"), logical(1)))
+}
 gg_total <- function(p) {
   if (is.null(p)) return(0)
-  ld <- ggplot2::layer_data(p, 1)
+  ld <- ggplot2::layer_data(p, gg_bar_layer(p))
   sum(ld$xmax - ld$xmin)
 }
 pl_total <- function(p) {
@@ -1512,6 +1524,15 @@ for (nm in c("all", "slice")) {
   ok(sprintf("pdf twin (%s): kind of water, page = pdf = recount", nm),
      c(pl_total(fw_chart_waterbody(s, "count")), gg_total(fw_gg_waterbody(s, "count"))),
      c(n_wb, n_wb))
+  # The rules are drawn before the bars, so they sit behind them (1 Oct 2026).
+  for (mode in c("count", "share")) {
+    gm <- fw_gg_method(d, s, mode)
+    if (!is.null(gm)) {
+      vl <- which(vapply(gm$layers, function(l) inherits(l$geom, "GeomVline"), logical(1)))
+      ok(sprintf("pdf twin (%s, %s): rules are layered behind the bars", nm, mode),
+         length(vl) > 0 && max(vl) < min(gg_bar_layer(gm)))
+    }
+  }
   # In share mode every bar is 100, so the drawn total is 100 per bar.
   md <- fw_method_data(d, s, "share")
   if (!is.null(md)) {
@@ -1716,8 +1737,13 @@ ok("welcome: the sentence reads as the client wrote it",
 cap_html <- regmatches(home_html, regexpr('(?s)<figcaption class="fw-compare__caption">.*?</figcaption>', home_html, perl = TRUE))
 ok("welcome: the map line is under the map, both states in their map colours",
    c(length(cap_html) == 1L,
-     grepl('<span class="fw-compare__now">successes (blue)</span>', cap_html, fixed = TRUE),
-     grepl('<span class="fw-compare__later">opportunities (yellow)</span>', cap_html, fixed = TRUE)),
+     # The words come from the copy deck, so a client rewording of the two
+     # pieces does not break the test; the spans and their classes are what
+     # it checks.
+     grepl(paste0('<span class="fw-compare__now">', fw_t("home", "map_caption")[["now"]], '</span>'),
+           cap_html, fixed = TRUE),
+     grepl(paste0('<span class="fw-compare__later">', fw_t("home", "map_caption")[["later"]], '</span>'),
+           cap_html, fixed = TRUE)),
    c(TRUE, TRUE, TRUE))
 ok("welcome: the bar holds only the sentence", grepl("fw-compare__", kpi_html, fixed = TRUE), FALSE)
 # The title's ** pairs are bold, not literal asterisks.

@@ -3790,82 +3790,106 @@
   },
   "files": {
     ".Rprofile": {
-      "checksum": "6fa275dcac2c5b3178e076560de718d4"
+      "checksum": "83384eaa07004d43b29115fc0165a08a"
     },
     "app.R": {
-      "checksum": "9f413d2ec99ec500d3f9de44f0368052"
+      "checksum": "d6dafc886e5e01275404bd0cc4aa1f37"
+    },
+    "content/privacy_and_data_terms.md": {
+      "checksum": "9e202c38338aa617b7010e2b9753b6ac"
     },
     "HANDOVER.md": {
-      "checksum": "55b8ef9e7ec8a46a7c8c08224b3d2535"
+      "checksum": "e32cfce246d7522415e807f55a8fabb3"
     },
     "LICENSE": {
       "checksum": "6e91ae45f5f62c5162562a7747ef8fbc"
     },
+    "R/analytics.R": {
+      "checksum": "34194e884a900b83bad06ccc548e78de"
+    },
     "R/brand.R": {
-      "checksum": "0554d0c21aa00f0f2415a63d82fb09cf"
+      "checksum": "00906d0e5dec15fc5d1e5d1d00e73edd"
     },
     "R/charts_static.R": {
-      "checksum": "98a303f803b66aea9c62b9f4ab5bd0dd"
+      "checksum": "dbb726fcb6f21c20e768467a09194ae5"
     },
     "R/charts.R": {
-      "checksum": "68697c56636217eef3b2299a6aad6301"
+      "checksum": "0a8b72172a2f97f038663b2d9b4af753"
     },
     "R/config.R": {
-      "checksum": "ce4a1e66b926443a95daac0a7e995687"
+      "checksum": "7ae34fdf3c56f289bef305dc7e6bc6c0"
     },
     "R/copy_contribute.R": {
-      "checksum": "40537284aacdad6ab2d5fa04589a3c78"
+      "checksum": "ecc35d8d7e607206b97c6f6337de36c5"
     },
     "R/copy_export.R": {
-      "checksum": "35b97896dc8b9b9d93fa26e2b7bb9beb"
+      "checksum": "f00e5f18a609222ec467e658fbcbc89e"
+    },
+    "R/copy_forms.R": {
+      "checksum": "4d2e59b596bdf3bf7b45c38b5cc39f27"
     },
     "R/copy.R": {
-      "checksum": "e3c659a99a5c3855fcabb04398d6d476"
+      "checksum": "ddbf0aca01bcbd3e1831622947812d59"
     },
     "R/data_load.R": {
       "checksum": "50c9207a5fcbd2a94938c85d8cac22f8"
     },
     "R/export.R": {
-      "checksum": "c91115ee339e03f2c535e4fc364ec0aa"
+      "checksum": "59e28961167c004ec7199b12c84336e0"
     },
     "R/filters.R": {
-      "checksum": "6de6620eb8de6339f2bf7e8e4270e449"
+      "checksum": "2871d19be66b0b118bf7509001525158"
+    },
+    "R/forms_store.R": {
+      "checksum": "4db2524f7c81e6417c44e28f374e0b08"
+    },
+    "R/forms.R": {
+      "checksum": "ee24b39ac7d8201777e617373ad8f3f5"
     },
     "R/github.R": {
       "checksum": "c8a861fdc303cfae7d13809fd619cae5"
     },
     "R/maps.R": {
-      "checksum": "5f474e2d234bc60df659f2a53c91d6d4"
+      "checksum": "3d00f523bf8c033ee2e602ba763dde36"
     },
     "R/mod_about.R": {
-      "checksum": "093b199b67e3e2e9362e95329a61fef1"
+      "checksum": "ac35641f1f7b2b5e5c558f5e9001e605"
     },
     "R/mod_contribute_steps.R": {
-      "checksum": "e909973fbcdd8321f6f888d690f33861"
+      "checksum": "590a2984a1792f791c75647ebc20a98c"
     },
     "R/mod_contribute_ui.R": {
       "checksum": "a2099680b7bc071a93af56d6faa79c41"
     },
     "R/mod_contribute.R": {
-      "checksum": "1413409de51684a41341196e381edbcc"
+      "checksum": "aaa85a1eec4b0c29906775ff70096b77"
     },
     "R/mod_explore.R": {
-      "checksum": "3e3a95453fef136e8d651b24d0d6f4a2"
+      "checksum": "faef7da0e4f4e44496217616405eb07f"
+    },
+    "R/mod_feedback.R": {
+      "checksum": "9418ac6b4ed0a2aa0324503a883fca31"
     },
     "R/mod_home.R": {
-      "checksum": "cadcd2b90747e06ce4a48e6beec9bc5c"
+      "checksum": "ba858c9170a3f5acdafc1732281e6174"
     },
     "R/mod_networking.R": {
-      "checksum": "6ad69f6dbe68ed93de60a358bbc60b41"
+      "checksum": "864d9b6c1cb7187a202e9dddbcefc78b"
+    },
+    "R/mod_newsletter.R": {
+      "checksum": "10acf5aa593e4c23f7e55259563d6dea"
     },
     "R/mod_plan_filters.R": {
       "checksum": "20f6915f342a11dac0a2fd0dbbf623bd"
     },
     "R/mod_plan_results.R": {
-      "checksum": "67dea24331163d40a42abb0d6c0d99cf"
+      "checksum": "ab2113ba4750bd201f5e2bd365766cee"
     },
     "R/mod_plan.R": {
-      "checksum": "504418268a672b7e015eafd2675a2790"
+      "checksum": "08adcb757fef0a3dacb635f31a9c4568"
+    },
+    "R/mod_privacy.R": {
+      "checksum": "989f1c2f1f4834d894c9be0800b4fd1e"
     },
     "R/questions_docx.R": {
       "checksum": "71fb44e881be5580fe63affa46fd9a1d"
@@ -3874,10 +3898,10 @@
       "checksum": "24313d14af5f4bc7984b6958cbaa220b"
     },
     "R/report_pdf.R": {
-      "checksum": "23d0a44b853a364f76c7f73a816f725c"
+      "checksum": "b923de3c5c25deec48d7c95d099796fb"
     },
     "R/report_records.R": {
-      "checksum": "211870be963456fe44fda122f18d38de"
+      "checksum": "7663302f3feb61e82709ddbea0a01410"
     },
     "R/species_images.R": {
       "checksum": "db59149782bdb84749f67060b14f0375"
@@ -3889,16 +3913,16 @@
       "checksum": "38fc2dd8989e53a04fcd80875a97ee16"
     },
     "R/ui_helpers.R": {
-      "checksum": "1f70617a8f53dd8f2f23343d30b26a04"
+      "checksum": "bce806c037fd2a4dc160a73cf7a6a7ac"
     },
     "README.md": {
-      "checksum": "bf6f30438221ee2d22ed2a10c7339091"
+      "checksum": "e42ceb94ba283e9b7acbe49fec03eebc"
     },
     "renv.lock": {
       "checksum": "87deca0ea2d8f687119405673fe7f5b7"
     },
     "resources/js/fw_map_fit.js": {
-      "checksum": "68d0bb8a737533450559871e3c5e043a"
+      "checksum": "35b229c6ba621fdf3d538c2f8f2a3cf9"
     },
     "resources/report/fonts/Ubuntu-Bold.ttf": {
       "checksum": "d0fc30856a541539009e73c787a68bc1"
@@ -3925,7 +3949,7 @@
       "checksum": "92eec3046ca3f5fe0aaae46d7be80b7d"
     },
     "resources/report/typst-template.typ": {
-      "checksum": "fdd1b74ae7452500ab4935be8ec876d4"
+      "checksum": "cbdaf29b8699787c41b574d486528b48"
     },
     "www/fonts/ubuntu-400.woff2": {
       "checksum": "6e27639876db7e5665251406484519c5"
@@ -4033,16 +4057,16 @@
       "checksum": "84a5e18a213a7cd3a2a482b8ddaede38"
     },
     "www/scss/_components.scss": {
-      "checksum": "357b6c70da34c938d63df3072f3cf604"
+      "checksum": "418c00da350b51242c6976c5d99e0e2a"
     },
     "www/scss/_tokens.scss": {
-      "checksum": "30f5ce2c8192614180ae2c3caa112412"
+      "checksum": "97773557c1c8454cea1588b36f8eec36"
     },
     "www/scss/main.scss": {
       "checksum": "388261f8d8ee5c4fe8d6acc590ae40b8"
     },
     "www/scss/records.scss": {
-      "checksum": "0696b3e55a51291dacf488a8ab8567eb"
+      "checksum": "d5d86e54f7a80146343da654f128920f"
     }
   },
   "users": null

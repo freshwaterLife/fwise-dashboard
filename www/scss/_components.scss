@@ -116,6 +116,10 @@
     @media (max-width: $fw-bp-xs) { font-size: $fw-size-h2; }
   }
 
+  // One line each when the title is given as several strings (the Welcome
+  // title, one sentence per line). A long one still wraps within itself.
+  &__line { display: block; }
+
   &__description {
     font-size: $fw-size-lead;
     color: $fw-on-indigo-muted;
@@ -155,7 +159,7 @@
   // These must stay ABOVE the nested rules below: libsass drops custom
   // properties declared after a nested selector.
   //
-  // It has to be fluid rather than a flat figure. The brand is 6rem from 768px
+  // It has to be fluid rather than a flat figure. The brand is 5.5rem from 768px
   // up, which leaves six items about 680px to share at 1024; a flat 1.25rem
   // there tips the bar onto two rows. clamp() gives the roomy spacing on a
   // real desktop and quietly gives it back on a narrow one.
@@ -170,8 +174,12 @@
   // given on a wide window and handed back as the window narrows - and when
   // even the low end does not fit, the bar still becomes a hamburger rather
   // than a second row, so the only cost is that it does so slightly sooner.
-  --bs-navbar-nav-link-padding-x: clamp(0.35rem, 0.75vw, 0.8rem);
-  --bs-nav-link-padding-x: clamp(0.35rem, 0.75vw, 0.8rem);
+  //
+  // REACHES ITS TOP LATER (1 Oct 2026): 0.55vw rather than 0.75vw, so a 13"
+  // laptop (~1440px) gets a little less spacing and keeps every tab on the
+  // row. A large screen still reaches the full 0.8rem.
+  --bs-navbar-nav-link-padding-x: clamp(0.35rem, 0.55vw, 0.8rem);
+  --bs-nav-link-padding-x: clamp(0.35rem, 0.55vw, 0.8rem);
 
   // LIGHT, BECAUSE OF THE LOGO. The FWISE lockup's wordmark is indigo, so the
   // bar it sits in has to be light; the indigo goes into the page-title band
@@ -183,9 +191,9 @@
   // its own height around the brand, which was cropping the top of the logo.
   min-height: 72px;
   padding-block: 0;
-  // The brand steps up to 6rem at md, so the bar has to grow with it or
+  // The brand steps up to 5.5rem at md, so the bar has to grow with it or
   // Bootstrap crops the mark the way it did at 38px.
-  @media (min-width: $fw-bp-md) { min-height: 7.5rem; }
+  @media (min-width: $fw-bp-md) { min-height: 6rem; }
   overflow: visible;
   // NOT STICKY, at the client's request: it scrolls away with the page. The
   // z-index still clears Leaflet, which sets 400 to 800 on its own panes and
@@ -199,20 +207,34 @@
     // Bootstrap sets a line-height on .navbar-brand that pushed the image up.
     line-height: 1;
     padding-block: 0;
-    margin-inline-end: $fw-space-3;
+    margin-inline-end: $fw-space-2;
 
     // THE FWISE-SIMPLE WORDMARK, which is 2.5 times as wide as it is tall
-    // (see fw_brand()), at 7rem from md up at the client's request. It no
-    // longer shrinks to make room for the tabs: when the two do not fit, the
-    // tabs go behind the hamburger instead.
+    // (see fw_brand()). It was 7rem from md up at the client's request; it is
+    // 5.5rem now (1 Oct 2026) so a 13" laptop (~1440px) shows every tab rather
+    // than the hamburger. When the two still do not fit, the tabs go behind
+    // the hamburger; the mark does not shrink further.
+    //
+    // THE NEGATIVE MARGINS TRIM THE PNG'S OWN PADDING. The file carries empty
+    // space either side of the wordmark - 44px left and 48px right of 600, or
+    // 0.18 and 0.2 of its height - which pushed the tabs away from the visible
+    // mark. Taken back in proportion to the height, so both sizes stay in step.
+    $brand-h-sm: 40px;
+    $brand-h-md: 5.5rem;
     img {
-      height: 40px;
+      height: $brand-h-sm;
       width: auto;
       display: block;
       object-fit: contain;
+      margin-inline: ($brand-h-sm * -0.18) ($brand-h-sm * -0.2);
     }
 
-    @media (min-width: $fw-bp-md) { img { height: 7rem; } }
+    @media (min-width: $fw-bp-md) {
+      img {
+        height: $brand-h-md;
+        margin-inline: ($brand-h-md * -0.18) ($brand-h-md * -0.2);
+      }
+    }
   }
 
   // A label never breaks inside itself: "Explore the database" on two lines
@@ -381,39 +403,23 @@
     + .fw-footer__built-by { margin-block-start: $fw-space-1; }
   }
 
-  // THE ADDRESS IS NOT HERE UNTIL IT IS ASKED FOR - the button assembles it in
-  // JavaScript and writes it into __contact-out, which is empty until then.
-  // See fw_footer_contact() in R/ui_helpers.R. It sits in the indigo strip
-  // with the other links (client, 24 Sept 2026), so it takes their size and
-  // their colours rather than the credits'.
+  // THE ADDRESS IS NOT HERE UNTIL IT IS ASKED FOR - fw_email_reveal() puts it
+  // in place of the button on a click. See R/ui_helpers.R. It sits in the
+  // indigo strip with the other links (client, 24 Sept 2026), so it takes their
+  // colours: the revealed link is picked up by &__meta a below, and the button
+  // and the Copy button are matched to it here.
   &__contact {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: $fw-space-2;
-  }
+    .fw-email__btn {
+      color: $fw-teal-light;
+      text-decoration-color: rgba($fw-teal-light, 0.5);
+      &:hover { color: $fw-on-indigo; }
+    }
 
-  &__contact-btn {
-    // A button that reads as a link: it reveals text in place rather than
-    // going anywhere, so it should look like the links beside it.
-    appearance: none;
-    background: none;
-    border: 0;
-    padding: 0;
-    font: inherit;
-    color: $fw-teal-light;
-    text-decoration: underline;
-    text-decoration-color: rgba($fw-teal-light, 0.5);
-    cursor: pointer;
-
-    &:hover { color: $fw-on-indigo; }
-    &:focus-visible { outline: 2px solid $fw-teal-light; outline-offset: 2px; }
-  }
-
-  &__contact-out {
-    color: $fw-on-indigo-muted;
-    // The address has no spaces, so it needs somewhere to break on a phone.
-    overflow-wrap: anywhere;
+    .fw-email__copy {
+      color: $fw-teal-light;
+      border-color: rgba($fw-teal-light, 0.6);
+      &:hover { color: $fw-on-indigo; border-color: $fw-on-indigo; }
+    }
   }
 
   &__meta {
@@ -623,6 +629,9 @@
     margin-block: 0 $fw-space-2;
     color: $fw-ink-muted;
     font-size: $fw-size-caption;
+    // A \n in the copy is a line break (the map note's layers sentence,
+    // client, 1 Oct 2026). Notes without one are unaffected.
+    white-space: pre-line;
   }
 
   // The empty state is gone - the page's introduction moved into the page
@@ -646,6 +655,33 @@
     .fw-caption { margin-block-start: $fw-space-1; }
   }
 
+}
+
+// CONTROLS ON THE TITLE'S ROW (client, 1 Oct 2026): the contacts table's page
+// size sits right of its heading rather than on a line of its own under it,
+// and wraps beneath the heading when the row is too narrow for both.
+.fw-plan__block .fw-block__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: $fw-space-1 $fw-space-2;
+  margin-block-end: $fw-space-2;
+
+  h3, .fw-table-toolbar { margin-block: 0; }
+}
+
+// A CARD FOR EVERY PLOT (client, 1 Oct 2026: the map in particular felt
+// isolated floating on the page). The same surface and shadow as the tables'
+// own, so a chart and a table sit on the page the same way. Tables and species
+// tiles are not wrapped: they already carry a surface of their own. A hairline
+// outline and a map-only card were drafted beside this and not chosen.
+.fw-plan__block--figure {
+  background: $fw-surface;
+  box-shadow: $fw-shadow-card;
+  border-radius: $fw-radius-card;
+  padding: $fw-space-3;
+  @media (min-width: $fw-bp-md) { padding: $fw-space-4; }
 }
 
 // THE DOWNLOAD, FLOATING OVER THE RESULTS.
@@ -828,9 +864,11 @@
 // record, or to press Build report without knowing what comes out, should find
 // that out in the first sentence. One treatment, two names, so the two cards
 // cannot drift apart.
-// The closing link on Explore needs air between it and the charts above.
+// THE WAY ON: a closing link in the same green card - Explore's to the report
+// builder, the report builder's and the Connect page's to the whole contact
+// directory (client, 1 Oct 2026). It needs air between it and what is above.
 // Doubled class so it wins over .fw-callout's own margin below.
-.fw-callout.fw-explore-next { margin-block: $fw-space-4 0; }
+.fw-callout.fw-callout--next { margin-block: $fw-space-4 0; }
 
 .fw-preamble,
 .fw-callout {
@@ -891,7 +929,8 @@
   &__panels h2 { margin-block-start: 0; }
 }
 
-// Hear about new releases. A link out, not a form - see fw_about_signup().
+// Hear about new releases. The button opens the newsletter dialog - see
+// fw_about_signup().
 .fw-signup {
   margin-block-start: $fw-space-4;
 
@@ -940,6 +979,58 @@
   textarea.form-control { width: 100%; }
   .fw-caption { margin-block-start: $fw-space-1; }
 }
+
+// ---- Email addresses, revealed on request -----------------------------------
+
+// fw_email_reveal() in R/ui_helpers.R. A button until it is pressed, then the
+// address as a mailto link with a Copy button after it. The Copy button is the
+// part that matters to a reader whose mail is in a browser tab: a mailto link
+// does nothing for them.
+.fw-email {
+  // The address has no spaces, so it needs somewhere to break on a phone.
+  overflow-wrap: anywhere;
+
+  // A button that reads as a link: it reveals text in place rather than going
+  // anywhere, so it should look like the links around it. Not when the caller
+  // asked for a real button (the About band's btn btn-primary).
+  &__btn:not(.btn) {
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: $fw-teal-text;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+    cursor: pointer;
+
+    &:hover { color: $fw-ink; }
+    &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  }
+
+  // Small and outlined, so it reads as belonging to the address before it
+  // rather than as the next thing on the page. font: inherit, never a smaller
+  // size: inside a caption-sized table an em fraction would fall below the
+  // floor.
+  &__copy {
+    appearance: none;
+    background: none;
+    font: inherit;
+    line-height: 1.2;
+    color: $fw-teal-text;
+    border: 1px solid currentColor;
+    border-radius: $fw-radius-input;
+    padding: 0 $fw-space-1;
+    cursor: pointer;
+
+    &:hover { color: $fw-ink; }
+    &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  }
+}
+
+// The About band's button sits a step below its paragraph.
+.fw-feedback__action { margin-block: $fw-space-2 0; }
 
 // ---- Map popups and species imagery ----------------------------------------
 
@@ -2958,13 +3049,21 @@
   grid-template-columns: minmax(0, 1fr);
   gap: $fw-space-3;
 
+  // THE METHOD PANELS ARE NOT GRID ITEMS. Explore's Show switch swaps the
+  // right-hand cell between two conditionalPanels (client, 1 Oct 2026), and a
+  // wrapper div would sit between the grid and the block and break the
+  // subgrid below. Shiny hides a panel with an inline display: none and shows
+  // it by removing that, so this rule applies only while it is shown.
+  > .shiny-panel-conditional { display: contents; }
+
   @media (min-width: $fw-bp-lg) {
-    // 1fr 1fr, and it used to be 3fr 2fr. The narrow cell was sized for a donut,
-    // which only gets more crowded when it is squeezed; it now holds horizontal
-    // bars whose category labels are method names with a count after them, and
-    // those either get the width or wrap into two lines each. Below this width
-    // they stack, which is the "two rows on a smaller screen" the brief asks for.
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    // 4fr 5fr (client, 1 Oct 2026): the attempts-over-time chart a little
+    // narrower, so the methods chart beside it gets the room. Its category
+    // labels are method names with a count after them, and those either get
+    // the width or wrap into two lines each. It has been 3fr 2fr (when the
+    // right cell held a donut) and 1fr 1fr. Below this width they stack,
+    // which is the "two rows on a smaller screen" the brief asks for.
+    grid-template-columns: minmax(0, 4fr) minmax(0, 5fr);
     align-items: start;
 
     // THE TWO PLOTS SIT LEVEL. Each block is a subgrid of the parent's three
@@ -2980,6 +3079,16 @@
       display: grid;
       grid-row: span 3;
       grid-template-rows: subgrid;
+      // MIN-WIDTH 0 AND A 0-MIN COLUMN, or the pair cannot shrink (client, 1
+      // Oct 2026: "ensure they don't overlap when the page is made smaller").
+      // A grid item's min-width is auto, i.e. its content's, and its content
+      // is a plot plotly last drew at the wider size - so after a wide-to-
+      // narrow resize the block held the old width, overran its track and
+      // pushed the page into a sideways scroll, and plotly never saw a
+      // narrower box to redraw into. minmax(0, ...) on the parent's tracks
+      // alone does not stop it.
+      min-width: 0;
+      grid-template-columns: minmax(0, 1fr);
       row-gap: 0;
     }
   }
@@ -3340,14 +3449,20 @@ table.dataTable,
 // THE HEADER. Two long sentences at h1 size ran to four lines; a step down
 // keeps them to two on a laptop. The lead is three short lines, so the gap
 // between them is small.
+//
+// SCALED BY THE SCREEN (client, 30 Sept 2026). A flat h2 overran one line per
+// sentence on the client's Windows laptop at 100% zoom (display scaling
+// leaves a narrow viewport there). The size now runs from 1.45rem at 600px
+// wide to 1.75rem at 1600px, a little under the old flat 1.9rem at the top.
 .fw-page-header--home {
   padding-block: $fw-space-2;
 
   .fw-page-header__title {
-    font-size: $fw-size-h2;
+    // Quoted for the same reason as .fw-container's min(): libsass would
+    // otherwise try to add the rem to the vw itself and fail the build.
+    font-size: unquote("clamp(#{$fw-size-h3-narrow}, calc(1.27rem + 0.48vw), 1.75rem)");
     line-height: 1.25;
     margin-block-end: $fw-space-2;
-    @media (max-width: $fw-bp-xs) { font-size: $fw-size-h3; }
   }
 
   .fw-page-header__description {
@@ -3473,6 +3588,72 @@ table.dataTable,
   &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
 
   @media (prefers-reduced-motion: reduce) { img { transition: none; } }
+}
+
+// A BUTTON THAT READS AS A LINK, for a control that opens something in place
+// rather than going anywhere - the DOI link while the dataset is not yet on
+// Zenodo (fw_doi_link()). Inside the indigo footer strip it takes the strip's
+// link colours; see .fw-footer__meta below.
+.fw-link-button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: $fw-teal-text;
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:hover { color: $fw-ink; }
+  &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: 2px; }
+}
+
+.fw-footer__meta .fw-link-button {
+  color: $fw-teal-light;
+  text-decoration-color: rgba($fw-teal-light, 0.5);
+
+  &:hover { color: $fw-on-indigo; }
+  &:focus-visible { outline-color: $fw-teal-light; }
+}
+
+// THE "COMING SOON" CARD behind the DOI link: the story card's look, small.
+.fw-soon-card {
+  width: #{"min(28rem, calc(100vw - " + $fw-space-3 + "))"};
+  margin: auto;
+  padding: $fw-space-3;
+  padding-inline-end: $fw-space-5;
+  color: $fw-ink;
+  background: $fw-surface;
+  border: 0;
+  border-radius: $fw-radius-card;
+  box-shadow: $fw-shadow-raised;
+  line-height: $fw-leading-body;
+
+  &::backdrop { background: rgba($fw-brand-indigo, 0.35); }
+
+  &__title { font-size: $fw-size-h3; margin-block-end: $fw-space-2; }
+  p:last-child { margin-block-end: 0; }
+
+  &__close {
+    position: absolute;
+    inset-block-start: $fw-space-1;
+    inset-inline-end: $fw-space-1;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: $fw-ink-muted;
+    background: transparent;
+    border: 0;
+    border-radius: $fw-radius-round;
+    cursor: pointer;
+
+    &:hover { color: $fw-teal-text; background: $fw-teal-wash; }
+    &:focus-visible { outline: 2px solid $fw-teal-text; }
+  }
 }
 
 // THE STORY CARD. The map card's look (surface, raised shadow, round close
@@ -3731,4 +3912,300 @@ table.dataTable,
     &::-webkit-slider-thumb { -webkit-appearance: none; width: 1px; height: 100%; }
     &::-moz-range-thumb { width: 1px; height: 100%; border: 0; }
   }
+}
+
+// ---- A record card ------------------------------------------------------------
+//
+// ONE CARD, TWO PLACES. fw_record_card() in R/report_records.R draws an attempt
+// in full; the Detailed report (.html) lists every one, and the Plan page's
+// record search opens one under its table row (client, 1 Oct 2026). The rules
+// moved here from records.scss so both read the same stylesheet.
+
+.fw-rec-id {
+  font-family: $fw-font-mono;
+  color: $fw-ink-muted;
+}
+
+// ---- A card ------------------------------------------------------------------------
+
+.fw-rec-card {
+  background: $fw-surface;
+  border-radius: $fw-radius-card;
+  box-shadow: $fw-shadow-card;
+  padding: $fw-space-3;
+  margin-block-end: $fw-space-3;
+
+  &__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $fw-space-1 $fw-space-2;
+    border-block-end: 1px solid $fw-border;
+    padding-block-end: $fw-space-2;
+    margin-block-end: $fw-space-2;
+  }
+  h2 {
+    font-size: $fw-size-h2;
+    line-height: $fw-leading-heading;
+    margin: 0;
+  }
+  &__place { color: $fw-ink-muted; margin: 0.2rem 0 0; }
+  &__meta { display: flex; flex-wrap: wrap; gap: $fw-space-2; align-items: center; }
+
+  h3 {
+    font-size: $fw-size-lead;
+    margin: $fw-space-3 0 $fw-space-1;
+    color: $fw-teal-text;
+  }
+
+  &__top { font-size: $fw-size-min; margin: $fw-space-2 0 0; }
+}
+
+// The outcome, named in words, with its data colour as a swatch beside it -
+// never as the only signal.
+.fw-rec-outcome {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: $fw-weight-bold;
+
+  &__dot {
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: $fw-radius-round;
+    display: inline-block;
+  }
+}
+
+.fw-rec-fields {
+  display: grid;
+  grid-template-columns: minmax(10rem, 16rem) 1fr;
+  gap: 0.25rem $fw-space-3;
+  margin: 0;
+
+  dt { color: $fw-ink-muted; }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  .fw-rec-none { color: $fw-ink-muted; font-style: italic; }
+}
+
+@media (max-width: $fw-bp-sm) {
+  .fw-rec-fields { grid-template-columns: 1fr; }
+  .fw-rec-fields dd { margin-block-end: $fw-space-1; }
+}
+
+// ---- The Plan page's record search ---------------------------------------------
+//
+// A page of ten attempts as table rows; clicking a row (or pressing Enter or
+// Space on it) opens its full card in the row below. See fw_plan_records_ui()
+// in R/mod_plan_results.R and the delegated handler in fw_plan_records_script().
+.fw-records {
+  // FIXED LAYOUT, so the card under a row cannot widen the table: under the
+  // automatic layout a cell spanning every column is sized like any other,
+  // and a long note in the card pulled the table off to the right. The
+  // header cells' classes set the widths; the species column takes the rest.
+  &__table { table-layout: fixed; }
+  &__c-id      { width: 14rem; white-space: nowrap; }
+  &__c-site    { width: 24%; }
+  &__c-country { width: 9rem; }
+  &__c-years   { width: 7.5rem; }
+  &__c-outcome { width: 9.5rem; }
+  &__row td { overflow-wrap: anywhere; }
+
+  // ON A PHONE, THE SITE AND THE OUTCOME. Six columns in 370px is a column of
+  // letters each; the id, country, species and years are all in the card.
+  // Automatic layout here: with four of six columns hidden, a fixed layout
+  // summed the widths of cells that are not drawn and shrank the table to a
+  // third of the screen. The card's cell wraps (see __detail below), so it
+  // cannot widen the table at this size.
+  @media (max-width: $fw-bp-md) {
+    &__table { table-layout: auto; width: 100%; }
+    &__c-id, &__c-country, &__c-species, &__c-years { display: none; }
+    &__c-site { width: auto; }
+    &__c-outcome { width: 1%; white-space: nowrap; }
+  }
+
+  &__find {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $fw-space-1 $fw-space-2;
+    margin-block-end: $fw-space-2;
+
+    .form-group { flex: 1 1 18rem; margin: 0; }
+    .shiny-input-container { width: 100%; }
+  }
+
+  &__row {
+    cursor: pointer;
+
+    &:hover > td, &[aria-expanded="true"] > td { background: $fw-teal-wash; }
+    &:focus-visible { outline: 2px solid $fw-teal-text; outline-offset: -2px; }
+  }
+
+  // The chevron in the first cell turns when its record is open.
+  &__chev {
+    display: inline-block;
+    font-size: $fw-size-body;
+    color: $fw-teal-text;
+    transition: transform $fw-motion-fast $fw-easing;
+    margin-inline-end: $fw-space-1;
+
+    @media (prefers-reduced-motion: reduce) { transition: none; }
+  }
+  &__row[aria-expanded="true"] &__chev { transform: rotate(90deg); }
+
+  // WRAPPING, AGAINST .fw-table's rule. The table keeps its last two cells on
+  // one line (the counts and the contact button), and the card's one cell is
+  // the last child of its row - so a long note ran the card, and the whole
+  // table with it, off to the right.
+  // Scoped under .fw-records__table so it outranks .fw-table's own
+  // td:nth-last-child rule, which is the more specific selector otherwise.
+  &__table &__detail > td {
+    background: $fw-sunken;
+    padding: $fw-space-2;
+    white-space: normal;
+  }
+  // The card sits in a tinted cell, so it keeps its own surface and drops its
+  // outer margin.
+  .fw-rec-card { margin-block-end: 0; }
+}
+
+
+// ---- The privacy page's hidden navbar link ---------------------------------
+//
+// The page is a nav_panel (value "privacy") so nav_select() can show it, but it
+// has no place in the navbar: it is reached from the footer and from
+// ?page=privacy links. Hidden HERE rather than with nav_hide() from the server,
+// because the stylesheet is in place before the first paint and a server call
+// is not - the link would show and then vanish. The <li> goes as well as the
+// link, so the row's spacing is not left with an empty item. See
+// R/mod_privacy.R.
+.fw-navbar .nav-item:has(> .nav-link[data-value="privacy"]),
+.fw-navbar .nav-link[data-value="privacy"] {
+  display: none !important;
+}
+
+// ---- The newsletter and feedback dialogs -----------------------------------
+//
+// R/mod_newsletter.R and R/mod_feedback.R, built from the pieces in R/forms.R.
+// NOT .fw-form, which is the contribute form and carries room for its sticky
+// footer.
+
+// The honeypot. OFF-SCREEN, NOT display:none - see fw_honeypot() for why.
+.fw-hp {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.fw-modal-form {
+  // The modal body positions the off-screen honeypot.
+  position: relative;
+
+  .fw-field:last-of-type { margin-block-end: $fw-space-2; }
+
+  // The consent box: the sentence is the label, so it wraps beside the box
+  // rather than under it.
+  &__consent .checkbox label { display: inline; }
+
+  &__data-line {
+    color: $fw-ink-muted;
+    margin-block: $fw-space-1 $fw-space-3;
+  }
+
+  &__counter {
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+    margin-block: $fw-space-1 0;
+  }
+
+  &__required-note {
+    font-size: $fw-size-caption;
+    color: $fw-ink-muted;
+    margin-block: 0 $fw-space-2;
+  }
+
+  &__actions { margin-block-end: $fw-space-2; }
+
+  // A failure or the cooldown notice. A rule beside it as well as the words,
+  // so it is not marked by colour alone.
+  &__status {
+    padding: $fw-space-2;
+    background: $fw-sunken;
+    border-inline-start: 3px solid $fw-data-vermilion;
+    border-radius: $fw-radius-input;
+  }
+
+  // The thank-you that replaces the form.
+  &__done {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $fw-space-2;
+  }
+  &__done-text {
+    font-size: $fw-size-h3;
+    font-weight: $fw-weight-medium;
+    margin: 0;
+  }
+}
+
+// ---- The privacy page ------------------------------------------------------
+
+.fw-privacy {
+  &__version {
+    color: $fw-ink-muted;
+    margin-block-end: $fw-space-2;
+  }
+
+  &__intro { margin-block-end: $fw-space-3; }
+
+  // As wide as its links, not the page: a full-width box around a short list
+  // is mostly empty card.
+  &__contents {
+    width: fit-content;
+    max-width: 100%;
+    padding: $fw-space-2 $fw-space-3;
+    margin-block-end: $fw-space-4;
+    background: $fw-surface;
+    border: $fw-hairline;
+    border-radius: $fw-radius-card;
+
+    ul { margin-block: 0; padding-inline-start: $fw-space-3; }
+    > ul { padding-inline-start: 0; list-style: none; }
+    > ul > li + li { margin-block-start: $fw-space-1; }
+  }
+  &__contents-title {
+    font-size: $fw-size-h3;
+    margin-block: 0 $fw-space-1;
+  }
+
+  // A deep link scrolls a heading to the top of the window; leave it a little
+  // air rather than butting it against the edge.
+  [id] { scroll-margin-top: $fw-space-3; }
+
+  // Focus arrives on a heading from a deep link, for a screen reader's sake;
+  // it is not a control, so it gets no ring.
+  h2[tabindex="-1"]:focus,
+  h3[tabindex="-1"]:focus { outline: none; }
+
+  &__body h2 { margin-block-start: $fw-space-5; }
+  &__body h3 { margin-block-start: $fw-space-4; }
+}
+
+// [TO CONFIRM: ...] in the privacy text: a fact Freshwater Life still has to
+// supply. Marked loudly on purpose, so none goes live unseen.
+.fw-placeholder {
+  background: $fw-teal-tint;
+  color: $fw-ink;
+  padding: 0 0.2em;
+  border-radius: 2px;
+  outline: 1px dashed $fw-teal-text;
+  // A placeholder that wraps keeps its box on both lines.
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }

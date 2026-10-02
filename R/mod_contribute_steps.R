@@ -396,8 +396,10 @@ fw_step_contributor_ui <- function(ns, choices) {
                            fw_t("contribute", "consent", "agree_yes"), value = FALSE),
              fw_t("contribute", "consent", "agree_label"), required = TRUE,
              input_id = ns("consent_data_use")),
-    p(tags$a(href = fw_t("contribute", "consent", "terms_url"),
-             fw_t("contribute", "consent", "terms_link_label"))),
+    # The terms open in a new tab, so a contributor part way through the
+    # form does not lose it. See fw_new_tab_link().
+    p(fw_new_tab_link(fw_privacy_href("submissions"),
+                      fw_t("contribute", "consent", "terms_link_label"))),
     fw_field(checkboxInput(ns("contact_public"), fw_lab("contact_public_yes"), value = FALSE),
              fw_lab("contact_public"), help = fw_help("contact_public"),
              input_id = ns("contact_public"))

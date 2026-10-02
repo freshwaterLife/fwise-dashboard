@@ -65,6 +65,10 @@ fw_gg_theme <- function() {
       axis.text.x = element_text(margin = margin(t = gap)),
       axis.text.y = element_text(margin = margin(r = gap)),
       axis.title = element_text(colour = ink, size = pt),
+      # Room between the tick labels and the axis title (client, 1 Oct 2026),
+      # the printed twin of fw_axis_title()'s standoff, px to pt as above.
+      axis.title.x = element_text(margin = margin(t = FW_CHART$title_gap * 0.75)),
+      axis.title.y = element_text(margin = margin(r = FW_CHART$title_gap * 0.75)),
       legend.text = element_text(colour = ink, size = pt),
       legend.title = element_blank(),
       legend.position = "top",
@@ -152,17 +156,12 @@ fw_gg_stack <- function(d, order_lv, fill, levels, colours, inks, mode, x_title,
   d$text[seg_mm < text_mm] <- ""
   d$ink <- unname(inks[as.character(d$fill)])
 
-  # THE GRID GOES OVER THE BARS, and it has to be a geom to do it: ggplot draws
-  # panel.grid under every layer, exactly as plotly draws gridlines under every
-  # trace, so in share mode each line was painted over end to end by a bar that
-  # spans the full 0 to 100. That is what the client saw as "no vertical lines
-  # for each %" (23 Sept 2026). The page's fix is fw_bar_x_axis()'s
-  # layer = "above traces"; this is the printed twin of it - the theme's own x
-  # grid is blanked and the same hairlines are drawn after geom_col() instead.
-  #
-  # In count mode the theme's grid still reads, because the bars stop short of
-  # the right-hand edge, so only the rule at zero is added - the second thing
-  # the client asked to see tried.
+  # THE RULES GO BEHIND THE BARS (client, 1 Oct 2026), as on the page - see
+  # fw_bar_rules() in charts.R. From 23 Sept they were drawn after geom_col(),
+  # over the bars; now they are the first layer, so on the share view, where a
+  # bar spans the full 0 to 100, they show only between the rows. They stay
+  # geoms rather than the theme's grid so the share rules sit at exactly the
+  # page's breaks, and count mode keeps its rule at zero.
   grid <- if (mode == "share") {
     geom_vline(xintercept = seq(0, 100, FW_CHART$share_dtick),
                colour = FW_COLOURS$border, linewidth = FW_CHART$bar_grid * 0.3)
@@ -172,9 +171,9 @@ fw_gg_stack <- function(d, order_lv, fill, levels, colours, inks, mode, x_title,
   }
 
   p <- ggplot(d, aes(x = value, y = label, fill = fill, group = fill)) +
+    grid +
     geom_col(width = 0.72, position = position_stack(reverse = TRUE),
              colour = FW_COLOURS$surface, linewidth = 0.15) +
-    grid +
     scale_fill_manual(values = colours, breaks = levels, labels = key_labels,
                       drop = TRUE) +
     labs(x = x_title, y = NULL) +
@@ -191,7 +190,10 @@ fw_gg_stack <- function(d, order_lv, fill, levels, colours, inks, mode, x_title,
                             breaks = seq(0, 100, FW_CHART$share_dtick),
                             labels = function(x) paste0(x, "%"),
                             expand = expansion(mult = c(0, 0.01))),
-         theme(panel.grid.major.x = element_blank()))
+         # ROOM FOR "100%", centred on the panel's right edge, which the
+         # default 6pt margin clipped to "100".
+         theme(panel.grid.major.x = element_blank(),
+               plot.margin = margin(2, FW_PRINT$floor * 1.4, 2, 2)))
   } else {
     scale_x_continuous(expand = expansion(mult = c(0, 0.03)))
   }

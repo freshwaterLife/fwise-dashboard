@@ -255,7 +255,13 @@ fw_record_years <- function(row) {
 #'
 #' @param row one row of fw_export_frame(), as a list
 #' @param copy fw_record_copy()
-fw_record_card <- function(row, copy = fw_record_copy()) {
+#' @param top whether to end on the "back to the contents" link. The Plan
+#'   page's record search opens a card under its own table row, where there is
+#'   no contents list to go back to.
+#' @param id whether the card carries the attempt id as its element id, which
+#'   the report's contents list links to. Off on the Plan page, where a map
+#'   card or another output could carry the same id.
+fw_record_card <- function(row, copy = fw_record_copy(), top = TRUE, id = TRUE) {
   esc <- function(x) htmlEscape(as.character(x))
   place <- c(row$region, row$country)
   place <- paste(place[!is.na(place) & nzchar(place)], collapse = ", ")
@@ -279,14 +285,16 @@ fw_record_card <- function(row, copy = fw_record_copy()) {
            paste(fields, collapse = ""), "</dl>")
   }, character(1))
   paste0(
-    '<article class="fw-rec-card" id="', esc(row$attempt_id), '" data-search="',
-    htmlEscape(fw_record_search(row), attribute = TRUE), '">',
+    '<article class="fw-rec-card"',
+    if (id) paste0(' id="', esc(row$attempt_id), '"') else "",
+    ' data-search="', htmlEscape(fw_record_search(row), attribute = TRUE), '">',
     '<div class="fw-rec-card__head"><div><h2>', esc(title), "</h2>",
     if (nzchar(place)) paste0('<p class="fw-rec-card__place">', esc(place), "</p>") else "",
     '</div><div class="fw-rec-card__meta">', fw_record_outcome(row$outcome, copy$none),
     '<span class="fw-rec-id">', esc(row$attempt_id), "</span></div></div>",
     paste(groups, collapse = ""),
-    '<p class="fw-rec-card__top"><a href="#fw-rec-contents">', esc(copy$top), "</a></p>",
+    if (top) paste0('<p class="fw-rec-card__top"><a href="#fw-rec-contents">',
+                    esc(copy$top), "</a></p>") else "",
     "</article>"
   )
 }
@@ -410,7 +418,8 @@ fw_records_summary_ui <- function(data, sel, filters = NULL) {
     if (nrow(people)) {
       fw_records_block(fw_t("plan", "r_contacts"), fw_t("plan", "report_contacts_note"),
                        div(class = "fw-table-scroll",
-                           fw_plan_contacts_ui(people, page = 1L, per_page = nrow(people))))
+                           fw_plan_contacts_ui(people, page = 1L, per_page = nrow(people),
+                                               reveal = FALSE)))
     }
   )
 }
@@ -536,9 +545,12 @@ fw_write_records_html <- function(path, data, sel, export, filters, meta = NULL)
 
     tags$footer(
       class = "fw-rec-foot",
+      # FWISE, FRESHWATER LIFE, WEIRD FISHES, THEN THE REST (client, 1 Oct
+      # 2026). Six logos, so the three-column grid gives two even rows.
       div(class = "fw-rec-foot__logos",
-          logo(FW_LOGO$wfa_file, fw_t("footer", "logo_alt_wfa")),
+          logo(FW_LOGO$mark_file, fw_t("footer", "logo_alt_fwise")),
           logo(FW_LOGO$collab_files[["fwl"]], fw_t("footer", "logo_alt_fwl")),
+          logo(FW_LOGO$wfa_file, fw_t("footer", "logo_alt_wfa")),
           logo(FW_LOGO$collab_files[["ucsc"]], fw_t("footer", "logo_alt_ucsc")),
           logo(FW_LOGO$collab_files[["scripps"]], fw_t("footer", "logo_alt_scripps")),
           logo(FW_LOGO$collab_files[["issg"]], fw_t("footer", "logo_alt_issg"))),

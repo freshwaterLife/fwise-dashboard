@@ -37,14 +37,19 @@ mod_explore_ui <- function(id, choices) {
             class = "fw-explore-block",
             fw_block(fw_t("maps", "title"), fw_t("maps", "note"),
                      tagList(fw_map_output(ns("map")), fw_map_note()),
-                     note_as = "text")
+                     note_as = "text", figure = TRUE)
           ),
 
           # ONE BLOCK, THREE QUESTIONS (client, 30 Sept 2026). The heading asks
           # them; "Show" picks which one the charts below answer. Number of
           # attempts leads: how much has been done, over time and by method.
-          # Success rate puts the same two axes as rates. Duration is the
-          # planning chart, successful eradications only, full width.
+          # Duration is the planning chart, successful eradications only, full
+          # width.
+          #
+          # SUCCESS RATE CHANGES ONLY THE METHODS CHART (client, 1 Oct 2026).
+          # The attempts-over-time chart stays as it is in both views, and the
+          # rolling success rate that used to replace it is gone. So the pair
+          # is one grid, shown for either view, whose right-hand cell swaps.
           #
           # conditionalPanel, not a renderUI: every chart is in the page from
           # the start and a hidden one is suspended by Shiny until its view
@@ -66,42 +71,44 @@ mod_explore_ui <- function(id, choices) {
             ),
             # THE BLOCKS ARE SUBGRIDS of the pair's three rows - title, chart,
             # caption - so the two plots start on the same line whatever the
-            # length of their titles. See .fw-explore-charts.
+            # length of their titles. See .fw-explore-charts. The two method
+            # panels are display: contents there, so the block inside the
+            # shown one is still a direct grid item.
             conditionalPanel(
-              "input.view == 'count'", ns = ns,
+              "input.view != 'duration'", ns = ns,
               div(
                 class = "fw-explore-charts",
                 fw_block(fw_t("explore", "cumulative"), NULL,
-                         plotly::plotlyOutput(ns("cumulative"), height = "auto")),
-                fw_block(fw_t("explore", "method"), fw_t("explore", "method_note"),
-                         tagList(plotly::plotlyOutput(ns("method_count"), height = "auto"),
-                                 uiOutput(ns("method_multi_count"))))
-              )
-            ),
-            conditionalPanel(
-              "input.view == 'rate'", ns = ns,
-              div(
-                class = "fw-explore-charts",
-                fw_block(fw_t("explore", "success_time"),
-                         fw_fill(fw_t("explore", "success_time_note"),
-                                 min_n = FW_CHART$success_time$min_n),
-                         plotly::plotlyOutput(ns("success_time"), height = "auto")),
-                fw_block(fw_t("explore", "method"), fw_t("explore", "method_rate_note"),
-                         tagList(plotly::plotlyOutput(ns("method_rate"), height = "auto"),
-                                 uiOutput(ns("method_multi_rate"))))
+                         plotly::plotlyOutput(ns("cumulative"), height = "auto"),
+                         figure = TRUE),
+                conditionalPanel(
+                  "input.view == 'count'", ns = ns,
+                  fw_block(fw_t("explore", "method"), fw_t("explore", "method_note"),
+                           tagList(plotly::plotlyOutput(ns("method_count"), height = "auto"),
+                                   uiOutput(ns("method_multi_count"))),
+                           figure = TRUE)
+                ),
+                conditionalPanel(
+                  "input.view == 'rate'", ns = ns,
+                  fw_block(fw_t("explore", "method"), fw_t("explore", "method_rate_note"),
+                           tagList(plotly::plotlyOutput(ns("method_rate"), height = "auto"),
+                                   uiOutput(ns("method_multi_rate"))),
+                           figure = TRUE)
+                )
               )
             ),
             conditionalPanel(
               "input.view == 'duration'", ns = ns,
               fw_block(fw_t("explore", "duration"), fw_t("plan", "r_duration_note"),
                        tagList(plotly::plotlyOutput(ns("duration"), height = "auto"),
-                               uiOutput(ns("duration_caption"))))
+                               uiOutput(ns("duration_caption"))),
+                       figure = TRUE)
             )
           ),
 
           # THE WAY ON to the report builder, last on the page (client, 29
           # Sept 2026). The same card as the Plan page's own callout.
-          div(class = "fw-callout fw-explore-next",
+          div(class = "fw-callout fw-callout--next",
               p(fw_home_links(fw_t("explore", "to_plan"))))
         )
       )
@@ -213,8 +220,6 @@ mod_explore_server <- function(id, data, in_review = 0L) {
       fw_chart_or_empty(fw_chart_cumulative(sel())))
     output$method_count <- plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_method(data, sel(), mode = "count")))
-    output$success_time <- plotly::renderPlotly(
-      fw_chart_or_empty(fw_chart_success_time(sel())))
     output$method_rate <- plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_method(data, sel(), mode = "share")))
     output$duration <- plotly::renderPlotly(
