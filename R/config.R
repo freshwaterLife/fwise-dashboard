@@ -272,6 +272,20 @@ FW_HOME_COMPARE <- list(start = 50L, swing = 40L, period_ms = 2600L,
 # fw_client_script(). Well under the minute most proxies allow a silent socket.
 FW_KEEPALIVE_MS <- 30000
 
+# THE SITE'S PUBLIC ADDRESS, with the trailing slash. Read by fw_head_meta() for
+# the canonical link, the Open Graph tags and the structured data, which all
+# need absolute URLs; www/robots.txt and www/sitemap.xml are static files and
+# carry it written out, so change them too if the domain ever moves.
+FW_SITE_URL <- "https://fwise.org/"
+
+# How long the loader may cover the page if Shiny never reports idle, in
+# seconds. A real visitor's session is idle within a couple of seconds and the
+# loader leaves then, so this only ever applies to a page whose WebSocket never
+# connects - a URL-categorisation crawler rendering the page, or a network that
+# blocks WebSockets. Without it they would see the badge and nothing else
+# (Alex, 4 Oct 2026: firewalls were rating the site as "insufficient content").
+FW_LOADER_TIMEOUT_S <- 8
+
 FW_LOGO <- list(
   mark_web   = "img/FWISE-SIMPLE.png",
   mark_file  = "www/img/FWISE-SIMPLE-1200.png",

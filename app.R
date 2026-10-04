@@ -74,11 +74,16 @@ ui <- page_navbar(
     tags$head(
       tags$link(rel = "icon", type = "image/png", href = FW_LOGO$badge_web),
       tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
-      tags$meta(name = "description", content = fw_t("app", "tagline")),
+      # The description, canonical, Open Graph and structured data, and the
+      # rule that hides the loader with JavaScript off. See "What a crawler
+      # reads" in R/ui_helpers.R.
+      fw_head_meta(),
+      fw_noscript_head(),
       # Compiled from www/scss/ with the tokens from R/brand.R injected. See
       # fw_compile_css() for why the cache key has to include the partials.
       tags$style(HTML(fw_compile_css("www/scss/main.scss")))
     ),
+    fw_noscript(),
     fw_loader(),
     # A SPINNING BADGE ON ANY CHART OR MAP THAT IS TAKING A WHILE. Shiny's own
     # busy indicators decide when - an output marked .recalculating, after the

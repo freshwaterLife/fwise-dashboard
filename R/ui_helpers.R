@@ -371,6 +371,86 @@ fw_skip_link <- function(target = "#fw-main") {
   tags$a(class = "fw-skip-link", href = target, fw_t("a11y", "skip_link"))
 }
 
+# ---- What a crawler reads ----------------------------------------------------
+#
+# A SHINY PAGE IS MOSTLY SCRIPT AND A WEBSOCKET, so a firewall's URL-
+# categorisation crawler fetching it saw almost nothing, rated the new domain
+# "insufficient content" or worse, and policies blocked it (Alex, 4 Oct 2026).
+# These put a plain description of FWISE into the HTML Shiny sends first. They
+# are static UI, never renderUI(): output from the server only arrives over the
+# WebSocket, which is exactly what a crawler does not open.
+
+#' The <head> tags that describe the site
+#'
+#' The meta description, the canonical address, Open Graph and Twitter card
+#' tags for link previews, and schema.org structured data (a WebSite and a
+#' Dataset, which also makes FWISE eligible for Google Dataset Search). Every
+#' address is absolute, from FW_SITE_URL.
+fw_head_meta <- function() {
+  title <- fw_t("app", "full_title")
+  desc  <- fw_t("app", "meta_description")
+  # The 1200px copy rather than the 8334px original the navbar serves: a link
+  # preview has no use for the extra megabytes.
+  image <- paste0(FW_SITE_URL, sub("^www/", "", FW_LOGO$mark_file))
+  fwl   <- list(`@type` = "Organization", name = fw_t("footer", "logo_alt_fwl"),
+                url = fw_t("footer", "fwl_url"))
+  ld <- list(
+    `@context` = "https://schema.org",
+    `@graph` = list(
+      list(`@type` = "WebSite", name = fw_t("app", "title"),
+           alternateName = title, url = FW_SITE_URL, description = desc,
+           publisher = fwl),
+      list(`@type` = "Dataset", name = title, description = desc,
+           url = FW_SITE_URL, creator = fwl,
+           license = "https://creativecommons.org/licenses/by-nc/4.0/",
+           isAccessibleForFree = TRUE)
+    )
+  )
+  tagList(
+    tags$meta(name = "description", content = desc),
+    tags$link(rel = "canonical", href = FW_SITE_URL),
+    tags$meta(property = "og:type", content = "website"),
+    tags$meta(property = "og:site_name", content = fw_t("app", "title")),
+    tags$meta(property = "og:title", content = title),
+    tags$meta(property = "og:description", content = desc),
+    tags$meta(property = "og:url", content = FW_SITE_URL),
+    tags$meta(property = "og:image", content = image),
+    tags$meta(name = "twitter:card", content = "summary_large_image"),
+    tags$script(type = "application/ld+json",
+                HTML(jsonlite::toJSON(ld, auto_unbox = TRUE)))
+  )
+}
+
+#' What the page says with JavaScript off
+#'
+#' Two <noscript> blocks. The one for <head> hides the loader, which would
+#' otherwise cover the page for ever because no script runs to remove it. The
+#' one for the body is a few sentences on what FWISE is and who runs it, with
+#' plain links that work without the app. No contact address: the address is
+#' only ever written into the page encoded (see fw_email_reveal()).
+fw_noscript_head <- function() {
+  # BY ID, NOT CLASS: the compiled stylesheet comes later in <head>, and its
+  # .fw-loader { display: flex } would win a tie on specificity.
+  tags$noscript(tags$style(HTML("#fw-loader{display:none;}")))
+}
+
+fw_noscript <- function() {
+  link <- function(href, label) tags$a(href = href, label)
+  tags$noscript(
+    fw_container(
+      class = "fw-noscript",
+      tags$h1(fw_t("app", "noscript_heading")),
+      lapply(fw_t("app", "noscript_body"), tags$p),
+      tags$p(tags$strong(fw_t("app", "noscript_needs_js"))),
+      tags$ul(
+        tags$li(link(fw_t("footer", "fwl_url"), fw_t("app", "noscript_link_fwl"))),
+        tags$li(link(fw_t("footer", "github_url"), fw_t("app", "noscript_link_github"))),
+        tags$li(link("?page=privacy", fw_t("app", "noscript_link_privacy")))
+      )
+    )
+  )
+}
+
 # ---- Chrome ------------------------------------------------------------------
 
 #' The navbar's logo
@@ -688,16 +768,27 @@ fw_safely <- function(session, expr) {
 #'
 #' IT ALSO GOES ON A DISCONNECT. A server that fails at startup never goes idle,
 #' and a loader waiting for it would cover Shiny's own "disconnected" message
-#' for ever. There is deliberately no timeout: a cold start on Connect Cloud
-#' can legitimately take longer than any number worth picking.
+#' for ever.
+#'
+#' AND IT GIVES UP AFTER FW_LOADER_TIMEOUT_S, in CSS alone (Alex, 4 Oct 2026).
+#' There used to be no timeout, on the reasoning that a cold start on Connect
+#' Cloud can take longer than any number worth picking. But this markup is
+#' written by the R process, so a cold start is spent BEFORE the page arrives,
+#' not under the loader; once it is here the session is usually idle within
+#' seconds. What did sit under it for ever was any page whose WebSocket never
+#' connects - a firewall's categorisation crawler - which saw only the badge
+#' and rated the site as having no content. With JavaScript off it is hidden
+#' outright; see fw_noscript().
 #'
 #' The badge's URL goes in as a custom property from here, so the stylesheet's
 #' busy spinner (see the .recalculating rule in _components.scss) draws the
 #' same file FW_LOGO names rather than a second copy of the path.
 fw_loader <- function() {
   tagList(
-    tags$style(HTML(sprintf(":root{--fw-badge-url:url('%s');}",
-                            FW_LOGO$badge_web))),
+    # The timeout feeds the loader's give-up animation in _components.scss.
+    # See FW_LOADER_TIMEOUT_S.
+    tags$style(HTML(sprintf(":root{--fw-badge-url:url('%s');--fw-loader-timeout:%ss;}",
+                            FW_LOGO$badge_web, FW_LOADER_TIMEOUT_S))),
     div(
       id = "fw-loader", class = "fw-loader",
       role = "status", `aria-live` = "polite",

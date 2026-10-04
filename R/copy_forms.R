@@ -56,7 +56,6 @@ FW_COPY_FORMS <- list(
     data_line    = "We'll only use your email to reply about this feedback.",
     submit       = "Send feedback",
     success      = "Thanks, we've got your feedback.",
-    again        = "Send more feedback",
     failure      = paste(
       "Something went wrong and your feedback wasn't saved. Please try again",
       "in a moment."

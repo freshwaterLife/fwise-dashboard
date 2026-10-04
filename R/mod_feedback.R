@@ -5,7 +5,8 @@
 # opened by any fw_form_open("feedback", ...).
 #
 # MORE THAN ONE PER VISIT IS FINE, unlike the newsletter: someone working
-# through the app may find three things. A short cooldown
+# through the app may find three things. Each opening of the dialog is a fresh
+# form; the thank-you has no "send more" button (Alex, 2 Oct 2026). A short cooldown
 # (FW_FEEDBACK_COOLDOWN_S) stops a double press or an impatient resend writing
 # the same message twice.
 #
@@ -46,8 +47,6 @@ mod_feedback_server <- function(id, open, nav) {
       showModal(fw_form_modal(fw_t("feedback", "title"), uiOutput(ns("body"))))
     })
 
-    observeEvent(input$again, reset())
-
     observeEvent(input$touched, {
       f <- sub(ns(""), "", input$touched, fixed = TRUE)
       if (f %in% fields) validators[[f]]$enable()
@@ -55,13 +54,7 @@ mod_feedback_server <- function(id, open, nav) {
 
     output$body <- renderUI({
       opened()
-      if (sent()) {
-        return(fw_form_success(
-          fw_t("feedback", "success"),
-          actionButton(ns("again"), fw_t("feedback", "again"),
-                       class = "btn btn-outline-primary")
-        ))
-      }
+      if (sent()) return(fw_form_success(fw_t("feedback", "success")))
       isolate(fw_feedback_form(ns, fw_feedback_default_page(nav())))
     })
     output$status <- renderUI(fw_form_status(status()))

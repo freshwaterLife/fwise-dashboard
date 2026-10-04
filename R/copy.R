@@ -10,6 +10,44 @@ FW_COPY <- list(
     title      = "FWISE",
     full_title = "FWISE: Freshwater Invasive Species Eradication Database",
     tagline    = "A world evidence base for freshwater invasive species eradication",
+    # FOR MACHINES FIRST: the page's meta description, its Open Graph and
+    # structured-data description, and what a firewall's categorisation
+    # crawler reads to decide what the site is. A Shiny page is otherwise
+    # mostly script, and "insufficient content" gets a new domain blocked
+    # (Alex, 4 Oct 2026). Around 150 characters, plain words, no markup.
+    meta_description = paste(
+      "FWISE is a free, open world database of freshwater invasive species",
+      "eradication attempts, their methods and outcomes, built by Freshwater",
+      "Life and partners."
+    ),
+    # THE <noscript> BLOCK. Shown to a browser with JavaScript off, and read by
+    # any crawler that does not run the app. Plain text, no ** or [[ ]]: it is
+    # written into the page as it stands. DRAFTED FROM THE DECK, not supplied
+    # by the client - one for the copy review.
+    noscript_heading = "FWISE: the Freshwater Invasive Species Eradication Database",
+    noscript_body = c(
+      paste(
+        "Freshwaters cover less than 1% of the earth yet are home to 45% of all",
+        "threatened animal species, and eradicating freshwater invasive species is",
+        "the most effective way to save them from extinction."
+      ),
+      paste(
+        "FWISE brings together eradication attempts from around the world, with",
+        "the species, the waterbody, the methods used and the outcome, so that",
+        "managers, researchers and funders can see what has worked and plan new",
+        "eradications."
+      ),
+      paste(
+        "FWISE is built and maintained by Freshwater Life with the University of",
+        "California, Santa Cruz, Scripps Institution of Oceanography and the",
+        "IUCN SSC Invasive Species Specialist Group. The data are released under",
+        "CC BY-NC 4.0 and the code under the MIT license."
+      )
+    ),
+    noscript_needs_js = "The interactive database needs JavaScript. Please turn it on to explore, plan and add records.",
+    noscript_link_fwl     = "Freshwater Life",
+    noscript_link_github  = "Source code on GitHub",
+    noscript_link_privacy = "Privacy and data terms",
     # Read out by a screen reader while the app is starting, and on nothing
     # else - the loader is the badge and a bar. See fw_loader().
     loading    = "Loading FWISE",
@@ -206,7 +244,7 @@ FW_COPY <- list(
       "Eradicating freshwater invasives is **the most effective way to save them from extinction**."
     ),
     lead = c(
-      "But almost nobody knows this. Enter the **Freshwater Invasive Species Eradication Database**. It shows the world **what works**, **where**, and **how**.",
+      "But almost nobody knows this. Enter the **Freshwater Invasive Species Eradication Database**.",
       paste(
         "Use FWISE now to [[explore|understand this solution]],",
         "[[plan|plan a new eradication]], [[contribute|add your own data]],",
