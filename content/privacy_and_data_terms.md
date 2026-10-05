@@ -1,23 +1,3 @@
-<!--
-  The text of the Privacy and data terms page. Rendered by fw_privacy_html()
-  in R/mod_privacy.R, which also builds the contents list from the headings.
-
-  HEADINGS carry their anchor in braces: "### Feedback {#feedback}". Links
-  elsewhere in the app (?page=privacy&section=feedback) depend on six of them:
-  newsletter, feedback, submissions, contacts, usage, data-terms. Do not rename
-  those; dev/plan_test.R checks they exist.
-
-  [TO CONFIRM: ...] marks a fact Freshwater Life has to supply. Each one is
-  highlighted on the page so none can go live unnoticed.
-
-  {contact_email} becomes the click-to-reveal FWISE address. Never type the
-  address itself here: this file is public on GitHub.
-
-  The version and date at the top of the page come from privacy$version and
-  privacy$last_updated in R/copy_forms.R. When the version changes, add a dated
-  line under "Changes to this notice".
--->
-
 This page explains what personal information FWISE collects, why, where it is kept and what you can do about it (Part A), and the terms for using and contributing FWISE data (Part B).
 
 ## Part A: Privacy notice {#privacy-notice}

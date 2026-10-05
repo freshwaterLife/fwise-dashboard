@@ -258,7 +258,8 @@ fw_home_map_line <- function() {
 #' replaces the default formatter, so it has to do the **bold** that
 #' fw_emphasis() would otherwise have done - a paragraph with no link at all
 #' still goes through here. The emphasis is applied to each stretch of plain
-#' text between the links, so a ** pair must sit inside one such stretch.
+#' text between the links and to each link's words, so a ** pair must sit inside
+#' one such stretch or inside one link.
 fw_home_links <- function(text) {
   pattern <- "\\[\\[([a-z_]+)\\|([^]]+)\\]\\]"
   hits <- gregexpr(pattern, text)
@@ -272,7 +273,7 @@ fw_home_links <- function(text) {
       .noWS = "outside",
       href = "#",
       onclick = sprintf("Shiny.setInputValue('fw_nav_to','%s',{priority:'event'}); return false;", m[2]),
-      m[3]
+      fw_emphasis(m[3])
     )
   })
   out <- vector("list", 2L * length(parts) + 1L)

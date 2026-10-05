@@ -26,16 +26,11 @@ mod_privacy_ui <- function(id) {
   updated <- as.Date(fw_t("privacy", "last_updated"))
 
   tagList(
-    # THE TITLE IS VISIBLE HERE, unlike the main pages, which keep theirs for
-    # screen readers only. A reader who lands on this page from a link in a
-    # form has no navbar item lit to say where they are.
     fw_page_header(fw_t("privacy", "title")),
     tags$main(
       id = "fw-main",
       fw_section(
         fw_container(
-          # THE FULL CONTAINER WIDTH, like every other page (Alex, 2 Oct
-          # 2026). It was held to a 68ch reading column.
           div(
             class = "fw-privacy",
             p(class = "fw-privacy__version",
@@ -46,8 +41,6 @@ mod_privacy_ui <- function(id) {
               tags$span(class = "fw-num",
                         paste(as.integer(format(updated, "%d")),
                               format(updated, "%B %Y")))),
-            # The opening paragraph, then the contents, then the rest: a
-            # reader is told what the page is before being shown its parts.
             div(class = "fw-prose fw-privacy__intro", doc$intro),
             fw_privacy_contents(ns, doc$toc),
             div(class = "fw-prose fw-privacy__body", doc$html)
@@ -58,22 +51,7 @@ mod_privacy_ui <- function(id) {
   )
 }
 
-#' The privacy text as HTML, with its headings listed for the contents
-#'
-#' Four passes over commonmark's output, all on markup this app wrote:
-#'
-#'   1. "## Title {#id}" headings get the id (and tabindex -1, so a deep link
-#'      can move keyboard focus to the section it scrolled to). commonmark
-#'      leaves the braces in the heading text, which is what makes this a
-#'      simple substitution rather than a parser.
-#'   2. Every [TO CONFIRM: ...] is wrapped in <mark>, so none can go live
-#'      without being seen.
-#'   3. {contact_email} becomes the click-to-reveal address.
-#'   4. The file's own HTML comment (its editing notes) is dropped first, so
-#'      the notes are not served and the token inside them is not replaced.
-#'
-#' @return list(html = HTML, intro = HTML, toc = data.frame(level, id, title)).
-#'   `intro` is whatever comes before the first ## heading.
+
 fw_privacy_html <- function(path = FW_PRIVACY_FILE) {
   text <- paste(readLines(path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
   text <- gsub("(?s)<!--.*?-->", "", text, perl = TRUE)

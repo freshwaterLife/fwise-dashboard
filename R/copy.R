@@ -413,7 +413,7 @@ FW_COPY <- list(
 
     # THE WAY ON, under the charts (client, 29 Sept 2026). [[plan|...]] is a
     # link to that tab - see fw_home_links().
-    to_plan = "[[plan|Dig deeper into the data to plan your own eradication]]."
+    to_plan = "[[plan|Dig deeper into the data to **plan your own eradication**]]."
 
     # NO map / map_note HERE EITHER - see maps$title and maps$note.
   ),
@@ -436,6 +436,10 @@ FW_COPY <- list(
     p_protected = "Protected",
     fig_invasive = "Targeted",
     fig_beneficiary = "Protected",
+    # After a protected species' name on the hover card and in the record, and
+    # nowhere else: not on the invasive side, in filters or in downloads (Alex,
+    # 5 Oct 2026). {code} is the Red List code (LC, EN...); no status, no suffix.
+    iucn_suffix = " (IUCN: {code})",
     p_outcome  = "Outcome",
     p_began    = "Years",
     p_duration = "Duration",

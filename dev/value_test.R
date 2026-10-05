@@ -1648,6 +1648,7 @@ ok("map: every located attempt is a point", nrow(mp), sum(!is.na(a$latitude) & !
 # the Explore list draws all of it. A record must not differ between the two.
 recs <- fw_attempt_records(d, a)
 ok("map: the record frame holds every attempt, located or not", nrow(recs), nrow(a))
+
 ok("map: and the located ones are byte-identical to the map's",
    identical(as.data.frame(recs[match(mp$attempt_id, recs$attempt_id), ], row.names = NULL),
              as.data.frame(mp, row.names = NULL)))
@@ -1666,6 +1667,52 @@ ok("map: a cached detail panel is byte-identical to a fresh one",
    all(vapply(sample_rows, function(i) identical(
      fw_map_detail_html(mp[i, ], d$species, figure_cache = cache),
      fw_map_detail_html(mp[i, ], d$species)), logical(1))))
+
+# ---- The IUCN code on protected species --------------------------------------
+# Rebuilt here from the raw tables: "Common (Scientific) (IUCN: XX)" for a
+# beneficiary with a status, the bare name without one, never on the invasive
+# side and never in a download (Alex, 5 Oct 2026).
+sp <- d$species
+sp_name <- ifelse(!is.na(sp$common_name) & !is.na(sp$scientific_name),
+                  paste0(sp$common_name, " (", sp$scientific_name, ")"),
+                  ifelse(!is.na(sp$scientific_name), sp$scientific_name, sp$common_name))
+sp_shown <- ifelse(is.na(sp$iucn_status), sp_name,
+                   paste0(sp_name, " (IUCN: ", sp$iucn_status, ")"))
+names(sp_shown) <- sp$species_id
+want_ben <- vapply(as.character(recs$attempt_id), function(id) {
+  ids <- unique(as.character(asp$species_id[asp$attempt_id == id & asp$role == "beneficiary"]))
+  if (length(ids)) paste(sp_shown[ids], collapse = ", ") else NA_character_
+}, "", USE.NAMES = FALSE)
+ok("iucn: every record's protected list, recomputed",
+   identical(unname(as.character(recs$ben_list)), want_ben))
+ok("iucn: some protected species do carry a code",
+   any(grepl("(IUCN: ", recs$ben_list, fixed = TRUE)))
+ok("iucn: no targeted species carries one",
+   any(grepl("IUCN", recs$inv_list, fixed = TRUE)), FALSE)
+no_status <- sp$species_id[is.na(sp$iucn_status)]
+ben_no_status <- intersect(no_status, asp$species_id[asp$role == "beneficiary"])
+ok("iucn: a protected species with no status is shown bare",
+   length(ben_no_status) > 0 && all(!grepl("IUCN", sp_shown[ben_no_status], fixed = TRUE)))
+ok("iucn: the record panel's captions carry the same names",
+   all(vapply(seq_len(nrow(recs)), function(i)
+     identical(fw_popup_parts(recs$ben_names[i]),
+               if (is.na(want_ben[i])) character(0) else
+                 unname(sp_shown[unique(as.character(asp$species_id[
+                   asp$attempt_id == recs$attempt_id[i] & asp$role == "beneficiary"]))])),
+     logical(1))))
+ok("iucn: no download carries a code",
+   any(grepl("IUCN", unlist(full_export[c("beneficiary_species", "invasive_species")]),
+             fixed = TRUE)), FALSE)
+ok("iucn: species.csv holds the 304 statuses of the 5 Oct download",
+   sum(!is.na(sp$iucn_status)), 304L)
+ok("iucn: every species with a status has its category",
+   all(!is.na(sp$iucn_category[!is.na(sp$iucn_status)])))
+# The 5 Oct export was read through openxlsx, which leaves "&amp;" in inline
+# strings; the build decodes it. Nothing escaped may reach the data.
+escaped <- "&(amp|lt|gt|quot|apos|#[0-9]+|#x[0-9a-fA-F]+);"
+ok("data: no XML escape left in attempts, species or contacts",
+   sum(vapply(list(a, d$species, d$contact), function(t)
+     sum(vapply(t, function(v) sum(grepl(escaped, v)), 1L)), 1L)), 0L)
 
 # The two ways of carrying the record.
 one <- mp[1, ]

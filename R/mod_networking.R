@@ -58,10 +58,13 @@ mod_networking_ui <- function(id) {
                                placeholder = fw_t("networking", "search_placeholder")),
                      label = fw_t("networking", "filter_search"),
                      input_id = ns("search")),
+            # Not btn-sm: its smaller type made the button 3px shorter than
+            # the inputs beside it. At full size it has their 1rem type and,
+            # through .btn, their 0.5rem padding, so the two are one height.
             div(
               class = "fw-filters__clear",
               actionButton(ns("clear"), fw_t("common", "clear_filters"),
-                           class = "btn btn-outline-primary btn-sm")
+                           class = "btn btn-outline-primary")
             )
           ),
 
