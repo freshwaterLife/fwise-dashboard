@@ -51,9 +51,9 @@ FW_COPY <- list(
     # Read out by a screen reader while the app is starting, and on nothing
     # else - the loader is the badge and a bar. See fw_loader().
     loading    = "Loading FWISE",
-    built_by   = "This app was built by Weird Fishes Advisory.",
-    data_by    = "FWISE is built and maintained by Freshwater Life and friends.",
-    illustrated_by = "Logo and illustrations by Georgie Bull."
+    built_by   = "This app was built by **Weird Fishes Advisory**.",
+    data_by    = "FWISE is built and maintained by **Freshwater Life** and friends.",
+    illustrated_by = "Logo and illustrations by **Georgie Bull**."
   ),
 
   # Navigation labels. Order here is the order in the navbar.

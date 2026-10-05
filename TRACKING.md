@@ -66,10 +66,10 @@ A session is capped at 500 events.
 | Variable | Value |
 |---|---|
 | `FWISE_LOG_MODE` | `sheet` in production, `console` to print rows locally, `off`. **Unset means off.** |
-| `FWISE_LOG_SHEET_ID` | The ID of the sheet holding the `events` tab |
+| `FWISE_LOG_SHEET_ID` | Optional. Unset, the `events` tab is in the forms spreadsheet (`FWISE_FORMS_SHEET_ID`), which is the usual set-up. Set it only to log to a different spreadsheet. |
 | `GS4_SA_KEY_B64` | Already set for the forms. The same key is used. |
 
-If `sheet` mode is missing the sheet ID or the key, logging is off. The startup log says which mode is running (`FWISE startup: event log ...`).
+If `sheet` mode has no sheet ID or no key, logging is off. The startup log gives the mode and, when it is off, names the setting at fault, e.g. `FWISE startup: event log off (FWISE_LOG_MODE is not set)`.
 
 The GoatCounter site code is `FW_GOATCOUNTER_CODE` in `R/config.R`. While it holds the placeholder `GOATCOUNTER_CODE`, no script is added. GoatCounter does not count visits from localhost.
 

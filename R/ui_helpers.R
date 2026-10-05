@@ -612,9 +612,9 @@ fw_footer <- function(last_updated, in_review = 0L) {
             # FWISE FIRST, WEIRD FISHES UNDERNEATH (client, 23 Sept 2026). The
             # database is the thing being credited; the app that draws it is
             # the second sentence, not the first.
-            p(class = "fw-footer__built-by", fw_t("app", "data_by")),
-            p(class = "fw-footer__built-by", fw_t("app", "built_by")),
-            p(class = "fw-footer__built-by", fw_t("app", "illustrated_by"))
+            p(class = "fw-footer__built-by", fw_emphasis(fw_t("app", "data_by"))),
+            p(class = "fw-footer__built-by", fw_emphasis(fw_t("app", "built_by"))),
+            p(class = "fw-footer__built-by", fw_emphasis(fw_t("app", "illustrated_by")))
           ),
           div(
             class = "fw-footer__logos",
