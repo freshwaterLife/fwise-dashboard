@@ -41,8 +41,28 @@ raw_path <- list.files(src_dir, pattern = "^fwise_.*[0-9]\\.(csv|xlsx)$", full.n
 if (length(raw_path) != 1) stop("Expected exactly one raw export, found: ", paste(raw_path, collapse = ", "))
 ids_path <- file.path(src_dir, sub("\\.(csv|xlsx)$", "_ids.csv", basename(raw_path)))
 
+# OPENXLSX LEAVES XML ESCAPES IN INLINE STRINGS. The 5 Oct 2026 export stores
+# its text inline in each cell (t="inlineStr") rather than in Excel's shared
+# strings table, and read.xlsx() decodes the escaping only in the latter, so
+# "Abel Creek & North Fork" arrived as "Abel Creek &amp; North Fork" (471
+# cells). This undoes the reader's omission; it is not a change to the data.
+xml_unescape <- function(x) {
+  if (!is.character(x)) return(x)
+  ok <- !is.na(x) & grepl("&#", x, fixed = TRUE)
+  for (form in list(c("&#([0-9]+);", "10"), c("&#x([0-9a-fA-F]+);", "16"))) {
+    hit <- gregexpr(form[1], x[ok], perl = TRUE)
+    regmatches(x[ok], hit) <- lapply(regmatches(x[ok], hit), function(m)
+      vapply(m, function(e) intToUtf8(strtoi(gsub("[&#x;]", "", e), as.integer(form[2]))), ""))
+  }
+  for (e in list(c("&lt;", "<"), c("&gt;", ">"), c("&quot;", "\""), c("&apos;", "'"), c("&amp;", "&")))
+    x <- gsub(e[1], e[2], x, fixed = TRUE)
+  x
+}
+
 raw <- if (grepl("\\.xlsx$", raw_path)) {
-  openxlsx::read.xlsx(raw_path, sheet = 1, check.names = FALSE, na.strings = c("", "NA"))
+  x <- openxlsx::read.xlsx(raw_path, sheet = 1, check.names = FALSE, na.strings = c("", "NA"))
+  x[] <- lapply(x, xml_unescape)
+  x
 } else read_text(raw_path)
 # Numeric Excel columns to text at full precision, so the number comparison
 # below sees what the file holds rather than a rounded print.

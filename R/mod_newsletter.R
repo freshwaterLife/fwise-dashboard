@@ -85,7 +85,7 @@ mod_newsletter_server <- function(id, open) {
       if (isTRUE(res$success)) {
         status(NULL)
         done(TRUE)
-        track_event("newsletter_signup")
+        fw_track(session, "form_submit", list(form = "newsletter"))
       } else {
         status(fw_t("newsletter", "failure"))
         # The click disabled the button in the browser; give it back.

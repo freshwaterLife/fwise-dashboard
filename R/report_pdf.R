@@ -134,14 +134,16 @@ fw_pdf_tokens <- function(logos) {
     sprintf("#let fw-leading = %sem", format(FW_PRINT$leading)),
     sprintf("#let fw-margin = %s", fw_typ_mm(FW_PDF$page_margin_mm)),
     # BIGGER LOGOS (client, 23 Sept 2026), which needed the footer rebuilt:
-    # at 8mm the six logos and the page count shared one line and there was no
+    # at 8mm the logos (six then) and the page count shared one line and there was no
     # room to grow. The logos now have the line to themselves with the page
     # count under them - see fw-footer in typst-template.typ - so 11mm fits.
     # 10mm since 1 Oct 2026, when they went to two rows of three to give each
     # one room (client: "quite squished"); two rows of 11mm took too much page.
+    # Two rows of four since 5 Oct 2026 (UNIL and the Norwegian Veterinary
+    # Institute); a logo wider than its column shrinks to fit it.
     "#let fw-logo-h = 10mm",
     # The FWISE mark on the letterhead, which the client asked to be bigger
-    # still: it is the masthead of the document, not one logo among seven.
+    # still: it is the masthead of the document, not one logo among nine.
     "#let fw-mark-h = 30mm",
     paste0("#let fw-logo-mark = ", fw_typ_str(logos[["mark"]])),
     paste0("#let fw-logos = ", fw_typ_array(fw_typ_str(logos[names(logos) != "mark"]))),

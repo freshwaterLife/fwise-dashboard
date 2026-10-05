@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fwise.org/sitemap.xml

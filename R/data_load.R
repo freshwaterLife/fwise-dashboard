@@ -74,7 +74,9 @@ FW_ATTEMPT_COLUMNS <- c(
 )
 
 FW_SPECIES_COLUMNS <- c(
-  "species_id", "common_name", "scientific_name", "taxa", "family", "iucn_status",
+  "species_id", "common_name", "scientific_name", "taxa", "family",
+  # The IUCN Red List assessment, from dev/import_iucn.R (5 Oct 2026)
+  "iucn_status", "iucn_category", "iucn_url", "iucn_year", "iucn_note", "iucn_matched_name",
   "image_url", "image_credit", "image_licence", "image_licence_url", "image_page_url"
 )
 

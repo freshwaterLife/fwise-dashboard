@@ -605,6 +605,7 @@ mod_contribute_server <- function(id, data, choices) {
         return()
       }
       result(out)
+      fw_track(session, "form_submit", list(form = "submission"))
       stage("done")
       fw_announce(session, fw_t("contribute", "confirm", "heading"))
     })
@@ -629,7 +630,10 @@ mod_contribute_server <- function(id, data, choices) {
       filename = function() paste0("fwise-submission-questions_", fw_file_stamp(), ".docx"),
       contentType = paste0("application/vnd.openxmlformats-officedocument.",
                            "wordprocessingml.document"),
-      content = function(file) fw_write_questions_docx(file, choices)
+      content = function(file) {
+        fw_write_questions_docx(file, choices)
+        fw_track(session, "download", list(type = "docx"))
+      }
     )
 
     # The plain-text list stays alongside the Word one. It is the version that
@@ -640,6 +644,7 @@ mod_contribute_server <- function(id, data, choices) {
       contentType = "text/plain",
       content = function(file) {
         writeLines(fw_questions_text(choices), file, useBytes = TRUE)
+        fw_track(session, "download", list(type = "txt"))
       }
     )
   })

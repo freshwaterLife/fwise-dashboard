@@ -20,7 +20,7 @@ library(shiny)
 source("R/brand.R"); source("R/config.R"); source("R/copy.R"); source("R/copy_contribute.R")
 source("R/copy_export.R"); source("R/copy_forms.R"); source("R/data_load.R")
 for (f in c("ui_helpers.R","theme.R","submit.R","forms.R","mod_explore.R",
-            "mod_contribute_steps.R","mod_contribute.R")) source(file.path("R", f))
+            "mod_contribute_steps.R","mod_contribute.R","tracking.R")) source(file.path("R", f))
 d <- fw_load_data(); ch <- fw_startup_choices(d)
 
 failures <- 0L

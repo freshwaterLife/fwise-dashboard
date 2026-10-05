@@ -316,6 +316,8 @@ mod_plan_server <- function(id, data, meta = NULL) {
           sel     = sel,
           export  = fw_export_frame(data, sel$attempt_id)
         ))
+        fw_track(session, "report_built",
+                 c(fw_track_filters(f, ids, choices), list(n_records = nrow(sel))))
         TRUE
       })
     }
@@ -614,6 +616,8 @@ mod_plan_server <- function(id, data, meta = NULL) {
             progress = function(value, detail) setProgress(value, detail = detail)
           )
         })
+        fw_track(session, "download",
+                 fw_track_download_detail(input$download_parts, nrow(r$sel)))
       }
     )
 

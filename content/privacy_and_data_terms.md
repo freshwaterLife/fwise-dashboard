@@ -1,32 +1,12 @@
-<!--
-  The text of the Privacy and data terms page. Rendered by fw_privacy_html()
-  in R/mod_privacy.R, which also builds the contents list from the headings.
-
-  HEADINGS carry their anchor in braces: "### Feedback {#feedback}". Links
-  elsewhere in the app (?page=privacy&section=feedback) depend on six of them:
-  newsletter, feedback, submissions, contacts, usage, data-terms. Do not rename
-  those; dev/plan_test.R checks they exist.
-
-  [TO CONFIRM: ...] marks a fact Freshwater Life has to supply. Each one is
-  highlighted on the page so none can go live unnoticed.
-
-  {contact_email} becomes the click-to-reveal FWISE address. Never type the
-  address itself here: this file is public on GitHub.
-
-  The version and date at the top of the page come from privacy$version and
-  privacy$last_updated in R/copy_forms.R. When the version changes, add a dated
-  line under "Changes to this notice".
--->
-
 This page explains what personal information FWISE collects, why, where it is kept and what you can do about it (Part A), and the terms for using and contributing FWISE data (Part B).
 
 ## Part A: Privacy notice {#privacy-notice}
 
 ### Who we are {#who-we-are}
 
-FWISE, the Freshwater Invasive Species Eradication database, is run by Freshwater Life. Freshwater Life is the data controller for the personal information described on this page. [TO CONFIRM: Freshwater Life's legal name, the country it is registered in, and its registered address]
+FWISE, the Freshwater Invasive Species Eradication database, is run by Freshwater Life. Freshwater Life is the data controller for the personal information described on this page. Freshwater Life Inc - Santa Cruz / Palo Alto, California, United States - Official 501(c)(3) public non-profit organization (EIN:87-3663862)
 
-For questions about your personal information, or to make any of the requests described under "Your rights", contact [TO CONFIRM: the email address for privacy questions and requests].
+For questions about your personal information, or to make any of the requests described under "Your rights", contact fwise@fwlife.org.
 
 ### Newsletter sign-ups {#newsletter}
 
@@ -34,9 +14,9 @@ For questions about your personal information, or to make any of the requests de
 
 **Why, and our lawful basis.** To send you updates about FWISE. We rely on your consent, which you give by ticking the box on the sign-up form. You can withdraw it at any time.
 
-**Where it is kept.** Until our email service is set up, your details are kept in a private Google Sheet that only named Freshwater Life staff and Freshwater Life's app developer can open. [TO CONFIRM: name the developer, if it should be named] We will then move them to an email service provider, [TO CONFIRM: provider name, once chosen], and delete the sheet before the first newsletter goes out in January 2027.
+**Where it is kept.** Until our email service is set up, your details are kept in a private Google Sheet that only named Freshwater Life staff and Freshwater Life's app developer can open. We will then move them to an email service provider, and delete the sheet before the first newsletter goes out in January 2027.
 
-**Outside the UK and the EU.** Google is a US company, so your details may be processed outside the UK and the EU. [TO CONFIRM: the safeguard that covers this transfer, for example Google's data processing terms and standard contractual clauses]
+**Outside the UK and the EU.** Google is a US company, so your details may be processed outside the UK and the EU. Google's data processing terms and standard contractual clauses apply here.
 
 **Unsubscribing.** Every newsletter will include a link to unsubscribe. Before the first one goes out, you can ask us to remove your details at any time using the contact under "Who we are".
 
@@ -50,7 +30,7 @@ For questions about your personal information, or to make any of the requests de
 
 **Where it is kept.** In a private Google Sheet that only named Freshwater Life staff can open. As with newsletter sign-ups, Google may process it outside the UK and the EU.
 
-**How long we keep it.** [TO CONFIRM: how long feedback is kept, for example until it has been dealt with, or deleted each 1 January if it is more than one month old]
+**How long we keep it.** Feedback will be deleted once it has been addressed. If no action has been taken on feedback it will be kept indefinitely or until a data clean-up occurs. 
 
 ### Eradication record submissions {#submissions}
 
@@ -58,36 +38,70 @@ For questions about your personal information, or to make any of the requests de
 
 - your name
 - your email address
-- your organisation, if you give it
+- your organisation (optional)
 - your agreement to the data-use statement on the form
-- whether you allow your name, organisation and email address to be shown in FWISE
+- whether you allow your name, organisation and email address to be shown publically in FWISE
 - anything you write in the notes to the FWISE team
 - the date and time you sent the record
 
 **What is published.** Once a record has been reviewed, the details of the eradication are published in FWISE. Your name, organisation and email address are shown only if you ticked the box allowing it (see "Contacts directory"). If you did not, they are kept private and left out of everything FWISE shows and every download. Your notes to the FWISE team are never published or included in a download.
 
-**Why, and our lawful basis.** To review your record, publish it in FWISE, and contact you about it. We rely on legitimate interests for running the database, and on your consent for showing your contact details. [TO CONFIRM: these lawful bases]
+**Why we collect this.** To review your record, publish it in FWISE, and contact you about it. We rely on legitimate interests for running the database, and on your consent for showing your contact details. 
 
 **Review.** Every record is reviewed by the FWISE team before it is published. We may contact you about it using the email address you gave.
 
-**Where it is kept.** Each submission is saved as a file in a private GitHub repository belonging to Freshwater Life, where the FWISE team reviews it. Reviewed records become part of the FWISE database, which is kept in the same repository. GitHub is a US company, so records may be processed outside the UK and the EU. [TO CONFIRM: the safeguard that covers this transfer]
+**Where it is kept.** Each submission is saved as a file in a private GitHub repository belonging to Freshwater Life, where the FWISE team reviews it. Reviewed records become part of the FWISE database, which is kept in the same repository. GitHub is a US company, so records may be processed outside the UK and the EU. 
 
 **How long we keep it.** For as long as the record is part of FWISE.
 
 ### Contacts directory {#contacts}
 
-FWISE shows contact details for people involved in eradications, so that practitioners can find each other. A contributor's contact details are shown only if they opted in when adding a record. [TO CONFIRM: where the other contacts in the directory came from, for example published papers and reports, and how those people are told their details are listed]
+FWISE shows contact details for people involved in eradications, so that practitioners can find each other. A contributor's contact details are shown only if they opted in when adding a record, or when they submitted the record to FWISE prior to the apps development. 
 
 You can ask us to remove your contact details from FWISE at any time, using the contact under "Who we are".
 
-### Usage analytics {#usage}
+## Usage analytics {#usage}
 
-We record anonymous usage of FWISE, such as which pages and features are used, to improve it. We use no cookies for this, we do not store IP addresses, and nothing we record identifies you. [TO CONFIRM: the analytics tool, once chosen. Analytics is not running yet, so this section should not go live until it is.] [TO CONFIRM: whether the app's host, Posit Connect Cloud, keeps IP addresses in its own server logs, and for how long]
+We record how FWISE is used so we can improve it and show Freshwater Life's funders and partners how the app is being used. We do this without cookies and without recording who you are.
+
+### What we record
+
+We use two tools.
+
+GoatCounter counts visits. For each visit it records the page, the website that linked you here (if your browser shares it), your browser and operating system type, your screen size, and your country. Your country is worked out from your IP address when the visit is counted, and the IP address is then discarded. To avoid counting one visit twice, GoatCounter briefly combines your IP address and browser details with a random value into a code that is replaced every 8 hours, so visits cannot be linked from one day to the next. GoatCounter's servers are in Germany, and its own privacy policy is on its website.
+
+Inside the app, we log the actions taken during a visit: which pages are opened, the filters chosen when building a report, and when a report or dataset is downloaded or a contact link is opened. Each visit gets a random session code that is not linked to any other visit.
+
+### What we do not record through cookiless trackers
+
+- Your IP address, name, email address or any other detail that identifies you.
+- Links between your visits, or between FWISE and other websites.
+
+We do not use this data for advertising, we do not sell it, and we do not combine it with other data to try to identify anyone. It is purely session based information to understand usage.
+
+### How we use and share it
+
+We use it to see which features are used and which are not, which countries FWISE is reaching, and how many reports and datasets are downloaded. We share it with funders and partners only as totals and charts, and we do not report figures small enough to point to a single person or organisation.
+
+### How long we keep it
+
+GoatCounter keeps visit totals for as long as FWISE runs. In-app action logs are kept for as long as FWISE runs, or periodic cleanup if needed.
+
+### Our hosting provider
+
+FWISE runs on Posit Connect Cloud. Like any web host, Posit receives your IP address in order to deliver the app to your browser. Posit's own privacy policy applies to this.
+
+### Your choices
+
+FWISE works fully if you block GoatCounter with a browser content blocker. If you have questions about this data, contact us at fwise@fwlife.org.
+
+### Legal basis
+
+Freshwater Life processes this data on the basis of legitimate interests (UK GDPR Article 6(1)(f)): understanding and improving a free public app, and reporting its use to the people who fund it. The only personal data involved is your IP address, which is processed briefly by GoatCounter then circulated out. Only used when a visit is counted and is not stored.
 
 ### Your rights {#your-rights}
 
 You have the right to:
-
 - ask for a copy of the personal information we hold about you
 - ask us to correct it
 - ask us to delete it
@@ -96,7 +110,7 @@ You have the right to:
 
 To make any of these requests, use the contact under "Who we are".
 
-You can also complain to a data protection authority. [TO CONFIRM: which authority. There is no single US regulator for this. People in the UK can complain to the Information Commissioner's Office (ICO), and people in the EU to the data protection authority in their own country.]
+You can also complain to a data protection authority. 
 
 ### Changes to this notice {#changes}
 
@@ -108,15 +122,17 @@ The version and date at the top of this page change whenever this notice changes
 
 ### Using FWISE data {#using-data}
 
-The published FWISE data is released under [TO CONFIRM: the data licence. The site footer currently says CC BY-NC 4.0]. Please cite FWISE when you use it: the About page gives the citation.
+The published FWISE data is released under CC BY-NC 4.0. Non-commercial. 
 
-This app always shows the current reviewed version of the data. Citable, versioned releases will be archived on Zenodo. [TO CONFIRM: the Zenodo link, once the data is published]
+Please cite FWISE when you use it: the About page gives the citation.
+
+This app always shows the current reviewed version of the data. Citable, versioned releases will be archived on Zenodo. This, when published, can be found at the bottom of the application. 
 
 ### Accuracy and limitations {#accuracy}
 
 FWISE records are compiled from published sources and from records contributed by practitioners. Outcomes may be self-reported, and some successes have not been independently verified. Read the data caveats on the About page, which are also included in the report and workbook downloads, before relying on a figure.
 
-FWISE data is provided as it is, without warranty of any kind, and Freshwater Life is not liable for decisions made using it. [TO CONFIRM: this wording, ideally reviewed by Freshwater Life's adviser]
+FWISE data is provided as it is, without warranty of any kind, and Freshwater Life is not liable for decisions made using it. 
 
 ### Contributing records {#contributing}
 

@@ -545,15 +545,14 @@ fw_write_records_html <- function(path, data, sel, export, filters, meta = NULL)
 
     tags$footer(
       class = "fw-rec-foot",
-      # FWISE, FRESHWATER LIFE, WEIRD FISHES, THEN THE REST (client, 1 Oct
-      # 2026). Six logos, so the three-column grid gives two even rows.
+      # FWISE, WEIRD FISHES, THEN THE COLLABORATORS in the app footer's order
+      # (client, 5 Oct 2026, when UNIL and the Norwegian Veterinary Institute
+      # joined). Eight logos, so the four-column grid gives two even rows.
       div(class = "fw-rec-foot__logos",
           logo(FW_LOGO$mark_file, fw_t("footer", "logo_alt_fwise")),
-          logo(FW_LOGO$collab_files[["fwl"]], fw_t("footer", "logo_alt_fwl")),
           logo(FW_LOGO$wfa_file, fw_t("footer", "logo_alt_wfa")),
-          logo(FW_LOGO$collab_files[["ucsc"]], fw_t("footer", "logo_alt_ucsc")),
-          logo(FW_LOGO$collab_files[["scripps"]], fw_t("footer", "logo_alt_scripps")),
-          logo(FW_LOGO$collab_files[["issg"]], fw_t("footer", "logo_alt_issg"))),
+          lapply(names(FW_LOGO$collab_files), function(k)
+            logo(FW_LOGO$collab_files[[k]], fw_t("footer", paste0("logo_alt_", k))))),
       p(fw_t("plan", "report_footer"))
     ),
 

@@ -224,6 +224,16 @@ fw_attempt_records <- function(data, sel) {
 
   species <- fw_species_label(data$species)
 
+  # A PROTECTED SPECIES CARRIES ITS RED LIST CODE, "Little grebe (Tachybaptus
+  # ruficollis) (IUCN: LC)" (Alex, 5 Oct 2026). Only here, so it reaches the
+  # hover card and the record and no download or filter. Read once: fw_t()
+  # merges the whole copy deck on every call.
+  iucn_suffix <- fw_t("species", "iucn_suffix")
+  species$shown <- species$label
+  coded <- !is.na(species$label) & !is.na(species$iucn_status)
+  species$shown[coded] <- paste0(species$label[coded], vapply(
+    species$iucn_status[coded], function(code) fw_fill(iucn_suffix, code = code), ""))
+
   # Species for one role, gathered per attempt. EVERY id is kept, not just the
   # first: the detail panel shows the photographs of all of them behind a pair
   # of arrows, so the popup can no longer be built from a single lead species.
@@ -233,9 +243,10 @@ fw_attempt_records <- function(data, sel) {
     out <- data$attempt_species |>
       dplyr::filter(role == role_name, attempt_id %in% pts$attempt_id) |>
       dplyr::distinct(attempt_id, species_id) |>
-      dplyr::left_join(dplyr::select(species, species_id, label),
+      dplyr::left_join(dplyr::select(species, species_id, label, shown),
                        by = "species_id") |>
       dplyr::filter(!is.na(label)) |>
+      dplyr::mutate(label = if (role_name == "beneficiary") shown else label) |>
       dplyr::group_by(attempt_id) |>
       dplyr::summarise(
         ids   = paste(species_id, collapse = FW_POPUP_SEP),
@@ -662,6 +673,7 @@ fw_map_detail_html <- function(row, species_tbl, live = FALSE, figure_cache = NU
 fw_record_detail_html <- function(row, species_tbl, live = FALSE,
                                   figure_cache = NULL) {
   esc <- htmltools::htmlEscape
+  labels <- fw_species_label(species_tbl)
 
   # A labelled column of photographs for one role. Several species become
   # several slides behind a pair of arrows; the label under each says which
@@ -677,7 +689,10 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
       paste0(vapply(seq_along(ids), function(i) {
         fig <- figure_cache[ids[i]]
         if (is.null(figure_cache) || is.na(fig)) {
-          fig <- fw_species_figure_for(species_tbl, ids[i], names[i], live = live)
+          # The photograph's alt text is the bare species label, as in
+          # fw_map_figure_cache(): the caption under it may carry the IUCN code.
+          plain <- labels$label[match(ids[i], labels$species_id)]
+          fig <- fw_species_figure_for(species_tbl, ids[i], plain, live = live)
         }
         paste0('<div class="fw-popup-fig__slide" data-fw-slide="', i - 1L, '"',
                if (i > 1L) " hidden" else "", ">",
@@ -713,7 +728,7 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
   # mail is in a browser and showed no address to copy (Alex, 2 Oct 2026). It
   # also served every public address in the widget's data. The button is
   # delegated from the document, so this innerHTML needs no Shiny binding.
-  person <- function(name, email, org) {
+  person <- function(name, email, org, id) {
     # An organisation with no named person is the contact itself.
     if (is.na(name) || !nzchar(name)) { name <- org; org <- NA_character_ }
     if (is.na(name) || !nzchar(name)) return(NA_character_)
@@ -723,7 +738,8 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
     paste0(who, " ", as.character(fw_email_reveal(
       email,
       label = fw_t("networking", "email_action"),
-      aria = fw_fill(fw_t("a11y", "email_name"), name = name)
+      aria = fw_fill(fw_t("a11y", "email_name"), name = name),
+      contact_id = if (!is.na(id)) id
     )))
   }
 
@@ -733,9 +749,9 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
   # "Recorded by" and "Also recorded by" rows.
   contacts <- c(
     person(row$primary_contact_name, row$primary_contact_email,
-           row$primary_contact_org),
+           row$primary_contact_org, row$primary_contact_id),
     person(row$secondary_contact_name, row$secondary_contact_email,
-           row$secondary_contact_org)
+           row$secondary_contact_org, row$secondary_contact_id)
   )
   has_link <- !is.na(row$reference_link) && nzchar(row$reference_link)
 

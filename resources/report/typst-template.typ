@@ -22,7 +22,7 @@
 // Every page: the tinted ground (no white - see R/brand.R), and a footer with
 // the logos the site's own footer carries - the FWISE mark first (client,
 // 21 Sept 2026: on every page, not only the letterhead), then Weird Fishes
-// Advisory and the four collaborators - beside the page count.
+// Advisory and the six collaborators - beside the page count.
 // TWO ROWS, NOT ONE COLUMN EACH (client, 23 Sept 2026: bigger logos). The
 // logos and the page count used to share a line, which capped the logo height
 // at 8mm - any taller and they ran into the count. The count now sits under
@@ -31,15 +31,19 @@
 #let fw-footer = context {
   line(length: 100%, stroke: 0.5pt + fw-border)
   v(2mm)
-  // TWO ROWS OF THREE (client, 1 Oct 2026: the six on one line were "quite
-  // squished"). Each logo is centred in an equal column, so the rows line up
-  // and there is clear space between every pair.
+  // TWO ROWS (client, 1 Oct 2026: the six on one line were "quite squished"),
+  // of four since UNIL and the Norwegian Veterinary Institute joined (5 Oct
+  // 2026). Each logo is centred in an equal column, so the rows line up and
+  // there is clear space between every pair.
   grid(
-    columns: (1fr, 1fr, 1fr),
+    columns: (1fr, 1fr, 1fr, 1fr),
     row-gutter: 4mm,
     column-gutter: 6mm,
     align: center + horizon,
-    ..(fw-logo-mark, ..fw-logos).map(p => image(p, height: fw-logo-h)),
+    // CONTAINED IN THE CELL, not only fw-logo-h tall: at four to a row a wide
+    // lockup (the Norwegian Veterinary Institute's is 4:1) is wider than its
+    // column at full height, and shrinks to fit rather than overlapping.
+    ..(fw-logo-mark, ..fw-logos).map(p => image(p, width: 100%, height: fw-logo-h, fit: "contain")),
   )
   v(1.5mm)
   align(right, text(size: fw-credit, fill: fw-ink-muted)[

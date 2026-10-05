@@ -97,6 +97,13 @@
 // indigo, with a teal rule along the base: that pairing is what tells the
 // reader which page they are on before they read the title, and it is where
 // the indigo lives now that the navbar has to stay light behind the logo.
+//
+// A STEP SMALLER THAN THE SCALE (Alex, 2 Oct 2026): the band's title and its
+// description are drawn at $fw-band-scale of their tokens, on every page.
+// Nothing reaches the floor: the smallest result is the description at about
+// 1.22rem.
+$fw-band-scale: 0.94;
+
 .fw-page-header {
   padding-block: $fw-space-3;
   background: $fw-brand-indigo;
@@ -108,12 +115,12 @@
   // the first one early - on the Welcome band a two-line title stopped two
   // thirds of the way across a wide screen. Here the lines run to the edge.
   &__title {
-    font-size: $fw-size-h1;
+    font-size: calc(#{$fw-size-h1} * #{$fw-band-scale});
     color: $fw-on-indigo;
     margin-block-end: $fw-space-1;
     text-wrap: wrap;
 
-    @media (max-width: $fw-bp-xs) { font-size: $fw-size-h2; }
+    @media (max-width: $fw-bp-xs) { font-size: calc(#{$fw-size-h2} * #{$fw-band-scale}); }
   }
 
   // One line each when the title is given as several strings (the Welcome
@@ -121,7 +128,7 @@
   &__line { display: block; }
 
   &__description {
-    font-size: $fw-size-lead;
+    font-size: calc(#{$fw-size-lead} * #{$fw-band-scale});
     color: $fw-on-indigo-muted;
     max-width: 100%;
     margin-block-end: 0;
@@ -2549,6 +2556,10 @@
   gap: $fw-space-3;
   background: $fw-page;
   transition: opacity $fw-motion-base $fw-easing;
+  // THE GIVE-UP, for a page whose WebSocket never connects. The delay is
+  // FW_LOADER_TIMEOUT_S, set as a custom property by fw_loader(). A delay is
+  // untouched by the reduced-motion rule in main.scss, so it holds there too.
+  animation: fw-loader-give-up $fw-motion-base $fw-easing var(--fw-loader-timeout, 8s) forwards;
 
   &--done { opacity: 0; pointer-events: none; }
 
@@ -2587,6 +2598,16 @@
   @media (prefers-reduced-motion: reduce) {
     &__fill { width: 100%; left: 0; opacity: 0.6; }
   }
+}
+
+@keyframes fw-loader-give-up {
+  to { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+
+// The page as written with JavaScript off. See fw_noscript().
+.fw-noscript {
+  padding-block: $fw-space-5;
+  max-width: 48rem;
 }
 
 @keyframes fw-loader-travel {
@@ -3460,7 +3481,7 @@ table.dataTable,
   .fw-page-header__title {
     // Quoted for the same reason as .fw-container's min(): libsass would
     // otherwise try to add the rem to the vw itself and fail the build.
-    font-size: unquote("clamp(#{$fw-size-h3-narrow}, calc(1.27rem + 0.48vw), 1.75rem)");
+    font-size: unquote("clamp(calc(#{$fw-size-h3-narrow} * #{$fw-band-scale}), calc((1.27rem + 0.48vw) * #{$fw-band-scale}), calc(1.75rem * #{$fw-band-scale}))");
     line-height: 1.25;
     margin-block-end: $fw-space-2;
   }
@@ -3489,7 +3510,14 @@ table.dataTable,
   border: 1px solid $fw-brand-teal;
   border-radius: $fw-radius-card;
   color: $fw-ink;
-  font-size: $fw-size-lead;
+  // ONE LINE ON A 12-INCH WINDOWS LAPTOP (Alex, 2 Oct 2026). The sentence
+  // measures about 56 times its font size, and the box gives it the window
+  // less the gutters - so it fits on one line while the font is at most ~1.6%
+  // of the window width. 1.5vw keeps it on one line from about 1,050px up,
+  // reaching the lead size (where it used to sit) at about 1,390px, so a 14"
+  // MacBook Pro (1,512px) is unchanged. Below 1,050px it sits at the floor and
+  // wraps. Quoted for libsass, as the Welcome title's clamp below.
+  font-size: unquote("clamp(#{$fw-size-min}, 1.5vw, #{$fw-size-lead})");
   line-height: 1.4;
   text-align: center;
 

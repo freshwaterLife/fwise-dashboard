@@ -53,6 +53,9 @@ message("FWISE startup: ", nrow(FW_DATA$attempt), " attempts, ",
 # and GS4_SA_KEY_B64 are both set, "local" (dev/forms/) otherwise.
 message("FWISE startup: forms ", fw_forms_mode())
 
+# Usage tracking: "sheet", "console" or "off". See R/tracking.R.
+message("FWISE startup: event log ", fw_track_mode())
+
 # THE PDF REPORT NEEDS QUARTO (1.4 or later, for Typst), and this line is where
 # a deployment says whether it has it. Without it the Plan page's download
 # picker drops the PDF and says why; every other download is unaffected.
@@ -74,11 +77,19 @@ ui <- page_navbar(
     tags$head(
       tags$link(rel = "icon", type = "image/png", href = FW_LOGO$badge_web),
       tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
-      tags$meta(name = "description", content = fw_t("app", "tagline")),
+      # The description, canonical, Open Graph and structured data, and the
+      # rule that hides the loader with JavaScript off. See "What a crawler
+      # reads" in R/ui_helpers.R.
+      fw_head_meta(),
+      fw_noscript_head(),
+      # Arrivals only, and nothing while the site code is a placeholder. See
+      # R/tracking.R.
+      fw_goatcounter_tag(),
       # Compiled from www/scss/ with the tokens from R/brand.R injected. See
       # fw_compile_css() for why the cache key has to include the partials.
       tags$style(HTML(fw_compile_css("www/scss/main.scss")))
     ),
+    fw_noscript(),
     fw_loader(),
     # A SPINNING BADGE ON ANY CHART OR MAP THAT IS TAKING A WHILE. Shiny's own
     # busy indicators decide when - an output marked .recalculating, after the
@@ -125,6 +136,19 @@ server <- function(input, output, session) {
   # fw_client_script() stops an idle connection being closed in the first
   # place.
   session$allowReconnect(TRUE)
+
+  # USAGE TRACKING. Logs session_start now and writes the session's events in
+  # one go when it ends. Never affects the visitor. See R/tracking.R.
+  fw_track_session(session)
+
+  # A contributor's address revealed, anywhere in the app. The id is checked
+  # against the contacts table, so nothing else can be logged through it.
+  observeEvent(input$fw_contact_click, {
+    id <- input$fw_contact_click
+    if (is.character(id) && length(id) == 1 && id %in% FW_DATA$contact$contact_id) {
+      fw_track(session, "contact_click", list(contact_id = id))
+    }
+  })
 
   mod_home_server("home", FW_DATA)
   mod_explore_server("explore", FW_DATA, FW_IN_REVIEW)

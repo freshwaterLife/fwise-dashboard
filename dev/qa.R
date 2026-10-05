@@ -276,6 +276,8 @@ if (!is.null(sp_dec)) {
   if (any(adds)) species <- bind_rows(species, tibble(
     species_id = ids, common_name = sp_dec$common_name[adds], scientific_name = sp_dec$scientific_name[adds],
     taxa = sp_dec$taxa[adds], family = sp_dec$family[adds], iucn_status = NA_character_,
+    iucn_category = NA_character_, iucn_url = NA_character_, iucn_year = NA_character_,
+    iucn_note = NA_character_, iucn_matched_name = NA_character_,
     image_url = NA_character_, image_credit = NA_character_, image_licence = NA_character_,
     image_licence_url = NA_character_, image_page_url = NA_character_))
   sp_dec$id <- sp_dec$use_id; sp_dec$id[adds] <- ids
