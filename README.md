@@ -587,7 +587,7 @@ could produce, the Download button is disabled until something is ticked - see
 
 `R/report_pdf.R`. The report the reader built, on FWISE letterhead, with every
 logo the site's footer carries (FWISE on the letterhead; Weird Fishes Advisory
-and the four collaborators in the footer of every page), static charts and a
+and the six collaborators in the footer of every page), static charts and a
 static map, on A4. **Rendered on the server by Quarto, with its Typst engine** -
 no LaTeX, no Chrome, no Python.
 

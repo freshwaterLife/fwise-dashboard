@@ -1113,11 +1113,74 @@ ok("google: the signature verifies against the key",
    isTRUE(openssl::signature_verify(charToRaw(paste(jwt[1:2], collapse = ".")), b64d(jwt[3]),
                                     hash = openssl::sha256, pubkey = tk$pubkey)))
 
-ok("analytics: a listed event is accepted", is.null(track_event("feedback_submitted", page = "plan")))
-ok("analytics: an unlisted event is refused",
-   inherits(tryCatch(track_event("signup_with_email"), error = identity), "error"))
-ok("analytics: page must be one string",
-   inherits(tryCatch(track_event("newsletter_signup", page = list(email = "a@b.co")), error = identity), "error"))
+cat("\n-- usage tracking --\n")
+ok("tracking: no ref is direct", fw_track_source(""), "direct")
+ok("tracking: ref is lowercased", fw_track_source("?ref=Webinar"), "webinar")
+ok("tracking: hyphens and digits pass", fw_track_source("?page=privacy&ref=issg-2026"), "issg-2026")
+ok("tracking: a space is other", fw_track_source("?ref=a%20b"), "other")
+ok("tracking: an address is other", fw_track_source("?ref=a@b.co"), "other")
+ok("tracking: 31 characters is other", fw_track_source(paste0("?ref=", strrep("a", 31))), "other")
+ok("tracking: 30 characters pass", fw_track_source(paste0("?ref=", strrep("a", 30))), strrep("a", 30))
+
+tf <- base
+tf$country <- c(ch$country[1], "Not a country")
+tf$continent <- ch$continent[1]
+tdet <- fw_track_filters(tf, plan_ids, ch)
+tjs <- jsonlite::fromJSON(as.character(jsonlite::toJSON(tdet, auto_unbox = TRUE)), simplifyVector = FALSE)
+ok("tracking: an unoffered filter value is dropped", unlist(tjs$country), ch$country[1])
+ok("tracking: one choice is still an array",
+   grepl('"continent":["', as.character(jsonlite::toJSON(tdet, auto_unbox = TRUE)), fixed = TRUE))
+ok("tracking: an empty filter is []",
+   grepl('"species":[]', as.character(jsonlite::toJSON(tdet, auto_unbox = TRUE)), fixed = TRUE))
+ok("tracking: only filter keys, nothing else",
+   all(names(tdet) %in% c(plan_ids, "year_from", "year_to", "include_no_year",
+                          paste0("size_", FW_SIZE_UNITS), "include_no_size")))
+tf$year_from <- -5
+ok("tracking: an out-of-range year is dropped", is.null(fw_track_filters(tf, plan_ids, ch)$year_from))
+
+ok("tracking: one part names its type", fw_track_download_detail("xlsx", 3)$type, "xlsx")
+ok("tracking: two parts are a zip", fw_track_download_detail(c("xlsx", "records"), 3)$type, "zip")
+
+trow <- fw_track_row("tok", "session_end")
+ok("tracking: a row has the sheet's five columns", length(trow), length(FW_TRACK_COLUMNS))
+ok("tracking: an empty detail is {}", trow[4], "{}")
+ok("tracking: UTC ISO 8601 timestamp", grepl("^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$", trow[1], perl = TRUE))
+ok("tracking: an unknown event is refused",
+   inherits(tryCatch(fw_track_row("tok", "page_view"), error = identity), "error"))
+
+ok("tracking: unset mode is off", fw_track_mode(NULL, "id", "key"), "off")
+ok("tracking: an unknown mode is off", fw_track_mode("verbose", "id", "key"), "off")
+ok("tracking: sheet without an id is off", fw_track_mode("sheet", NULL, "key"), "off")
+ok("tracking: sheet without a key is off", fw_track_mode("sheet", "id", NULL), "off")
+ok("tracking: sheet with both is sheet", fw_track_mode("Sheet", "id", "key"), "sheet")
+ok("tracking: console needs nothing", fw_track_mode("console", NULL, NULL), "console")
+
+treq <- fw_track_request(list(trow, trow, trow), "tkn", sheet_id = "SID")
+ok("tracking: appends to the events tab", grepl("/SID/values/events%21A1:append", treq$url, fixed = TRUE))
+ok("tracking: RAW", grepl("valueInputOption=RAW", treq$url, fixed = TRUE))
+ok("tracking: every row in one request", length(treq$body$data$values), 3L)
+ok("tracking: no retry", is.null(treq$policies$retry_max_tries))
+
+tmsg <- character(0)
+withCallingHandlers({
+  tt <- fw_tracker("tok", mode = "console")
+  tt$log("session_start", list(source = "direct"))
+  tt$log("page_view")
+  tt$flush(); tt$flush()
+}, message = function(m) { tmsg <<- c(tmsg, conditionMessage(m)); invokeRestart("muffleMessage") })
+ok("tracking: console prints the good row once", sum(grepl("FWISE event: .*session_start", tmsg)), 1L)
+ok("tracking: a bad event is dropped quietly", any(grepl("page_view", tmsg)), FALSE)
+toff <- fw_tracker("tok", mode = "off")
+ok("tracking: off logs nothing", is.null(toff$log("session_start")), TRUE)
+ok("tracking: no tracker is a no-op", is.null(fw_track(list(userData = new.env()), "download")), TRUE)
+
+ok("tracking: a contributor's reveal carries its id",
+   grepl('data-fw-contact="CO-1"', as.character(fw_email_reveal("a@b.co", "x", contact_id = "CO-1")), fixed = TRUE))
+ok("tracking: the FWISE address carries none",
+   grepl("data-fw-contact", as.character(fw_footer_contact()), fixed = TRUE), FALSE)
+ok("tracking: no GoatCounter script while the code is a placeholder", is.null(fw_goatcounter_tag()), TRUE)
+ok("tracking: GoatCounter script with a code",
+   grepl('data-goatcounter="https://abc.goatcounter.com/count"', as.character(fw_goatcounter_tag("abc")), fixed = TRUE))
 
 FWISE_FORMS_SHEET_ID <- saved_sheet; GS4_SA_KEY_B64 <- saved_key
 unlink(FW_DEV_DIR, recursive = TRUE); FW_DEV_DIR <- saved_dev

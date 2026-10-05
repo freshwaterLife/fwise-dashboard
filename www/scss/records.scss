@@ -206,11 +206,12 @@ a:hover { color: $fw-teal-hover; }
   // THREE TO A ROW, WITH ROOM (client, 1 Oct 2026: "quite squished"). The
   // five logos used to run on in one wrapping line with a small gap; a grid
   // puts them in two rows of three and two, each centred in an equal cell, and
-  // two to a row on a phone. The FWISE wordmark joined them on 1 Oct 2026, so
-  // it is now two full rows of three.
+  // two to a row on a phone. The FWISE wordmark joined them on 1 Oct 2026, and
+  // UNIL and the Norwegian Veterinary Institute on 5 Oct 2026, so it is now
+  // two full rows of four.
   &__logos {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: $fw-space-4 $fw-space-5;
     justify-items: center;
     align-items: center;

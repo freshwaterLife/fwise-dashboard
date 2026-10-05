@@ -62,7 +62,7 @@ You can ask us to remove your contact details from FWISE at any time, using the 
 
 ## Usage analytics {#usage}
 
-We record how FWISE is used so we can improve it and show Freshwater Life's funders and partners how the tool is being used. We do this without cookies and without recording who you are.
+We record how FWISE is used so we can improve it and show Freshwater Life's funders and partners how the app is being used. We do this without cookies and without recording who you are.
 
 ### What we record
 
@@ -97,7 +97,7 @@ FWISE works fully if you block GoatCounter with a browser content blocker. If yo
 
 ### Legal basis
 
-Freshwater Life processes this data on the basis of legitimate interests (UK GDPR Article 6(1)(f)): understanding and improving a free public tool, and reporting its use to the people who fund it. The only personal data involved is your IP address, which is processed briefly by GoatTracker then circulated out. Only used when a visit is counted and is not stored.
+Freshwater Life processes this data on the basis of legitimate interests (UK GDPR Article 6(1)(f)): understanding and improving a free public app, and reporting its use to the people who fund it. The only personal data involved is your IP address, which is processed briefly by GoatCounter then circulated out. Only used when a visit is counted and is not stored.
 
 ### Your rights {#your-rights}
 

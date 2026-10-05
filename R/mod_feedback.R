@@ -91,7 +91,7 @@ mod_feedback_server <- function(id, open, nav) {
         last_sent(now)
         status(NULL)
         sent(TRUE)
-        track_event("feedback_submitted", page = v$page)
+        fw_track(session, "form_submit", list(form = "feedback"))
       } else {
         status(fw_t("feedback", "failure"))
         updateActionButton(session, "submit", disabled = FALSE)

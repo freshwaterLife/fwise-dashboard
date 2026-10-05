@@ -413,7 +413,8 @@ fw_plan_contacts_ui <- function(contacts, page = 1L,
         tags$td(r$continent_label),
         tags$td(r$country_label),
         tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
-        tags$td(fw_contact_action(r$contact_email, fw_contact_who(r), reveal = reveal))
+        tags$td(fw_contact_action(r$contact_email, fw_contact_who(r), reveal = reveal,
+                                  contact_id = r$contact_id))
       )
     }))
   )

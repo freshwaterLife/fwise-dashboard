@@ -519,8 +519,12 @@ fw_brand <- function() {
 #' @param btn_class extra classes on the button. By default it reads as a link,
 #'   because it reveals text in place rather than going anywhere; the About
 #'   band passes "btn btn-primary", where it is the band's one action.
+#' @param contact_id a contributor's contact_id. When given, pressing the
+#'   revealed mailto link or Copy is logged as contact_click with this id and
+#'   nothing else (see R/tracking.R). The reveal itself is not logged.
+#'   NULL for the FWISE address, which is not logged.
 fw_email_reveal <- function(email, label, aria = NULL, class = NULL,
-                            btn_class = NULL) {
+                            btn_class = NULL, contact_id = NULL) {
   tags$span(
     class = paste(c("fw-email", class), collapse = " "),
     tags$button(
@@ -528,6 +532,7 @@ fw_email_reveal <- function(email, label, aria = NULL, class = NULL,
       class = paste(c("fw-email__btn", btn_class), collapse = " "),
       `data-fw-email` = fw_email_encode(email),
       `aria-label` = aria,
+      `data-fw-contact` = contact_id,
       label
     )
   )
@@ -584,7 +589,7 @@ fw_footer <- function(last_updated, in_review = 0L) {
         # TWO STATEMENTS, NOT ONE. This was a single line reading "Built by
         # Weird Fishes Advisory" under both logos, which - sitting under the
         # FWISE mark - could be read as claiming the database as well as the
-        # app. It does not: Weird Fishes Advisory built this tool, and the
+        # app. It does not: Weird Fishes Advisory built this app, and the
         # database is Freshwater Life's and its contributors'. Two sentences
         # rather than one, so neither can be read into the other.
         div(
@@ -605,7 +610,7 @@ fw_footer <- function(last_updated, in_review = 0L) {
           div(
             class = "fw-footer__credits",
             # FWISE FIRST, WEIRD FISHES UNDERNEATH (client, 23 Sept 2026). The
-            # database is the thing being credited; the tool that draws it is
+            # database is the thing being credited; the app that draws it is
             # the second sentence, not the first.
             p(class = "fw-footer__built-by", fw_t("app", "data_by")),
             p(class = "fw-footer__built-by", fw_t("app", "built_by")),
@@ -619,8 +624,12 @@ fw_footer <- function(last_updated, in_review = 0L) {
                  fw_t("footer", "logo_alt_ucsc")),
             logo(fw_t("footer", "scripps_url"), "img/collab/UCSD_SCRIPPS.png",
                  fw_t("footer", "logo_alt_scripps")),
+            logo(fw_t("footer", "unil_url"), "img/collab/UNIL-TRIM.png",
+                 fw_t("footer", "logo_alt_unil")),
             logo(fw_t("footer", "issg_url"), "img/collab/ISSG_SSC_IUCN.png",
-                 fw_t("footer", "logo_alt_issg"))
+                 fw_t("footer", "logo_alt_issg")),
+            logo(fw_t("footer", "vetinst_url"), "img/collab/VETINST.png",
+                 fw_t("footer", "logo_alt_vetinst"))
           )
         )
       )
@@ -1073,8 +1082,21 @@ fw_client_script <- function() {
         out.appendChild(link);
         out.appendChild(document.createTextNode(' '));
         out.appendChild(copy);
+        // A contributor's id travels to the revealed address, so the mailto
+        // link and Copy below can be logged. The reveal itself is not.
+        var cid = btn.getAttribute('data-fw-contact');
+        if (cid) out.setAttribute('data-fw-contact', cid);
         btn.replaceWith(out);
         link.focus();
+      });
+      // A CONTRIBUTOR'S ADDRESS USED: the mailto link or Copy pressed. Logged
+      // by its id only, once per press. See R/tracking.R.
+      document.addEventListener('click', function (e) {
+        var hit = e.target.closest &&
+          e.target.closest('.fw-email__out[data-fw-contact] a, .fw-email__out[data-fw-contact] .fw-email__copy');
+        if (!hit || !window.Shiny || !Shiny.setInputValue) return;
+        var cid = hit.closest('.fw-email__out').getAttribute('data-fw-contact');
+        Shiny.setInputValue('fw_contact_click', cid, { priority: 'event' });
       });
       // Copy. The clipboard API needs a secure context, which fwise.org and
       // localhost both are; the textarea fallback is for anything that is

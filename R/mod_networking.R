@@ -372,7 +372,8 @@ mod_networking_server <- function(id, data) {
           tags$td(r$continent_label),
           tags$td(r$country_label),
           tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
-          tags$td(fw_contact_action(r$contact_email, fw_contact_who(r)))
+          tags$td(fw_contact_action(r$contact_email, fw_contact_who(r),
+                                    contact_id = r$contact_id))
         )
       })
 
@@ -408,7 +409,7 @@ mod_networking_server <- function(id, data) {
 #' The real control is the contact_public flag either way: an address flagged
 #' not-public never reaches this function, because fw_contacts_summary() has
 #' already replaced it with NA.
-fw_contact_action <- function(email, name, reveal = TRUE) {
+fw_contact_action <- function(email, name, reveal = TRUE, contact_id = NULL) {
   if (is.na(email) || !nzchar(email)) {
     # An empty cell, not a "hidden" badge. A badge advertises that there is
     # something to go looking for.
@@ -423,7 +424,8 @@ fw_contact_action <- function(email, name, reveal = TRUE) {
     # NOT WHEN THE "NAME" IS THE ADDRESS. fw_contact_who() falls back to it for
     # a contact with neither a name nor an organisation, and an aria-label is
     # served markup like any other.
-    aria = if (!identical(name, email)) fw_fill(fw_t("a11y", "email_name"), name = name)
+    aria = if (!identical(name, email)) fw_fill(fw_t("a11y", "email_name"), name = name),
+    contact_id = contact_id
   )
 }
 

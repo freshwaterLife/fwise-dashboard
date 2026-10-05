@@ -51,7 +51,7 @@ FW_COPY <- list(
     # Read out by a screen reader while the app is starting, and on nothing
     # else - the loader is the badge and a bar. See fw_loader().
     loading    = "Loading FWISE",
-    built_by   = "This tool was built by Weird Fishes Advisory.",
+    built_by   = "This app was built by Weird Fishes Advisory.",
     data_by    = "FWISE is built and maintained by Freshwater Life and friends.",
     illustrated_by = "Logo and illustrations by Georgie Bull."
   ),
@@ -104,6 +104,8 @@ FW_COPY <- list(
     logo_alt_scripps = "Scripps Institution of Oceanography, UC San Diego",
     logo_alt_fwl     = "Freshwater Life",
     logo_alt_issg    = "IUCN SSC Invasive Species Specialist Group",
+    logo_alt_unil    = "University of Lausanne",
+    logo_alt_vetinst = "Norwegian Veterinary Institute",
     # Collaborator logo links out to the organisation it belongs to. The FWISE
     # logo does not: it goes to this app's own Welcome page, as the navbar's
     # does.
@@ -111,7 +113,9 @@ FW_COPY <- list(
     ucsc_url      = "https://www.ucsc.edu/",
     scripps_url   = "https://scripps.ucsd.edu/",
     fwl_url       = "https://fwlife.org/",
-    issg_url      = "https://issg.org/"
+    issg_url      = "https://issg.org/",
+    unil_url      = "https://www.unil.ch/unil/fr/home.html",
+    vetinst_url   = "https://www.vetinst.no/en"
   ),
 
   # ---- Shared UI -------------------------------------------------------------
@@ -1008,7 +1012,7 @@ FW_COPY <- list(
     # the panels above: a reader who has found something wrong should not have
     # to open anything to say so.
     fb_body = paste(
-      "FWISE is an evolving and collective tool. Please tell us how to make it",
+      "FWISE is an evolving and collective app. Please tell us how to make it",
       "better. If a record is wrong, a species is misnamed, or something",
       "on this a page or this site does not work, please tell us about it."
     ),

@@ -134,6 +134,24 @@ FWISE_DATA_SOURCE <- fw_env("FWISE_DATA_SOURCE", default = NULL)
 FWISE_FORMS_SHEET_ID   <- fw_env("FWISE_FORMS_SHEET_ID", default = NULL)
 GS4_SA_KEY_B64 <- fw_env("GS4_SA_KEY_B64", default = NULL)
 
+# USAGE TRACKING (Oct 2026). See R/tracking.R and TRACKING.md.
+#
+#   FWISE_LOG_MODE      "sheet" (production), "console" (print the rows here)
+#                       or "off". Unset means off, so a local run never writes
+#                       to the live sheet.
+#   FWISE_LOG_SHEET_ID  the sheet holding the `events` tab. Signed in with the
+#                       same GS4_SA_KEY_B64 as the forms.
+FWISE_LOG_MODE     <- fw_env("FWISE_LOG_MODE", default = NULL)
+FWISE_LOG_SHEET_ID <- fw_env("FWISE_LOG_SHEET_ID", default = NULL)
+
+# The GoatCounter site code, the part before .goatcounter.com. Not a secret:
+# it is served in every page. While it is the placeholder no script is added.
+FW_GOATCOUNTER_CODE <- "GOATCOUNTER_CODE"
+
+# Written on every event row, so figures can be split by release. Bump it by
+# hand when a release changes what is logged or how.
+FW_APP_VERSION <- "1.0.0"
+
 # ---- Data visualisation palette ----------------------------------------------
 
 # Wong (2011) colourblind-safe palette. The associated academic paper uses this,
@@ -296,12 +314,17 @@ FW_LOGO <- list(
   # included. The -400 files are sips -Z copies of the originals beside them,
   # which are not to be edited; the footer itself still serves the originals.
   # Named, and in the footer's order, because the documents print them in it.
+  # UNIL-400 is cut from UNIL-TRIM, a copy of UNIL.png with the original's
+  # wide transparent margin cropped off (sips -c), which at a shared logo
+  # height drew the wordmark at half the size of its neighbours.
   wfa_file   = "www/img/wfa-logo-rect-dark-320.png",
   collab_files = c(
     fwl     = "www/img/collab/FRESHWATER_LIFE-400.png",
     ucsc    = "www/img/collab/UCSC-400.png",
     scripps = "www/img/collab/UCSD_SCRIPPS-400.png",
-    issg    = "www/img/collab/ISSG_SSC_IUCN-400.png"
+    unil    = "www/img/collab/UNIL-400.png",
+    issg    = "www/img/collab/ISSG_SSC_IUCN-400.png",
+    vetinst = "www/img/collab/VETINST-400.png"
   )
 )
 

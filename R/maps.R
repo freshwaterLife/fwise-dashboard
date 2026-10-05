@@ -728,7 +728,7 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
   # mail is in a browser and showed no address to copy (Alex, 2 Oct 2026). It
   # also served every public address in the widget's data. The button is
   # delegated from the document, so this innerHTML needs no Shiny binding.
-  person <- function(name, email, org) {
+  person <- function(name, email, org, id) {
     # An organisation with no named person is the contact itself.
     if (is.na(name) || !nzchar(name)) { name <- org; org <- NA_character_ }
     if (is.na(name) || !nzchar(name)) return(NA_character_)
@@ -738,7 +738,8 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
     paste0(who, " ", as.character(fw_email_reveal(
       email,
       label = fw_t("networking", "email_action"),
-      aria = fw_fill(fw_t("a11y", "email_name"), name = name)
+      aria = fw_fill(fw_t("a11y", "email_name"), name = name),
+      contact_id = if (!is.na(id)) id
     )))
   }
 
@@ -748,9 +749,9 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
   # "Recorded by" and "Also recorded by" rows.
   contacts <- c(
     person(row$primary_contact_name, row$primary_contact_email,
-           row$primary_contact_org),
+           row$primary_contact_org, row$primary_contact_id),
     person(row$secondary_contact_name, row$secondary_contact_email,
-           row$secondary_contact_org)
+           row$secondary_contact_org, row$secondary_contact_id)
   )
   has_link <- !is.na(row$reference_link) && nzchar(row$reference_link)
 
