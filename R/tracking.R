@@ -61,9 +61,9 @@ fw_track_mode <- function(mode = FWISE_LOG_MODE, sheet_id = FWISE_LOG_SHEET_ID,
 
 #' The mode, and in words why, for the startup line
 #'
-#' Names which setting is missing or wrong, never a value other than the mode
-#' itself, so a deployment that says "off" says why in the same line. Quotes
-#' pasted around the mode in a console are tolerated.
+#' Names which setting is missing or wrong, never its value, so a deployment
+#' that says "off" says why in the same line. Quotes pasted around the mode in
+#' a console are tolerated.
 fw_track_mode_why <- function(mode = FWISE_LOG_MODE, sheet_id = FWISE_LOG_SHEET_ID,
                               key = GS4_SA_KEY_B64) {
   say <- function(m, why) structure(if (nzchar(why)) paste0(m, " (", why, ")") else m,
@@ -71,8 +71,9 @@ fw_track_mode_why <- function(mode = FWISE_LOG_MODE, sheet_id = FWISE_LOG_SHEET_
   if (is.null(mode)) return(say("off", "FWISE_LOG_MODE is not set"))
   m <- tolower(gsub("^[\"' ]+|[\"' ]+$", "", mode))
   if (!m %in% c("sheet", "console", "off")) {
-    return(say("off", paste0("FWISE_LOG_MODE is '", substr(m, 1, 20),
-                             "', not sheet, console or off")))
+    # The value is NOT echoed: a key pasted into the wrong box would land in
+    # the server log.
+    return(say("off", "FWISE_LOG_MODE must be sheet, console or off"))
   }
   if (m == "sheet" && is.null(sheet_id)) return(say("off", "FWISE_LOG_SHEET_ID is not set"))
   if (m == "sheet" && is.null(key)) return(say("off", "GS4_SA_KEY_B64 is not set"))
