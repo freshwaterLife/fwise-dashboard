@@ -1178,7 +1178,7 @@ ok("tracking: a contributor's reveal carries its id",
    grepl('data-fw-contact="CO-1"', as.character(fw_email_reveal("a@b.co", "x", contact_id = "CO-1")), fixed = TRUE))
 ok("tracking: the FWISE address carries none",
    grepl("data-fw-contact", as.character(fw_footer_contact()), fixed = TRUE), FALSE)
-ok("tracking: no GoatCounter script while the code is a placeholder", is.null(fw_goatcounter_tag()), TRUE)
+ok("tracking: no GoatCounter script while the code is a placeholder", is.null(fw_goatcounter_tag("GOATCOUNTER_CODE")), TRUE)
 ok("tracking: GoatCounter script with a code",
    grepl('data-goatcounter="https://abc.goatcounter.com/count"', as.character(fw_goatcounter_tag("abc")), fixed = TRUE))
 

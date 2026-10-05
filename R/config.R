@@ -139,14 +139,17 @@ GS4_SA_KEY_B64 <- fw_env("GS4_SA_KEY_B64", default = NULL)
 #   FWISE_LOG_MODE      "sheet" (production), "console" (print the rows here)
 #                       or "off". Unset means off, so a local run never writes
 #                       to the live sheet.
-#   FWISE_LOG_SHEET_ID  the sheet holding the `events` tab. Signed in with the
+#   FWISE_LOG_SHEET_ID  the sheet holding the `events` tab. OPTIONAL: unset, it
+#                       is the forms sheet, which is the usual set-up (the
+#                       `events` tab beside `newsletter` and `feedback`).
+#                       Signed in with the
 #                       same GS4_SA_KEY_B64 as the forms.
 FWISE_LOG_MODE     <- fw_env("FWISE_LOG_MODE", default = NULL)
-FWISE_LOG_SHEET_ID <- fw_env("FWISE_LOG_SHEET_ID", default = NULL)
+FWISE_LOG_SHEET_ID <- fw_env("FWISE_LOG_SHEET_ID", default = FWISE_FORMS_SHEET_ID)
 
 # The GoatCounter site code, the part before .goatcounter.com. Not a secret:
 # it is served in every page. While it is the placeholder no script is added.
-FW_GOATCOUNTER_CODE <- "GOATCOUNTER_CODE"
+FW_GOATCOUNTER_CODE <- "fwise-stats"
 
 # Written on every event row, so figures can be split by release. Bump it by
 # hand when a release changes what is logged or how.

@@ -54,7 +54,7 @@ message("FWISE startup: ", nrow(FW_DATA$attempt), " attempts, ",
 message("FWISE startup: forms ", fw_forms_mode())
 
 # Usage tracking: "sheet", "console" or "off". See R/tracking.R.
-message("FWISE startup: event log ", fw_track_mode())
+message("FWISE startup: event log ", fw_track_mode_why())
 
 # THE PDF REPORT NEEDS QUARTO (1.4 or later, for Typst), and this line is where
 # a deployment says whether it has it. Without it the Plan page's download

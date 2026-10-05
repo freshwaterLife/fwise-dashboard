@@ -64,12 +64,13 @@
 # FWISE_LOG_MODE says otherwise, so a local run never writes to the live sheet.
 #
 #   sheet    one row per event, appended to the `events` tab when a session
-#            ends. Needs FWISE_LOG_SHEET_ID and GS4_SA_KEY_B64 (the same key as
-#            the forms); with either missing, logging is off.
+#            ends, in the forms sheet (FWISE_FORMS_SHEET_ID) unless
+#            FWISE_LOG_SHEET_ID names another. Uses the forms' GS4_SA_KEY_B64.
 #   console  the rows are printed to this R console instead. For testing.
 #   off      nothing is recorded.
 #
 # Share the sheet with the key's client_email as an Editor. Row 1 of `events`
 # holds: timestamp, session_id, event, detail, app_version.
 # FWISE_LOG_MODE=console
+# Only for a separate spreadsheet:
 # FWISE_LOG_SHEET_ID=1AbC...the id between /d/ and /edit in the sheet's URL

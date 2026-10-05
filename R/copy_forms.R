@@ -75,7 +75,7 @@ FW_COPY_FORMS <- list(
 
   # Shared by both forms.
   forms = list(
-    data_link   = "How we use your data",
+    data_link   = "How we use your data.",
     # Read out after any link that opens a new tab, so it is never a surprise.
     new_tab     = " (opens in a new tab)",
     # The honeypot's label. Never seen by a person; see fw_honeypot().
