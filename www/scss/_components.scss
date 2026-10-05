@@ -330,6 +330,8 @@ $fw-band-scale: 0.94;
     background: $fw-page;
     border-top: 5px solid $fw-border;
     padding-block: $fw-space-4;
+
+    @media (min-width: $fw-bp-xl-max) { padding-block: $fw-space-2; }
   }
 
   // ORG LOGOS, CREDITS, RULE, COLLABORATOR LOGOS, left to right, at the
@@ -344,6 +346,14 @@ $fw-band-scale: 0.94;
   // (clamp below), the credits wrap inside their own column, and when the
   // partner group still runs out of room its four logos wrap INSIDE the group,
   // two by two, beside the rule. Below md the row stacks as before.
+  //
+  // ONE LINE OF EVERYTHING FROM xl-max UP (Alex, 5 Oct 2026): every logo in a
+  // single row and each credit on a single line, on an ordinary laptop. The
+  // credits are fixed small print (~350px for the longest), so the logos take
+  // what is left, up to 3.2vw tall, with every gap cut to ~0.5vw. The row is
+  // packed to the centre rather than spread out: space-between used to pour
+  // the leftover width into the gaps either side of the credits. Under xl-max
+  // the flexing behaviour above takes over again.
   &__row {
     display: flex;
     flex-wrap: wrap;
@@ -352,11 +362,20 @@ $fw-band-scale: 0.94;
     gap: $fw-space-3 clamp(#{$fw-space-2}, 1.5vw, #{$fw-space-4});
 
     @media (min-width: $fw-bp-md) { flex-wrap: nowrap; }
+    @media (min-width: $fw-bp-xl-max) {
+      justify-content: center;
+      gap: $fw-space-3 clamp(4px, 0.5vw, #{$fw-space-1});
+    }
   }
 
   &__credits {
     flex: 1 1 12rem;
     min-width: 0;
+
+    @media (min-width: $fw-bp-xl-max) {
+      flex: 0 0 auto;
+      .fw-footer__built-by { white-space: nowrap; }
+    }
   }
 
   // Both logo groups share the sizing. Equal height, deliberately: the lockups
@@ -378,6 +397,18 @@ $fw-band-scale: 0.94;
       gap: $fw-space-2;
       img { height: 40px; }
     }
+
+    @media (min-width: $fw-bp-xl-max) {
+      flex-wrap: nowrap;
+      gap: clamp(4px, 0.5vw, #{$fw-space-1});
+
+      // 3.2vw IS THE MOST, NOT THE SIZE. At a flat 3.2vw the eight logos
+      // alone are ~73% of the window, so the row only fits whole from ~2000px.
+      // Each link may shrink instead, and the image scales down inside it, so
+      // a laptop gets the largest logos that still leave the row one line.
+      a { flex: 0 1 auto; min-width: 0; }
+      img { height: auto; max-width: 100%; max-height: clamp(24px, 3.2vw, 64px); }
+    }
   }
 
   &__logos {
@@ -394,6 +425,9 @@ $fw-band-scale: 0.94;
       padding-inline-start: clamp(#{$fw-space-2}, 1.5vw, #{$fw-space-4});
       border-inline-start: 1px solid $fw-border;
     }
+    @media (min-width: $fw-bp-xl-max) {
+      padding-inline-start: clamp(4px, 0.5vw, #{$fw-space-1});
+    }
   }
 
   // Two sentences, so they are two paragraphs with the tighter spacing of a
@@ -407,7 +441,10 @@ $fw-band-scale: 0.94;
     color: $fw-ink-muted;
     margin-block: 0;
 
-    + .fw-footer__built-by { margin-block-start: $fw-space-1; }
+    // No space between the three lines (Alex, 5 Oct 2026): they read as one
+    // block of small print. The names in them are bold, through
+    // fw_emphasis() and the ** in the copy deck.
+    strong { color: $fw-ink; }
   }
 
   // THE ADDRESS IS NOT HERE UNTIL IT IS ASKED FOR - fw_email_reveal() puts it
