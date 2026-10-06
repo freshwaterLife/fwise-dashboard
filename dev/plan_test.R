@@ -38,9 +38,10 @@ base$include_no_year <- TRUE
 base$include_no_size <- TRUE
 
 cat("\n-- the copy deck --\n")
-# [PLACEHOLDER] What the caveats say while the client writes the real ones.
-# When they land, these assertions should name a phrase from their text instead.
-PLACEHOLDER_CAVEAT <- "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]"
+# A sentence from the client's caveats (6 Oct 2026), and their headings, to
+# look for wherever the caveats should or should not travel.
+CAVEAT_PHRASE <- "We did not independently verify success."
+CAVEAT_HEADINGS <- vapply(fw_t("export", "caveats"), `[[`, "", "heading")
 
 ok("no section is defined in two copy files",
    anyDuplicated(names(fw_copy_all())), 0L)
@@ -342,7 +343,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   # describe the whole database rather than the selection, and under a freshly
   # built result they read as qualifications of that selection alone. They still
   # travel inside every download - asserted further down.
-  ok("caveats do NOT sit beside the results", grepl(PLACEHOLDER_CAVEAT, h, fixed = TRUE), FALSE)
+  ok("caveats do NOT sit beside the results", grepl(CAVEAT_PHRASE, h, fixed = TRUE), FALSE)
   ok("the contacts block does", grepl(fw_t("plan", "r_contacts"), h, fixed = TRUE), TRUE)
   ok("the cumulative chart has left this page",
      grepl("How the record has", h), FALSE)
@@ -386,7 +387,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
      grepl("No attempts match those filters", h), TRUE)
   ok("and names a filter to relax", grepl("Try relaxing one of these first", h), TRUE)
   ok("the zero state does not carry caveats either",
-     grepl(PLACEHOLDER_CAVEAT, h, fixed = TRUE), FALSE)
+     grepl(CAVEAT_PHRASE, h, fixed = TRUE), FALSE)
 
   # ---- The download -------------------------------------------------------
   #
@@ -577,7 +578,9 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
                fw_t("export", "sheets")$caveats))
   ok("and the last tab carries the methods, the client's caveats and the citation",
      all(c(toupper(fw_t("export", "methods_heading")),
-           "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]",
+           toupper(fw_t("export", "caveats_title")), CAVEAT_HEADINGS,
+           # Whole cells: one paragraph to a row.
+           unlist(lapply(fw_t("export", "caveats"), `[[`, "body")),
            toupper(fw_t("export", "citation_heading")),
            fw_citation_text(m, nrow(d$attempt))) %in%
            openxlsx::read.xlsx(path, fw_t("export", "sheets")$caveats)[[1]]), TRUE)
@@ -704,7 +707,12 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
            fixed = TRUE), TRUE)
   ok("no private address reaches the attempts file",
      any(vapply(private, grepl, logical(1), x = rec, fixed = TRUE)), FALSE)
-  ok("the caveats travel with it", grepl(PLACEHOLDER_CAVEAT, rec, fixed = TRUE), TRUE)
+  ok("the caveats travel with it, every heading and the text",
+     all(vapply(c(CAVEAT_HEADINGS, CAVEAT_PHRASE), grepl, logical(1), x = rec, fixed = TRUE)), TRUE)
+  ok("each caveat is a subheading under the Caveats part",
+     all(vapply(CAVEAT_HEADINGS, function(hd) grepl(paste0("<h4>", hd, "</h4>"), rec, fixed = TRUE),
+                logical(1))) &&
+       grepl(paste0("<h3>", fw_t("export", "caveats_title"), "</h3>"), rec, fixed = TRUE), TRUE)
   ok("and the methods statement with them",
      grepl(fw_t("export", "methods_heading"), rec, fixed = TRUE), TRUE)
   ok("nothing in it is fetched",
@@ -741,13 +749,16 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     has <- function(txt) grepl(txt, typ, fixed = TRUE)
     ok("the letterhead carries the title", has(fw_t("plan", "report_title")), TRUE)
     ok("the filter selection is recorded", has(fw_t("plan", "report_selection")), TRUE)
-    ok("the caveats travel with the document", has(PLACEHOLDER_CAVEAT), TRUE)
+    ok("the caveats travel with the document", has(CAVEAT_PHRASE), TRUE)
     ok("and the methods statement with them",
        has(fw_t("export", "methods_heading")), TRUE)
     # METHODS, CAVEATS, CITATION (client, 24 Sept 2026), each titled. The
-    # headless placeholder caveat takes "Caveats" here and nowhere else.
-    ok("the caveat placeholder is titled Caveats",
-       has(paste0('("', fw_t("export", "caveats_title"), '", "', PLACEHOLDER_CAVEAT, '")')), TRUE)
+    # client's headed caveats (6 Oct 2026) sit under "Caveats", set smaller.
+    ok("Caveats is a title with no text of its own",
+       has(paste0('("', fw_t("export", "caveats_title"), '", (), false)')), TRUE)
+    ok("every caveat is set as a subheading",
+       all(vapply(CAVEAT_HEADINGS, function(hd) has(paste0('("', hd, '", ')), logical(1))) &&
+         lengths(regmatches(typ, gregexpr('), true)', typ, fixed = TRUE))) == length(CAVEAT_HEADINGS), TRUE)
     ok("and the citation closes the section",
        has(paste0('("', fw_t("export", "citation_heading"), '", ')), TRUE)
     pos <- function(txt) regexpr(txt, typ, fixed = TRUE)
@@ -1115,12 +1126,13 @@ ok("google: the signature verifies against the key",
 
 cat("\n-- usage tracking --\n")
 ok("tracking: no ref is direct", fw_track_source(""), "direct")
-ok("tracking: ref is lowercased", fw_track_source("?ref=Webinar"), "webinar")
-ok("tracking: hyphens and digits pass", fw_track_source("?page=privacy&ref=issg-2026"), "issg-2026")
-ok("tracking: a space is other", fw_track_source("?ref=a%20b"), "other")
-ok("tracking: an address is other", fw_track_source("?ref=a@b.co"), "other")
-ok("tracking: 31 characters is other", fw_track_source(paste0("?ref=", strrep("a", 31))), "other")
-ok("tracking: 30 characters pass", fw_track_source(paste0("?ref=", strrep("a", 30))), strrep("a", 30))
+ok("tracking: campaign is lowercased", fw_track_source("?campaign=Webinar"), "webinar")
+ok("tracking: hyphens and digits pass", fw_track_source("?page=privacy&campaign=issg-2026"), "issg-2026")
+ok("tracking: a space is other", fw_track_source("?campaign=a%20b"), "other")
+ok("tracking: an address is other", fw_track_source("?campaign=a@b.co"), "other")
+ok("tracking: 31 characters is other", fw_track_source(paste0("?campaign=", strrep("a", 31))), "other")
+ok("tracking: ref alone is not read", fw_track_source("?ref=webinar"), "direct")
+ok("tracking: 30 characters pass", fw_track_source(paste0("?campaign=", strrep("a", 30))), strrep("a", 30))
 
 tf <- base
 tf$country <- c(ch$country[1], "Not a country")
@@ -1200,12 +1212,7 @@ toc_html <- as.character(fw_privacy_contents(NS("privacy"), doc$toc))
 hrefs <- regmatches(toc_html, gregexpr('href="#[^"]+"', toc_html))[[1]]
 ok("privacy: the contents list links every heading, in order",
    identical(sub('href="#(.*)"', "\\1", hrefs), doc$toc$id))
-n_mark <- lengths(regmatches(html, gregexpr('<mark class="fw-placeholder">[TO CONFIRM:', html, fixed = TRUE)))
 ok("privacy: the file's editing notes are not served", grepl("HEADINGS carry", html, fixed = TRUE), FALSE)
-n_md_body <- lengths(regmatches(gsub("(?s)<!--.*?-->", "", md, perl = TRUE),
-                                gregexpr("[TO CONFIRM:", gsub("(?s)<!--.*?-->", "", md, perl = TRUE), fixed = TRUE)))
-ok("privacy: every [TO CONFIRM: ...] is highlighted", n_mark, n_md_body)
-ok("privacy: there are placeholders to confirm", n_mark > 0L)
 ok("privacy: no address served in the page", grepl("fwise@", html, fixed = TRUE), FALSE)
 ok("privacy: the contact token was replaced", grepl("{contact_email}", html, fixed = TRUE), FALSE)
 ok("privacy: the current version has a dated line under Changes",

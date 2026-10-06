@@ -7,17 +7,17 @@ FWISE records how it is used so that Freshwater Life can report usage to funders
 
 The code is in `R/tracking.R`. The settings are in `R/config.R`.
 
-## The source parameter: `ref`
+## The source parameter: `campaign`
 
-Tag inbound links with `?ref=<source>`, for example:
+Tag inbound links with `?campaign=<source>`, for example:
 
-- `https://fwise.org/?ref=webinar`
-- `https://fwise.org/?ref=issg`
-- `https://fwise.org/?ref=internal`
+- `https://fwise.org/?campaign=webinar`
+- `https://fwise.org/?campaign=issg`
+- `https://fwise.org/?campaign=internal`
 
-GoatCounter reads `ref` as the visit's source, and the event log stores it on `session_start`. Before it is stored, the value is lowercased. It is kept only if it uses letters, digits and hyphens and is 30 characters or fewer; anything else is recorded as `other`. A visit with no `ref` is recorded as `direct`. Keep a list of the values in use here:
+GoatCounter shows it under Campaigns, and the event log stores it on `session_start`. Before it is stored, the value is lowercased. It is kept only if it uses letters, digits and hyphens and is 30 characters or fewer; anything else is recorded as `other`. A visit with no `campaign` is recorded as `direct`. Do not use `?ref=` on its own: GoatCounter reads it only alongside a campaign, so it shows nowhere. Keep a list of the values in use here:
 
-| ref | Used for |
+| campaign | Used for |
 |---|---|
 | webinar | Links shared in webinars |
 | issg | Links from ISSG |
@@ -51,7 +51,7 @@ Multi-select filters are always JSON arrays, even with one value. The FWISE addr
 - No IP addresses, user agents, referrer URLs, cookies, local storage or persistent identifiers.
 - No personal data: no names, email addresses, organisation names or form field contents. A contact is identified only by its `contact_id`, and the server checks that id against the contacts table.
 - No free text. Filter values come from the pickers only and are checked against the choices the page offered; anything unexpected is dropped.
-- `ref` is cleaned as described above.
+- `campaign` is cleaned as described above.
 
 ## How it is written
 

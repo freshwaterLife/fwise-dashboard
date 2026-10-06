@@ -552,6 +552,26 @@ fw_species_label <- function(species) {
     )
 }
 
+#' A protected species' label as it is shown, with its Red List code
+#'
+#' Adds `shown`: "Little grebe (Tachybaptus ruficollis) (IUCN: LC)", or the
+#' plain label when the species has no status. FOR PROTECTED SPECIES ONLY, and
+#' for display only (Alex, 5 and 6 Oct 2026): the map's hover card and record,
+#' the protected-species tiles on the Plan page and in both reports, and the
+#' attempts .html record cards. `label` stays the key everything matches on,
+#' and the downloads, the filter pickers and the form carry no code.
+#'
+#' @param species rows of fw_species_label()
+fw_species_shown <- function(species) {
+  # Read once: fw_t() merges the whole copy deck on every call.
+  iucn_suffix <- fw_t("species", "iucn_suffix")
+  species$shown <- species$label
+  coded <- !is.na(species$label) & !is.na(species$iucn_status)
+  species$shown[coded] <- paste0(species$label[coded], vapply(
+    species$iucn_status[coded], function(code) fw_fill(iucn_suffix, code = code), ""))
+  species
+}
+
 #' One row per contact, with countries and continents derived from their attempts
 #'
 #' A contact attached to attempts in more than one country belongs to all of

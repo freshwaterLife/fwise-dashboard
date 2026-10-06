@@ -1042,10 +1042,14 @@ fw_species_rows <- function(data, sel, role_name = c("invasive", "beneficiary"),
                             f = NULL) {
   role_name <- match.arg(role_name)
   species <- fw_species_in_filter(fw_species_label(data$species), role_name, f)
+  # `shown` is what a tile prints: a protected species carries its Red List
+  # code, an invasive one does not. See fw_species_shown().
+  species <- if (role_name == "beneficiary") fw_species_shown(species) else
+    mutate(species, shown = label)
   data$attempt_species |>
     filter(role == role_name, attempt_id %in% sel$attempt_id) |>
     distinct(attempt_id, species_id) |>
-    inner_join(select(species, species_id, label), by = "species_id") |>
+    inner_join(select(species, species_id, label, shown), by = "species_id") |>
     left_join(select(sel, attempt_id, outcome), by = "attempt_id") |>
     filter(!is.na(label))
 }
@@ -1088,14 +1092,14 @@ fw_species_row_shown <- function(role_name, f = NULL) {
 #' is reported as a count in the block's note instead. Returns species_id too,
 #' because that is what the image cache is keyed on.
 #'
-#' @return a tibble of species_id, label, n and one column per outcome, ordered
+#' @return a tibble of species_id, label, shown, n and one column per outcome, ordered
 #'   by n descending; zero rows if the role has none in this selection.
 fw_species_top_n <- function(data, sel, role_name, limit = FW_TOP_N, f = NULL) {
   d <- fw_species_rows(data, sel, role_name, f)
   if (!nrow(d)) return(d[0, ])
   d$outcome <- as.character(fw_outcome_factor(d$outcome))
 
-  totals <- d |> count(species_id, label, name = "n") |> arrange(desc(n), label)
+  totals <- d |> count(species_id, label, shown, name = "n") |> arrange(desc(n), label)
   keep <- head(totals, limit)
 
   splits <- d |>

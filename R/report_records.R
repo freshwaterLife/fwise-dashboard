@@ -164,11 +164,37 @@ fw_records_css <- function(dir = "www/scss") {
 
 # ---- A card --------------------------------------------------------------------
 
-fw_record_copy <- function() {
+fw_record_copy <- function(species = NULL) {
   list(labels = fw_t("export", "record_labels"),
        groups = fw_t("export", "record_groups"),
        none = fw_t("species", "p_not_noted"),
-       top = fw_t("export", "records_top"))
+       top = fw_t("export", "records_top"),
+       # Each coded species' label to the label with its Red List code, for
+       # the protected species line. NULL without `species`: no codes.
+       iucn = if (!is.null(species)) fw_iucn_lookup(species))
+}
+
+#' Plain species label -> the same with its Red List code, coded species only
+#'
+#' @param species data$species
+fw_iucn_lookup <- function(species) {
+  sp <- fw_species_shown(fw_species_label(species))
+  coded <- !is.na(sp$label) & sp$shown != sp$label
+  stats::setNames(sp$shown[coded], sp$label[coded])
+}
+
+#' The record's protected species, each with its Red List code
+#'
+#' THE CARD ONLY. The export frame the card reads is the download's, and the
+#' download carries no code (Alex, 6 Oct 2026) - fw_export_frame() keeps to
+#' FW_EXPORT_COLUMNS - so the codes are put on the collapsed "a; b" string
+#' here, one name at a time.
+fw_iucn_relabel <- function(x, lookup) {
+  if (!length(lookup) || fw_record_blank(x)) return(x)
+  parts <- strsplit(x, FW_MULTI_SEP, fixed = TRUE)[[1]]
+  hit <- parts %in% names(lookup)
+  parts[hit] <- unname(lookup[parts[hit]])
+  paste(parts, collapse = FW_MULTI_SEP)
 }
 
 #' The outcome in words, with its data colour as a swatch beside it
@@ -263,6 +289,9 @@ fw_record_years <- function(row) {
 #'   card or another output could carry the same id.
 fw_record_card <- function(row, copy = fw_record_copy(), top = TRUE, id = TRUE) {
   esc <- function(x) htmlEscape(as.character(x))
+  # The find box matches the plain names; the card shows the coded ones.
+  search <- fw_record_search(row)
+  row$beneficiary_species <- fw_iucn_relabel(row$beneficiary_species, copy$iucn)
   place <- c(row$region, row$country)
   place <- paste(place[!is.na(place) & nzchar(place)], collapse = ", ")
   title <- if (is.na(row$site_name) || !nzchar(row$site_name)) copy$none else row$site_name
@@ -287,7 +316,7 @@ fw_record_card <- function(row, copy = fw_record_copy(), top = TRUE, id = TRUE) 
   paste0(
     '<article class="fw-rec-card"',
     if (id) paste0(' id="', esc(row$attempt_id), '"') else "",
-    ' data-search="', htmlEscape(fw_record_search(row), attribute = TRUE), '">',
+    ' data-search="', htmlEscape(search, attribute = TRUE), '">',
     '<div class="fw-rec-card__head"><div><h2>', esc(title), "</h2>",
     if (nzchar(place)) paste0('<p class="fw-rec-card__place">', esc(place), "</p>") else "",
     '</div><div class="fw-rec-card__meta">', fw_record_outcome(row$outcome, copy$none),
@@ -465,7 +494,7 @@ fw_write_records_html <- function(path, data, sel, export, filters, meta = NULL)
   # As plain lists: a one-row data frame per card is the slow way to read a
   # field, and there are fifty-five fields a card.
   rows <- lapply(seq_len(n), function(i) as.list(export[i, , drop = FALSE]))
-  copy <- fw_record_copy()
+  copy <- fw_record_copy(data$species)
 
   logo <- function(file, alt) {
     uri <- fw_html_data_uri(file)
@@ -539,7 +568,9 @@ fw_write_records_html <- function(path, data, sel, export, filters, meta = NULL)
       h2(fw_t("export", "closing_heading")),
       lapply(fw_closing_blocks(data, meta), function(b) {
         title <- fw_caveat_title(b$heading)
-        tagList(if (nzchar(title)) h3(title), lapply(b$body, p))
+        # A caveat sits one level under the "Caveats" part.
+        tagList(if (nzchar(title)) (if (isTRUE(b$sub)) h4 else h3)(title),
+                lapply(b$body, p))
       })
     ),
 

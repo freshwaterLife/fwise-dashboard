@@ -62,36 +62,67 @@ FW_COPY_EXPORT <- list(
     # (client, 24 Sept 2026) - the workbook's last sheet, the PDF's last section
     # and the records HTML's last section each carry both.
     methods_heading  = "Methods",
-    # [PLACEHOLDER] The client is writing this. It is the account of how records
-    # were gathered, screened and entered that a reader needs before quoting any
-    # figure, and it is the one thing in this file we must not invent - a
-    # plausible-sounding method statement is worse than an obvious gap, because
-    # nobody will know to replace it. Grep for [PLACEHOLDER] when the real text
-    # arrives; the same marker is on fw_country_burden() in R/data_load.R.
-    # ONE LINE, NOT TWO (client, 24 Sept 2026). A second paragraph stood here
-    # describing what the statement would cover once it arrived; the client cut
-    # it from the PDF, and it is cut from all three exports because this is the
-    # one place they read it from. The marker alone is the gap now.
-    methods = "[PLACEHOLDER - awaiting the methods statement from the FWISE team.]",
+    # THE CLIENT'S OWN (6 Oct 2026), plain slips mended only. It is also the
+    # About page's "How it was built" panel - about$method in R/copy.R - so
+    # change both together. One place feeds all three exports.
+    methods = paste(
+      "FWISE’s data comes from two sources: a standardized literature review",
+      "performed in 2026, and directly from data contributors. We will publish",
+      "the full methodology in a forthcoming peer-reviewed paper summarizing",
+      "main findings from FWISE, including how we got the facts presented on",
+      "the landing page."
+    ),
 
     # ---- The caveats ----------------------------------------------------------
-    # [PLACEHOLDER] THE CLIENT IS WRITING THESE (24 Sept 2026). Five blocks
-    # stood here - how success is defined, claimed is not validated, why there
-    # is no success rate, missing values, what this record is - and they were
-    # ours rather than theirs. They came out so that the FWISE team writes the
-    # caveats it thinks the database needs without our wording in front of it.
+    # THE CLIENT'S OWN (6 Oct 2026), written by the FWISE team without our
+    # wording in front of them; plain slips mended only ("freshwater water",
+    # "published more than", "much data is lacking"). "DATA CAVEATS" above
+    # their text is the section's title, which every surface already carries.
     #
-    # THE STRUCTURE IS UNCHANGED and deliberately so. Add blocks back as
-    # list(heading =, body =) and every surface reflows on its own: the About
-    # panel, the workbook sheet, the PDF and the records HTML all loop over
-    # whatever fw_caveat_blocks() returns. A heading of NULL prints no heading,
-    # which is what the single placeholder block below wants.
+    # ONE BLOCK PER HEADING, `body` ONE STRING PER PARAGRAPH. The About panel,
+    # the workbook sheet, the PDF and the records HTML all loop over whatever
+    # fw_caveat_blocks() returns, so a block added or removed here reflows
+    # everywhere. A heading of NULL prints no heading.
+    #
+    # THE SUCCESS DEFINITION IS ALSO ON THE CONTRIBUTE FORM (preamble in
+    # R/copy_contribute.R), in the same Genovesi words. Keep the two in step.
     #
     # A body may carry {successful} {unverified} {no_size} {pct_size}
     # {no_start} {pct_start} {no_end} {pct_end}; fw_caveat_blocks() in
     # R/export.R computes them from the data, so a caveat cannot go stale.
+    # The client's text uses none of them.
     caveats = list(
-      list(heading = NULL, body = "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]")
+      list(
+        heading = "Success and other outcomes",
+        body = c(
+          "Success here is defined as in Genovesi (2000): “eradication is the complete and permanent removal of all wild populations of a species from a defined area by means of a time-limited campaign”. FWISE does not include control. Work that suppressed a population without fully removing it is not counted as a success, however useful it was.",
+          "An outcome is recorded as the source reported it, recoded by us into four categories: Successful, Failed, Ongoing, and Unknown. We did not independently verify success. Often, but not always, the source reports their verification method (though details vary widely).",
+          "FWISE includes and is equally interested in all outcomes of an eradication: successful, failed, ongoing, and unknown. Failure is as important to know about as success. Please submit both past eradication attempts (even if they occurred long ago and much data is lacking) and current ones (even if unfinished, they help track global progress as new species and geographies are addressed)."
+        )
+      ),
+      list(
+        heading = "Missing values",
+        body = "Blanks are absences of recorded data, not zeros, and they are common. But you can still learn a lot from an eradication attempt with relatively sparse data."
+      ),
+      list(
+        heading = "Recorded versus total eradication attempts",
+        body = "This database holds freshwater eradication attempts that FWISE has recorded thus far, either through standardized literature review or directly from data contributors. Of course, as in anything, the sample is smaller than the real world total. But we have gathered enough data for robust trends. Some countries may be missing, but most countries with no reported eradication truly have none. Please do contribute your eradications that are currently missing as we build FWISE up over time."
+      ),
+      list(
+        heading = "Publication bias",
+        body = "As is well known across scientific domains, positive results are more likely to be published than negative ones. So the outcome mix here is likely kinder than reality. Of course this is the same for almost all conservation science. Relative comparisons are still robust."
+      ),
+      list(
+        heading = "Taxonomic bias",
+        body = c(
+          "While it is true that most freshwater eradications have been of invasive fish, we know that we are missing important data on lots of groups, like frogs and turtles. Please help us fill that gap!",
+          "FWISE does not include plants. The context and methods of freshwater animal versus plant eradications are different."
+        )
+      ),
+      list(
+        heading = "Conservation impact is underestimated",
+        body = "The species the attempt was meant to help often goes unreported, and even when it is, relationships among species often mean that many more species are protected than recorded (think of a frog-focused project where birds benefit from more mayflies. That's tens of species protected, with only one noted). So the conservation impact of most successful eradications is even higher than it appears."
+      )
     ),
 
     # ---- The data dictionary ---------------------------------------------------
@@ -126,10 +157,8 @@ FW_COPY_EXPORT <- list(
       end_year            = "Year the attempt ended. Blank where the attempt is ongoing.",
       duration_days       = "Estimated total duration of the intervention, days.",
       reason              = "The main reason the eradication was carried out.",
-      # [PLACEHOLDER] THESE TWO POINT AT THE CAVEATS, which currently say only
-      # that the FWISE team is writing them. The pointers are left standing
-      # because they will be true again, but check them against the real text
-      # when it lands: "see the caveats" has to lead somewhere that answers.
+      # THESE TWO POINT AT THE CAVEATS: "Conservation impact is underestimated"
+      # and "Success and other outcomes". Reword them if either block goes.
       beneficiary_species = "Species the eradication was intended to help. Semicolon-delimited. Under-reported - see the caveats.",
       beneficiary_taxa    = "Broad group of each beneficiary. Semicolon-delimited.",
       methods             = "Methods used, semicolon-delimited. An unordered set, not a ranking.",

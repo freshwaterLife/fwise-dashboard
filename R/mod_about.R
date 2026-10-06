@@ -106,7 +106,6 @@ mod_about_server <- function(id, data, meta = NULL) {
           fw_disclosure(
             fw_t("about", "caveats_heading"),
             note = fw_t("about", "caveats_summary"),
-            p(class = "fw-lead", fw_t("about", "caveats_lead")),
             fw_caveats_ui(data, heading = FALSE)
           ),
 
@@ -134,8 +133,6 @@ mod_about_server <- function(id, data, meta = NULL) {
             tags$ul(
               tags$li(tags$a(href = fw_t("footer", "github_url"),
                              fw_t("footer", "github_label"))),
-              tags$li(tags$a(href = fw_t("footer", "fwl_url"),
-                             fw_t("about", "link_fwise"))),
               tags$li(fw_doi_link(fw_t("about", "link_zenodo")))
             )
           )
@@ -165,14 +162,11 @@ fw_about_signup <- function() {
   )
 }
 
-#' The copyable citation, with the release the reader is actually looking at
+#' The copyable citation
 #'
-#' ONE CITATION, FOR THE DATABASE. It carries the version and the attempt count
-#' because a reader quoting a figure needs the release they read it in, and both
-#' are filled here from the data loaded rather than typed into the copy deck,
-#' where they would be wrong by the next release. The form itself is the
-#' client's - see about$citation_db in R/copy.R, and fw_citation_text() in
-#' R/export.R, which the downloads' closing section shares.
+#' ONE CITATION, FOR THE DATABASE, in the client's literal form - see
+#' about$citation_db in R/copy.R, and fw_citation_text() in R/export.R, which
+#' the downloads' closing section shares.
 fw_about_citations <- function(meta, s) {
   tagList(
     tags$pre(class = "fw-citation", fw_citation_text(meta, s$attempts)),
@@ -201,14 +195,6 @@ fw_about_related <- function() {
 }
 
 #' What each method on the charts actually means
-#'
-#' A DESCRIPTION LIST, because that is what it is: a term and its definition,
-#' which <dl> says to a screen reader and a <ul> of bolded run-ons does not.
-#'
-#' THE TERMS MATCH THE DATA. Every `term` in about$glossary_items is a value
-#' that appears in attempts.csv$methods, so a reader who meets "Antimycin-A" on
-#' the method chart finds it here spelled the same way. dev/value_test.R checks
-#' the two lists against each other.
 fw_about_glossary <- function() {
   items <- fw_t("about", "glossary_items")
   tags$dl(

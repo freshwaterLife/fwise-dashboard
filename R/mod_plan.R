@@ -564,7 +564,8 @@ mod_plan_server <- function(id, data, meta = NULL) {
       min(records_page(), fw_plan_pages(length(records_rows()), FW_PLAN_RECORDS_PAGE_SIZE)))
 
     output$records_body <- renderUI(
-      fw_plan_records_ui(results()$export, records_rows(), records_shown()))
+      fw_plan_records_ui(results()$export, records_rows(), records_shown(),
+                         species = data$species))
 
     output$records_pager <- renderUI({
       n_rows <- length(records_rows())

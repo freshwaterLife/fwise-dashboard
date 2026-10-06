@@ -40,13 +40,10 @@ FW_COPY_CONTRIBUTE <- list(
     # keep them in step with the outcome tooltip below, which cites the same
     # work.
     #
-    # IT USED TO BE FOUR. A "How success is defined" caveat in copy_export.R
-    # carried the same reference until the client replaced every caveat with a
-    # placeholder for their own (24 Sept 2026), so THIS is now the only place
-    # in the app that defines what success means. When the FWISE team's caveats
-    # arrive, check whether theirs defines it too, and if so keep the two in
-    # step - a reader who met the definition on this form must not meet a
-    # different one in the download.
+    # THE CAVEATS DEFINE IT TOO. The client's "Success and other outcomes"
+    # caveat (R/copy_export.R, 6 Oct 2026) quotes the same Genovesi words, so
+    # keep the two in step - a reader who met the definition on this form must
+    # not meet a different one in the download.
     preamble = list(
       heading = "What counts as an eradication",
       definition = paste(

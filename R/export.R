@@ -260,8 +260,7 @@ fw_caveat_blocks <- function(data) {
 #' fw_caveat_blocks() so the two can never say different things.
 #'
 #' A BLOCK MAY HAVE NO HEADING and then prints none, rather than a blank line
-#' where a heading would be. The placeholder standing in for the client's
-#' caveats is one such block - see [PLACEHOLDER] in R/copy_export.R.
+#' where a heading would be. The client's caveats (6 Oct 2026) all have one.
 fw_caveats <- function(data) {
   blocks <- fw_caveat_blocks(data)
   out <- character(0)
@@ -279,23 +278,24 @@ fw_caveats <- function(data) {
 #' So the closing section of every export is ONE LIST TO LOOP OVER: the methods
 #' first, then whatever caveats there are. Kept as its own block rather than
 #' folded into the caveats because the two are being written by different
-#' people - see the two [PLACEHOLDER] notes in R/copy_export.R.
+#' people - the methods statement is export$methods in R/copy_export.R.
 fw_methods_blocks <- function() {
   list(list(heading = fw_t("export", "methods_heading"),
             body = fw_t("export", "methods")))
 }
 
-#' The database citation, filled from the release actually loaded
+#' The database citation
 #'
-#' ONE FORMATTER for the About page and the closing section of every export, so
-#' the version and attempt count a reader copies cannot differ between them.
+#' ONE ACCESSOR for the About page and the closing section of every export, so
+#' the citation a reader copies cannot differ between them. The client's form
+#' (6 Oct 2026) is literal - no release or attempt count - so `meta` and `n`
+#' are unused; they stay so the callers need not change if a filled form
+#' comes back.
 #'
-#' @param meta the release metadata; a missing release falls back to today
-#' @param n the number of attempts in the database
-fw_citation_text <- function(meta, n) {
-  release <- as.character(meta$release %||% format(Sys.Date()))
-  fw_fill(fw_t("about", "citation_db"),
-          year = substr(release, 1, 4), release = release, n = fw_fmt_num(n))
+#' @param meta the release metadata (unused)
+#' @param n the number of attempts in the database (unused)
+fw_citation_text <- function(meta = NULL, n = NULL) {
+  fw_t("about", "citation_db")
 }
 
 #' The whole closing section: methods, then caveats, then the citation
@@ -306,17 +306,25 @@ fw_citation_text <- function(meta, n) {
 #' download on 24 Sept 2026, so each document now carries the section itself,
 #' which is what the text file was for in the first place.
 #'
-#' THREE TITLED PARTS (client, 24 Sept 2026): Methods, Caveats, Citation. The
-#' caveat blocks keep their own headings for the About panel, which is already
-#' titled "Data caveats"; only here does a headless first block take "Caveats".
+#' THREE TITLED PARTS (client, 24 Sept 2026): Methods, Caveats, Citation.
+#' Since the client's own caveats arrived (6 Oct 2026) every caveat block has a
+#' heading of its own, so "Caveats" is a title block with no body, and the
+#' blocks under it are marked `sub = TRUE`: a smaller heading in the PDF and
+#' the records HTML, and not shouted in the workbook. The About panel is
+#' already titled "Data caveats" and shows the blocks alone.
+#'
+#' @return a list of list(heading =, body =, sub =)
 fw_closing_blocks <- function(data, meta = NULL) {
-  caveats <- fw_caveat_blocks(data)
-  if (length(caveats) && !length(caveats[[1]]$heading)) {
-    caveats[[1]]$heading <- fw_t("export", "caveats_title")
-  }
-  c(fw_methods_blocks(), caveats,
-    list(list(heading = fw_t("export", "citation_heading"),
-              body = fw_citation_text(meta, nrow(data$attempt)))))
+  part <- function(heading, body) list(heading = heading, body = body, sub = FALSE)
+  caveats <- lapply(fw_caveat_blocks(data), function(b) {
+    b$sub <- TRUE
+    b
+  })
+  c(lapply(fw_methods_blocks(), function(b) part(b$heading, b$body)),
+    list(part(fw_t("export", "caveats_title"), character(0))),
+    caveats,
+    list(part(fw_t("export", "citation_heading"),
+              fw_citation_text(meta, nrow(data$attempt)))))
 }
 
 #' The closing section as flat lines, for the workbook's last sheet
@@ -333,10 +341,14 @@ fw_methods_caveats_text <- function(data, meta = NULL) {
   blocks <- fw_closing_blocks(data, meta)
   out <- character(0)
   for (i in seq_along(blocks)) {
-    h <- blocks[[i]]$heading
-    if (length(h) && nzchar(h)) out <- c(out, toupper(h))
-    out <- c(out, blocks[[i]]$body)
-    if (i < length(blocks)) out <- c(out, "")
+    b <- blocks[[i]]
+    h <- b$heading
+    # The three parts in capitals; a caveat's own heading as written, so the
+    # sheet still shows which is the part and which the block inside it.
+    if (length(h) && nzchar(h)) out <- c(out, if (isTRUE(b$sub)) h else toupper(h))
+    out <- c(out, b$body)
+    # A title with no body runs straight into its first block.
+    if (i < length(blocks) && length(b$body)) out <- c(out, "")
   }
   out
 }

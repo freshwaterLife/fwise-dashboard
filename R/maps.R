@@ -94,10 +94,18 @@ fw_leaflet <- function() {
 }
 
 #' The script that fits one world to a map's width. See fw_map_fit.js.
+#'
+#' THE VERSION FOLLOWS THE FILE. Shiny serves the script at a URL that carries
+#' the version, and a browser keeps the copy it has until that URL changes - a
+#' hand-numbered version left unbumped after an edit meant visitors ran the old
+#' script. The last component is the file's own hash as a number, so an edit
+#' changes the URL by itself. 1.1.4 is where the hand numbering stopped.
 fw_map_fit_dependency <- function() {
+  src <- normalizePath("resources/js", mustWork = TRUE)
+  hash <- strtoi(substr(tools::md5sum(file.path(src, "fw_map_fit.js")), 1, 7), 16L)
   htmltools::htmlDependency(
-    name = "fw-map-fit", version = "1.1.4",
-    src = c(file = normalizePath("resources/js", mustWork = TRUE)),
+    name = "fw-map-fit", version = paste0("1.1.4.", hash),
+    src = c(file = src),
     script = "fw_map_fit.js"
   )
 }
@@ -222,17 +230,8 @@ fw_attempt_records <- function(data, sel) {
   # to test nrow() before touching a popup column.
   if (!nrow(pts)) return(pts)
 
-  species <- fw_species_label(data$species)
-
-  # A PROTECTED SPECIES CARRIES ITS RED LIST CODE, "Little grebe (Tachybaptus
-  # ruficollis) (IUCN: LC)" (Alex, 5 Oct 2026). Only here, so it reaches the
-  # hover card and the record and no download or filter. Read once: fw_t()
-  # merges the whole copy deck on every call.
-  iucn_suffix <- fw_t("species", "iucn_suffix")
-  species$shown <- species$label
-  coded <- !is.na(species$label) & !is.na(species$iucn_status)
-  species$shown[coded] <- paste0(species$label[coded], vapply(
-    species$iucn_status[coded], function(code) fw_fill(iucn_suffix, code = code), ""))
+  # A PROTECTED SPECIES CARRIES ITS RED LIST CODE - see fw_species_shown().
+  species <- fw_species_shown(fw_species_label(data$species))
 
   # Species for one role, gathered per attempt. EVERY id is kept, not just the
   # first: the detail panel shows the photographs of all of them behind a pair

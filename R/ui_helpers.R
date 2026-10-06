@@ -416,6 +416,8 @@ fw_head_meta <- function() {
     tags$meta(property = "og:url", content = FW_SITE_URL),
     tags$meta(property = "og:image", content = image),
     tags$meta(name = "twitter:card", content = "summary_large_image"),
+    # Which build this page came from. See FW_BUILD_ID in R/config.R.
+    tags$meta(name = "fw-build", content = FW_BUILD_ID),
     tags$script(type = "application/ld+json",
                 HTML(jsonlite::toJSON(ld, auto_unbox = TRUE)))
   )
@@ -855,6 +857,35 @@ fw_client_script <- function() {
       Shiny.addCustomMessageHandler('fw-nav', function (value) {
         Shiny.setInputValue('fw_nav_to', value, { priority: 'event' });
       });
+      // A PAGE FROM AN EARLIER DEPLOY RELOADS ITSELF, ONCE. The server says
+      // which build it is running as the session starts; when that is not the
+      // build in this page's own <meta name=fw-build>, the page was served
+      // from a cache, so it reloads with ?fwv=<build> to get past that cache.
+      // A page that arrived through that reload never reloads again for the
+      // same build, so a cache that ignores the query cannot cause a loop. The
+      // marker comes back out of the address bar straight away, so a link
+      // copied from it stays clean. See FW_BUILD_ID in R/config.R.
+      (function () {
+        var meta = document.querySelector('meta[name=fw-build]');
+        var mine = meta ? meta.getAttribute('content') : '';
+        var arrived = null;
+        try {
+          var here = new URL(window.location.href);
+          arrived = here.searchParams.get('fwv');
+          if (arrived !== null) {
+            here.searchParams.delete('fwv');
+            history.replaceState(history.state, '', here.toString());
+          }
+        } catch (e) {}
+        Shiny.addCustomMessageHandler('fw-build', function (id) {
+          if (!id || !mine || id === mine || id === arrived) return;
+          try {
+            var next = new URL(window.location.href);
+            next.searchParams.set('fwv', id);
+            window.location.replace(next.toString());
+          } catch (e) {}
+        });
+      })();
       // THE NAVBAR BECOMES A HAMBURGER WHEN IT WOULD WRAP, not at a fixed
       // width. The bar is pinned expanded (.navbar-expand), then checked: with
       // the menu class off and labels unbreakable, a row that does not fit
@@ -1241,23 +1272,18 @@ fw_caveats_ui <- function(data, heading = TRUE) {
   div(
     class = "fw-caveats",
     if (isTRUE(heading)) h2(class = "fw-visually-hidden", fw_t("about", "caveats_heading")),
-    # The blocks sit in their own grid wrapper rather than directly in the
-    # panel, so the heading above stays full width and only the blocks column
-    # up. See .fw-caveats__grid.
-    div(
-      class = "fw-caveats__grid",
-      lapply(blocks, function(b) {
-        title <- fw_caveat_title(b$heading)
-        div(
-          class = "fw-caveats__block",
-          # A BLOCK MAY HAVE NO HEADING and then gets no h3, rather than an
-          # empty one holding open a line. The placeholder standing in for the
-          # client's caveats is one - see [PLACEHOLDER] in R/copy_export.R.
-          if (nzchar(title)) h3(title),
-          lapply(b$body, function(x) p(x))
-        )
-      })
-    )
+    # One column, a bold title then its paragraphs (client, 6 Oct 2026), as
+    # the Methods glossary reads. See .fw-caveats__block.
+    lapply(blocks, function(b) {
+      title <- fw_caveat_title(b$heading)
+      div(
+        class = "fw-caveats__block",
+        # A BLOCK MAY HAVE NO HEADING and then gets no h3, rather than an
+        # empty one holding open a line.
+        if (nzchar(title)) h3(title),
+        lapply(b$body, function(x) p(x))
+      )
+    })
   )
 }
 
