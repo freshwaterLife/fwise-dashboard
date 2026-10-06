@@ -372,9 +372,9 @@ FW_COPY <- list(
     map_slider_label = "Reveal the priority countries map over the successful eradications map",
     map_caption = c(
       "Move the slider from ",
-      now  = "countries with eradications (blue)",
+      now  = "countries with eradications",
       " to ",
-      later = "opportunity countries (yellow)",
+      later = "top opportunity countries",
       "."
     ),
 
