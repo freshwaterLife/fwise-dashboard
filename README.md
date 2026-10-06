@@ -530,13 +530,15 @@ names what is inside rather than saying "caveats". In every export it is still
 unfoldable text, and it comes from the same function in both places, so the two
 cannot say different things.
 
-**The caveats themselves are a placeholder** (client, 24 September 2026). Five
-blocks we had written came out and one headingless block reading
-`[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]` went in, so the FWISE
-team writes what it thinks the database needs without our wording in front of
-it. Grep `[PLACEHOLDER]` in `R/copy_export.R`. The
-structure is untouched: add blocks back as `list(heading =, body =)` and the
-About panel, the workbook sheet, the PDF and the records HTML all reflow.
+**The caveats are the client's own** (6 October 2026): six headed blocks in
+`export$caveats` in `R/copy_export.R`, each `body` one string per paragraph. On
+24 September our five blocks came out for a placeholder so the FWISE team could
+write theirs without our wording in front of them; this is what they wrote. Add
+or remove a block as `list(heading =, body =)` and the About panel, the
+workbook sheet, the PDF and the records HTML all reflow. In the three exports
+they sit under a "Caveats" part title, between Methods and Citation
+(`fw_closing_blocks()`). The success definition in the first block is the
+contribute form's, word for word; keep the two in step.
 
 ### The export
 

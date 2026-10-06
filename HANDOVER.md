@@ -62,7 +62,7 @@ All in `R/copy.R` unless stated. Search the file for `[PLACEHOLDER]` to find the
 | `footer$contact_email` | The one copy of the FWISE address. The footer, the About feedback band and the Networking outro all show it, revealed on a click by `fw_email_reveal()` |
 | `about$method2` | The search strategy and review protocol |
 | `about$method_paper` | The FWISE paper's methods section, in full. A character vector - the panel renders one paragraph per element |
-| `about$citation_db` | The DOI inside database citation |
+| `about$citation_db` | The database citation, literal (client, 6 Oct 2026). The year and "Version 1" are edited by hand at a new release |
 | `about$signup_url` | The mailing list the "Sign up for updates" button links out to, currently `#` |
 | `about$stories` / `stories_action` | Success stories panel. The stories themselves belong on the landing page (see the case studies section of the spec in `R/mod_home.R`); when they exist, point `stories_action` at them rather than at the top of Home |
 | `about$related` / `about$related_items` | Related databases. Each item is a `name`, a `url` and a `note` - the note is the point of the panel, since a list of names does not tell anyone which one to follow |

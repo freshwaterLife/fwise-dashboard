@@ -143,7 +143,8 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N, f = NULL
         ),
         div(
           class = "fw-species-tile__body",
-          span(class = "fw-species-tile__name", row$label),
+          # With its Red List code on the protected side - see fw_species_rows().
+          span(class = "fw-species-tile__name", row$shown),
           span(class = "fw-species-tile__count",
                fw_fmt_num(row$n), " ",
                fw_t("plan", if (row$n == 1) "r_tile_attempt" else "r_tile_attempts")),
@@ -267,14 +268,16 @@ fw_plan_records_haystack <- function(export) {
 #'
 #' @param export fw_export_frame() of the report
 #' @param rows the matching row indices (fw_plan_records_find())
+#' @param species data$species, for the protected species' Red List codes
 fw_plan_records_ui <- function(export, rows, page = 1L,
-                               per_page = FW_PLAN_RECORDS_PAGE_SIZE) {
+                               per_page = FW_PLAN_RECORDS_PAGE_SIZE,
+                               species = NULL) {
   if (!length(rows)) return(p(class = "fw-caption", fw_t("plan", "r_records_none")))
   from <- (page - 1L) * per_page + 1L
   to <- min(length(rows), page * per_page)
   shown <- if (from > length(rows)) integer(0) else rows[seq(from, to)]
 
-  copy <- fw_record_copy()
+  copy <- fw_record_copy(species)
   lab <- copy$labels
   n_cols <- 6L
   # Each column's class sizes it, and hides it on a phone, where only the

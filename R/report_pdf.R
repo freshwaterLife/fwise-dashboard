@@ -68,7 +68,9 @@ fw_typ_str <- function(x, na = fw_t("common", "empty_value")) {
   x[is.na(x) | !nzchar(trimws(x))] <- na
   x <- gsub("\\", "\\\\", x, fixed = TRUE)
   x <- gsub("\"", "\\\"", x, fixed = TRUE)
-  x <- gsub("\r?\n", "\\n", x)
+  # "\\\\n" so the Typst source gets a backslash-n: a bare "\\n" in a gsub()
+  # replacement is just "n", which printed paragraph breaks as "nn".
+  x <- gsub("\r?\n", "\\\\n", x)
   paste0("\"", x, "\"")
 }
 
@@ -345,7 +347,8 @@ fw_typ_species <- function(data, sel, role_name, dir, f = NULL) {
       credit_url = if (has_img) fw_typ_url(img$page_url) else "none",
       licence = if (has_img) fw_typ_str(img$licence) else "none",
       licence_url = if (has_img) fw_typ_url(fw_licence_url(img$licence_url)) else "none",
-      name = fw_typ_str(row$label),
+      # With its Red List code on the protected side, as on the page.
+      name = fw_typ_str(row$shown),
       count = fw_typ_str(paste(fw_fmt_num(row$n),
         fw_t("plan", if (row$n == 1) "r_tile_attempt" else "r_tile_attempts"))),
       segments = fw_typ_array(unname(segs))
@@ -533,9 +536,15 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL) {
            # data value: a block with no heading means print no heading, and
            # the Typst partial tests for exactly "". A dash there would set a
            # bold hyphen above the text. See fw-caveats in typst-template.typ.
+           # The third item marks a caveat under the "Caveats" part, set
+           # smaller - see fw_closing_blocks().
            fw_typ_array(vapply(caveats, function(b) fw_typ_array(c(
              fw_typ_str(fw_caveat_title(b$heading), na = ""),
-             fw_typ_str(paste(b$body, collapse = "\n\n")))), "")), ")"),
+             # The paragraphs as an array; the template sets a paragraph
+             # break between them. No paragraphs is "()": fw_typ_str() of
+             # nothing would be one empty string, and a blank line with it.
+             if (length(b$body)) fw_typ_array(fw_typ_str(b$body)) else "()",
+             if (isTRUE(b$sub)) "true" else "false")), "")), ")"),
 
     paste0("#v(6mm)\n#text(fill: fw-ink-muted)[#", fw_typ_str(fw_t("plan", "report_footer")), "]")
   )

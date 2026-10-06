@@ -195,7 +195,10 @@ a:hover { color: $fw-teal-hover; }
 
   h2 { font-size: $fw-size-h3; margin: 0 0 $fw-space-2; }
   h3 { font-size: $fw-size-lead; margin: $fw-space-3 0 $fw-space-1; }
+  // A caveat under the "Caveats" part: body size, bold.
+  h4 { font-size: $fw-size-body; margin: $fw-space-2 0 $fw-space-1; }
   p { margin: 0; }
+  p + p { margin-block-start: $fw-space-1; }
 }
 
 .fw-rec-foot {

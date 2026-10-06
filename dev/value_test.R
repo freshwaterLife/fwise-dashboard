@@ -112,23 +112,29 @@ ok("footer: the FWISE logo is the long SIMPLE wordmark",
 ok("footer: the FWISE logo goes to The solution, in the same tab",
    grepl("fw_nav_to&#39;, &#39;home&#39;", fwise_a, fixed = TRUE) && !grepl("_blank", fwise_a, fixed = TRUE))
 
-# The caveats.
-#
-# [PLACEHOLDER] THE CLIENT IS WRITING THESE (24 Sept 2026), so what is asserted
-# here is the machinery, not the words: that the placeholder is the only thing
-# in there, that a block with no heading prints no heading, and that the number
-# substitution still works. WHEN THE REAL TEXT ARRIVES, put back the per-number
-# checks that stood here - each computed figure appearing in some body, and no
-# {placeholder} surviving - because a caveat carrying a stale number reads as
-# precision and is worse than no caveat at all.
+# The caveats: the client's own (6 Oct 2026). Six headed blocks, every
+# paragraph its own string, and none of the old placeholder left. The text
+# quotes no computed figure, so there is no per-number check to make.
 blocks <- fw_caveat_blocks(d)
-bodies <- vapply(blocks, `[[`, character(1), "body")
-ok("caveats: the client's placeholder is the whole of it",
-   bodies, "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]")
-ok("caveats: the placeholder block carries no heading",
-   vapply(blocks, function(b) fw_caveat_title(b$heading), ""), "")
-ok("caveats: flat vector is body only while there is no heading",
-   length(fw_caveats(d)), length(blocks))
+cav_heads <- vapply(blocks, function(b) b$heading %||% "", "")
+ok("caveats: the client's six, in their order", cav_heads,
+   c("Success and other outcomes", "Missing values",
+     "Recorded versus total eradication attempts", "Publication bias",
+     "Taxonomic bias", "Conservation impact is underestimated"))
+ok("caveats: paragraphs per block", unname(lengths(lapply(blocks, `[[`, "body"))),
+   c(3L, 1L, 1L, 1L, 2L, 1L))
+ok("caveats: no placeholder left", !any(grepl("PLACEHOLDER", unlist(blocks), fixed = TRUE)))
+ok("caveats: no unfilled slot", !any(grepl("\\{[a-z_]+\\}", unlist(blocks))))
+ok("caveats: no paragraph starts or ends with a space",
+   !any(grepl("^\\s|\\s$", unlist(lapply(blocks, `[[`, "body")))))
+# THE SAME DEFINITION AS THE FORM'S. A reader who met it on the contribute
+# form must not meet a different one in the download.
+form_def <- gsub("\\*\\*", "", fw_t("contribute", "preamble")$definition)
+ok("caveats: success is defined in the form's own words",
+   grepl(tolower(form_def), tolower(blocks[[1]]$body[1]), fixed = TRUE))
+ok("caveats: the flat vector is every heading and every paragraph",
+   fw_caveats(d)[nzchar(fw_caveats(d))],
+   unlist(lapply(blocks, function(b) c(toupper(b$heading), b$body)), use.names = FALSE))
 
 # The numbers a caveat can quote are still computed and still substituted, so
 # the client's text can use them the day it lands. Asserted on a body of our
@@ -141,23 +147,46 @@ local({
 })
 
 # The closing section of every export: methods, caveats, citation (client,
-# 24 Sept 2026), each under its own title.
+# 24 Sept 2026), each under its own title. "Caveats" is a title with no body,
+# and the client's headed blocks sit under it (6 Oct 2026).
 closing <- fw_closing_blocks(d, m)
-ok("closing section: titled methods, caveats, citation",
-   vapply(closing, function(b) b$heading %||% "", ""),
+parts <- Filter(function(b) !isTRUE(b$sub), closing)
+ok("closing section: three titled parts, methods, caveats, citation",
+   vapply(parts, function(b) b$heading %||% "", ""),
    c(fw_t("export", "methods_heading"), fw_t("export", "caveats_title"),
      fw_t("export", "citation_heading")))
-ok("closing section: the citation carries the release and the count",
-   closing[[3]]$body, fw_citation_text(m, nrow(d$attempt)))
-ok("closing section: the citation is fully filled", !grepl("\\{", closing[[3]]$body))
-ok("closing section: the About caveats panel keeps no title of its own",
-   is.null(fw_caveat_blocks(d)[[1]]$heading))
-ok("closing section: the workbook text carries all three",
+ok("closing section: the caveats title has no body of its own", length(parts[[2]]$body), 0L)
+ok("closing section: every caveat sits under it, in order",
+   vapply(Filter(function(b) isTRUE(b$sub), closing), `[[`, "", "heading"), cav_heads)
+ok("closing section: the caveats come between methods and citation",
+   which(vapply(closing, function(b) isTRUE(b$sub), TRUE)),
+   seq_along(cav_heads) + 2L)
+cit <- closing[[length(closing)]]
+ok("closing section: the citation is the shared one",
+   cit$body, fw_citation_text(m, nrow(d$attempt)))
+ok("closing section: the citation is fully filled", !grepl("\\{", cit$body))
+# THE CLIENT'S CITATION, WORD FOR WORD (6 Oct 2026). Typed out here rather
+# than read from the copy deck, so an edit to the deck has to be made twice.
+ok("citation: the client's literal form",
+   fw_citation_text(m, nrow(d$attempt)),
+   paste("FWISE (2026). FWISE: Freshwater Invasive Species Eradication Database",
+         "(Version 1) [Web application]. https://fwise.org"))
+# THE METHODS STATEMENT (client, 6 Oct 2026): the same words on About and in
+# every download, and the old placeholders gone from both.
+ok("methods: About and the downloads say the same thing",
+   fw_t("about", "method"), fw_t("export", "methods"))
+ok("methods: no placeholder left",
+   !any(grepl("PLACEHOLDER", c(fw_t("about", "method"), fw_t("export", "methods")), fixed = TRUE)))
+ok("methods: the closing section opens on it", closing[[1]]$body, fw_t("export", "methods"))
+wb_text <- fw_methods_caveats_text(d, m)
+ok("closing section: the workbook text carries all three, parts in capitals",
    all(c(toupper(fw_t("export", "methods_heading")),
          toupper(fw_t("export", "caveats_title")),
-         "[PLACEHOLDER - ANABELL TO PROVIDE CAVEATS FOR FWISE]",
+         cav_heads, unlist(lapply(blocks, `[[`, "body")),
          toupper(fw_t("export", "citation_heading")),
-         closing[[3]]$body) %in% fw_methods_caveats_text(d, m)))
+         cit$body) %in% wb_text))
+ok("closing section: a caveat heading is not shouted in the workbook",
+   any(toupper(cav_heads) %in% wb_text), FALSE)
 
 # The About page renders end to end. Its section keys are built with paste0(),
 # which dev/check_literals.R cannot see, so a missing key only shows up here.
@@ -179,6 +208,8 @@ ok("about: the sign-up heading is visible",
    grepl(paste0("<h2>", fw_t("about", "signup_heading"), "</h2>"), about_html, fixed = TRUE))
 ok("about: no Lorem Ipsum left in How it was built",
    grepl("perspiciatis|Nemo enim|Neque porro", about_html), FALSE)
+ok("about: the citation is on the page",
+   grepl(fw_citation_text(m), about_html, fixed = TRUE))
 # The panels are click-to-open, and a <details> that lost its <summary> is a
 # block of prose nobody can close.
 ok("about: the six panels are disclosures",
@@ -1707,6 +1738,38 @@ ok("iucn: species.csv holds the 304 statuses of the 5 Oct download",
    sum(!is.na(sp$iucn_status)), 304L)
 ok("iucn: every species with a status has its category",
    all(!is.na(sp$iucn_category[!is.na(sp$iucn_status)])))
+# EVERYWHERE A PROTECTED SPECIES IS SHOWN (Alex, 6 Oct 2026): the top-species
+# tiles on the Plan page and in both reports, and the attempts .html cards.
+top_ben <- fw_species_top_n(d, all_sel, "beneficiary", 1000L)
+top_inv <- fw_species_top_n(d, all_sel, "invasive", 1000L)
+ok("iucn: every protected tile's name, recomputed",
+   identical(unname(top_ben$shown), unname(sp_shown[as.character(top_ben$species_id)])))
+ok("iucn: no targeted tile carries a code",
+   identical(top_inv$shown, top_inv$label))
+tiles_ben <- as.character(fw_species_tiles_ui(d, all_sel, "beneficiary", limit = 3L))
+tiles_inv <- as.character(fw_species_tiles_ui(d, all_sel, "invasive", limit = 3L))
+ok("iucn: the protected tiles print their codes, the targeted ones none",
+   c(grepl("(IUCN: ", tiles_ben, fixed = TRUE), grepl("IUCN", tiles_inv, fixed = TRUE)),
+   c(TRUE, FALSE))
+# A record whose protected species include a coded one.
+coded_labels <- unname(sp_name[!is.na(sp$iucn_status)])
+rec_i <- which(vapply(strsplit(coalesce(full_export$beneficiary_species, ""), FW_MULTI_SEP, fixed = TRUE),
+                      function(x) any(x %in% coded_labels), logical(1)))[1]
+rec_row <- as.list(full_export[rec_i, , drop = FALSE])
+rec_want <- vapply(strsplit(rec_row$beneficiary_species, FW_MULTI_SEP, fixed = TRUE)[[1]], function(x) {
+  k <- match(x, sp_name); if (is.na(k)) x else unname(sp_shown[k])
+}, "", USE.NAMES = FALSE)
+card_coded <- fw_record_card(rec_row, fw_record_copy(d$species))
+card_plain <- fw_record_card(rec_row, fw_record_copy())
+ok("iucn: the record card's protected line, recomputed",
+   grepl(htmltools::htmlEscape(paste(rec_want, collapse = FW_MULTI_SEP)), card_coded, fixed = TRUE))
+ok("iucn: the card's find text keeps the plain names",
+   grepl('data-search="[^"]*IUCN', card_coded), FALSE)
+ok("iucn: a card built without the species carries no code",
+   grepl("IUCN", card_plain, fixed = TRUE), FALSE)
+ok("iucn: the export frame never gains a display column",
+   names(full_export), FW_EXPORT_COLUMNS)
+
 # The 5 Oct export was read through openxlsx, which leaves "&amp;" in inline
 # strings; the build decodes it. Nothing escaped may reach the data.
 escaped <- "&(amp|lt|gt|quot|apos|#[0-9]+|#x[0-9a-fA-F]+);"
@@ -1755,7 +1818,7 @@ ok("place: a territory filed under its state stops the load",
 # ==============================================================================
 cat("\n-- welcome page --\n")
 
-home_html <- as.character(mod_home_ui("home", fw_headline_stats(d)))
+home_html <- as.character(mod_home_ui("home", fw_headline_stats(d), d$species))
 # Recomputed from the tables, not from fw_headline_stats().
 ok_ids <- as.character(d$attempt$attempt_id)[as.character(d$attempt$outcome) %in% "Successful"]
 as_ben <- d$attempt_species[as.character(d$attempt_species$role) == "beneficiary", ]
@@ -1834,6 +1897,37 @@ ok("welcome: placeholders drawn for each missing picture",
 ok("welcome: the cards show the beneficiary only",
    !grepl("fw-story__figure--invasive", home_html, fixed = TRUE) &&
      !grepl("_greyscale.png", home_html, fixed = TRUE))
+# THE STORY CARDS (client copy, 6 Oct 2026): no placeholder left, the
+# paragraphs and links drawn, and each beneficiary's Red List code as a badge,
+# looked up by name in species.csv.
+stories <- fw_t("home", "stories")
+ok("welcome: no story is a placeholder any more",
+   !any(grepl("PLACEHOLDER", unlist(stories), fixed = TRUE)))
+ok("welcome: every story has at least one link, each an https URL",
+   all(vapply(stories, function(s) length(s$links) > 0 &&
+                all(grepl("^https://", vapply(s$links, `[[`, "", "url"))), TRUE)))
+ok("welcome: every story link opens in a new tab",
+   lengths(regmatches(home_html, gregexpr('<a href="https://[^"]*" target="_blank" rel="noopener noreferrer"', home_html))) >=
+     sum(lengths(lapply(stories, `[[`, "links"))))
+ok("welcome: every paragraph is its own <p>",
+   all(vapply(unlist(lapply(stories, `[[`, "body")), function(b)
+     grepl(paste0("<p>", htmltools::htmlEscape(b), "</p>"), home_html, fixed = TRUE), TRUE)))
+want_codes <- vapply(stories, function(s) {
+  hit <- d$species$iucn_status[!is.na(d$species$common_name) &
+                                 d$species$common_name == s$beneficiary$name]
+  if (length(hit) == 1L && !is.na(hit)) hit else NA_character_
+}, "")
+ok("welcome: every story beneficiary has exactly one Red List status", !anyNA(want_codes))
+badges <- sub(".*>", "", regmatches(home_html,
+  gregexpr('<span class="fw-story__iucn"[^>]*>[A-Z]+', home_html))[[1]])
+ok("welcome: each card's badge is its beneficiary's code, in card order",
+   badges, unname(want_codes))
+ok("welcome: the six codes as the data has them",
+   unname(want_codes[c("africa", "asia", "europe", "north_america", "oceania", "latin_america")]),
+   c("EN", "LC", "EN", "CR", "EN", "CR"))
+ok("welcome: each badge says what it is in words",
+   lengths(regmatches(home_html, gregexpr('aria-label="IUCN Red List: [A-Z][a-z]', home_html))),
+   length(stories))
 ok("welcome: one picture per card",
    lengths(regmatches(home_html, gregexpr('class="fw-story__figure"', home_html))),
    length(fw_t("home", "stories")))

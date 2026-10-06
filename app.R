@@ -111,7 +111,7 @@ ui <- page_navbar(
     fw_live_region("fw_announce")
   ),
 
-  nav_panel(fw_t("nav", "home"),       value = "home",       mod_home_ui("home", fw_headline_stats(FW_DATA))),
+  nav_panel(fw_t("nav", "home"),       value = "home",       mod_home_ui("home", fw_headline_stats(FW_DATA), FW_DATA$species)),
   nav_panel(fw_t("nav", "explore"),    value = "explore",    mod_explore_ui("explore", FW_FILTER_CHOICES)),
   nav_panel(fw_t("nav", "plan"),       value = "plan",       mod_plan_ui("plan")),
   nav_panel(fw_t("nav", "contribute"), value = "contribute", mod_contribute_ui("contribute")),
@@ -136,6 +136,10 @@ server <- function(input, output, session) {
   # fw_client_script() stops an idle connection being closed in the first
   # place.
   session$allowReconnect(TRUE)
+
+  # WHICH BUILD IS RUNNING, so a page left over from an earlier deploy can
+  # reload itself. See FW_BUILD_ID in R/config.R.
+  session$sendCustomMessage("fw-build", FW_BUILD_ID)
 
   # USAGE TRACKING. Logs session_start now and writes the session's events in
   # one go when it ends. Never affects the visitor. See R/tracking.R.

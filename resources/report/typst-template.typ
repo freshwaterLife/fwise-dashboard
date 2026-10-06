@@ -233,14 +233,19 @@
   block(
     fill: fw-teal-wash, radius: 3mm, inset: 5mm, width: 100%,
     // A BLOCK MAY CARRY NO TITLE and then gets none, rather than a bold empty
-    // line holding open 1mm of nothing. The placeholder standing in for the
-    // client's caveats is one - see [PLACEHOLDER] in R/copy_export.R.
-    stack(spacing: 5mm, ..blocks.map(b => [
-      #if b.at(0) != "" [
-        #text(weight: "bold", size: fw-h3)[#b.at(0)]
-        #v(1mm)
-      ]
-      #b.at(1)
-    ])),
+    // line holding open 1mm of nothing. The third item marks a caveat under
+    // the "Caveats" part (fw_closing_blocks()), titled at body size; the
+    // part's own title has no body, so nothing is set under it.
+    // Code mode, not markup: markup's line breaks and indents set stray
+    // space under a title that has no text after it.
+    stack(spacing: 5mm, ..blocks.map(b => {
+      if b.at(0) != "" {
+        text(weight: "bold", size: if b.at(2) { 1em } else { fw-h3 }, b.at(0))
+      }
+      if b.at(1).len() > 0 {
+        v(1mm)
+        b.at(1).join(parbreak())
+      }
+    })),
   )
 }

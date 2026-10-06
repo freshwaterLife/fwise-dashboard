@@ -293,6 +293,24 @@ FW_HOME_COMPARE <- list(start = 50L, swing = 40L, period_ms = 2600L,
 # fw_client_script(). Well under the minute most proxies allow a silent socket.
 FW_KEEPALIVE_MS <- 30000
 
+# WHICH BUILD OF THE APP THIS IS, as a short hash of every file that shapes the
+# page: the R, the Sass, the client JS and the copy. Visitors were seeing old
+# styling after a deploy (Alex, 6 Oct 2026). The stylesheet is inlined into the
+# page, so it is never cached on its own - what goes stale is the page, either a
+# tab left open across the deploy or a copy held by the browser or the CDN. The
+# page carries this in <meta name="fw-build">, the server sends it again on
+# connect, and fw_client_script() reloads once when the two disagree. It is also
+# what to ask a visitor to read out of the page source when they report a look
+# you have already fixed. Computed once at start-up, so it costs a visitor
+# nothing.
+FW_BUILD_ID <- local({
+  dirs  <- file.path(FW_ROOT, c("R", "www/scss", "resources/js", "content"))
+  files <- sort(c(file.path(FW_ROOT, "app.R"),
+                  list.files(dirs, full.names = TRUE)))
+  files <- files[file.exists(files)]
+  substr(digest::digest(unname(tools::md5sum(files))), 1, 10)
+})
+
 # THE SITE'S PUBLIC ADDRESS, with the trailing slash. Read by fw_head_meta() for
 # the canonical link, the Open Graph tags and the structured data, which all
 # need absolute URLs; www/robots.txt and www/sitemap.xml are static files and
@@ -452,7 +470,10 @@ FW_PDF <- list(
   #
   # SEVEN (29 Sept 2026): both versions of the waterbody and methods charts now
   # print, one above the other. Measured at 9, 7 and 6 pages.
-  est_pages_base = 7,
+  #
+  # EIGHT (6 Oct 2026): the client's six caveats arrived. Measured at 10, 8
+  # and 8 pages.
+  est_pages_base = 8,
   # A4, in mm. The width is what every figure is drawn to.
   page_margin_mm = 18,
   text_width_mm = 174

@@ -44,9 +44,11 @@ FW_TRACK_TIMEOUT_S <- 5
 # cannot grow the process's memory without limit. Events past it are dropped.
 FW_TRACK_MAX_EVENTS <- 500L
 
-# The query parameter carrying where a visitor came from (?ref=webinar).
-# GoatCounter reads the same one as the visit's source.
-FW_TRACK_SOURCE_PARAM <- "ref"
+# The query parameter carrying where a visitor came from (?campaign=webinar).
+# GoatCounter shows it under Campaigns. NOT ?ref=: GoatCounter reads that only
+# as a campaign's optional source, so on its own it showed nowhere (checked on
+# the live dashboard, 5 Oct 2026).
+FW_TRACK_SOURCE_PARAM <- "campaign"
 
 # ---- Mode --------------------------------------------------------------------
 
@@ -98,12 +100,12 @@ fw_goatcounter_tag <- function(code = FW_GOATCOUNTER_CODE) {
 
 # ---- Details -----------------------------------------------------------------
 
-#' Where the visitor came from, from ?ref=
+#' Where the visitor came from, from ?campaign=
 #'
 #' Lowercased, then kept only if it is letters, digits and hyphens, 30 at
 #' most. "direct" when there is none; "other" when there is one that fails.
 #'
-#' @param url_search the page's query string, e.g. "?ref=webinar"
+#' @param url_search the page's query string, e.g. "?campaign=webinar"
 fw_track_source <- function(url_search) {
   q <- shiny::parseQueryString(url_search %||% "")
   v <- q[[FW_TRACK_SOURCE_PARAM]]
