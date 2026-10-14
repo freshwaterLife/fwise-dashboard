@@ -1,377 +1,235 @@
 # qa.R
-# THE REVIEW LOOP. Submissions arrive in fwise-data/inbox/ as one CSV each, in
-# the exact shape of attempts.csv. This script turns them into something a
-# person can review, and then folds what they approved into the data.
+# THE REVIEW AND IMPORT, ONE SECTION AT A TIME. Submissions from the contribute
+# form land as rows of the `submissions` tab of the inbox Google Sheet (and,
+# for a species the contributor typed in, the `new_species` tab). The reviewer
+# checks and corrects them THERE, and this script imports what they approve.
 #
-#     Rscript dev/qa.R stage
-#         Gathers every unprocessed submission into qa/review_<date>.csv, with
-#         readable name columns beside every id column, and lists the species
-#         and contacts the database does not hold yet in qa/species_new_<date>.csv
-#         and qa/contacts_new_<date>.csv. Prints what looks off-list or
-#         duplicated. Changes nothing else.
+# HOW TO RUN IT. Open fwise-dashboard in RStudio (the working directory must be
+# fwise-dashboard/) and run one section at a time: put the cursor in a section
+# and press Ctrl+Alt+T (Cmd+Option+T on a Mac), or select lines and press
+# Ctrl+Enter. Read what each section prints before running the next.
 #
-#     Rscript dev/qa.R fold qa/review_<date>.csv [--keep-pending]
-#         Applies the reviewer's decisions: adds the species and contacts marked
-#         `add`, rewrites every `new:` reference to an id, appends the rows
-#         marked `approved` to attempts.csv, moves their inbox files to
-#         inbox/merged/, rewrites metadata.json. Rows still `pending` are left
-#         in the inbox unless --keep-pending, which folds them in as pending
-#         (invisible publicly). Rows marked `rejected` go to qa/rejected.csv.
+#   0  Setup        load the app's code; say which sheet and data checkout
+#   1  Read         the sheet, as `inbox` and `new_species`
+#   2  Check        problems into `checks`; possible duplicates into
+#                   `contact_matches` and `species_matches`
+#                   -> FIX THINGS IN THE SHEET, then run 1 and 2 again.
+#                   -> When a row is right, set its qa_status to "done" and its
+#                      status to "approved" (or "rejected").
+#   3  Resolve      what would be imported: `to_add`, `species_add`, `contacts_add`
+#   4  Enrich       family, IUCN status and photo for the new species
+#   5  WRITE        the only section that changes anything: the data files,
+#                   then the sheet's `imported` column
+#   6  Publish      the git commands that put the import live
+#   7  Cutover      ONE-OFF, see the section
 #
-# Then commit and push fwise-data, and restart the app.
+# NOTHING IS IMPORTED TWICE. A row is taken only while `imported` is "no" and
+# its attempt_id is not already in attempts.csv, and section 5 checks again
+# straight before it writes. Running any section twice is safe.
 #
-# WHAT THE REVIEWER DOES between the two commands, in a spreadsheet:
-#   - in review_<date>.csv: correct any value, set `status` to approved or
-#     rejected. The *_names columns are for reading and are dropped on fold.
-#   - in species_new_<date>.csv and contacts_new_<date>.csv: set `action` on
-#     every row to `add` (a genuinely new row; fix names, taxa, family first)
-#     or `use:<existing id>` (it is one we already hold). The fold refuses to
-#     run while any action is blank.
-#
-# IDEMPOTENT. A submission whose attempt_id is already in attempts.csv is
-# skipped by both commands, so running either twice does nothing new.
+# What the reviewer needs on their machine: this repository and fwise-data
+# side by side, renv restored, and in .Renviron GS4_SA_KEY_B64 and
+# FWISE_INBOX_SHEET_ID (or FWISE_FORMS_SHEET_ID), plus IUCN_API_TOKEN for
+# section 4. With no sheet set, the script works on dev/forms/*.csv instead,
+# which is what a submission on a machine with no keys writes.
 
-suppressPackageStartupMessages({
-  library(dplyr); library(readr); library(stringr); library(purrr); library(tibble)
+
+# ==== 0. Setup ================================================================
+
+suppressPackageStartupMessages(library(shiny))
+for (f in sort(list.files("R", full.names = TRUE), method = "radix")) source(f)
+source("dev/species_enrich.R")
+
+#' git in the fwise-data checkout, never prompting for a password
+fw_qa_git <- function(...) {
+  suppressWarnings(system2("git", c("-C", shQuote(FW_DATA_DIR), ...),
+                           stdout = TRUE, stderr = TRUE, env = "GIT_TERMINAL_PROMPT=0"))
+}
+
+#' The checkout's branch, whether it has uncommitted changes, and how far
+#' behind its remote it is (NA when that cannot be told)
+fw_qa_git_state <- function() {
+  fw_qa_git("fetch", "--quiet")
+  behind <- fw_qa_git("rev-list", "--count", "HEAD..@{u}")
+  list(branch = fw_qa_git("rev-parse", "--abbrev-ref", "HEAD")[1],
+       changes = fw_qa_git("status", "--porcelain"),
+       behind = suppressWarnings(as.integer(behind[1])))
+}
+
+fw_qa_show <- function(x, title) if (interactive()) utils::View(x, title)
+
+git <- fw_qa_git_state()
+message("Data checkout: ", FW_DATA_DIR, "  (branch ", git$branch, ")")
+if (length(git$changes)) message("  ! it has uncommitted changes - section 5 will not write until they are committed or undone")
+if (isTRUE(git$behind > 0)) message("  ! it is ", git$behind, " commit(s) behind - pull fwise-data before going on")
+message("Inbox: ", if (fw_inbox_mode() == "sheets")
+  paste0("Google Sheet ", FWISE_INBOX_SHEET_ID) else
+  paste0("LOCAL files in ", fw_forms_dir(), " (no sheet set)"))
+message("IUCN lookups in section 4: ", if (nzchar(Sys.getenv("IUCN_API_TOKEN"))) "on" else "OFF (IUCN_API_TOKEN not set)")
+
+
+# ==== 1. Read the sheet =======================================================
+
+inbox       <- fw_inbox_read(FW_INBOX_TABS$submissions)
+new_species <- fw_inbox_read(FW_INBOX_TABS$new_species)
+db          <- fw_qa_read_db()
+
+open_rows <- inbox[fw_inbox_open(inbox, db), , drop = FALSE]
+message(nrow(inbox), " row(s) in the sheet; ", nrow(open_rows), " not yet imported (",
+        sum(open_rows$qa_status %in% "done"), " with QA done)")
+fw_qa_show(open_rows, "open rows")
+
+
+# ==== 2. Check ================================================================
+
+inbox       <- fw_inbox_read(FW_INBOX_TABS$submissions)
+new_species <- fw_inbox_read(FW_INBOX_TABS$new_species)
+db          <- fw_qa_read_db()
+
+checks          <- fw_inbox_check(inbox, new_species, db)
+contact_matches <- fw_contact_matches(inbox, db)
+species_matches <- fw_species_matches(inbox, db)
+
+# One line per open row: how it stands.
+open_rows <- inbox[fw_inbox_open(inbox, db), , drop = FALSE]
+row_summary <- tibble::tibble(
+  sheet_row = open_rows$sheet_row, attempt_id = open_rows$attempt_id,
+  site_name = open_rows$site_name, qa_status = open_rows$qa_status, status = open_rows$status,
+  errors   = vapply(open_rows$attempt_id, function(id) sum(checks$attempt_id %in% id & checks$level == "error"), 0L),
+  warnings = vapply(open_rows$attempt_id, function(id) sum(checks$attempt_id %in% id & checks$level == "warning"), 0L)
+)
+print(row_summary, n = Inf)
+message(sum(checks$level == "error"), " error(s), ", sum(checks$level == "warning"), " warning(s); ",
+        nrow(contact_matches), " possible contact match(es); ", nrow(species_matches), " possible species match(es)")
+message("Errors stop a row being imported. Warnings do not: QA done means you have looked at them.\n",
+        "To use a contact we hold, type its CO- id in the row's contact_id. To use a species we hold,\n",
+        "replace the typed label with the candidate_label. Then run sections 1 and 2 again.")
+fw_qa_show(checks, "checks")
+if (nrow(contact_matches)) fw_qa_show(contact_matches, "contact_matches")
+if (nrow(species_matches)) fw_qa_show(species_matches, "species_matches")
+
+
+# ==== 3. Resolve: what would be imported ======================================
+
+# Leave NULL to import every row whose QA is done; or name some, e.g.
+# import_ids <- c("FW-20261012-7K3QX9")
+import_ids <- NULL
+
+inbox       <- fw_inbox_read(FW_INBOX_TABS$submissions)
+new_species <- fw_inbox_read(FW_INBOX_TABS$new_species)
+db          <- fw_qa_read_db()
+
+sel <- fw_inbox_ready(inbox, db, import_ids)
+
+# Checked again here, on exactly these rows: an earlier run of section 2 may
+# be out of date.
+checks <- fw_inbox_check(inbox, new_species, db)
+blocking <- checks[checks$level == "error" &
+                     (is.na(checks$attempt_id) | checks$attempt_id %in% inbox$attempt_id[sel$ready]), ]
+if (nrow(blocking)) {
+  fw_qa_show(blocking, "blocking errors")
+  print(blocking[, c("sheet_row", "attempt_id", "column", "value", "problem")], n = Inf)
+  stop(nrow(blocking), " error(s) on rows marked done. Fix them in the sheet and run section 3 again.",
+       call. = FALSE)
+}
+
+resolved <- fw_inbox_resolve(inbox[sel$take, , drop = FALSE], new_species, db)
+species_add <- resolved$species_add
+# What section 5 will compare against, to be sure the sheet has not changed.
+qa_snapshot <- inbox[sel$take | sel$reject, FW_INBOX_COLUMNS, drop = FALSE]
+
+message(nrow(resolved$to_add), " attempt(s) to add, ", sum(sel$reject), " to mark rejected; ",
+        nrow(species_add), " new species, ", nrow(resolved$contacts_add), " new contact(s)",
+        if (length(resolved$contacts_private)) paste0("; ", length(resolved$contacts_private),
+          " held contact(s) to hide (asked for private): ", paste(resolved$contacts_private, collapse = ", ")))
+fw_qa_show(resolved$to_add, "to_add")
+if (nrow(species_add)) fw_qa_show(species_add, "species_add")
+if (nrow(resolved$contacts_add)) fw_qa_show(resolved$contacts_add, "contacts_add")
+
+
+# ==== 4. Enrich the new species ===============================================
+#
+# Family (fish only) from GBIF, the IUCN Red List status, and a photograph with
+# its credit and licence. Fills blanks only; one request a second, so allow a
+# few seconds per species. Skip this section and section 5 writes the species
+# without them - dev/fetch_species_images.R can add photographs later.
+
+if (!exists("resolved")) stop("Run section 3 first.", call. = FALSE)
+enriched <- fw_enrich_species(resolved$species_add)
+species_add <- enriched$species
+enrich_log <- enriched$log
+print(enrich_log, n = Inf)
+fw_qa_show(species_add, "species_add (enriched)")
+
+
+# ==== 5. WRITE ================================================================
+#
+# The data files first, then the sheet. If the sheet write fails, run this
+# section again: rows already in attempts.csv are marked imported and nothing
+# is added twice.
+
+if (!exists("resolved")) stop("Run section 3 (and 4) first.", call. = FALSE)
+
+local({
+  git <- fw_qa_git_state()
+  if (length(git$changes)) stop("fwise-data has uncommitted changes. Commit or undo them first:\n  ",
+                                paste(git$changes, collapse = "\n  "), call. = FALSE)
+  if (isTRUE(git$behind > 0)) stop("fwise-data is ", git$behind, " commit(s) behind. Pull it, then run sections 3-5 again.",
+                                   call. = FALSE)
+  if (interactive()) {
+    answer <- readline(sprintf("Write %d attempt(s), %d species, %d contact(s) and mark %d rejected? Type yes: ",
+                               nrow(resolved$to_add), nrow(species_add), nrow(resolved$contacts_add),
+                               sum(qa_snapshot$status %in% "rejected")))
+    if (!identical(trimws(answer), "yes")) stop("Nothing written.", call. = FALSE)
+  }
+  w <- fw_qa_write_import(resolved, species_add, qa_snapshot)
+  message("Written: +", length(w$attempts_added), " attempts (now ", w$attempts_total, "), +",
+          length(w$species_added), " species, +", length(w$contacts_added), " contacts",
+          if (length(w$contacts_hidden)) paste0(", hidden: ", paste(w$contacts_hidden, collapse = ", ")))
+  message("Sheet: ", length(w$marked_imported), " row(s) marked imported, ",
+          length(w$marked_rejected), " marked rejected.")
 })
-source(file.path("R", "brand.R")); source(file.path("R", "config.R"))
-source(file.path("R", "github.R")); source(file.path("R", "data_load.R"))
-source(file.path("R", "submit.R"))
+rm(resolved, species_add, qa_snapshot)
 
-args <- commandArgs(trailingOnly = TRUE)
-cmd  <- args[1]
-if (is.na(cmd) || !cmd %in% c("stage", "fold")) {
-  stop("Usage:\n  Rscript dev/qa.R stage\n  Rscript dev/qa.R fold qa/review_<date>.csv [--keep-pending]", call. = FALSE)
-}
 
-QA_DIR    <- file.path(FW_DATA_DIR, "qa")
-INBOX     <- fw_inbox_dir()
-MERGED    <- file.path(INBOX, "merged")
-today     <- format(Sys.Date())
+# ==== 6. Publish ==============================================================
+#
+# The import is in your fwise-data checkout but not live yet. Commit and push
+# it, then restart the app (Connect Cloud: Republish) - the app reads the data
+# once, when it starts.
 
-read_text <- function(path) read_csv(path, col_types = cols(.default = col_character()), progress = FALSE)
-blank_na  <- function(df) mutate(df, across(everything(), ~ { x <- str_trim(.x); if_else(is.na(x) | x == "", NA_character_, x) }))
+message(paste(fw_qa_git("status", "--short"), collapse = "\n"))
+message("\nIn a terminal:\n",
+        "  cd ", FW_DATA_DIR, "\n",
+        "  git add attempts.csv species.csv contacts.csv metadata.json\n",
+        "  git commit -m \"Import submissions ", format(Sys.Date()), "\"\n",
+        "  git push\n",
+        "Then restart the app.")
 
-attempts <- blank_na(read_text(FW_ATTEMPTS_CSV))
-species  <- blank_na(read_text(FW_SPECIES_CSV))
-contacts <- blank_na(read_text(FW_CONTACTS_CSV))
-fw_validate_files(attempts, species, contacts)
 
-sp_label <- fw_species_label(species)
-label_of <- setNames(sp_label$label, sp_label$species_id)
-contact_label <- function(id) {
-  m <- match(id, contacts$contact_id)
-  nm <- contacts$contact_name[m]; og <- contacts$organisation[m]
-  # An organisation with no named person is labelled by the organisation.
-  ifelse(is.na(m), NA_character_,
-         ifelse(is.na(nm), coalesce(og, contacts$contact_email[m]),
-                paste0(nm, ifelse(is.na(og), "", paste0(", ", og)))))
-}
+# ==== 7. Cutover (ONE-OFF) ====================================================
+#
+# Until October 2026 the app wrote each submission to fwise-data/inbox/ as a
+# CSV. Run this ONCE, after the new app is deployed and with fwise-data's main
+# branch checked out and pulled, to move whatever is still there into the
+# sheet. Then delete inbox/ from fwise-data and delete this section and
+# fw_inbox_from_legacy() in R/qa_checks.R.
 
-# Readable form of an id cell: names for ids, [NEW] for unresolved references.
-describe_species <- function(cell) {
-  vapply(cell, function(x) {
-    items <- fw_split_multi(x)
-    if (!length(items)) return(NA_character_)
-    paste(vapply(items, function(it) {
-      if (fw_is_new_ref(it)) paste0("[NEW] ", fw_parse_new_ref(it, 2)[1])
-      else if (it %in% names(label_of)) unname(label_of[it])
-      else paste0("[UNKNOWN ID] ", it)
-    }, ""), collapse = FW_MULTI_SEP)
-  }, "", USE.NAMES = FALSE)
-}
-describe_contact <- function(cell) {
-  vapply(cell, function(x) {
-    if (is.na(x)) return(NA_character_)
-    if (fw_is_new_ref(x)) { p <- fw_parse_new_ref(x, 4); return(paste0("[NEW] ", p[1], if (nzchar(p[2])) paste0(", ", p[2]) else "")) }
-    lbl <- contact_label(x); if (is.na(lbl)) paste0("[UNKNOWN ID] ", x) else lbl
-  }, "", USE.NAMES = FALSE)
-}
-
-iso <- fw_read_lookup("lookup_iso3166.csv")
-
-# ==============================================================================
-if (cmd == "stage") {
-# ==============================================================================
-
-files <- if (dir.exists(INBOX)) list.files(INBOX, pattern = "\\.csv$", full.names = TRUE) else character(0)
-if (!length(files)) { message("Inbox is empty: ", INBOX); quit(save = "no") }
-
-rows <- lapply(files, function(f) {
-  d <- read_text(f)
-  bad <- !identical(names(d), FW_ATTEMPT_COLUMNS)
-  if (bad) stop(basename(f), " does not have the columns of attempts.csv.\n  missing: ",
-                paste(setdiff(FW_ATTEMPT_COLUMNS, names(d)), collapse = ", "),
-                "\n  unexpected: ", paste(setdiff(names(d), FW_ATTEMPT_COLUMNS), collapse = ", "), call. = FALSE)
-  d
+local({
+  legacy_dir <- file.path(FW_DATA_DIR, "inbox")
+  files <- list.files(legacy_dir, pattern = "\\.csv$", full.names = TRUE)
+  if (!length(files)) return(message("Nothing in ", legacy_dir))
+  legacy <- fw_qa_blank_na(dplyr::bind_rows(lapply(files, function(f)
+    readr::read_csv(f, col_types = readr::cols(.default = "c"), progress = FALSE))))
+  db <- fw_qa_read_db()
+  inbox <- fw_inbox_read(FW_INBOX_TABS$submissions)
+  legacy <- legacy[!legacy$attempt_id %in% c(inbox$attempt_id, db$attempts$attempt_id), ]
+  if (!nrow(legacy)) return(message("Every file in ", legacy_dir, " is already in the sheet or the data."))
+  conv <- fw_inbox_from_legacy(legacy, db)
+  if (interactive() && !identical(trimws(readline(sprintf(
+    "Append %d submission(s) and %d new species row(s) to the sheet? Type yes: ",
+    length(conv$submissions), length(conv$new_species)))), "yes")) stop("Nothing written.", call. = FALSE)
+  fw_inbox_append(FW_INBOX_TABS$submissions, conv$submissions, FW_INBOX_COLUMNS)
+  fw_inbox_append(FW_INBOX_TABS$new_species, conv$new_species, FW_NEW_SPECIES_COLUMNS)
+  message("Appended ", length(conv$submissions), " submission(s): ", paste(legacy$attempt_id, collapse = ", "))
 })
-inbox <- blank_na(bind_rows(rows))
-already <- inbox$attempt_id %in% attempts$attempt_id
-if (any(already)) message(sum(already), " submission(s) already in attempts.csv, skipped: ",
-                          paste(inbox$attempt_id[already], collapse = ", "))
-inbox <- inbox[!already, ]
-if (!nrow(inbox)) { message("Nothing new to review."); quit(save = "no") }
-
-# ---- The review file ---------------------------------------------------------
-review <- inbox
-add_after <- function(df, after, name, value) {
-  i <- match(after, names(df)); df[[name]] <- value
-  df[, append(setdiff(names(df), name), name, after = i)]
-}
-review <- add_after(review, "invasive_species",     "invasive_species_names",     describe_species(review$invasive_species))
-review <- add_after(review, "beneficiary_species",  "beneficiary_species_names",  describe_species(review$beneficiary_species))
-review <- add_after(review, "primary_contact_id",   "primary_contact_names",      describe_contact(review$primary_contact_id))
-review <- add_after(review, "secondary_contact_id", "secondary_contact_names",    describe_contact(review$secondary_contact_id))
-
-# ---- Species the database does not hold ---------------------------------------
-new_sp <- list()
-for (i in seq_len(nrow(inbox))) for (cell in c(inbox$invasive_species[i], inbox$beneficiary_species[i])) {
-  for (it in fw_split_multi(cell)) if (fw_is_new_ref(it)) {
-    p <- fw_parse_new_ref(it, 2)
-    new_sp[[length(new_sp) + 1]] <- tibble(submitted_as = p[1], taxa = p[2], from_attempt = inbox$attempt_id[i])
-  }
-}
-species_new <- NULL
-if (length(new_sp)) {
-  parse_name <- function(x) {
-    sci <- str_match(x, "\\(([^()]*)\\)\\s*$")[, 2]
-    com <- str_trim(str_remove(x, "\\s*\\(([^()]*)\\)\\s*$"))
-    list(common = if_else(is.na(com) | com == "", NA_character_, com), sci = str_trim(sci))
-  }
-  species_new <- bind_rows(new_sp) |>
-    group_by(submitted_as) |>
-    summarise(taxa = first(na.omit(taxa)) %||% NA_character_,
-              from_attempt = paste(unique(from_attempt), collapse = FW_MULTI_SEP), .groups = "drop")
-  nm <- parse_name(species_new$submitted_as)
-  species_new$common_name <- nm$common; species_new$scientific_name <- nm$sci
-  species_new$family <- "Unknown"
-  # Exact label already held (added since the submission was made): pre-fill.
-  exact <- unname(setNames(sp_label$species_id, sp_label$label)[species_new$submitted_as])
-  # Same scientific name under another common name: warn, do not decide.
-  same_binomial <- vapply(seq_len(nrow(species_new)), function(k) {
-    sci <- species_new$scientific_name[k]
-    if (is.na(sci)) return(NA_character_)
-    hit <- sp_label$species_id[!is.na(sp_label$scientific_name) & sp_label$scientific_name == sci]
-    if (!length(hit)) NA_character_ else paste(paste(hit, label_of[hit]), collapse = FW_MULTI_SEP)
-  }, "")
-  species_new <- species_new |>
-    mutate(same_binomial_as = same_binomial,
-           action = if_else(!is.na(exact), paste0("use:", exact), NA_character_)) |>
-    select(submitted_as, common_name, scientific_name, taxa, family, same_binomial_as, action, from_attempt)
-}
-
-# ---- Contacts the database does not hold --------------------------------------
-new_co <- list()
-for (i in seq_len(nrow(inbox))) for (cell in c(inbox$primary_contact_id[i], inbox$secondary_contact_id[i])) {
-  if (!is.na(cell) && fw_is_new_ref(cell)) {
-    p <- fw_parse_new_ref(cell, 4)
-    new_co[[length(new_co) + 1]] <- tibble(submitted_as = sub("^new:", "", cell), contact_name = p[1],
-                                           organisation = if_else(nzchar(p[2]), p[2], NA_character_),
-                                           contact_email = if_else(nzchar(p[3]), p[3], NA_character_),
-                                           contact_public = !identical(p[4], "private"),
-                                           from_attempt = inbox$attempt_id[i])
-  }
-}
-contacts_new <- NULL
-if (length(new_co)) {
-  contacts_new <- bind_rows(new_co) |>
-    group_by(submitted_as) |>
-    summarise(across(c(contact_name, organisation, contact_email), first),
-              contact_public = all(contact_public),
-              from_attempt = paste(unique(from_attempt), collapse = FW_MULTI_SEP), .groups = "drop")
-  key <- function(n, o) paste(n, coalesce(o, ""), sep = "|")
-  exact <- unname(setNames(contacts$contact_id, key(contacts$contact_name, contacts$organisation))[
-    key(contacts_new$contact_name, contacts_new$organisation)])
-  name_only <- vapply(contacts_new$contact_name, function(n) {
-    hit <- contacts$contact_id[contacts$contact_name == n]
-    if (!length(hit)) NA_character_ else paste(paste(hit, contact_label(hit)), collapse = FW_MULTI_SEP)
-  }, "", USE.NAMES = FALSE)
-  contacts_new <- contacts_new |>
-    mutate(matches_existing = if_else(!is.na(exact), paste(exact, contact_label(exact)),
-                                      if_else(!is.na(name_only), paste("NAME ONLY:", name_only), NA_character_)),
-           action = if_else(!is.na(exact), paste0("use:", exact), NA_character_)) |>
-    select(submitted_as, contact_name, organisation, contact_email, contact_public,
-           matches_existing, action, from_attempt)
-}
-
-# ---- Things worth a look -----------------------------------------------------
-vocab <- function(col) sort(unique(na.omit(attempts[[col]])))
-flag <- function(label, ids) if (length(ids)) message("  ! ", label, ": ", paste(ids, collapse = ", "))
-message("\nChecks:")
-if (!is.null(iso)) flag("country not in the ISO list", inbox$attempt_id[!inbox$country %in% iso$country])
-methods_seen <- unlist(lapply(inbox$methods, fw_split_multi))
-flag("method not in FW_METHODS (will load as class 'other')",
-     inbox$attempt_id[vapply(inbox$methods, function(m) any(!fw_split_multi(m) %in% FW_METHODS$method_name), TRUE)])
-for (col in c("driver", "waterbody_type", "neutralising_agent", "area_unit", "water_regime", "outcome")) {
-  flag(paste0(col, " not in the current vocabulary"),
-       inbox$attempt_id[!is.na(inbox[[col]]) & !inbox[[col]] %in% vocab(col)])
-}
-dup_key <- paste(tolower(attempts$site_name), attempts$start_year)
-flag("possible duplicate of an existing attempt (same site name and start year)",
-     inbox$attempt_id[paste(tolower(inbox$site_name), inbox$start_year) %in% dup_key])
-if (!is.null(species_new) && any(!is.na(species_new$same_binomial_as)))
-  message("  ! ", sum(!is.na(species_new$same_binomial_as)),
-          " proposed species share a scientific name with one already held - check before adding")
-
-# ---- Write ---------------------------------------------------------------------
-dir.create(QA_DIR, showWarnings = FALSE)
-review_path <- file.path(QA_DIR, paste0("review_", today, ".csv"))
-write_csv(review, review_path, na = "")
-message("\n", nrow(review), " submission(s) staged in ", review_path)
-if (!is.null(species_new)) {
-  p <- file.path(QA_DIR, paste0("species_new_", today, ".csv")); write_csv(species_new, p, na = "")
-  message(nrow(species_new), " new species proposed in ", p)
-}
-if (!is.null(contacts_new)) {
-  p <- file.path(QA_DIR, paste0("contacts_new_", today, ".csv")); write_csv(contacts_new, p, na = "")
-  message(nrow(contacts_new), " contact(s) to resolve in ", p,
-          " (", sum(!is.na(contacts_new$action)), " pre-matched)")
-}
-message("\nReview, set status and every action, then:\n  Rscript dev/qa.R fold ", review_path)
-
-# ==============================================================================
-} else {
-# ==============================================================================
-
-review_path <- args[2]
-keep_pending <- "--keep-pending" %in% args
-if (is.na(review_path) || !file.exists(review_path)) stop("Give the review file to fold.", call. = FALSE)
-stamp <- str_match(basename(review_path), "review_(.*)\\.csv$")[, 2]
-sp_path <- file.path(dirname(review_path), paste0("species_new_", stamp, ".csv"))
-co_path <- file.path(dirname(review_path), paste0("contacts_new_", stamp, ".csv"))
-
-review <- blank_na(read_text(review_path))
-review <- review[, setdiff(names(review), grep("_names$", names(review), value = TRUE))]
-if (!identical(names(review), FW_ATTEMPT_COLUMNS))
-  stop("The review file's columns are not attempts.csv's. Was a column deleted or renamed?", call. = FALSE)
-
-bad_status <- !review$status %in% FW_STATUS
-if (any(bad_status)) stop("status must be one of ", paste(FW_STATUS, collapse = ", "), "; found: ",
-                          paste(unique(review$status[bad_status]), collapse = ", "), call. = FALSE)
-already <- review$attempt_id %in% attempts$attempt_id
-if (any(already)) message(sum(already), " already folded, skipped: ", paste(review$attempt_id[already], collapse = ", "))
-review <- review[!already, ]
-
-# ---- Decisions on new species and contacts ------------------------------------
-read_decisions <- function(path, what, known_ids) {
-  if (!file.exists(path)) return(NULL)
-  d <- blank_na(read_text(path))
-  if (any(is.na(d$action))) stop("Every row of ", basename(path), " needs an action (add or use:<id>). ",
-                                 sum(is.na(d$action)), " blank.", call. = FALSE)
-  use <- str_match(d$action, "^use:(.+)$")[, 2]
-  ok <- d$action == "add" | (!is.na(use) & use %in% known_ids)
-  if (!all(ok)) stop("Unrecognised action or unknown id in ", basename(path), ": ",
-                     paste(d$action[!ok], collapse = ", "), call. = FALSE)
-  d$use_id <- use
-  d
-}
-sp_dec <- read_decisions(sp_path, "species", species$species_id)
-co_dec <- read_decisions(co_path, "contacts", contacts$contact_id)
-
-# Mint for every `add`, then every submitted_as maps to an id.
-sp_map <- character(0); co_map <- character(0)
-if (!is.null(sp_dec)) {
-  adds <- sp_dec$action == "add"
-  ids <- fw_mint_ids("SP", sum(adds), exclude = species$species_id)
-  if (any(adds)) species <- bind_rows(species, tibble(
-    species_id = ids, common_name = sp_dec$common_name[adds], scientific_name = sp_dec$scientific_name[adds],
-    taxa = sp_dec$taxa[adds], family = sp_dec$family[adds], iucn_status = NA_character_,
-    iucn_category = NA_character_, iucn_url = NA_character_, iucn_year = NA_character_,
-    iucn_note = NA_character_, iucn_matched_name = NA_character_,
-    image_url = NA_character_, image_credit = NA_character_, image_licence = NA_character_,
-    image_licence_url = NA_character_, image_page_url = NA_character_))
-  sp_dec$id <- sp_dec$use_id; sp_dec$id[adds] <- ids
-  sp_map <- setNames(sp_dec$id, sp_dec$submitted_as)
-}
-if (!is.null(co_dec)) {
-  adds <- co_dec$action == "add"
-  ids <- fw_mint_ids("CO", sum(adds), exclude = contacts$contact_id)
-  if (any(adds)) contacts <- bind_rows(contacts, tibble(
-    contact_id = ids, contact_name = co_dec$contact_name[adds], contact_email = co_dec$contact_email[adds],
-    organisation = co_dec$organisation[adds],
-    contact_public = toupper(as.character(toupper(co_dec$contact_public[adds]) %in% c("TRUE", "YES")))))
-  co_dec$id <- co_dec$use_id; co_dec$id[adds] <- ids
-  co_map <- setNames(co_dec$id, co_dec$submitted_as)
-}
-
-resolve_species_cell <- function(x) {
-  items <- fw_split_multi(x); if (!length(items)) return(NA_character_)
-  out <- vapply(items, function(it) {
-    if (!fw_is_new_ref(it)) return(it)
-    id <- unname(sp_map[fw_parse_new_ref(it, 2)[1]])
-    if (is.na(id)) stop("No decision for species '", fw_parse_new_ref(it, 2)[1], "' - re-run stage.", call. = FALSE)
-    id
-  }, "")
-  paste(out, collapse = FW_MULTI_SEP)
-}
-resolve_contact_cell <- function(x) {
-  if (is.na(x) || !fw_is_new_ref(x)) return(x)
-  id <- unname(co_map[sub("^new:", "", x)])
-  if (is.na(id)) stop("No decision for contact '", fw_parse_new_ref(x, 4)[1], "' - re-run stage.", call. = FALSE)
-  id
-}
-review$invasive_species     <- vapply(review$invasive_species,     resolve_species_cell, "", USE.NAMES = FALSE)
-review$beneficiary_species  <- vapply(review$beneficiary_species,  resolve_species_cell, "", USE.NAMES = FALSE)
-review$primary_contact_id   <- vapply(review$primary_contact_id,   resolve_contact_cell, "", USE.NAMES = FALSE)
-review$secondary_contact_id <- vapply(review$secondary_contact_id, resolve_contact_cell, "", USE.NAMES = FALSE)
-
-# ---- Which rows go in ---------------------------------------------------------
-take <- review$status == "approved" | (keep_pending & review$status == "pending")
-rejected <- review[review$status == "rejected", ]
-folded <- review[take, ]
-left <- review[!take & review$status == "pending", ]
-
-if (nrow(folded)) {
-  if (!is.null(iso)) {
-    # DERIVED, NOT COALESCED. iso3 and continent are properties of the country
-    # (fw_validate_geography() in R/data_load.R), so whatever the reviewer left
-    # in those two columns is replaced by the lookup's value wherever the
-    # country is known, and left as reviewed - and reported - where it is not.
-    m <- match(folded$country, iso$country)
-    known <- !is.na(m)
-    folded$iso3[known] <- iso$iso3[m[known]]
-    folded$continent[known] <- iso$continent[m[known]]
-    if (any(!known)) message("  ! country not in the ISO list, iso3/continent left as reviewed: ",
-                             paste(unique(folded$country[!known]), collapse = ", "))
-    # A region that is itself a country in the standard is a territory filed
-    # under its administering state. The app refuses to load that row.
-    terr <- !is.na(folded$region) & folded$region %in% iso$country
-    if (any(terr)) stop("Region is a country in its own right - store it as the country: ",
-                        paste(unique(folded$region[terr]), collapse = ", "), call. = FALSE)
-  }
-  folded$last_updated <- today
-  # Nothing goes into attempts.csv that would stop the app at its next load.
-  fw_unpack(bind_rows(attempts, folded), species, contacts)
-  attempts <- bind_rows(attempts, folded)
-}
-
-# ---- Write everything ---------------------------------------------------------
-write_csv(attempts[, FW_ATTEMPT_COLUMNS], FW_ATTEMPTS_CSV, na = "")
-write_csv(species[, FW_SPECIES_COLUMNS],  FW_SPECIES_CSV,  na = "")
-write_csv(contacts[, FW_CONTACT_COLUMNS], FW_CONTACTS_CSV, na = "")
-if (nrow(rejected)) {
-  p <- file.path(QA_DIR, "rejected.csv")
-  write_csv(rejected, p, na = "", append = file.exists(p))
-}
-done <- c(folded$attempt_id, rejected$attempt_id)
-moved <- 0L
-for (id in done) {
-  src <- file.path(INBOX, paste0(id, ".csv"))
-  if (!file.exists(src)) next
-  dir.create(MERGED, showWarnings = FALSE, recursive = TRUE)
-  if (file.rename(src, file.path(MERGED, basename(src)))) moved <- moved + 1L
-}
-meta <- list(release = today, generated_by = "dev/qa.R fold",
-             row_counts = list(attempts = nrow(attempts), species = nrow(species), contacts = nrow(contacts)))
-writeLines(jsonlite::toJSON(meta, auto_unbox = TRUE, pretty = TRUE), file.path(FW_DATA_DIR, "metadata.json"))
-
-message("\nFolded ", nrow(folded), " attempt(s) (", sum(folded$status == "approved"), " approved, ",
-        sum(folded$status == "pending"), " pending); ", nrow(rejected), " rejected; ",
-        nrow(left), " left pending in the inbox.")
-if (!is.null(sp_dec)) message("species.csv: +", sum(sp_dec$action == "add"),
-                              if (any(sp_dec$action == "add")) ". Run dev/fetch_species_images.R to fetch the new photo(s)." else "")
-if (!is.null(co_dec)) message("contacts.csv: +", sum(co_dec$action == "add"))
-message("Moved ", moved, " inbox file(s) to ", MERGED)
-message("attempts now: ", nrow(attempts), " (", sum(attempts$status == "approved"), " approved)")
-message("\nCommit and push fwise-data, then restart the app for this to reach it.")
-}

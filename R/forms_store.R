@@ -1,17 +1,26 @@
 # forms_store.R
-# Where newsletter sign-ups and feedback are written. THE ONLY FILE THAT KNOWS
-# ABOUT GOOGLE SHEETS.
+# Where newsletter sign-ups, feedback AND SUBMISSIONS are written. THE ONLY
+# FILE THAT KNOWS ABOUT GOOGLE SHEETS.
 #
-# TWO PUBLIC FUNCTIONS, store_newsletter_signup(record) and
-# store_feedback(record), each returning list(success = TRUE/FALSE). Where they
-# write is decided by fw_forms_mode(): with FWISE_FORMS_SHEET_ID and GS4_SA_KEY_B64
-# both set they append one row to the tab of that name in the Google Sheet;
-# without them they append to dev/forms/<tab>.csv on this machine, so the forms
-# work on a clean checkout with no credentials at all.
+# THE FORMS: store_newsletter_signup(record) and store_feedback(record), each
+# returning list(success = TRUE/FALSE). Where they write is decided by
+# fw_forms_mode(): with FWISE_FORMS_SHEET_ID and GS4_SA_KEY_B64 both set they
+# append one row to the tab of that name in the Google Sheet; without them they
+# append to dev/forms/<tab>.csv on this machine, so the forms work on a clean
+# checkout with no credentials at all.
+#
+# THE SUBMISSIONS INBOX (Oct 2026): fw_inbox_read(), fw_inbox_append() and
+# fw_inbox_set(), on the `submissions` and `new_species` tabs. The app appends
+# to them; dev/qa.R reads them and writes the `imported` column back. Same
+# switch, fw_inbox_mode(), with FWISE_INBOX_SHEET_ID (the forms sheet unless
+# set) and the same local fallback in dev/forms/.
 #
 # AN APPEND, NEVER A READ-MODIFY-WRITE. Sheets' values:append adds a row after
 # the last one on Google's side, so two people pressing the button in the same
-# second both land, and nothing here has to read the sheet first.
+# second both land, and nothing here has to read the sheet first. The one write
+# that is not an append, fw_inbox_set(), finds its rows by attempt_id at the
+# moment it writes, never by a row number remembered from an earlier read: the
+# reviewer may have sorted the sheet in between.
 #
 # RAW, NEVER USER_ENTERED. With RAW the sheet stores exactly the text it was
 # given; nothing a visitor types is ever parsed as a formula or a date.
@@ -220,12 +229,15 @@ fw_google_token <- function() {
 #'
 #' Separate from fw_sheet_append() so dev/plan_test.R can check the URL, the
 #' options and the body without a network or a key.
+#'
+#' @param cells one row as a character vector, or several as a list of them
 fw_sheet_request <- function(tab, cells, token, sheet_id = FWISE_FORMS_SHEET_ID) {
+  rows <- if (is.list(cells)) cells else list(cells)
   range <- utils::URLencode(paste0(tab, "!A1"), reserved = TRUE)
   httr2::request(sprintf("%s/%s/values/%s:append", FW_SHEETS_API, sheet_id, range)) |>
     httr2::req_url_query(valueInputOption = "RAW", insertDataOption = "INSERT_ROWS") |>
     httr2::req_auth_bearer_token(token) |>
-    httr2::req_body_json(list(values = list(as.list(unname(cells))))) |>
+    httr2::req_body_json(list(values = lapply(rows, function(r) as.list(unname(r))))) |>
     httr2::req_user_agent("fwise-dashboard") |>
     httr2::req_error(is_error = function(resp) FALSE) |>
     httr2::req_timeout(FW_SHEETS_TIMEOUT_S) |>
@@ -235,9 +247,9 @@ fw_sheet_request <- function(tab, cells, token, sheet_id = FWISE_FORMS_SHEET_ID)
     httr2::req_retry(max_tries = 2)
 }
 
-#' Append one row to a tab
-fw_sheet_append <- function(tab, cells) {
-  resp <- httr2::req_perform(fw_sheet_request(tab, cells, fw_google_token()))
+#' Append one row (or a list of rows) to a tab
+fw_sheet_append <- function(tab, cells, sheet_id = FWISE_FORMS_SHEET_ID) {
+  resp <- httr2::req_perform(fw_sheet_request(tab, cells, fw_google_token(), sheet_id))
   status <- httr2::resp_status(resp)
   if (status == 200) return(invisible(TRUE))
   stop(fw_sheets_message(tab, status), call. = FALSE)
@@ -253,8 +265,158 @@ fw_sheets_message <- function(tab, status) {
     "403" = paste("The service account cannot edit the sheet. Share the sheet",
                   "with the key's client_email as an Editor, and check the",
                   "Google Sheets API is enabled in its Cloud project."),
-    "404" = "No sheet with that id. Check FWISE_FORMS_SHEET_ID.",
+    "404" = "No sheet with that id. Check FWISE_FORMS_SHEET_ID (or FWISE_INBOX_SHEET_ID).",
     paste0("Unexpected HTTP ", status, ".")
   )
   paste0("Google Sheets refused the call on tab '", tab, "' (HTTP ", status, "). ", hint)
+}
+
+# ---- Google: reading a tab and writing cells back ----------------------------
+
+#' The read request for a whole tab, built but not sent
+#'
+#' FORMATTED_VALUE, so the script reads exactly the text the reviewer sees in
+#' the cell. The inbox tabs are formatted as plain text (dev/check_sheets.R
+#' --setup-inbox), so that text is what was typed or appended.
+fw_sheet_read_request <- function(tab, token, sheet_id) {
+  range <- utils::URLencode(tab, reserved = TRUE)
+  httr2::request(sprintf("%s/%s/values/%s", FW_SHEETS_API, sheet_id, range)) |>
+    httr2::req_url_query(valueRenderOption = "FORMATTED_VALUE", majorDimension = "ROWS") |>
+    httr2::req_auth_bearer_token(token) |>
+    httr2::req_user_agent("fwise-dashboard") |>
+    httr2::req_error(is_error = function(resp) FALSE) |>
+    httr2::req_timeout(FW_SHEETS_TIMEOUT_S) |>
+    httr2::req_retry(max_tries = 2)
+}
+
+#' The batchUpdate request that writes single cells, built but not sent
+#'
+#' @param updates a list of list(range = "tab!B7", value = "yes")
+fw_sheet_update_request <- function(updates, token, sheet_id) {
+  data <- lapply(updates, function(u) list(range = u$range, values = list(list(u$value))))
+  httr2::request(sprintf("%s/%s/values:batchUpdate", FW_SHEETS_API, sheet_id)) |>
+    httr2::req_auth_bearer_token(token) |>
+    httr2::req_body_json(list(valueInputOption = "RAW", data = data)) |>
+    httr2::req_user_agent("fwise-dashboard") |>
+    httr2::req_error(is_error = function(resp) FALSE) |>
+    httr2::req_timeout(FW_SHEETS_TIMEOUT_S)
+}
+
+#' A tab's rows as a data frame of text, keyed by header
+#'
+#' Sheets drops trailing empty cells from each row, so short rows are padded.
+#' Blank cells come back as NA. `sheet_row` is the row's number in the sheet
+#' AT THE TIME OF READING, for the reviewer to find it; nothing writes by it.
+fw_sheet_values_frame <- function(values) {
+  if (!length(values)) return(data.frame(sheet_row = integer(0)))
+  header <- trimws(unlist(values[[1]]))
+  body <- values[-1]
+  cols <- lapply(seq_along(header), function(j) vapply(body, function(r) {
+    v <- if (length(r) >= j) as.character(r[[j]]) else ""
+    v <- trimws(v)
+    if (nzchar(v)) v else NA_character_
+  }, character(1)))
+  names(cols) <- header
+  out <- as.data.frame(cols, stringsAsFactors = FALSE, check.names = FALSE)
+  out <- out[, nzchar(names(out)), drop = FALSE]
+  out$sheet_row <- seq_len(nrow(out)) + 1L
+  out
+}
+
+#' Read a whole tab of the sheet
+fw_sheet_read <- function(tab, sheet_id) {
+  resp <- httr2::req_perform(fw_sheet_read_request(tab, fw_google_token(), sheet_id))
+  status <- httr2::resp_status(resp)
+  if (status != 200) stop(fw_sheets_message(tab, status), call. = FALSE)
+  fw_sheet_values_frame(httr2::resp_body_json(resp)$values %||% list())
+}
+
+#' A column number as the sheet's letters: 1 -> A, 27 -> AA
+fw_sheet_col_letter <- function(n) {
+  out <- character(0)
+  while (n > 0) {
+    r <- (n - 1) %% 26
+    out <- c(LETTERS[r + 1], out)
+    n <- (n - 1) %/% 26
+  }
+  paste(out, collapse = "")
+}
+
+#' The cell ranges for one column of the rows holding the given ids
+#'
+#' Read straight before the write, so the rows are where they are NOW.
+fw_sheet_cell_ranges <- function(tab, frame, attempt_ids, column) {
+  j <- match(column, setdiff(names(frame), "sheet_row"))
+  if (is.na(j)) stop("Tab '", tab, "' has no column '", column, "'.", call. = FALSE)
+  rows <- frame$sheet_row[match(attempt_ids, frame$attempt_id)]
+  if (anyNA(rows)) stop("Not in tab '", tab, "': ",
+                        paste(attempt_ids[is.na(rows)], collapse = ", "), call. = FALSE)
+  paste0(tab, "!", fw_sheet_col_letter(j), rows)
+}
+
+# ---- The submissions inbox ---------------------------------------------------
+
+FW_INBOX_TABS <- list(submissions = "submissions", new_species = "new_species")
+
+#' "sheets" when the inbox sheet and the key are both set, "local" otherwise
+fw_inbox_mode <- function() {
+  if (!is.null(FWISE_INBOX_SHEET_ID) && !is.null(GS4_SA_KEY_B64)) "sheets" else "local"
+}
+
+#' The local stand-in for an inbox tab: dev/forms/<tab>.csv
+fw_inbox_local_path <- function(tab) file.path(fw_forms_dir(), paste0(tab, ".csv"))
+
+#' Read an inbox tab, every column text, blanks as NA, plus sheet_row
+fw_inbox_read <- function(tab) {
+  if (fw_inbox_mode() == "sheets") return(fw_sheet_read(tab, FWISE_INBOX_SHEET_ID))
+  path <- fw_inbox_local_path(tab)
+  if (!file.exists(path)) return(data.frame(sheet_row = integer(0)))
+  d <- utils::read.csv(path, colClasses = "character", check.names = FALSE,
+                       na.strings = "", encoding = "UTF-8")
+  d[] <- lapply(d, function(x) { x <- trimws(x); x[!is.na(x) & !nzchar(x)] <- NA; x })
+  d$sheet_row <- seq_len(nrow(d)) + 1L
+  d
+}
+
+#' Append rows to an inbox tab
+#'
+#' NO fw_sheet_cells() HERE. Its apostrophe guards a CSV someone opens in
+#' Excel; the inbox is read over the API, and the apostrophe would turn a
+#' latitude of -31.24 into the text '-31.24.
+#'
+#' @param rows a list of character vectors, each in the tab's column order
+#' @param columns the tab's columns, for the local file's header
+fw_inbox_append <- function(tab, rows, columns) {
+  if (!length(rows)) return(invisible(TRUE))
+  rows <- lapply(rows, function(r) { r[is.na(r)] <- ""; as.character(r) })
+  if (fw_inbox_mode() == "sheets") return(fw_sheet_append(tab, rows, FWISE_INBOX_SHEET_ID))
+  for (r in rows) fw_forms_write_local(tab, r, columns)
+  invisible(TRUE)
+}
+
+#' Write one column of the rows holding the given attempt ids
+#'
+#' @param values one per id, or one for all
+fw_inbox_set <- function(tab, attempt_ids, column, values) {
+  if (!length(attempt_ids)) return(invisible(TRUE))
+  values <- rep_len(as.character(values), length(attempt_ids))
+  if (fw_inbox_mode() == "sheets") {
+    frame <- fw_sheet_read(tab, FWISE_INBOX_SHEET_ID)
+    ranges <- fw_sheet_cell_ranges(tab, frame, attempt_ids, column)
+    updates <- Map(function(r, v) list(range = r, value = v), ranges, values)
+    resp <- httr2::req_perform(fw_sheet_update_request(unname(updates), fw_google_token(),
+                                                       FWISE_INBOX_SHEET_ID))
+    status <- httr2::resp_status(resp)
+    if (status != 200) stop(fw_sheets_message(tab, status), call. = FALSE)
+    return(invisible(TRUE))
+  }
+  path <- fw_inbox_local_path(tab)
+  d <- utils::read.csv(path, colClasses = "character", check.names = FALSE,
+                       na.strings = "", encoding = "UTF-8")
+  i <- match(attempt_ids, d$attempt_id)
+  if (anyNA(i)) stop("Not in ", basename(path), ": ",
+                     paste(attempt_ids[is.na(i)], collapse = ", "), call. = FALSE)
+  d[[column]][i] <- values
+  readr::write_csv(d, path, na = "")
+  invisible(TRUE)
 }

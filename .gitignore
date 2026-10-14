@@ -16,7 +16,7 @@
 # silently and the footer's "last updated" line has nothing to read.
 !metadata.json
 
-# Local scratch. The local submission fallback lands here.
+# Local scratch. The local form and submission fallback (dev/forms/) lands here.
 # Ignore the CONTENTS rather than the directory itself: git cannot re-include a
 # file whose parent directory is excluded, so "dev/" would defeat the negations.
 dev/*
@@ -31,6 +31,9 @@ dev/*
 !dev/check_sheets.R
 !dev/value_test.R
 !dev/qa.R
+!dev/qa_test.R
+!dev/species_enrich.R
+!dev/fetch_species_images.R
 !dev/reconcile_source.R
 
 # renv library is reconstructed from renv.lock, so it is not committed.

@@ -1,28 +1,43 @@
 # submit.R
 # The submission write path.
 #
-# There is ONE public function, fw_submit_attempt(record). Where it writes is
-# decided by fw_data_mode(): with a token it commits to the data repository over
-# the GitHub API, without one it writes a file beside the local checkout. Both
-# produce the SAME THING - one CSV per submission, named for its attempt id -
-# so QA and dev/qa.R do not care which one made it.
+# There is ONE public function, fw_submit_attempt(record). It appends one row
+# to the `submissions` tab of the inbox sheet - or, with no sheet configured,
+# to dev/forms/submissions.csv - through fw_inbox_append() in forms_store.R.
+# The reviewer QAs the row in the sheet and dev/qa.R imports it.
 #
-# A SUBMISSION IS ONE ROW IN THE SHAPE OF THE DATABASE. The inbox file has
-# exactly the columns of attempts.csv (FW_ATTEMPT_COLUMNS), in the same order,
-# so the reviewer compares like with like and dev/qa.R fold is an append. The
-# two things a submission cannot know are ids for species and contacts the
-# database does not hold yet; those travel in the same cell with a `new:`
-# prefix and the reviewer resolves them - see fw_new_ref().
+# A SUBMISSION IS ONE ROW A PERSON CAN READ (Oct 2026). The sheet holds the
+# columns of attempts.csv with three differences, all so the reviewer can QA it
+# without looking anything up:
+#   - species are their LABELS, "Common carp (Cyprinus carpio)", not SP- ids;
+#   - the contact is split into name, organisation, email and public, with a
+#     blank contact_id the reviewer fills only to point at a contact we hold;
+#   - the columns the import derives (iso3, continent, last_updated) and the
+#     second contact the form never asks for are not there at all.
+# Two columns lead the row for the reviewer: qa_status and imported.
 #
-# ONE FILE PER SUBMISSION, not an append to a shared inbox. The reason is the
-# GitHub API: it has no append. Adding a row to a shared file means reading it,
-# decoding it, appending, and PUTting the whole thing back quoting the blob SHA
-# it was read at - and two contributors pressing Send in the same moment make the
-# second one 409 and need retry logic. A file per submission has no
-# read-modify-write at all, and the attempt id already makes it idempotent.
+# A species the contributor typed in, rather than picked, also gets a row of
+# the `new_species` tab, with its names split and the taxa they chose, for the
+# reviewer to complete. dev/qa.R mints its id at import.
 
-# The column order of a submission IS the column order of the database.
-FW_SUBMISSION_COLUMNS <- FW_ATTEMPT_COLUMNS
+# The submissions tab, in order. Built from FW_ATTEMPT_COLUMNS so a column
+# added to the database arrives here without a second list to keep in step.
+FW_INBOX_STATE_COLUMNS <- c("qa_status", "imported")
+FW_INBOX_CONTACT_COLUMNS <- c("contact_id", "contact_name", "contact_organisation",
+                              "contact_email", "contact_public")
+FW_INBOX_DERIVED <- c("iso3", "continent", "last_updated", "secondary_contact_id")
+FW_INBOX_COLUMNS <- local({
+  cols <- setdiff(FW_ATTEMPT_COLUMNS, FW_INBOX_DERIVED)
+  i <- match("primary_contact_id", cols)
+  c(FW_INBOX_STATE_COLUMNS, append(cols[-i], FW_INBOX_CONTACT_COLUMNS, after = i - 1L))
+})
+
+FW_NEW_SPECIES_COLUMNS <- c("label", "common_name", "scientific_name", "taxa",
+                            "family", "from_attempt")
+
+# The values of the two reviewer columns. The app writes the first of each.
+FW_QA_STATUS <- c("not done", "done")
+FW_IMPORTED  <- c("no", "yes", "rejected")
 
 # ---- Identifiers -------------------------------------------------------------
 
@@ -55,23 +70,15 @@ fw_mint_ids <- function(prefix, n, exclude = character(0), date = Sys.Date()) {
   out[seq_len(n)]
 }
 
-# ---- Unresolved references ---------------------------------------------------
+# ---- Unresolved references (the old inbox) -----------------------------------
 
-# A species or contact the database does not hold yet travels in the id cell as
-# `new:` followed by what the reviewer needs to create the row, with FW_NEW_SEP
-# between the parts. Neither character occurs in any species name, contact
-# name, organisation or email in the data.
+# Before Oct 2026 a submission was a CSV in fwise-data/inbox/ in the exact
+# shape of attempts.csv, and a species or contact the database did not hold
+# travelled in the id cell as `new:` followed by what the reviewer needed, with
+# FW_NEW_SEP between the parts. Kept only so fw_inbox_from_legacy() can move
+# the last of those files into the sheet at cutover.
 FW_NEW_PREFIX <- "new:"
 FW_NEW_SEP    <- "|"
-
-#' Mark an unresolved reference
-fw_new_ref <- function(...) {
-  parts <- vapply(list(...), function(v) {
-    v <- as.character(v %||% "")
-    if (!length(v) || is.na(v)) "" else gsub(FW_NEW_SEP, "/", v, fixed = TRUE)
-  }, character(1))
-  paste0(FW_NEW_PREFIX, paste(parts, collapse = FW_NEW_SEP))
-}
 
 fw_is_new_ref <- function(x) !is.na(x) & startsWith(x, FW_NEW_PREFIX)
 
@@ -84,22 +91,44 @@ fw_parse_new_ref <- function(x, n) {
   trimws(parts)
 }
 
+#' A species label split into its names
+#'
+#' "Arctic charr (Salvelinus alpinus)" -> common "Arctic charr", scientific
+#' "Salvelinus alpinus". A label with no parenthesis is all common name, as
+#' fw_species_label() treats one.
+fw_split_species_label <- function(label) {
+  sci <- stringr::str_match(label, "\\(([^()]*)\\)\\s*$")[, 2]
+  com <- trimws(sub("\\s*\\(([^()]*)\\)\\s*$", "", label))
+  list(common = ifelse(is.na(com) | !nzchar(com), NA_character_, com),
+       scientific = ifelse(is.na(sci) | !nzchar(trimws(sci)), NA_character_, trimws(sci)))
+}
+
 # ---- Writing a submission ----------------------------------------------------
 
-#' Turn the assembled record into one flat row in column order
-#'
-#' Every column of FW_SUBMISSION_COLUMNS is present, blank where the form has
-#' nothing for it, so the inbox file always has the database's shape.
-fw_flatten_record <- function(record) {
-  row <- lapply(FW_SUBMISSION_COLUMNS, function(col) {
+#' One record as a character vector in the given column order, blank where absent
+fw_flatten_record <- function(record, columns = FW_INBOX_COLUMNS) {
+  vapply(columns, function(col) {
     v <- record[[col]]
     if (is.null(v) || length(v) == 0) return("")
     if (length(v) > 1) return(paste(v, collapse = FW_MULTI_SEP))
     if (is.na(v)) return("")
     as.character(v)
+  }, character(1), USE.NAMES = TRUE)
+}
+
+#' The new_species rows for the species a contributor typed in
+#'
+#' @param typed a data frame of label and taxa, from fw_collect_submission()
+fw_new_species_rows <- function(typed, attempt_id) {
+  if (is.null(typed) || !nrow(typed)) return(list())
+  typed <- typed[!duplicated(typed$label), , drop = FALSE]
+  lapply(seq_len(nrow(typed)), function(i) {
+    nm <- fw_split_species_label(typed$label[i])
+    fw_flatten_record(list(label = typed$label[i], common_name = nm$common,
+                           scientific_name = nm$scientific, taxa = typed$taxa[i],
+                           family = "", from_attempt = attempt_id),
+                      FW_NEW_SPECIES_COLUMNS)
   })
-  names(row) <- FW_SUBMISSION_COLUMNS
-  as.data.frame(row, stringsAsFactors = FALSE, check.names = FALSE)
 }
 
 #' Write one submission
@@ -110,26 +139,25 @@ fw_flatten_record <- function(record) {
 #'              country_attempts, country)
 fw_submit_attempt <- function(record, data = NULL) {
 
-  # THE ATTEMPT ID IS MINTED HERE and travels with the row from the inbox into
+  # THE ATTEMPT ID IS MINTED HERE and travels with the row from the sheet into
   # attempts.csv unchanged, so a reviewer, a contributor's confirmation screen
   # and the published data all name the same record. Collisions are excluded
-  # against the ids the app is holding; the fold step checks again against
-  # the file.
+  # against the ids the app is holding; dev/qa.R checks again against the file.
   in_use <- if (is.null(data)) character(0) else data$attempt$attempt_id
   record$attempt_id   <- fw_mint_ids("FW", 1, exclude = in_use)
   record$status       <- "pending"
   record$submitted_at <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-  record$last_updated <- format(Sys.Date())
+  record$qa_status    <- FW_QA_STATUS[1]
+  record$imported     <- FW_IMPORTED[1]
 
-  flat <- fw_flatten_record(record)
-
-  # NO FALLBACK TO THE LOCAL FILE IF THE GITHUB WRITE FAILS. On Connect Cloud
+  # NO FALLBACK TO THE LOCAL FILE IF THE SHEET WRITE FAILS. On Connect Cloud
   # the container filesystem is thrown away on restart, so a fallback would
   # report success for a submission that is already gone. Telling the
   # contributor to try again is worth more than a receipt for nothing.
   written <- tryCatch({
-    where <- fw_write_submission(flat)
-    message("Submission ", record$attempt_id, " written to ", where)
+    fw_inbox_append(FW_INBOX_TABS$submissions, list(fw_flatten_record(record)),
+                    FW_INBOX_COLUMNS)
+    message("Submission ", record$attempt_id, " written to ", fw_inbox_mode(), " inbox")
     TRUE
   }, error = function(e) {
     warning("Submission write failed: ", conditionMessage(e))
@@ -144,6 +172,21 @@ fw_submit_attempt <- function(record, data = NULL) {
       submission_id = record$attempt_id
     ))
   }
+
+  # THE RECORD IS SAFE ONCE THE ROW ABOVE HAS LANDED. A failed new_species
+  # write is logged, not shown to the contributor: dev/qa.R reports the typed
+  # species as unknown and the reviewer adds its row by hand.
+  tryCatch(
+    fw_inbox_append(FW_INBOX_TABS$new_species,
+                    fw_new_species_rows(record$new_species, record$attempt_id),
+                    FW_NEW_SPECIES_COLUMNS),
+    error = function(e) warning("new_species write for ", record$attempt_id,
+                                " failed: ", conditionMessage(e))
+  )
+
+  # The in-review count re-reads the inbox on its next ask, so the
+  # contributor sees their own record counted straight away.
+  fw_review_count_invalidate()
 
   counts <- fw_submission_counts(data, record$country)
 
@@ -161,8 +204,8 @@ fw_submit_attempt <- function(record, data = NULL) {
 
 #' Live counts for the confirmation screen
 #'
-#' The published database plus everything pending, so a contributor who submits
-#' twice in a row sees the number move.
+#' The published database plus everything waiting in the inbox, so a
+#' contributor who submits twice in a row sees the number move.
 fw_submission_counts <- function(data, country) {
   total <- if (is.null(data)) 0L else nrow(data$attempt)
   in_country <- if (is.null(data) || is.null(country)) {
@@ -171,7 +214,7 @@ fw_submission_counts <- function(data, country) {
     sum(data$attempt$country == country, na.rm = TRUE)
   }
 
-  pending <- fw_pending_submissions()
+  pending <- tryCatch(fw_pending_submissions(), error = function(e) data.frame())
   pending_total <- nrow(pending)
   pending_country <- if (pending_total > 0 && !is.null(country) &&
                          "country" %in% names(pending)) {
@@ -186,86 +229,50 @@ fw_submission_counts <- function(data, country) {
   )
 }
 
-#' Everything sitting in the inbox that nobody has processed
+#' Every submission still waiting: not imported, not rejected
 #'
-#' Feeds the in-review count and the confirmation screen's totals.
-#'
-#' THE TWO MODES RETURN DIFFERENT SHAPES, deliberately. Locally the files are on
-#' disk and reading all of them is free, so full rows come back. Over the API,
-#' reading each file would be one request per submission just to render a
-#' counter, so only the id and the status come back - the name of the file is
-#' enough to count it. fw_submission_counts() already guards on whether a
-#' country column is present, so the per-country figure simply falls to zero in
-#' production rather than costing a request per row.
-#'
-#' Folded submissions are not counted either way, because folding MOVES them to
-#' inbox/merged/ and neither listing recurses.
+#' Feeds the in-review count and the confirmation screen's totals. One read of
+#' the submissions tab.
 fw_pending_submissions <- function() {
-  if (fw_data_mode() == "api") {
-    files <- tryCatch(fw_gh_list("inbox"), error = function(e) character(0))
-    files <- files[grepl("\\.csv$", files)]
-    if (length(files) == 0) return(data.frame())
-    return(data.frame(
-      attempt_id = sub("\\.csv$", "", files),
-      status = "pending",
-      stringsAsFactors = FALSE
-    ))
-  }
-
-  read_one <- function(f) {
-    tryCatch(utils::read.csv(f, stringsAsFactors = FALSE, colClasses = "character"),
-             error = function(e) NULL)
-  }
-
-  dir   <- fw_inbox_dir()
-  files <- if (dir.exists(dir)) list.files(dir, pattern = "\\.csv$", full.names = TRUE)
-           else character(0)
-  rows  <- Filter(Negate(is.null), lapply(files, read_one))
-  if (length(rows) == 0) return(data.frame())
-  as.data.frame(dplyr::bind_rows(rows))
+  inbox <- fw_inbox_read(FW_INBOX_TABS$submissions)
+  if (!nrow(inbox) || !all(c("imported", "status") %in% names(inbox))) return(data.frame())
+  waiting <- inbox$imported %in% "no" & !inbox$status %in% "rejected"
+  inbox[waiting, , drop = FALSE]
 }
 
-#' Where submissions land when there is no token
+# ---- The in-review count, kept current ---------------------------------------
+#
+# ONE CACHE FOR THE WHOLE R PROCESS, not one per visitor. It used to be read
+# once at startup (FW_IN_REVIEW), so it moved only when Connect Cloud started a
+# new process (client, 14 Oct 2026: a submission did not show). Every open page
+# now asks every FW_REVIEW_REFRESH_S, and the sheet is read at most that often
+# between them all.
+FW_REVIEW_CACHE <- new.env(parent = emptyenv())
+
+#' The in-review count, at most FW_REVIEW_REFRESH_S old
 #'
-#' Beside the data checkout rather than in dev/, so the local loop is the same
-#' shape as production: one directory of one-file-per-submission that dev/qa.R
-#' reads. Falls back to dev/ only when the sibling checkout is not there at
-#' all, which means someone has cloned the app on its own.
-fw_inbox_dir <- function() {
-  if (dir.exists(FW_DATA_DIR)) file.path(FW_DATA_DIR, "inbox")
-  else file.path(FW_DEV_DIR, "inbox")
+#' A failed read keeps the last good count rather than showing 0, which would
+#' say the queue had emptied. The fw.now option pins the clock for the tests.
+#'
+#' @param data the loaded data, for the pending rows already in attempts.csv
+fw_review_count_live <- function(data, now = getOption("fw.now", Sys.time())) {
+  fresh <- !is.null(FW_REVIEW_CACHE$at) &&
+    as.numeric(difftime(now, FW_REVIEW_CACHE$at, units = "secs")) < FW_REVIEW_REFRESH_S
+  if (fresh) return(FW_REVIEW_CACHE$n)
+  n <- tryCatch(fw_review_count(data, strict = TRUE), error = function(e) {
+    warning("In-review count not refreshed: ", conditionMessage(e), call. = FALSE)
+    NULL
+  })
+  if (is.null(n)) return(FW_REVIEW_CACHE$n %||% 0L)
+  FW_REVIEW_CACHE$n  <- n
+  FW_REVIEW_CACHE$at <- now
+  n
 }
 
-# ---- The write path ----------------------------------------------------------
-
-#' Write one submission, wherever this deployment writes
-#'
-#' @return a human-readable description of where it went, for the log.
-fw_write_submission <- function(flat) {
-  name <- paste0(flat$attempt_id[1], ".csv")
-
-  if (fw_data_mode() == "api") {
-    fw_gh_put(
-      paste0("inbox/", name),
-      readr::format_csv(flat),
-      paste0("Submission ", flat$attempt_id[1])
-    )
-    return(paste0(FW_DATA_REPO, "/inbox/", name))
-  }
-
-  fw_write_local(flat, name)
-}
-
-#' Write one submission to the local inbox, creating the directory
-#'
-#' The no-credential path. Works on a clean machine, which is what makes the app
-#' runnable straight after renv::restore().
-fw_write_local <- function(flat, name = paste0(flat$attempt_id[1], ".csv")) {
-  dir <- fw_inbox_dir()
-  dir.create(dir, showWarnings = FALSE, recursive = TRUE)
-  path <- file.path(dir, name)
-  readr::write_csv(flat, path, na = "")
-  path
+#' Make the next fw_review_count_live() read the inbox again
+fw_review_count_invalidate <- function() {
+  FW_REVIEW_CACHE$at <- NULL
+  invisible(NULL)
 }
 
 # ---- Assembling a record from the form ---------------------------------------
@@ -273,17 +280,17 @@ fw_write_local <- function(flat, name = paste0(flat$attempt_id[1], ".csv")) {
 #' Collect the contribute form's inputs into one record
 #'
 #' Lives here rather than in the module so the column set in
-#' FW_ATTEMPT_COLUMNS and the code that fills it sit side by side. Adding a
+#' FW_INBOX_COLUMNS and the code that fills it sit side by side. Adding a
 #' field to the form means adding it to the column contract in data_load.R and
 #' filling it here.
 #'
 #' "OTHER (SPECIFY)" GOES INTO THE MAIN COLUMN. The typed value replaces the
 #' placeholder, so the reviewer sees an off-list country, waterbody, driver,
-#' method or agent in the column it belongs to and dev/qa.R stage flags it.
+#' method or agent in the column it belongs to and dev/qa.R flags it.
 #'
 #' @param input   the module's input object
 #' @param rows    the reactiveValues holding which repeatable rows are on screen
-#' @param choices the startup choices, for the species id lookup
+#' @param choices the startup choices, for the species we already hold
 fw_collect_submission <- function(input, rows, choices = NULL) {
 
   get_in <- function(nm) {
@@ -297,20 +304,25 @@ fw_collect_submission <- function(input, rows, choices = NULL) {
     if (identical(v, FW_OTHER)) get_in(other_nm) else v
   }
 
-  species_ids <- choices$species_ids %||% character(0)
+  held <- names(choices$species_ids %||% character(0))
 
-  # ONE ENTRY PER ROW, resolved to the id the database holds for that species
-  # or left as text for the reviewer. IDENTICAL FOR BOTH ROLES: invasive
-  # targets and beneficiaries are the same question asked about two sides of
-  # the same eradication.
+  # ONE ENTRY PER ROW, as the species' LABEL, which is what the reviewer reads
+  # and what dev/qa.R resolves to an id. A label we do not hold is one the
+  # contributor typed; it is also collected, with its taxa, for the
+  # new_species tab. IDENTICAL FOR BOTH ROLES: invasive targets and
+  # beneficiaries are the same question asked about two sides of the same
+  # eradication.
+  typed <- data.frame(label = character(0), taxa = character(0))
   collect_species <- function(kind, indices) {
     out <- character(0)
     for (i in indices) {
-      species <- get_in(paste0(kind, "_species_", i))
+      species <- trimws(get_in(paste0(kind, "_species_", i)))
       if (!nzchar(species)) next
-      taxa <- pick(paste0(kind, "_taxa_", i), paste0(kind, "_taxa_other_", i))
-      id <- unname(species_ids[species])
-      out <- c(out, if (!is.na(id) && nzchar(id)) id else fw_new_ref(species, taxa))
+      if (!species %in% held) {
+        taxa <- pick(paste0(kind, "_taxa_", i), paste0(kind, "_taxa_other_", i))
+        typed <<- rbind(typed, data.frame(label = species, taxa = taxa))
+      }
+      out <- c(out, species)
     }
     paste(out, collapse = FW_MULTI_SEP)
   }
@@ -326,18 +338,8 @@ fw_collect_submission <- function(input, rows, choices = NULL) {
   }
   any_notes <- any(nzchar(trimws(sub("^[^:]*:", "", method_notes))))
 
-  # The contributor is always a `new:` reference: the form has no contact
-  # picker, and dev/qa.R stage matches the name and organisation against
-  # contacts.csv so a known person needs no decision from the reviewer.
-  # OPT-IN (Sept 2026): the address is shown only when the contributor ticked
-  # "I give permission for my email to be displayed in the app".
-  contact_public <- if (isTRUE(input$contact_public)) "public" else "private"
-  contact_ref <- function(prefix) {
-    name <- get_in(paste0(prefix, "_contact_name"))
-    if (!nzchar(name)) return("")
-    fw_new_ref(name, get_in(paste0(prefix, "_contact_org")),
-               get_in(paste0(prefix, "_contact_email")), contact_public)
-  }
+  invasive    <- collect_species("target", rows$target)
+  beneficiary <- collect_species("benefit", rows$benefit)
 
   list(
     consent_data_use = if (isTRUE(input$consent_data_use)) "yes" else "no",
@@ -345,9 +347,6 @@ fw_collect_submission <- function(input, rows, choices = NULL) {
     site_name = get_in("site_name"),
     country   = pick("country", "country_other"),
     region    = get_in("region"),
-    # Filled by dev/qa.R fold from the ISO lookup once the country is settled.
-    iso3      = "",
-    continent = "",
     latitude  = get_in("latitude"),
     longitude = get_in("longitude"),
 
@@ -364,7 +363,7 @@ fw_collect_submission <- function(input, rows, choices = NULL) {
     water_temp_c   = get_in("water_temp_c"),
     water_temp_notes = get_in("water_temp_notes"),
 
-    invasive_species = collect_species("target", rows$target),
+    invasive_species = invasive,
 
     invasion_year = get_in("invasion_year"),
     start_year    = get_in("start_year"),
@@ -375,7 +374,7 @@ fw_collect_submission <- function(input, rows, choices = NULL) {
     eradication_or_control = "Eradication",
     driver = pick("driver", "driver_other"),
 
-    beneficiary_species = collect_species("benefit", rows$benefit),
+    beneficiary_species = beneficiary,
 
     outcome = get_in("outcome"),
 
@@ -399,14 +398,23 @@ fw_collect_submission <- function(input, rows, choices = NULL) {
     verification_method = get_in("verification"),
     verification_notes  = "",
 
-    primary_contact_id   = contact_ref("primary"),
-    # The form no longer asks for a second contact.
-    secondary_contact_id = NA_character_,
+    # The form has no contact picker, so the contributor is always given by
+    # name; dev/qa.R matches them against contacts.csv. OPT-IN (Sept 2026):
+    # the address is shown only when the contributor ticked "I give permission
+    # for my email to be displayed in the app".
+    contact_id           = "",
+    contact_name         = get_in("primary_contact_name"),
+    contact_organisation = get_in("primary_contact_org"),
+    contact_email        = get_in("primary_contact_email"),
+    contact_public       = if (isTRUE(input$contact_public)) "yes" else "no",
 
     source = get_in("source"),
     sent   = "",
     reference      = get_in("reference"),
     reference_link = "",
-    notes_for_fwise = get_in("notes_for_fwise")
+    notes_for_fwise = get_in("notes_for_fwise"),
+
+    # Not a column: the new_species rows fw_submit_attempt() writes.
+    new_species = typed
   )
 }

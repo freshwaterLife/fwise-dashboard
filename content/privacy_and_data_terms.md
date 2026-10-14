@@ -6,7 +6,7 @@ This page explains what personal information FWISE collects, why, where it is ke
 
 FWISE, the Freshwater Invasive Species Eradication database, is run by Freshwater Life. Freshwater Life is the data controller for the personal information described on this page. Freshwater Life Inc - Santa Cruz / Palo Alto, California, United States - Official 501(c)(3) public non-profit organization (EIN:87-3663862)
 
-For questions about your personal information, or to make any of the requests described under "Your rights", contact fwise@fwlife.org.
+For questions about your personal information, or to make any of the requests described under "Your rights", contact {contact_email}.
 
 ### Newsletter sign-ups {#newsletter}
 
@@ -93,7 +93,7 @@ FWISE runs on Posit Connect Cloud. Like any web host, Posit receives your IP add
 
 ### Your choices
 
-FWISE works fully if you block GoatCounter with a browser content blocker. If you have questions about this data, contact us at fwise@fwlife.org.
+FWISE works fully if you block GoatCounter with a browser content blocker. If you have questions about this data, contact us at {contact_email}.
 
 ### Legal basis
 

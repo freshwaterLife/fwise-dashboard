@@ -33,8 +33,8 @@ suppressPackageStartupMessages({
 # that an earlier hand-written column list did not have: a source column that
 # never got named simply vanished, silently, and took its 325 values with it.
 #
-# The submissions inbox uses the SAME vector, so a submission is one row in the
-# shape of the database and a reviewer compares like with like.
+# The submissions inbox is built from the SAME vector (FW_INBOX_COLUMNS in
+# submit.R), so a column added here reaches the sheet without a second list.
 #
 # Values are stored as the source's text, verbatim. "0.010-0.020" stays a
 # range, "≥0.5" keeps its sign, a year is the four characters the client typed.
@@ -116,7 +116,7 @@ FW_ATTEMPT_PACKED <- c("invasive_species", "beneficiary_species", "methods")
 #'   local  ../fwise-data/, or whatever path FWISE_DATA_SOURCE names. No network
 #'          calls whatsoever, which is what local development runs on.
 #'   api    the private repository over the GitHub API, using FWISE_DATA_TOKEN.
-#'          This is production. It is also the only mode that can WRITE.
+#'          This is production.
 #'   url    an https:// base read with no credential, for a public mirror.
 #'
 #' FWISE_DATA_SOURCE wins when it is set, so a test deploy can be pointed at a
@@ -148,7 +148,7 @@ fw_data_source <- function() {
 #' NULL means the file is not there. Some callers treat that as fatal and others
 #' as simply absent, which is why it is a return value rather than an error.
 #'
-#' @param ... path segments, e.g. "inbox", "FW-20261003-7K3QX9.csv"
+#' @param ... path segments, e.g. "attempts.csv"
 fw_data_path <- function(...) {
   parts <- c(...)
   switch(
@@ -202,7 +202,7 @@ fw_read_table <- function(name) {
 #' Load the data and unpack it into the six in-memory tables
 #'
 #' READ ONCE, AT STARTUP. Not per session and not on a poll. The data changes
-#' when the review team folds submissions in, and visibility comes from a
+#' when the review team imports submissions, and visibility comes from a
 #' deliberate restart, so re-reading it would spend a request per visitor to
 #' discover that nothing had changed.
 #'
@@ -232,10 +232,9 @@ fw_load_data <- function() {
 #' `region` is free text within the country - a state, a province, an island
 #' group - and says nothing about the two derived columns.
 #'
-#' dev/qa.R writes iso3 and continent from the lookup at fold time; this is
-#' the check that a hand edit has not undone that. A country the lookup does
-#' not know - one typed in under "Other (specify)" and accepted by the
-#' reviewer - is not checked here; qa.R reports it when the row is folded.
+#' dev/qa.R writes iso3 and continent from the lookup at import; this is the
+#' check that a hand edit has not undone that. A country the lookup does not
+#' know is not checked here; dev/qa.R refuses to import one.
 #'
 #' The lookup is optional (see fw_load_iso), so a checkout without it loads
 #' unchecked rather than failing.
@@ -335,7 +334,7 @@ fw_unpack_multi <- function(attempts, column, value_name, sep = FW_MULTI_SEP) {
 #' FW_METHODS supplies the seven known methods with their fixed ids and classes.
 #' Anything else - a method a contributor typed in and the reviewer accepted -
 #' gets an id derived from its name and the class "other", so it loads and
-#' charts rather than stopping the app. dev/qa.R points the reviewer at these.
+#' charts rather than stopping the app. dev/qa.R warns the reviewer of these.
 fw_method_table <- function(names_in_data) {
   known <- FW_METHODS
   extra <- setdiff(unique(names_in_data[!is.na(names_in_data)]), known$method_name)
@@ -486,29 +485,29 @@ fw_filter_approved <- function(tables) {
 #' How many records are waiting on review
 #'
 #' Two sources, because a submission is in review from the moment it is sent, not
-#' from the moment someone folds it into the data: rows already carried into
-#' attempts.csv as `pending`, plus whatever is sitting in the submissions inbox
-#' and has not been processed at all yet.
-fw_review_count <- function(data) {
+#' from the moment someone imports it into the data: rows already carried into
+#' attempts.csv as `pending`, plus every row of the inbox sheet that has been
+#' neither imported nor rejected.
+#'
+#' @param strict TRUE lets a failed inbox read raise, so fw_review_count_live()
+#'   can keep its last good count; FALSE counts the inbox as empty.
+fw_review_count <- function(data, strict = FALSE) {
   counts <- attr(data, "status_counts")
   in_schema <- if (is.null(counts)) 0L else as.integer(counts[["pending"]])
 
-  # Only submissions NOT yet folded in. A folded submission is already counted
-  # by in_schema above, and counting it here as well would double it and leave
-  # the indicator permanently inflated.
-  inbox <- tryCatch(fw_pending_submissions(), error = function(e) data.frame())
-  in_inbox <- if (nrow(inbox) == 0) 0L
-    else if ("status" %in% names(inbox)) sum(inbox$status == "pending", na.rm = TRUE)
-    else nrow(inbox)
+  # Only submissions NOT yet imported. An imported one is already counted by
+  # in_schema above (if it went in as pending) or is published.
+  inbox <- if (strict) fw_pending_submissions() else
+    tryCatch(fw_pending_submissions(), error = function(e) data.frame())
 
-  as.integer(in_schema + in_inbox)
+  as.integer(in_schema + nrow(inbox))
 }
 
 #' The release metadata that travels with the data
 #'
 #' Carries the release date and the row counts as published, so the footer's
 #' "last updated" line states when the data was released rather than inferring it
-#' from a column inside the data. Written by dev/qa.R on every fold, so the
+#' from a column inside the data. Written by dev/qa.R on every import, so the
 #' counts cannot drift away from the tables they describe.
 #'
 #' A missing or unreadable file is not fatal - the app is still perfectly usable
@@ -923,7 +922,7 @@ FW_LOTIC_ALWAYS <- names(FW_REGIME_BY_TYPE)[
 # ---- Regime wording ----------------------------------------------------------
 
 # LABELS ONLY. Lentic and Lotic are the STORED vocabulary: they are what sits in
-# attempt.csv, what the data dictionary defines, what the submissions inbox
+# attempt.csv, what the data dictionary defines, what the submissions sheet
 # carries and what FW_REGIME_BY_TYPE above is keyed on. A contributor should not
 # have to know the words, so the pickers show plain English and hand back the
 # stored value unchanged. Recoding the column instead would have meant rebuilding

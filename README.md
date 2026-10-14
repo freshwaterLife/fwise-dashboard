@@ -64,9 +64,13 @@ That is the whole setup. **No credentials are required, and the app makes no
 network calls in local development** (a PDF download is the one exception: it
 fetches its species photographs from Wikimedia). With nothing configured it reads
 `../fwise-data/attempts.csv` and its two lookups, and writes any submissions to
-`../fwise-data/inbox/`,
-one CSV per submission — the same shape the deployment writes over the API, so
-the QA loop is identical either way.
+`dev/forms/submissions.csv` — the same columns as the inbox sheet a deployment
+writes to, so `dev/qa.R` works the same on either.
+
+**If your `.Renviron` holds the Google key and a sheet id, a local run writes
+submissions to that live sheet**, as the newsletter and feedback forms already
+do. The tests clear the setting for themselves; when trying the form by hand,
+comment the two variables out.
 
 `renv::restore()` will take a while the first time. `sf` is in the dependency
 list because `leaflet` imports it, and it needs GDAL, GEOS and PROJ present on
@@ -81,6 +85,7 @@ says why. The startup log's second line names the Quarto it found.
 
 ```bash
 Rscript dev/smoke_test.R      # form gating, validation and the write path
+Rscript dev/qa_test.R         # the review and import, end to end, on a copy
 Rscript dev/plan_test.R       # report builder: gate, states, filters, export
 Rscript dev/value_test.R      # every number on screen, every chart bar, every
                               # export row, recomputed independently and compared
@@ -93,10 +98,11 @@ Rscript dev/check_literals.R  # no stray colours or strings; every copy key reso
 above). Without it they print `PDF ASSERTIONS SKIPPED` rather than passing
 quietly - treat that line as a gap, not a pass.
 
-Two scripts write into `../fwise-data/` and are the only things in the project
-that touch the network. The **app itself never does**, with one exception: a
-PDF download fetches its species photographs from Wikimedia. Run them by hand
-and review the diff before committing:
+These scripts write into `../fwise-data/` and, with `dev/qa.R`, are the only
+things in the project that call public data services. The **app itself never
+does** (its only network calls are its own data, the Google Sheet the forms and
+submissions write to, and the species photographs a PDF download fetches from
+Wikimedia). Run them by hand and review the diff before committing:
 
 ```bash
 Rscript dev/fetch_species_images.R    # species photos from Wikimedia -> species.csv
@@ -187,8 +193,7 @@ There is deliberately **no `data/` directory here.** It lives one level up:
 │                               Built by dev/build_iso_lookups.R
 ├── lookup_iso3166_2.csv        ISO 3166-2 subdivisions, ditto
 ├── metadata.json               release date and row counts
-├── inbox/                      one CSV per submission; merged/ once folded in
-├── qa/                         the review files dev/qa.R writes and reads
+├── qa/                         the lists dev/build_from_export.R wrote
 └── source/                     the client's raw export and its row-to-id map,
                                 kept so the data can be reconciled against it
 ```
@@ -340,7 +345,7 @@ permanent and the rest of this section applies.
 
 **After launch, `attempts.csv` is the master.** The client corrects a value by editing the row; a new record
 arrives through the contribute form and the review loop below; a new species or
-contact is a new row in its lookup, added by the fold step or by hand, whose id
+contact is a new row in its lookup, added by the import or by hand, whose id
 the attempt row then cites.
 
 The raw export the database was built from is kept under `source/` with its
@@ -368,9 +373,9 @@ in it, because these get read aloud and retyped by people.
 
 Each id lives in the row or lookup that owns it, so there is no registry to keep
 in step. An attempt id is minted by the form the moment a submission is sent and
-travels with the row from the inbox into `attempts.csv` unchanged; species and
-contact ids are minted by `dev/qa.R fold` once the reviewer has confirmed the row
-is genuinely new. Only `attempt_id` ever leaves the app, in exports.
+travels with the row from the inbox sheet into `attempts.csv` unchanged; species
+and contact ids are minted by `dev/qa.R` at import, once the reviewer has
+confirmed the row is genuinely new. Only `attempt_id` ever leaves the app, in exports.
 
 ### Serving data without redeploying
 
@@ -382,18 +387,18 @@ whole of its production configuration is one environment variable:
 FWISE_DATA_TOKEN=github_pat_...
 ```
 
-Set it and the app reads `freshwaterLife/fwise-data@main` over the API and
-writes submissions back to it. Leave it unset and everything stays on the
-sibling checkout with no network calls at all. **The repository and branch are
+Set it and the app reads `freshwaterLife/fwise-data@main` over the API. Leave
+it unset and the data comes from the sibling checkout with no GitHub calls at
+all. **The repository and branch are
 constants in `R/config.R`**, not settings — neither is a secret and neither
 varies, and making them configurable would only add ways to get a deployment
 wrong.
 
 The token is a fine-grained PAT, resource owner `freshwaterLife`, scoped to that
-one repository, with **Contents: Read and write**. Write, not just read, because
-the contribute form commits submissions to `inbox/`. It **expires**, and when it
-does the app stops serving data as well as accepting submissions — so the expiry
-date belongs in a calendar, not just in this file.
+one repository, with **Contents: Read**. Read is enough since October 2026:
+submissions go to the inbox sheet, not the repository. It **expires**, and when
+it does the app stops serving data — so the expiry date belongs in a calendar,
+not just in this file.
 
 Every read goes through `fw_data_path()` in `R/data_load.R` and every GitHub call
 through `R/github.R`, which are the only two places that know the data is not on
@@ -401,11 +406,14 @@ local disk. `fw_data_mode()` resolves one of three modes and the startup log
 names which one it picked, so the first line of a Connect Cloud log tells you
 whether the token was seen:
 
-| mode | when | reads | writes |
-|---|---|---|---|
-| `local` | nothing set | `../fwise-data/` | `../fwise-data/inbox/` |
-| `api` | `FWISE_DATA_TOKEN` set | GitHub API | GitHub API |
-| `url` | `FWISE_DATA_SOURCE` is an `https://` base | plain HTTPS, no credential | not possible |
+| mode | when | reads |
+|---|---|---|
+| `local` | nothing set | `../fwise-data/` |
+| `api` | `FWISE_DATA_TOKEN` set | GitHub API |
+| `url` | `FWISE_DATA_SOURCE` is an `https://` base | plain HTTPS, no credential |
+
+Where submissions go is a separate switch, `fw_inbox_mode()`: see
+[Submissions](#submissions).
 
 `FWISE_DATA_SOURCE` still overrides the token if set, so a test deploy can be
 pointed at a fork, a branch or a local path without a code change. It is not
@@ -643,79 +651,96 @@ newline inside `url()` - an inlined font silently goes missing.
 
 ## Submissions
 
-`fw_submit_attempt(record, data)` is the single entry point. Where it writes is
-decided by `fw_data_mode()`: with a token it commits over the GitHub API, without
-one it writes to the local inbox and needs no credentials. **Both produce the
-same thing** - one CSV per submission in `inbox/`, named for its `attempt_id` -
-so QA does not care which wrote it.
+`fw_submit_attempt(record, data)` is the single entry point. It appends one row
+to the `submissions` tab of the **inbox Google Sheet**, `FWISE_INBOX_SHEET_ID`
+(the forms sheet unless set), signed in with the forms' `GS4_SA_KEY_B64`. With no
+sheet or no key it appends to `dev/forms/submissions.csv` instead, in the same
+columns, so `dev/qa.R` works on either. `fw_inbox_mode()` says which, and the
+startup log names it.
 
-**A submission is one row in the shape of the database.** The inbox file has
-exactly the columns of `attempts.csv`, in the same order, so the reviewer
-compares like with like and folding it in is an append. Two things a submission
-cannot know are ids for species and contacts the database does not hold yet.
-Those travel in the same cell with a `new:` prefix and what the reviewer needs
-to create the row - `new:Arctic charr (Salvelinus alpinus)|Fish`,
-`new:Jane Doe|University of X|jane@x.org|public` - and the review step resolves
-them. A contributor's contact is always a `new:` reference, because the form has
-no contact picker; the review step matches it against `contacts.csv` so a known
-person needs no decision.
+**A submission is one row a person can read** (`FW_INBOX_COLUMNS` in
+`R/submit.R`). It has the columns of `attempts.csv`, with three differences so
+the reviewer can QA it without looking anything up:
 
-**One file per submission, not an append.** The GitHub API has no append: adding
-a row to a shared CSV means reading it, decoding it, appending, and PUTting the
-whole file back quoting the blob SHA it was read at, and two contributors
-pressing Send in the same moment make the second one 409 and need retry logic. A
-file per submission has no read-modify-write at all, and the attempt id makes it
-idempotent for free.
+- species are their **labels**, `Common carp (Cyprinus carpio)`, not `SP-` ids;
+- the contact is split into `contact_name`, `contact_organisation`,
+  `contact_email`, `contact_public` (`yes`/`no`), plus a blank `contact_id` the
+  reviewer fills only to point at a contact already held;
+- the columns the import derives (`iso3`, `continent`, `last_updated`) and the
+  second contact the form never asks for are not there.
 
-**A failed GitHub write is reported to the contributor, never quietly written to
+Two columns lead the row for the reviewer: `qa_status` (`not done`/`done`) and
+`imported` (`no`/`yes`/`rejected`). A species the contributor typed rather than
+picked also gets a row of the `new_species` tab - label, names split out, the
+taxa they chose, a blank family - for the reviewer to complete.
+
+**Appends only, RAW.** Two contributors pressing Send in the same second both
+land, and nothing typed is ever run as a formula or turned into a date. Unlike
+the newsletter rows there is no leading apostrophe on risky cells: the inbox is
+read over the API, never opened as a CSV, and the apostrophe would turn a
+latitude of `-31.24` into text.
+
+**A failed sheet write is reported to the contributor, never quietly written to
 disk instead.** On Connect Cloud the container filesystem is discarded on
 restart, so a local fallback would hand someone a confirmation screen for a
 submission that was already gone.
 
-### The review loop
+**Setting up the sheet.** `Rscript dev/check_sheets.R --setup-inbox` creates the
+two tabs if they are missing, writes their headers, freezes row 1, formats every
+cell as **plain text** (so Sheets cannot turn `1-2` into a date or drop a
+leading zero when the reviewer types), and puts dropdowns on `qa_status`,
+`imported`, `status` and `contact_public`. Plain `Rscript dev/check_sheets.R`
+checks the headers of every tab.
 
-`dev/qa.R` is the QA step. Pull `fwise-data`, stage, review in a spreadsheet,
-fold, commit, push, restart the app.
+### The review and import: `dev/qa.R`
 
-```bash
-Rscript dev/qa.R stage                              # inbox -> qa/review_<date>.csv
-Rscript dev/qa.R fold qa/review_<date>.csv          # decisions -> attempts.csv
-Rscript dev/qa.R fold qa/review_<date>.csv --keep-pending
-```
+One script, run **a section at a time in RStudio** (cursor in the section,
+Ctrl+Alt+T), not with `Rscript`. The rules it applies are functions in
+`R/qa_checks.R`; the new-species lookups are in `dev/species_enrich.R`.
 
-1. **Stage.** Every unprocessed inbox file becomes a row of
-   `qa/review_<date>.csv`. Beside each id column is a `_names` companion -
-   `invasive_species_names`, `primary_contact_names` - so the reviewer reads
-   "Common carp (Cyprinus carpio); [NEW] Arctic charr (Salvelinus alpinus)"
-   rather than ids. Every `new:` species becomes a row of
-   `qa/species_new_<date>.csv` with the names split out, the taxa the
-   contributor chose, family `Unknown`, and a `same_binomial_as` warning when a
-   species with that scientific name is already held. Every `new:` contact
-   becomes a row of `qa/contacts_new_<date>.csv`, with `action` pre-filled as
-   `use:CO-…` when the name and organisation already exist. The console lists
-   what looks off: a country not in the ISO list, a method not in
-   `FW_METHODS`, an off-vocabulary driver, waterbody or agent, a possible
-   duplicate of an existing site and start year.
-2. **Review.** In the review file, correct any value and set `status` to
-   `approved` or `rejected`. In the two `_new` files, set `action` on every row:
-   `add` (fix the names, taxa and family first) or `use:<existing id>`.
-3. **Fold.** Refuses to run while any `action` is blank or names an id that does
-   not exist. Mints an id for every `add` and appends it to the lookup, rewrites
-   every `new:` reference to an id, drops the `_names` columns, fills `iso3` and
-   `continent` from the ISO lookup, appends the approved rows to `attempts.csv`,
-   moves their inbox files to `inbox/merged/`, and rewrites `metadata.json`.
-   Rejected rows go to `qa/rejected.csv`. Rows left `pending` stay in the inbox
-   unless `--keep-pending`, which folds them in as pending, invisible publicly.
-   Before writing, the folded rows are passed through the same `fw_unpack()` the
-   app uses, so nothing that would stop the next startup can be committed.
+| § | |
+|---|---|
+| 0 Setup | Loads the app's code, names the data checkout's branch, warns if it has uncommitted changes or is behind, says which inbox it reads and whether IUCN lookups are on. |
+| 1 Read | `inbox` and `new_species` from the sheet. |
+| 2 Check | `checks` - one row per problem, `error` or `warning` - plus `contact_matches` and `species_matches`. The reviewer fixes things **in the sheet** and runs 1 and 2 again; when a row is right, sets `qa_status` to `done` and `status` to `approved` or `rejected`. |
+| 3 Resolve | Takes rows with QA done and `imported` = `no` (or only `import_ids`), checks them again, and shows `to_add`, `species_add`, `contacts_add`. Stops on any error. |
+| 4 Enrich | For new species, fills blanks only: family (fish) from GBIF, the IUCN Red List status (needs `IUCN_API_TOKEN`), a photograph with credit and licence from Wikipedia/Commons. Misses are listed in `enrich_log`. |
+| 5 Write | The only section that changes anything. Asks for `yes`, refuses if fwise-data is dirty or behind, or if the sheet changed since §3. Appends to the three CSVs (untouched rows stay byte for byte), rewrites `metadata.json`, then sets `imported` in the sheet. |
+| 6 Publish | Prints the `git add/commit/push` for fwise-data. The app shows the import once restarted. |
+| 7 Cutover | One-off: moves files left in the old `fwise-data/inbox/` into the sheet. |
 
-It is **idempotent** - an attempt id already in `attempts.csv` is skipped by
-both commands - and it **moves** folded files to `inbox/merged/`, so the app can
-count outstanding submissions with a single directory listing instead of opening
-every file, which over the API would be one request per submission.
+**Errors stop a row; warnings do not.** Errors: a malformed `qa_status`,
+`imported` or `status`; QA done with status still `pending`; no data-use consent;
+a country not in `lookup_iso3166.csv`, or a region that is a country; a
+coordinate that is not a number in range; a year that is not four digits; a
+species label that is neither held nor in `new_species` with a taxa; an unknown
+`contact_id`; a duplicated `attempt_id`; anything the app's own loader
+(`fw_unpack()`) would refuse. Warnings: no coordinates or start year; a number
+column that is not a plain number; an off-list method or vocabulary value; the
+same site and start year as a held record or another open row; a new fish with
+no family; a contact whose name and organisation match a held one but whose
+email differs; and every possible fuzzy match.
 
-A species added by the fold has no photograph yet. `dev/fetch_species_images.R`
-visits only rows with a blank `image_url`, so run it afterwards.
+**Fuzzy matches suggest, they never merge.** Names are compared lower-cased,
+accents stripped, word order ignored ("Bird, Chris" = "Chris Bird"), with base
+`adist()`: same email, a name within a typo or two (scaled to its length), same
+surname and initial, same organisation or non-webmail domain with a similar
+surname. Each submitted contact is compared with `contacts.csv` **and with the
+other open rows**, so one recorder's typos across several records show up. A
+contact is reused only on an exact name and organisation, or the `CO-` id the
+reviewer types in `contact_id`; identical new contacts in one import become one.
+If either the held contact or a submission says private, private wins. A typed
+species is compared with held common and scientific names the same way; the
+reviewer swaps in the held label in the sheet.
+
+**Nothing is imported twice.** A row is taken only while `imported` is `no` and
+its id is not in `attempts.csv`; §5 skips any attempt, species or contact
+already written. If the sheet write in §5 fails, run §3 and §5 again: every
+open row whose id is already in `attempts.csv` is marked imported. Rejected rows
+are never written to `attempts.csv`; the sheet is their record.
+
+`Rscript dev/qa_test.R` runs the whole loop on a temporary copy of fwise-data
+with a local inbox and stubbed lookups, and recomputes every value that lands.
 
 ---
 
@@ -782,10 +807,12 @@ copy it to `.Renviron` (gitignored) for local use.
 
 | Variable | Set where | Purpose |
 |---|---|---|
-| `FWISE_DATA_TOKEN` | Connect Cloud settings | **The one thing the data needs.** A fine-grained GitHub PAT with Contents: Read and write on `freshwaterLife/fwise-data`. Set means read and write over the GitHub API; unset means the local sibling checkout and no network calls. Expires — see "Serving data without redeploying". |
+| `FWISE_DATA_TOKEN` | Connect Cloud settings | **The one thing the data needs.** A fine-grained GitHub PAT with Contents: Read on `freshwaterLife/fwise-data`. Set means the data is read over the GitHub API; unset means the local sibling checkout and no GitHub calls. Expires — see "Serving data without redeploying". |
 | `FWISE_FORMS_SHEET_ID` | Connect Cloud settings | The Google Sheet the newsletter and feedback forms write to. With `GS4_SA_KEY_B64` unset as well, the forms write to `dev/forms/` instead. |
+| `FWISE_INBOX_SHEET_ID` | optional | The sheet whose `submissions` and `new_species` tabs the contribute form writes to and `dev/qa.R` reads. Unset, it is `FWISE_FORMS_SHEET_ID`. With no sheet or no key, submissions go to `dev/forms/`. |
+| `IUCN_API_TOKEN` | the reviewer's `.Renviron` only | For `dev/qa.R` section 4: the Red List status of a new species. Free for non-commercial use at api.iucnredlist.org. The app never uses it. |
 | `GS4_SA_KEY_B64` | Connect Cloud settings | The service account's JSON key, as JSON or base64 of it. See "Newsletter, feedback and the privacy page". |
-| `FWISE_DATA_SOURCE` | rarely, for a test deploy | Overrides the above. A path reads that directory; an `https://` base reads over plain HTTPS with no credential and cannot write. Point it at the directory holding `attempts.csv` and `metadata.json`. |
+| `FWISE_DATA_SOURCE` | rarely, for a test deploy | Overrides the token. A path reads that directory; an `https://` base reads over plain HTTPS with no credential. Point it at the directory holding `attempts.csv` and `metadata.json`. |
 
 **Never commit a credential.** `.Renviron` and `*.json` are gitignored, with
 `manifest.json` explicitly re-included because it is configuration rather than a

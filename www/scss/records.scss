@@ -64,7 +64,9 @@ a:hover { color: $fw-teal-hover; }
   margin-block-end: $fw-space-4;
   border-block-end: 3px solid $fw-brand-teal;
 
-  &__mark { height: 5rem; width: auto; display: block; }
+  // 7rem, up from 5rem, for the explicit lockup (client, 14 Oct 2026): the
+  // full name under the wordmark is a twentieth of the logo's height.
+  &__mark { height: 7rem; width: auto; max-width: 100%; display: block; }
 
   h1 {
     font-size: $fw-size-h1;
@@ -171,10 +173,10 @@ a:hover { color: $fw-teal-hover; }
   padding: 0;
   max-height: 22rem;
   overflow-y: auto;
-  // A grid, not CSS columns: columns inside a fixed height flow sideways into
-  // a horizontal scroll rather than down.
+  // ONE COLUMN (client, 14 Oct 2026). Two read ambiguously - across, or
+  // down? - and the list is in id order, so a reader had to guess which.
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.3rem $fw-space-4;
   a { text-decoration: none; }
   a:hover { text-decoration: underline; }

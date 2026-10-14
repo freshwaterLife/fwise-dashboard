@@ -101,10 +101,57 @@ ok("summary: year span", ps$year_span, paste0(min(yrs), "-", max(yrs)))
 
 # The footer.
 ok("footer: last updated is the release date", fw_last_updated(d, m), as.Date(m$release))
+# The in-review count against a KNOWN local inbox (never the live sheet): four
+# rows, of which only the two neither imported nor rejected are waiting.
+saved_inbox <- FWISE_INBOX_SHEET_ID; saved_dev <- FW_DEV_DIR
+FWISE_INBOX_SHEET_ID <- NULL
+FW_DEV_DIR <- file.path(tempdir(), "fw-value-inbox"); unlink(FW_DEV_DIR, recursive = TRUE)
+inbox_rows <- lapply(list(
+  c(imported = "no",  status = "pending",  id = "FW-T-1"),
+  c(imported = "no",  status = "approved", id = "FW-T-2"),
+  c(imported = "yes", status = "approved", id = "FW-T-3"),
+  c(imported = "no",  status = "rejected", id = "FW-T-4")
+), function(x) fw_flatten_record(list(attempt_id = x[["id"]], imported = x[["imported"]],
+                                      status = x[["status"]], qa_status = "not done")))
+fw_inbox_append(FW_INBOX_TABS$submissions, inbox_rows, FW_INBOX_COLUMNS)
 pending <- attr(d, "status_counts")[["pending"]]
-inbox <- tryCatch(fw_pending_submissions(), error = function(e) data.frame())
-in_inbox <- if (nrow(inbox) == 0) 0L else if ("status" %in% names(inbox)) sum(inbox$status == "pending") else nrow(inbox)
-ok("footer: in-review count", fw_review_count(d), as.integer(pending + in_inbox))
+ok("footer: in-review count", fw_review_count(d), as.integer(pending + 2L))
+ok("footer: the waiting rows are the two not imported or rejected",
+   sort(fw_pending_submissions()$attempt_id), c("FW-T-1", "FW-T-2"))
+
+# THE LIVE COUNT (14 Oct 2026): one read per FW_REVIEW_REFRESH_S for the
+# process, at once after a submission, and the last good count on a failed read.
+t0 <- as.POSIXct("2026-10-14 12:00:00", tz = "UTC")
+one_more <- function(id) fw_inbox_append(FW_INBOX_TABS$submissions, list(fw_flatten_record(
+  list(attempt_id = id, imported = "no", status = "pending", qa_status = "not done"))), FW_INBOX_COLUMNS)
+fw_review_count_invalidate()
+options(fw.now = t0)
+ok("review live: first ask reads the inbox", fw_review_count_live(d), as.integer(pending + 2L))
+one_more("FW-T-5")
+options(fw.now = t0 + FW_REVIEW_REFRESH_S - 1)
+ok("review live: inside the window it does not read again", fw_review_count_live(d), as.integer(pending + 2L))
+options(fw.now = t0 + FW_REVIEW_REFRESH_S)
+ok("review live: after the window it does", fw_review_count_live(d), as.integer(pending + 3L))
+one_more("FW-T-6")
+fw_review_count_invalidate()
+ok("review live: a submission refreshes it at once", fw_review_count_live(d), as.integer(pending + 4L))
+real_pending <- fw_pending_submissions
+fw_pending_submissions <- function() stop("sheet unreachable")
+options(fw.now = t0 + 10 * FW_REVIEW_REFRESH_S)
+ok("review live: a failed read keeps the last good count",
+   suppressWarnings(fw_review_count_live(d)), as.integer(pending + 4L))
+fw_pending_submissions <- real_pending
+options(fw.now = NULL)
+fw_review_count_invalidate()
+# The footer's count is always in the page, hidden at zero, so it can be filled.
+ok("review live: the footer holds the count at zero, hidden",
+   grepl('<span id="fw-footer-review" class="fw-footer__review" hidden>',
+         as.character(fw_footer(as.Date(m$release), 0L)), fixed = TRUE), TRUE)
+ok("review live: and shows it otherwise",
+   grepl('<span id="fw-footer-review" class="fw-footer__review">\\s*<span class="fw-num">3</span>',
+         as.character(fw_footer(as.Date(m$release), 3L))), TRUE)
+unlink(FW_DEV_DIR, recursive = TRUE)
+FWISE_INBOX_SHEET_ID <- saved_inbox; FW_DEV_DIR <- saved_dev
 foot_html <- as.character(fw_footer(as.Date(m$release)))
 fwise_a <- regmatches(foot_html, regexpr('<a[^>]*>\\s*<img src="[^"]*" alt="FWISE[^"]*"', foot_html))
 ok("footer: the FWISE logo is the long SIMPLE wordmark",
@@ -173,8 +220,12 @@ ok("citation: the client's literal form",
          "(Version 1) [Web application]. https://fwise.org"))
 # THE METHODS STATEMENT (client, 6 Oct 2026): the same words on About and in
 # every download, and the old placeholders gone from both.
+# About sets the last sentence as a link to FWISE-FACTS; the downloads write
+# its address out (14 Oct 2026).
 ok("methods: About and the downloads say the same thing",
-   fw_t("about", "method"), fw_t("export", "methods"))
+   paste0(fw_t("about", "method"), " ", sub("[.]$", "", fw_t("about", "method_facts")),
+          ": ", fw_t("about", "facts_url"), "."),
+   fw_t("export", "methods"))
 ok("methods: no placeholder left",
    !any(grepl("PLACEHOLDER", c(fw_t("about", "method"), fw_t("export", "methods")), fixed = TRUE)))
 ok("methods: the closing section opens on it", closing[[1]]$body, fw_t("export", "methods"))
@@ -208,6 +259,12 @@ ok("about: the sign-up heading is visible",
    grepl(paste0("<h2>", fw_t("about", "signup_heading"), "</h2>"), about_html, fixed = TRUE))
 ok("about: no Lorem Ipsum left in How it was built",
    grepl("perspiciatis|Nemo enim|Neque porro", about_html), FALSE)
+# The methods panel's last sentence links to FWISE-FACTS (client, 14 Oct 2026).
+ok("about: the facts sentence links to FWISE-FACTS",
+   grepl(paste0('href="', fw_t("about", "facts_url"), '"[^>]*>', fw_t("about", "method_facts"), "</a>"),
+         about_html), TRUE)
+ok("export: the methods write the FWISE-FACTS address out",
+   grepl(fw_t("about", "facts_url"), fw_t("export", "methods"), fixed = TRUE), TRUE)
 ok("about: the citation is on the page",
    grepl(fw_citation_text(m), about_html, fixed = TRUE))
 # The panels are click-to-open, and a <details> that lost its <summary> is a
@@ -875,6 +932,24 @@ try(testServer(mod_explore_server, args = list(data = d, in_review = 7L), {
 }), silent = TRUE)
 
 ok("explore: the database panel renders", !is.na(exp_kpis) && nchar(exp_kpis) > 50)
+# THE THIRD LINE ABOVE THE MAP (client, 14 Oct 2026): after the map note, in
+# its paragraph, a <br> apart, linking to the contribute page; and before the map.
+exp_ui <- as.character(mod_explore_ui("explore", fw_filter_choices(d)))
+note_at <- regexpr(fw_t("maps", "title"), exp_ui, fixed = TRUE)
+line_at <- regexpr("Don't see your own eradication attempts on here?", exp_ui, fixed = TRUE)
+map_at  <- regexpr('id="explore-map"', exp_ui, fixed = TRUE)
+ok("explore: the contribute line sits between the map title and the map",
+   note_at > 0 && line_at > note_at && map_at > line_at, TRUE)
+ok("explore: it links to the contribute page",
+   grepl("fw_nav_to&#39;,&#39;contribute&#39;[^>]*>Please add them now!</a>", exp_ui), TRUE)
+ok("explore: on a line of its own after the note",
+   grepl("imagery.<br/>Don't see your own", exp_ui, fixed = TRUE), TRUE)
+exp_live <- NA_character_
+try(testServer(mod_explore_server, args = list(data = d, in_review = reactive(9L)), {
+  exp_live <<- strip(output$kpis)
+}), silent = TRUE)
+ok("explore: the panel takes a live in-review count",
+   isTRUE(grepl("9 in review", exp_live, fixed = TRUE)), TRUE)
 ok("explore: the strip counts the whole database unfiltered",
    grepl(paste0(fw_fmt_num(nrow(a)), " attempts"), exp_sum, fixed = TRUE))
 # THE TABLE'S ASSERTIONS ARE GONE WITH THE TABLE. They covered one row per
@@ -1818,7 +1893,7 @@ ok("place: a territory filed under its state stops the load",
 # ==============================================================================
 cat("\n-- welcome page --\n")
 
-home_html <- as.character(mod_home_ui("home", fw_headline_stats(d), d$species))
+home_html <- as.character(mod_home_ui("home", fw_headline_stats(d)))
 # Recomputed from the tables, not from fw_headline_stats().
 ok_ids <- as.character(d$attempt$attempt_id)[as.character(d$attempt$outcome) %in% "Successful"]
 as_ben <- d$attempt_species[as.character(d$attempt_species$role) == "beneficiary", ]
@@ -1911,23 +1986,19 @@ ok("welcome: every story link opens in a new tab",
      sum(lengths(lapply(stories, `[[`, "links"))))
 ok("welcome: every paragraph is its own <p>",
    all(vapply(unlist(lapply(stories, `[[`, "body")), function(b)
-     grepl(paste0("<p>", htmltools::htmlEscape(b), "</p>"), home_html, fixed = TRUE), TRUE)))
-want_codes <- vapply(stories, function(s) {
-  hit <- d$species$iucn_status[!is.na(d$species$common_name) &
-                                 d$species$common_name == s$beneficiary$name]
-  if (length(hit) == 1L && !is.na(hit)) hit else NA_character_
-}, "")
-ok("welcome: every story beneficiary has exactly one Red List status", !anyNA(want_codes))
-badges <- sub(".*>", "", regmatches(home_html,
-  gregexpr('<span class="fw-story__iucn"[^>]*>[A-Z]+', home_html))[[1]])
-ok("welcome: each card's badge is its beneficiary's code, in card order",
-   badges, unname(want_codes))
-ok("welcome: the six codes as the data has them",
-   unname(want_codes[c("africa", "asia", "europe", "north_america", "oceania", "latin_america")]),
-   c("EN", "LC", "EN", "CR", "EN", "CR"))
-ok("welcome: each badge says what it is in words",
-   lengths(regmatches(home_html, gregexpr('aria-label="IUCN Red List: [A-Z][a-z]', home_html))),
-   length(stories))
+     # Whitespace collapsed on both sides: a paragraph holding a link is
+     # written over several indented lines, which a browser reads as spaces.
+     grepl(gsub("\\s+", " ", as.character(tags$p(fw_home_story_text(b)))),
+           gsub("\\s+", " ", home_html), fixed = TRUE), TRUE)))
+# THE VALCHETA DOWNLISTING FIGURE CITES ITS PAPER IN THE TEXT (14 Oct 2026),
+# and the paper is no longer repeated under Links.
+ok("welcome: the downlisting figure links to its paper",
+   grepl('<a href="https://doi.org/10.1111/cobi.70103" target="_blank" rel="noopener noreferrer">only 4 species a year',
+         home_html, fixed = TRUE), TRUE)
+ok("welcome: and no story shows [words](url) as typed",
+   grepl("](http", home_html, fixed = TRUE), FALSE)
+ok("welcome: the paper is not also under Links",
+   any(vapply(stories$latin_america$links, `[[`, "", "url") == "https://doi.org/10.1111/cobi.70103"), FALSE)
 ok("welcome: one picture per card",
    lengths(regmatches(home_html, gregexpr('class="fw-story__figure"', home_html))),
    length(fw_t("home", "stories")))

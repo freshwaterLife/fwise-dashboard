@@ -100,7 +100,11 @@ mod_about_server <- function(id, data, meta = NULL) {
           fw_disclosure(
             fw_t("about", "method_heading"),
             note = fw_t("about", "method_summary"),
-            para("method")
+            # The closing sentence links to the FWISE-FACTS project (client,
+            # 14 Oct 2026).
+            p(fw_t("about", "method"), " ",
+              tags$a(href = fw_t("about", "facts_url"), target = "_blank",
+                     rel = "noopener", fw_t("about", "method_facts")))
           ),
 
           fw_disclosure(

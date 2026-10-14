@@ -36,14 +36,15 @@ FW_FILTER_CHOICES <- fw_filter_choices(FW_DATA)
 
 FW_LAST_UPDATED <- fw_last_updated(FW_DATA, FW_META)
 
-# Records waiting on review: pending rows carried into the schema, plus whatever
-# is still sitting in the submissions inbox. Read once at startup like everything
-# else, so it is accurate as of the last republish rather than live.
-FW_IN_REVIEW <- fw_review_count(FW_DATA)
+# Records waiting on review: pending rows carried into the schema, plus every
+# row of the inbox sheet not yet imported or rejected. This is the startup
+# count, written into the page for its first paint; each session then keeps it
+# current through fw_review_count_live() (14 Oct 2026). Reading it here also
+# fills that cache, so the first visitor does not read the sheet twice.
+FW_IN_REVIEW <- fw_review_count_live(FW_DATA)
 
 # Naming the mode is the first thing to check when a deployment misbehaves: it
-# says in one word whether the token was picked up, and submissions can only be
-# written at all in api mode.
+# says in one word whether the token was picked up.
 message("FWISE startup: ", nrow(FW_DATA$attempt), " attempts, ",
         nrow(FW_DATA$contact), " contacts, released ", format(FW_LAST_UPDATED),
         ", mode ", fw_data_mode(),
@@ -52,6 +53,10 @@ message("FWISE startup: ", nrow(FW_DATA$attempt), " attempts, ",
 # Where the newsletter and feedback forms write: "sheets" once FWISE_FORMS_SHEET_ID
 # and GS4_SA_KEY_B64 are both set, "local" (dev/forms/) otherwise.
 message("FWISE startup: forms ", fw_forms_mode())
+
+# Where contribute-form submissions go: "sheets" (the submissions tab of
+# FWISE_INBOX_SHEET_ID, the forms sheet unless set), "local" (dev/forms/).
+message("FWISE startup: submissions inbox ", fw_inbox_mode())
 
 # Usage tracking: "sheet", "console" or "off". See R/tracking.R.
 message("FWISE startup: event log ", fw_track_mode_why())
@@ -111,7 +116,7 @@ ui <- page_navbar(
     fw_live_region("fw_announce")
   ),
 
-  nav_panel(fw_t("nav", "home"),       value = "home",       mod_home_ui("home", fw_headline_stats(FW_DATA), FW_DATA$species)),
+  nav_panel(fw_t("nav", "home"),       value = "home",       mod_home_ui("home", fw_headline_stats(FW_DATA))),
   nav_panel(fw_t("nav", "explore"),    value = "explore",    mod_explore_ui("explore", FW_FILTER_CHOICES)),
   nav_panel(fw_t("nav", "plan"),       value = "plan",       mod_plan_ui("plan")),
   nav_panel(fw_t("nav", "contribute"), value = "contribute", mod_contribute_ui("contribute")),
@@ -154,10 +159,23 @@ server <- function(input, output, session) {
     }
   })
 
+  # THE IN-REVIEW COUNT, KEPT CURRENT: asked again every FW_REVIEW_REFRESH_S
+  # (the process-wide cache decides whether that reads the sheet), and at once
+  # after a submission from this page. The footer is static UI, so it is
+  # updated by message; the Explore panel re-renders.
+  review_tick <- reactiveVal(0L)
+  in_review <- reactive({
+    review_tick()
+    invalidateLater(FW_REVIEW_REFRESH_S * 1000)
+    fw_review_count_live(FW_DATA)
+  })
+  observeEvent(in_review(), fw_send_review_count(session, in_review()), ignoreInit = FALSE)
+
   mod_home_server("home", FW_DATA)
-  mod_explore_server("explore", FW_DATA, FW_IN_REVIEW)
+  mod_explore_server("explore", FW_DATA, in_review)
   mod_plan_server("plan", FW_DATA, FW_META)
-  mod_contribute_server("contribute", FW_DATA, FW_CHOICES)
+  mod_contribute_server("contribute", FW_DATA, FW_CHOICES,
+                        on_submit = function() review_tick(review_tick() + 1L))
   mod_networking_server("networking", FW_DATA)
   mod_about_server("about", FW_DATA, FW_META)
 
@@ -177,10 +195,12 @@ server <- function(input, output, session) {
 
   # ---- The privacy page and the address bar -----------------------------------
   #
-  # NOTHING ELSE IN THE APP READS OR WRITES THE URL (checked 2 Oct 2026), so
-  # the query string is this page's alone: ?page=privacy while it is open,
-  # nothing otherwise. If another page ever wants the URL, this is the code to
-  # make room in.
+  # NOTHING ELSE IN THE APP KEEPS A URL (checked 2 Oct 2026), so the query
+  # string is this page's alone: ?page=privacy while it is open, nothing
+  # otherwise. The one exception is ?page=contribute, which the contribute
+  # form's "Add another attempt" reloads to (14 Oct 2026); it is read and
+  # cleared at once, so it never outlives the reload. If another page ever
+  # wants the URL, this is the code to make room in.
   url_is_privacy <- reactiveVal(FALSE)
   # The last ordinary page shown, and - copied from it when the reader goes
   # to the privacy page from inside the app - where Back takes them from
@@ -202,6 +222,14 @@ server <- function(input, output, session) {
   # that heading once the page is showing.
   observe({
     q <- parseQueryString(session$clientData$url_search %||% "")
+    # Replaced, not pushed as fw-url-clear does, so Back does not return to
+    # an address that would reopen the form.
+    if (identical(q$page, "contribute")) {
+      nav_select("fw_nav", "contribute", session = session)
+      updateQueryString(session$clientData$url_pathname %||% "/", mode = "replace",
+                        session = session)
+      return()
+    }
     if (!identical(q$page, "privacy")) return()
     url_is_privacy(TRUE)
     nav_select("fw_nav", "privacy", session = session)

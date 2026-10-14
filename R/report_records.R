@@ -506,8 +506,11 @@ fw_write_records_html <- function(path, data, sel, export, filters, meta = NULL)
     class = "fw-rec",
     tags$header(
       class = "fw-rec-head",
-      if (!is.null(fw_html_data_uri(FW_LOGO$mark_file))) {
-        tags$img(class = "fw-rec-head__mark", src = fw_html_data_uri(FW_LOGO$mark_file),
+      # THE EXPLICIT LOCKUP, full name under the wordmark (client, 14 Oct
+      # 2026), because this file gets passed on. The footer row keeps the
+      # plain mark.
+      if (!is.null(fw_html_data_uri(FW_LOGO$explicit_file))) {
+        tags$img(class = "fw-rec-head__mark", src = fw_html_data_uri(FW_LOGO$explicit_file),
                  alt = fw_t("app", "full_title"))
       },
       h1(fw_t("export", "records_title")),

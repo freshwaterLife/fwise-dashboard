@@ -105,6 +105,9 @@ fw_typ_url <- function(x) {
 fw_pdf_tokens <- function(logos) {
   col <- function(name, hex) sprintf('#let %s = rgb("%s")', name, hex)
   pt <- function(name, v) sprintf("#let %s = %spt", name, format(v))
+  # A missing explicit lockup falls back to the plain mark, as a missing logo
+  # is skipped rather than failing the download.
+  masthead <- if ("explicit" %in% names(logos)) logos[["explicit"]] else logos[["mark"]]
   c(
     "// Written by fw_pdf_tokens() in R/report_pdf.R. Do not edit.",
     col("fw-ink", FW_COLOURS$ink),
@@ -146,9 +149,14 @@ fw_pdf_tokens <- function(logos) {
     "#let fw-logo-h = 10mm",
     # The FWISE mark on the letterhead, which the client asked to be bigger
     # still: it is the masthead of the document, not one logo among nine.
-    "#let fw-mark-h = 30mm",
+    # THE EXPLICIT LOCKUP since 14 Oct 2026 (client: a shared report should
+    # say what FWISE stands for), and 45mm rather than 30mm so the full name
+    # under the wordmark prints at about 8pt. The footer keeps the plain mark,
+    # where the name would be too small to read.
+    "#let fw-mark-h = 45mm",
     paste0("#let fw-logo-mark = ", fw_typ_str(logos[["mark"]])),
-    paste0("#let fw-logos = ", fw_typ_array(fw_typ_str(logos[names(logos) != "mark"]))),
+    paste0("#let fw-logo-explicit = ", fw_typ_str(masthead)),
+    paste0("#let fw-logos = ", fw_typ_array(fw_typ_str(logos[!names(logos) %in% c("mark", "explicit")]))),
     paste0("#let fw-doc-title = ", fw_typ_str(fw_t("plan", "report_title"))),
     paste0("#let fw-page-label = ", fw_typ_str(fw_t("plan", "pdf_page"))),
     paste0("#let fw-of-label = ", fw_typ_str(fw_t("common", "of"))),
@@ -579,7 +587,8 @@ fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = 
   dir.create(file.path(dir, "fonts"))
   file.copy(list.files(file.path(res, "fonts"), pattern = "[.]ttf$", full.names = TRUE),
             file.path(dir, "fonts"))
-  logo_src <- c(mark = FW_LOGO$mark_file, wfa = FW_LOGO$wfa_file, FW_LOGO$collab_files)
+  logo_src <- c(mark = FW_LOGO$mark_file, explicit = FW_LOGO$explicit_file,
+                wfa = FW_LOGO$wfa_file, FW_LOGO$collab_files)
   # A logo that is missing is skipped, as the old report did, rather than
   # failing the download - but only if it is missing; dev/plan_test.R checks
   # every one is there.

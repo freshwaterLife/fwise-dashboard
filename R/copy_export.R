@@ -63,14 +63,15 @@ FW_COPY_EXPORT <- list(
     # and the records HTML's last section each carry both.
     methods_heading  = "Methods",
     # THE CLIENT'S OWN (6 Oct 2026), plain slips mended only. It is also the
-    # About page's "How it was built" panel - about$method in R/copy.R - so
-    # change both together. One place feeds all three exports.
+    # About page's "How it was built" panel - about$method, method_facts and
+    # facts_url in R/copy.R - so change both together. One place feeds all
+    # three exports, as text, so the address is written out (14 Oct 2026).
     methods = paste(
       "FWISE’s data comes from two sources: a standardized literature review",
       "performed in 2026, and directly from data contributors. We will publish",
       "the full methodology in a forthcoming peer-reviewed paper summarizing",
-      "main findings from FWISE, including how we got the facts presented on",
-      "the landing page."
+      "main findings from FWISE. Here is the data generating the facts on the",
+      "landing page: https://github.com/freshwaterLife/FWISE-FACTS."
     ),
 
     # ---- The caveats ----------------------------------------------------------
