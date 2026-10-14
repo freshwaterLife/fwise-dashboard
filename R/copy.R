@@ -10,12 +10,17 @@ FW_COPY <- list(
     title      = "FWISE",
     full_title = "FWISE: Freshwater Invasive Species Eradication Database",
     tagline    = "A world evidence base for freshwater invasive species eradication",
-    # FOR MACHINES FIRST: the page's meta description, its Open Graph and
-    # structured-data description, and what a firewall's categorisation
-    # crawler reads to decide what the site is. A Shiny page is otherwise
-    # mostly script, and "insufficient content" gets a new domain blocked
-    # (Alex, 4 Oct 2026). Around 150 characters, plain words, no markup.
-    meta_description = paste(
+    # THE LINK PREVIEW'S WORDS: the meta description and og:description, so
+    # what WhatsApp and the rest show under the title (client, 14 Oct 2026:
+    # "Just change to ..."). Plain words, no markup.
+    meta_description = "Freshwater Invasive Species Eradication Database",
+    # FOR MACHINES: the schema.org WebSite and Dataset description. It keeps
+    # the longer sentence the preview had until 14 Oct 2026, because Google
+    # Dataset Search wants 50 characters or more, and a firewall's
+    # categorisation crawler reads it to decide what the site is - a Shiny
+    # page is otherwise mostly script, and "insufficient content" gets a new
+    # domain blocked (Alex, 4 Oct 2026). The noscript block below does the same.
+    dataset_description = paste(
       "FWISE is a free, open world database of freshwater invasive species",
       "eradication attempts, their methods and outcomes, built by Freshwater",
       "Life and partners."
@@ -268,30 +273,28 @@ FW_COPY <- list(
     # ONE ENTRY PER STORY, A-Z by continent LABEL, keyed as FW_HOME_IMG$stories
     # is - so latin_america, labelled South America, sits last. The order on
     # the page is FW_HOME_ORDER's, not this. Every word is the client's (6 Oct
-    # 2026), with only plain slips mended ("involved [in] each extinction",
-    # "Lake Sorell" as in its URL).
+    # 2026, revised 14 Oct 2026), with only plain slips mended ("involved [in]
+    # each extinction", "Lake Sorell" as in its URL, "plant-based", the pearl
+    # mussel's "alone — they", "on [the] gills", "Atlantic", double spaces).
     #
-    # `body` IS ONE STRING PER PARAGRAPH. `links` are what the client listed
-    # under "Links:": `name` is the link's words, `note` the parenthetical
-    # after it. The Valcheta paper came with no words of its own, so its DOI
-    # is its name rather than a description we wrote for it.
+    # `body` IS ONE STRING PER PARAGRAPH, and [words](https://...) in it is a
+    # link in the text - the Valcheta downlisting figure cites its paper that
+    # way (14 Oct 2026; see fw_home_story_text()). `links` are what the client
+    # listed under "Links:": `name` is the link's words, `note` the
+    # parenthetical after it.
     #
     # `title` may differ from `beneficiary$name` - the grebe's card title adds
-    # its Japanese name. The beneficiary's name is the one the tile announces
-    # and the one its IUCN badge is looked up by (common_name in species.csv).
+    # its Japanese name. The beneficiary's name is the one the tile announces.
     stories_open = "Read the {continent} success story: {name}",
     card_close = "Close story",
     image_placeholder = "Image to come",
     story_links_heading = "Links",
-    # The badge after a story card's title. {category} is the Red List's own
-    # wording, "Critically Endangered"; the badge itself shows the code.
-    iucn_badge = "IUCN Red List: {category}",
     stories = list(
       africa = list(
         continent = "Africa",
         title   = "Fiery redfin",
         summary = "A historic restoration that, in just a few months, brought back this Endangered fish over a decade after it had disappeared.",
-        body    = "In South Africa's Western Cape, world famous for its biodiversity, runs the Rondegat River: home to Threatened fish species including the fiery redfin. But smallmouth bass, introduced to South Africa for angling in 1937, invaded the lower river up to a waterfall and ate the redfins and other native fish out of it. So in 2012 and 2013, CapeNature and partners treated 4 km of river with rotenone, the country's first conservation use of the piscicide. They upgraded a weir to stop the bass from coming back, and cleared invasive trees along the banks so the whole river could heal. What happened next was utterly amazing: native fish began returning within months, their densities rising from fewer than 1 to nearly 12 fish per 100 m², and the river's insects and other invertebrates bounced back quickly. All for about US$250,000 to remove the bass (US$64,000/km) and US$550,000 for tree clearing: a low cost to bring a river back to life.",
+        body    = "In South Africa's Western Cape, world famous for its biodiversity, runs the Rondegat River: home to Threatened fish species including the fiery redfin. But smallmouth bass, introduced to South Africa for angling in 1937, invaded the lower river up to a waterfall and ate almost all the redfins and other native fish. So in 2012 and 2013, CapeNature and partners treated 4 km of river with the plant-based traditional fishing toxin rotenone. They upgraded a weir to stop the bass from coming back, and cleared invasive trees along the banks so the whole river could heal. What happened next was utterly amazing: native fish began returning within months, their densities rising from fewer than 1 to nearly 12 fish per 100 m², and the river's insects and other invertebrates bounced back quickly. All for about US$250,000 to remove the bass (US$64,000/km) and US$550,000 for tree clearing: a low cost to bring a river back to life.",
         links   = list(
           list(name = "Threatened Endemic Fishes in South Africa’s Cape Floristic Region: A New Beginning for the Rondegat River",
                note = "(article in Fisheries with great details and graphs)",
@@ -303,7 +306,7 @@ FW_COPY <- list(
         continent = "Asia",
         title   = "Little grebe カイツブリ",
         summary = "A beloved bird on the brink in Tokyo, brought back by the restoration of a historic pond.",
-        body    = "Grebes are diving waterbirds that look a bit like ducks, yet their closest living relatives are, surprisingly, flamingos. And they are in trouble worldwide. Three species have gone Extinct since 1977 (in Colombia, Guatemala, and Madagascar), and invasive fish were involved in each extinction. Four more species of grebe are Critically Endangered or Endangered, with invasive fish again among the threats. So when largemouth bass and bluegill were introduced to Tokyo's Inokashira Pond, a pond once clean enough to drink from, Tokyo's little grebes were in trouble. The invasives ate the small fish and shrimp the grebes depend on, and the grebes stopped breeding and eventually vanished from the pond. Local residents noticed, and from 2007 worked with the Tokyo Metropolitan Government to fight back, finally reviving a traditional Japanese practice called kaibori: draining the pond, letting its bed dry in the sun, and sorting every animal caught, returning the natives and removing the invaders. After three kaibori the bass and bluegill were gone for good. Native fish and shrimp rebounded, rare water plants returned after some 60 years, and the grebes came home. In 2025, eight pairs bred and 44 chicks hatched!",
+        body    = "Grebes are diving waterbirds that look a bit like ducks, yet their closest living relatives are, surprisingly, flamingos. And they are in trouble worldwide. Three species have gone Extinct since 1977 (in Colombia, Guatemala, and Madagascar), and invasive fish were involved in each extinction. Four more species of grebe are Critically Endangered or Endangered, with invasive fish again big threats. So when largemouth bass and bluegill were introduced to Tokyo's Inokashira Pond, a pond once clean enough to drink from, Tokyo's little grebes were in trouble. The invasives ate the small fish and shrimp the grebes depend on, and the grebes stopped breeding and eventually vanished from the pond. Local residents noticed, and from 2007 worked with the Tokyo Metropolitan Government to fight back, finally reviving a traditional Japanese practice called kaibori: draining the pond, letting its bed dry in the sun, and sorting every animal caught, returning the natives and removing the invaders. After three kaibori the bass and bluegill were gone for good. Native fish and shrimp rebounded, rare water plants returned after some 60 years, and the grebes came home. In 2025, eight pairs bred and 44 chicks hatched!",
         links   = list(
           list(name = "The premier breeding ground for little grebes in Tokyo",
                note = "(blog post in the Inokashira Pond Newsletter with great photos and graphs)",
@@ -315,7 +318,7 @@ FW_COPY <- list(
         continent = "Europe",
         title   = "Freshwater pearl mussel",
         summary = "One of the world’s longest-living animals (up to nearly 200 years!), this Endangered species is recovering after decades of decline thanks to a national programme in Norway to save the Atlantic salmon.",
-        body    = "Freshwater bivalves are among the world's most threatened group of animals, with dozens of Extinct species. So this story is a source of much-needed hope. The Endangered freshwater pearl mussels can live for nearly 200 years, but they can't complete their life cycle alone. And when Atlantic salmon serve as the primary host for freshwater pearl mussel larvae, the mussel becomes particularly vulnerable in rivers infected by the invasive parasite known as the salmon killer (Gyrodactylus salaris). The parasite causes high mortality among juvenile salmon and leads indirectly to reduced recruitment of freshwater pearl mussels. Thankfully, the Norwegian Veterinary Institute has been using rotenone, a piscicide derived from traditional fishing methods, to eradicate infected fish and then restock healthy salmon. And today, in the Steinkjer rivers, high density of young salmon has led to exceptionally strong recruitment of freshwater pearl mussels. Restoring relationships, saving species.",
+        body    = "Freshwater bivalves are among the world's most threatened group of animals, with dozens of Extinct species. So this story is a source of much-needed hope. The Endangered freshwater pearl mussels can live for nearly 200 years, but their larvae can’t survive alone — they need to harmlessly hitch a ride on the gills of a juvenile Atlantic salmon for a few months before they drop off and settle on the river bottom. And, the mussel becomes particularly vulnerable in rivers infected by the invasive parasite known as the salmon killer (Gyrodactylus salaris). The parasite causes high mortality of juvenile salmon and leads indirectly to reduced recruitment of freshwater pearl mussels. Thankfully, the Norwegian Veterinary Institute has been using rotenone, a piscicide derived from traditional fishing methods, to eradicate infected fish and then restock healthy salmon. And today, in the Steinkjer rivers, high density of young salmon has led to exceptionally strong recruitment of freshwater pearl mussels. Restoring relationships, saving species.",
         links   = list(
           list(name = "Beautifully thorough yet elegant report from the Norwegian Research Information Repository",
                note = "(though you’ll likely need to translate it!)",
@@ -326,8 +329,8 @@ FW_COPY <- list(
       north_america = list(
         continent = "North America",
         title   = "Apache trout",
-        summary = "This sacred and Critically Endangered trout was removed from the Endangered Species List thanks to a historic Indigenous-led decades long recovery effort.",
-        body    = "“Colonization wasn’t kind to the Apache trout. The newcomers caught and ate them by the bushel, and logging, overgrazing and mining degraded their mountain creeks. Worst of all were the legions of non-native trout — brook, brown and rainbow — that the state stocked for mining camps and anglers, which swiftly overwhelmed their native rivals. By the 1940s, Apache trout endured in just 12 streams — all of them on the Fort Apache Indian Reservation.” So the tribe, to whom the Apache trout is sacred, banned all fishing and started working with the state of Arizona (USA) to build barriers that keep invasive fish from moving upstream. Then they started eradicating invasive fish above the barrier and reintroducing Apache trout. Today the Apache trout lives in 30 streams, and in 2024 was removed from the list of threatened species under the Endangered Species Act. That makes it the first ever sport fish and trout species removed from the federal list due to recovery!",
+        summary = "This sacred trout was removed from the US Endangered Species List thanks to a historic Indigenous-led decades long recovery effort.",
+        body    = "“Colonization wasn’t kind to the Apache trout. The newcomers caught and ate them by the bushel, and logging, overgrazing and mining degraded their mountain creeks. Worst of all were the legions of non-native trout — brook, brown and rainbow — that the state stocked for mining camps and anglers, which swiftly overwhelmed their native rivals. By the 1940s, Apache trout endured in just 12 streams — all of them on the Fort Apache Indian Reservation.” So the tribe, to whom the Apache trout is sacred, banned all fishing and started working with the state of Arizona (USA) to build barriers that keep invasive fish from moving upstream. Then they started eradicating invasive fish above the barrier and reintroducing Apache trout. Today the Apache trout lives in 30 streams, and in 2024 was removed from the list of threatened species under the US Endangered Species Act. That makes it the first ever sport fish and trout species removed from the US federal list due to recovery!",
         links   = list(
           list(name = "After half a century, the Apache trout swims off the threatened species list",
                note = "(article in the High Country News with stunning photographs)",
@@ -352,15 +355,13 @@ FW_COPY <- list(
         title   = "Valcheta frog",
         summary = "Critically Endangered microendemics brought back from the edge of extinction by Argentina’s first-ever freshwater eradication.",
         body    = c(
-          "In the cold and windy Patagonian steppe of Argentina rises a vast basaltic tableland: the Somuncura Plateau. And in a place where it barely rains, water is everything. Every stream is a lifeline. Take the Arroyo Valcheta: here live four species found nowhere else on earth: the Valcheta Frog, a fully aquatic and evolutionarily distinct frog. The Naked characin, a small fish that loses its scales as it grows, the only one of its kind; and also the only native fish species of the stream. And two tiny freshwater snail species so rare they only have scientific names. But all four species are Critically Endangered, being eaten to extinction by invasive trout. Until the Fundación Somuncura, in partnership with Freshwater Life in May 2022, in a single day, eradicated the invasive fish in a pilot stretch of stream. And then the stream did the rest: the endemic species came back. This was the first-ever freshwater eradication in Argentina and won the Whitley award. Now Fundación Somuncura is planning to build an invasive fish barrier and restore 30 km of stream. This will save all four species, securing a future for some of the least visible inhabitants of the Patagonian desert.",
-          "And all four species will be downlisted from Critically Endangered to not just Endangered, but Vulnerable! Such a feat is exceedingly rare: from 2007 to 2024, of the 164k species assessed on the Redlist, only 0.1% were downlisted, or 222 species. And only 74 species were downlisted by two or more categories."
+          "On the cold and windy Patagonian steppe of Argentina rises a vast basaltic tableland: the Somuncura Plateau. And in a place where it barely rains, water is everything. Every stream is a lifeline. Take the Arroyo Valcheta: here live four species found nowhere else on earth: the Valcheta Frog, a fully aquatic and evolutionarily distinct frog. The Naked characin, a small fish that loses its scales as it grows, the only one of its kind; and also the only native fish species of the stream. And two tiny freshwater snail species so rare they only have scientific names. But all four species are Critically Endangered, being eaten to extinction by invasive trout. Until May 2022 when the Fundación Somuncura and partner Freshwater Life eradicated the invasive fish in a pilot stretch of stream in a single day. And then the stream did the rest: the endemic species came back. This was the first-ever freshwater eradication in Argentina and won the Whitley award. Now Fundación Somuncura is planning to build an invasive fish barrier and restore 30 km of stream. This will save all four species, securing a future for some of the least visible inhabitants of the Patagonian desert.",
+          "And all four species will be downlisted from Critically Endangered to not just Endangered, but Vulnerable! Such a feat is exceedingly rare: from 2007 to 2024, of all the 164k species assessed on the Red List, [only 4 species a year across the entire world were downlisted by two or more categories](https://doi.org/10.1111/cobi.70103)."
         ),
         links   = list(
           list(name = "On a Patagonian plateau, a microendemic frog makes a hopeful comeback",
                note = "(article in Mongabay that’s a quick and inspiring read)",
-               url  = "https://news.mongabay.com/2025/06/on-a-patagonian-plateau-a-microendemic-frog-makes-a-hopeful-comeback/"),
-          list(name = "doi.org/10.1111/cobi.70103",
-               url  = "https://doi.org/10.1111/cobi.70103")
+               url  = "https://news.mongabay.com/2025/06/on-a-patagonian-plateau-a-microendemic-frog-makes-a-hopeful-comeback/")
         ),
         beneficiary = list(name = "Valcheta frog", alt = "Illustration of a Valcheta frog")
       )
@@ -455,7 +456,12 @@ FW_COPY <- list(
 
     # THE WAY ON, under the charts (client, 29 Sept 2026). [[plan|...]] is a
     # link to that tab - see fw_home_links().
-    to_plan = "[[plan|Dig deeper into the data to **plan your own eradication**]]."
+    to_plan = "[[plan|Dig deeper into the data to **plan your own eradication**]].",
+
+    # THE THIRD LINE ABOVE THE MAP, Explore only (client, 14 Oct 2026): its
+    # own paragraph, so it always starts a line of its own under maps$note.
+    # "add them", not the client's "add it", to agree with "attempts".
+    map_contribute = "Don't see your own eradication attempts on here? [[contribute|Please add them now!]]"
 
     # NO map / map_note HERE EITHER - see maps$title and maps$note.
   ),
@@ -958,16 +964,20 @@ FW_COPY <- list(
     method_heading = "How it was built",
     method_summary = "Where the records come from and how they were compiled",
     # THE CLIENT'S OWN (6 Oct 2026), plain slips mended only ("literature
-    # review", "findings from FWISE, including ..."). The same words are the
-    # Methods part of every download - export$methods in R/copy_export.R - so
-    # change both together.
+    # review"). The same words are the Methods part of every download -
+    # export$methods in R/copy_export.R - so change both together.
+    #
+    # THE LAST SENTENCE IS A LINK (client, 14 Oct 2026) to the R project that
+    # works out the Welcome page's facts. method_facts is the link's words, set
+    # after `method` by mod_about.R; the downloads write the address out.
     method = paste(
       "FWISE’s data comes from two sources: a standardized literature review",
       "performed in 2026, and directly from data contributors. We will publish",
       "the full methodology in a forthcoming peer-reviewed paper summarizing",
-      "main findings from FWISE, including how we got the facts presented on",
-      "the landing page."
+      "main findings from FWISE."
     ),
+    method_facts = "Here is the data generating the facts on the landing page.",
+    facts_url = "https://github.com/freshwaterLife/FWISE-FACTS",
 
     # ---- Methods glossary ----------------------------------------------------
     # ONE ENTRY PER METHOD THE DATA ACTUALLY RECORDS, and the `term` strings
@@ -1053,9 +1063,7 @@ FW_COPY <- list(
     # the panels above: a reader who has found something wrong should not have
     # to open anything to say so.
     fb_body = paste(
-      "FWISE is an evolving and collective app. Please tell us how to make it",
-      "better. If a record is wrong, a species is misnamed, or something",
-      "on this a page or this site does not work, please tell us about it."
+      "FWISE is an evolving and collective app. Please tell us how to make it better. And let us know if a record is wrong, a species is misnamed, or something on this site does not work."
     ),
     fb_action = "Send feedback"
   ),

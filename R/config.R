@@ -16,8 +16,9 @@
 #
 # Nothing in here should ever assume the two are checked out together beyond the
 # development default below. In production the data arrives over the GitHub API
-# instead, and submissions are written back the same way. See fw_data_mode() in
-# data_load.R and R/github.R.
+# instead. Submissions are not written here at all: they go to a Google Sheet
+# and reach the data through dev/qa.R. See fw_data_mode() in data_load.R and
+# R/github.R.
 
 FW_ROOT       <- getwd()
 FW_DEV_DIR    <- file.path(FW_ROOT, "dev")
@@ -27,8 +28,8 @@ FW_DATA_DIR   <- normalizePath(file.path(FW_ROOT, "..", "fwise-data"),
                                mustWork = FALSE)
 
 # THE THREE FILES THAT ARE THE DATA. One wide table of attempts and two lookups
-# it references by id. Everything else in fwise-data/ is provenance, a standard,
-# or the submissions inbox. Relative to the data root, because in production the
+# it references by id. Everything else in fwise-data/ is provenance or a
+# standard. Relative to the data root, because in production the
 # same names are fetched over the GitHub API - see fw_data_path().
 FW_ATTEMPTS_FILE <- "attempts.csv"
 FW_SPECIES_FILE  <- "species.csv"
@@ -98,14 +99,15 @@ FW_DATA_REPO <- "freshwaterLife/fwise-data"
 FW_DATA_REF  <- "main"
 
 # THE ONE SECRET, and the switch. Set FWISE_DATA_TOKEN and the app reads the
-# repository above over the GitHub API and writes submissions back to it. Leave
-# it unset and everything stays on the local sibling checkout, making no network
-# calls at all - a developer on a train gets the same app as a developer at a
-# desk, and a GitHub outage does not stop local work.
+# repository above over the GitHub API. Leave it unset and the data comes from
+# the local sibling checkout, with no GitHub calls at all - a developer on a
+# train gets the same app as a developer at a desk, and a GitHub outage does
+# not stop local work.
 #
-# It is a fine-grained personal access token with Contents: Read and write,
-# resource owner freshwaterLife, scoped to that one repository. IT EXPIRES, and
-# when it does the app stops reading data as well as accepting submissions.
+# It is a fine-grained personal access token with Contents: Read, resource
+# owner freshwaterLife, scoped to that one repository. The app no longer writes
+# to the repository (submissions go to the inbox sheet, Oct 2026), so read
+# access is enough. IT EXPIRES, and when it does the app stops reading data.
 FWISE_DATA_TOKEN <- fw_env("FWISE_DATA_TOKEN", default = NULL)
 
 # THE OVERRIDE, and it is not needed in production. Set it to point a test deploy
@@ -133,6 +135,13 @@ FWISE_DATA_SOURCE <- fw_env("FWISE_DATA_SOURCE", default = NULL)
 # The sheet must be shared with the key's client_email as an Editor.
 FWISE_FORMS_SHEET_ID   <- fw_env("FWISE_FORMS_SHEET_ID", default = NULL)
 GS4_SA_KEY_B64 <- fw_env("GS4_SA_KEY_B64", default = NULL)
+
+# WHERE SUBMISSIONS GO (Oct 2026): the `submissions` and `new_species` tabs of
+# a Google Sheet, which the reviewer QAs and dev/qa.R imports from. OPTIONAL:
+# unset, it is the forms sheet. Signed in with the same GS4_SA_KEY_B64. With no
+# sheet or no key, submissions go to dev/forms/ on this machine - see
+# fw_inbox_mode() in R/forms_store.R.
+FWISE_INBOX_SHEET_ID <- fw_env("FWISE_INBOX_SHEET_ID", default = FWISE_FORMS_SHEET_ID)
 
 # USAGE TRACKING (Oct 2026). See R/tracking.R and TRACKING.md.
 #
@@ -235,6 +244,12 @@ FW_FORM_LIMITS <- list(name = 100L, organisation = 200L, email = 254L,
                        message = 2000L)
 FW_FEEDBACK_COOLDOWN_S <- 30
 
+# How stale the "records in review" count may get, in seconds. The inbox sheet
+# is read at most this often for the whole app, however many people have it
+# open; each open page asks again on the same beat. A submission made in this
+# app shows at once without waiting for it. See fw_review_count_live().
+FW_REVIEW_REFRESH_S <- 300
+
 # The sections of the privacy page a link may jump to with ?section=. Each is
 # the anchor of one heading in content/privacy_and_data_terms.md, and
 # dev/plan_test.R checks every one of them exists there.
@@ -329,6 +344,12 @@ FW_LOGO <- list(
   mark_web   = "img/FWISE-SIMPLE.png",
   mark_file  = "www/img/FWISE-SIMPLE-1200.png",
   badge_web  = "img/FWISE-BADGE-256.png",
+  # THE EXPLICIT LOCKUP - the wordmark with "Freshwater Invasive Species
+  # Eradication Database" under it - for anything that travels away from the
+  # site: the PDF and .html report mastheads and the link-preview image
+  # (client, 14 Oct 2026). A sips -Z 2000 copy of FWISE-EXPLICIT.png, the
+  # 8334px client original beside it, which is not to be edited.
+  explicit_file = "www/img/FWISE-EXPLICIT-2000.png",
   # THE REST OF THE FOOTER'S LOGOS, as files, for the two documents a reader
   # takes away (the PDF report and the attempts .html). The client asked for
   # every logo the site carries to travel with the report, collaborators

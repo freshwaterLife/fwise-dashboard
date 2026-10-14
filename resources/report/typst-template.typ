@@ -88,13 +88,15 @@
 // fw-mark-h, not the footer's fw-logo-h: the mark is the masthead of the
 // document and the client asked for it bigger than the row of credits at the
 // foot of every page (23 Sept 2026). Both come from fw_pdf_tokens().
+// THE EXPLICIT LOCKUP, with the full name under the wordmark (client, 14 Oct
+// 2026): a report gets passed on to people who have never seen the site.
 //
 // THE v(2.5mm) UNDER THE TITLE is the client's "little more space between the
 // title and subtext". The level-1 show rule already puts 3mm below the
 // heading block; this is on top of that, because at the title size 3mm read
 // as the subtitle being part of the heading.
 #let fw-letterhead(title: "", subtitle: "") = {
-  image(fw-logo-mark, height: fw-mark-h)
+  image(fw-logo-explicit, height: fw-mark-h)
   v(7mm)
   heading(level: 1)[#title]
   v(2.5mm)

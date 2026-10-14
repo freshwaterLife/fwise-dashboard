@@ -7,8 +7,7 @@
 # no scroll. Add nothing below the map without re-measuring.
 # ==============================================================================
 
-#' @param species data$species, for each story beneficiary's IUCN badge
-mod_home_ui <- function(id, stats, species) {
+mod_home_ui <- function(id, stats) {
   ns <- NS(id)
   keys <- names(fw_t("home", "stories"))
   # The two numbers are formatted before the ** pairs are turned into <strong>,
@@ -44,7 +43,7 @@ mod_home_ui <- function(id, stats, species) {
       # text too small to read.
       lapply(keys, function(key) {
         fw_home_card(key, fw_t("home", "stories", key),
-                     FW_HOME_IMG$stories_named[[key]], species)
+                     FW_HOME_IMG$stories_named[[key]])
       })
     )
   )
@@ -113,7 +112,7 @@ fw_home_tile <- function(key, s, img) {
 #' the card while the picture stays where it is. On a narrow screen the two
 #' stack and the whole card scrolls instead - see .fw-home-card__body in
 #' _components.scss.
-fw_home_card <- function(key, s, img, species) {
+fw_home_card <- function(key, s, img) {
   sp <- s$beneficiary
   title_id <- paste0(fw_home_card_id(key), "-title")
 
@@ -144,32 +143,35 @@ fw_home_card <- function(key, s, img, species) {
         tabindex = "0",
         tags$h2(
           id = title_id, class = "fw-home-card__title",
-          tags$span(class = "fw-story__continent", s$continent), " ", s$title,
-          fw_home_iucn_badge(species, sp$name)
+          tags$span(class = "fw-story__continent", s$continent), " ", s$title
         ),
         p(class = "fw-home-card__summary", s$summary),
-        lapply(s$body, p),
+        lapply(s$body, function(para) p(fw_home_story_text(para))),
         fw_home_story_links(s$links)
       )
     )
   )
 }
 
-#' The beneficiary's Red List code as a badge after the card's title
+#' A story paragraph, with any [words](https://...) made a link
 #'
-#' READ FROM species.csv, NOT WRITTEN INTO THE COPY, so the card says what the
-#' map and the reports say and moves with them when the data is re-imported.
-#' Matched on common_name, which is the beneficiary's name in the copy deck;
-#' dev/value_test.R checks each of the six finds exactly one coded species.
-#' No status, no badge.
-fw_home_iucn_badge <- function(species, name) {
-  hit <- species[!is.na(species$common_name) & species$common_name == name &
-                   !is.na(species$iucn_status), , drop = FALSE]
-  if (nrow(hit) != 1L) return(NULL)
-  what <- fw_fill(fw_t("home", "iucn_badge"),
-                  category = dplyr::coalesce(hit$iucn_category, hit$iucn_status))
-  tags$span(class = "fw-story__iucn", title = what, `aria-label` = what,
-            role = "img", hit$iucn_status)
+#' For a figure that cites its source in the text, as the Welcome footnote's
+#' do. Only an absolute http(s) address is a link; everything else is text,
+#' escaped as any other.
+fw_home_story_text <- function(text) {
+  pattern <- "\\[([^]]+)\\]\\((https?://[^) ]+)\\)"
+  hits <- gregexpr(pattern, text)
+  links <- regmatches(text, hits)[[1]]
+  if (!length(links)) return(text)
+  plain <- regmatches(text, hits, invert = TRUE)[[1]]
+  parts <- lapply(regmatches(links, regexec(pattern, links)), function(m) {
+    tags$a(.noWS = "outside", href = m[3], target = "_blank",
+           rel = "noopener noreferrer", m[2])
+  })
+  out <- vector("list", 2L * length(parts) + 1L)
+  out[seq(1L, length(out), by = 2L)] <- plain
+  out[seq(2L, length(out), by = 2L)] <- parts
+  do.call(tagList, out)
 }
 
 #' The links under a story, each with the line saying what is behind it

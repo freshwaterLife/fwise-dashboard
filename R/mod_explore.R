@@ -33,10 +33,22 @@ mod_explore_ui <- function(id, choices) {
           # above the map again (client, 29 Sept 2026): it tells the reader how
           # to use the map, which they need before they touch it, not behind
           # an (i). The Mercator note stays a visible line under the map.
+          #
+          # A THIRD LINE, ALWAYS ITS OWN (client, 14 Oct 2026), inviting a
+          # contribution. It is Explore's alone, so it is not part of
+          # maps$note, which Plan and the report share; the note is drawn here
+          # instead of by fw_block() so the two sit in one paragraph, a <br>
+          # apart, rather than a paragraph gap apart.
           div(
             class = "fw-explore-block",
-            fw_block(fw_t("maps", "title"), fw_t("maps", "note"),
-                     tagList(fw_map_output(ns("map")), fw_map_note()),
+            fw_block(fw_t("maps", "title"), NULL,
+                     # .noWS: the note is white-space: pre-line, so the
+                     # newlines htmltools writes around the <br> would show
+                     # as blank lines.
+                     tagList(p(class = "fw-plan__note", .noWS = "inside",
+                               fw_t("maps", "note"), tags$br(.noWS = "outside"),
+                               fw_home_links(fw_t("explore", "map_contribute"))),
+                             fw_map_output(ns("map")), fw_map_note()),
                      note_as = "text", figure = TRUE)
           ),
 
@@ -138,7 +150,13 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     fw_link_species_filters(input, session, data, choices, ids)
 
 
-    output$kpis <- renderUI(fw_explore_db_panel(fw_headline_stats(data), in_review))
+    # A number, or a reactive that app.R keeps current (14 Oct 2026). The
+    # database's own counts never change in a session, so they are worked out
+    # once rather than on every refresh of the in-review count.
+    stats <- fw_headline_stats(data)
+    output$kpis <- renderUI(fw_explore_db_panel(
+      stats, if (is.function(in_review)) in_review() else in_review
+    ))
 
 
     sel <- reactive(fw_filter_apply(data, fw_filter_state(input, ids)))

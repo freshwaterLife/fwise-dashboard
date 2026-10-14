@@ -637,6 +637,18 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
                 logical(1))), TRUE)
   ok("the records close on the citation",
      grepl(fw_t("export", "citation_heading"), rec, fixed = TRUE), TRUE)
+  # THE EXPLICIT LOCKUP HEADS IT, the plain mark stays in the footer row, and
+  # the "Find an attempt" list is one column (client, 14 Oct 2026).
+  head_img <- regmatches(rec, regexpr('<img class="fw-rec-head__mark" src="[^"]+"', rec))
+  ok("records: the masthead is the explicit logo",
+     isTRUE(grepl(fw_html_data_uri(FW_LOGO$explicit_file), head_img, fixed = TRUE)), TRUE)
+  ok("records: the footer keeps the plain mark",
+     grepl(fw_html_data_uri(FW_LOGO$mark_file), rec, fixed = TRUE), TRUE)
+  toc_rule <- regmatches(gsub("\\s+", "", rec), regexpr("\\.fw-rec-toc\\{[^}]*\\}", gsub("\\s+", "", rec)))
+  ok("records: the attempt list is one column",
+     isTRUE(any(grepl("grid-template-columns:minmax(0,1fr)", toc_rule, fixed = TRUE))), TRUE)
+  ok("records: the methods carry the FWISE-FACTS address",
+     grepl(fw_t("about", "facts_url"), rec, fixed = TRUE), TRUE)
   cards <- strsplit(rec, '<article class="fw-rec-card"', fixed = TRUE)[[1]][-1]
   labels <- fw_t("export", "record_labels")
   ok("the labels cover every exported column",
@@ -748,6 +760,15 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     typ <- paste(readLines(file.path(keep, "report.typ"), warn = FALSE), collapse = "\n")
     has <- function(txt) grepl(txt, typ, fixed = TRUE)
     ok("the letterhead carries the title", has(fw_t("plan", "report_title")), TRUE)
+    # The explicit lockup on the letterhead, the plain mark in the footer row
+    # (client, 14 Oct 2026).
+    tokens <- paste(readLines(file.path(keep, "fwise-tokens.typ"), warn = FALSE), collapse = "\n")
+    ok("the letterhead uses the explicit logo",
+       grepl('#let fw-logo-explicit = "logo-explicit.png"', tokens, fixed = TRUE) &&
+         file.exists(file.path(keep, "logo-explicit.png")), TRUE)
+    ok("and the footer row does not",
+       grepl("#let fw-logos = [^\n]*logo-explicit", tokens), FALSE)
+    ok("at 45mm", grepl("#let fw-mark-h = 45mm", tokens, fixed = TRUE), TRUE)
     ok("the filter selection is recorded", has(fw_t("plan", "report_selection")), TRUE)
     ok("the caveats travel with the document", has(CAVEAT_PHRASE), TRUE)
     ok("and the methods statement with them",
@@ -1196,6 +1217,69 @@ ok("tracking: GoatCounter script with a code",
 
 FWISE_FORMS_SHEET_ID <- saved_sheet; GS4_SA_KEY_B64 <- saved_key
 unlink(FW_DEV_DIR, recursive = TRUE); FW_DEV_DIR <- saved_dev
+
+# ---- The submissions inbox sheet (Oct 2026) -----------------------------------
+#
+# Request builders and the pure helpers only: no network, no key. The whole
+# check -> resolve -> write loop is exercised end to end by dev/qa_test.R.
+cat("\n-- the submissions inbox --\n")
+
+ok("inbox: the reviewer's two columns lead the row", FW_INBOX_COLUMNS[1:2], c("qa_status", "imported"))
+ok("inbox: then the attempt id", FW_INBOX_COLUMNS[3], "attempt_id")
+ok("inbox: every attempts column but the derived four is there",
+   setdiff(FW_ATTEMPT_COLUMNS, FW_INBOX_COLUMNS),
+   c("last_updated", "iso3", "continent", "primary_contact_id", "secondary_contact_id"))
+ok("inbox: the contact sits where primary_contact_id sat",
+   FW_INBOX_COLUMNS[match("verification_notes", FW_INBOX_COLUMNS) + 1:5], FW_INBOX_CONTACT_COLUMNS)
+ok("inbox: and the rest keep the database's order",
+   identical(intersect(FW_INBOX_COLUMNS, FW_ATTEMPT_COLUMNS), intersect(FW_ATTEMPT_COLUMNS, FW_INBOX_COLUMNS)))
+
+areq <- fw_sheet_request("submissions", list(c("a", "-31.24"), c("b", "")), token = "T", sheet_id = "S")
+ok("inbox: several rows append in one call",
+   as.character(jsonlite::toJSON(areq$body$data, auto_unbox = TRUE)), '{"values":[["a","-31.24"],["b",""]]}')
+rreq <- fw_sheet_read_request("submissions", token = "T", sheet_id = "S")
+ok("inbox: read the whole tab", startsWith(rreq$url, paste0(FW_SHEETS_API, "/S/values/submissions?")))
+ok("inbox: read as the reviewer sees it", grepl("valueRenderOption=FORMATTED_VALUE", rreq$url, fixed = TRUE))
+ok("inbox: read is a GET", httr2::req_get_method(rreq), "GET")
+ureq <- fw_sheet_update_request(list(list(range = "submissions!B7", value = "yes")), token = "T", sheet_id = "S")
+ok("inbox: cell writes go to values:batchUpdate", ureq$url, paste0(FW_SHEETS_API, "/S/values:batchUpdate"))
+ok("inbox: written RAW",
+   as.character(jsonlite::toJSON(ureq$body$data, auto_unbox = TRUE)),
+   '{"valueInputOption":"RAW","data":[{"range":"submissions!B7","values":[["yes"]]}]}')
+
+fr <- fw_sheet_values_frame(list(list("attempt_id", "imported", "note"), list("FW-1", "no"), list("FW-2", " yes ", "x")))
+ok("inbox: short rows are padded with NA", fr$note, c(NA, "x"))
+ok("inbox: values are trimmed", fr$imported, c("no", "yes"))
+ok("inbox: sheet_row counts from the header", fr$sheet_row, 2:3)
+ok("inbox: column letters", vapply(c(1, 26, 27, 52, 53), fw_sheet_col_letter, ""), c("A", "Z", "AA", "AZ", "BA"))
+ok("inbox: a cell is found by attempt_id, not by position",
+   fw_sheet_cell_ranges("submissions", fr[2:1, ], c("FW-2", "FW-1"), "imported"),
+   c("submissions!B3", "submissions!B2"))
+ok("inbox: an id not in the tab is an error, not a write elsewhere",
+   inherits(tryCatch(fw_sheet_cell_ranges("submissions", fr, "FW-9", "imported"), error = identity), "error"))
+
+ok("inbox: a label splits into its names",
+   unlist(fw_split_species_label("Arctic charr (Salvelinus alpinus)")), c(common = "Arctic charr", scientific = "Salvelinus alpinus"))
+ok("inbox: a label with no brackets is all common name",
+   unlist(fw_split_species_label("Amphipoda")), c(common = "Amphipoda", scientific = NA))
+ok("inbox: a cell splits on a bare semicolon too", fw_qa_split("Carp;Pike ;  Perch"), c("Carp", "Pike", "Perch"))
+
+cat("\n-- fuzzy matching --\n")
+ok("match: accents and case go", fw_qa_norm("  Øystein NORDEIDE "), "oystein nordeide")
+ok("match: word order does not matter", fw_qa_name_key("Bird, Chris"), fw_qa_name_key("chris bird"))
+ok("match: a transposition is similar", fw_qa_similar("chris bird", "chris brid"))
+ok("match: two letters are not similar in a short name", fw_qa_similar("li wu", "li xi"), FALSE)
+ok("match: the same string is not 'similar'", fw_qa_similar("a b", "a b"), FALSE)
+ck <- function(a, b) fw_qa_contact_reason(as.list(stats::setNames(a, c("name", "org", "email"))),
+                                          as.list(stats::setNames(b, c("name", "org", "email"))))
+ok("match: same email, whatever the name", ck(c("C Bird", NA, "CB@x.org"), c("Christopher Bird", NA, "cb@x.org")), "same email")
+ok("match: typo in the name", ck(c("Chris Brid", "DPIRD", NA), c("Chris Bird", NA, NA)), "similar name")
+ok("match: initial and surname", ck(c("C. Bird", NA, NA), c("Chris Bird", NA, NA)), "same surname and initial")
+ok("match: same organisation, surname typo",
+   ck(c("Anne Smyth", "DPIRD", NA), c("Jo Smith", "dpird", NA)), "same organisation, similar surname")
+ok("match: a shared gmail says nothing",
+   is.na(ck(c("Ann Lee", NA, "a@gmail.com"), c("Bo Leigh", NA, "b@gmail.com"))))
+ok("match: strangers do not match", is.na(ck(c("Ann Lee", "X", "a@x.org"), c("Bo Park", "Y", "b@y.org"))))
 
 cat("\n-- the privacy page --\n")
 

@@ -101,7 +101,7 @@ picker that refuses the true answer is worse than a text box.
 "United States (Hawaii)" into country and region and giving Guam its own
 continent - was done once by the migration, and `country`, `region`, `iso3` and
 `continent` are now stored columns on the attempt, visible and editable in QA.
-New rows get `iso3` and `continent` from `lookup_iso3166.csv` at fold time.
+New rows get `iso3` and `continent` from `lookup_iso3166.csv` at import.
 
 ---
 
@@ -147,9 +147,10 @@ now, and they follow one rule, enforced at every load by
   group - and never moves a row between countries or continents.
 
 `dev/qa.R` writes `iso3` and `continent` from `lookup_iso3166.csv` when a row is
-folded in, and refuses a row whose region is itself a country in the standard.
-The load stops on any stored row that disagrees with the lookup, naming it. A
-country the lookup does not know ("Other (specify)") is left to the reviewer.
+imported, and refuses a row whose region is itself a country in the standard, or
+whose country the lookup does not know ("Other (specify)": the reviewer corrects
+it to a listed name). The load stops on any stored row that disagrees with the
+lookup, naming it.
 
 The lookup itself was rebuilt on 13 September 2026: the builder had read the UN
 sub-region column instead of the intermediate region, which left fifty
@@ -329,7 +330,7 @@ shows `leaflet` hard-imports both `sf` and `raster`, which in turn pull `s2`,
 two assigned after an alphabetical sort. They are minted once and never
 reassigned. The registry that used to guarantee that is gone (5.27): each id now
 lives in the row or lookup that owns it, the attempt id is minted by the form at
-submission time, and species and contact ids by `dev/qa.R fold`. Every id that
+submission time, and species and contact ids by `dev/qa.R` at import. Every id that
 existed before the flatten is unchanged.
 
 ### 5.22 The report builder is stacked, and what it hands over
@@ -525,35 +526,38 @@ anything you could do with it. The token is also the mode switch: set it and the
 app is remote, unset it and local development makes no network calls at all,
 which is the promise `config.R` has always made.
 
-**One token does read and write.** Splitting them was considered and dropped. The
-argument for splitting was that a write-capable token sits in a public-facing
-process, but the submission path is built from a server-minted `attempt_id`
-with nothing user-supplied in it, so reaching `attempts.csv` would need the
-token exfiltrated from the process first. The cost of the split — two credentials
-to rotate, two expiry dates — was real and the benefit was not.
+**The token only reads** (since October 2026, when submissions moved to the
+inbox sheet - 5.25). It used to write submissions too, so a write-capable token
+sat in a public-facing process; that is no longer needed, and a token with
+Contents: Read is enough.
 
 **The consequence to write on a calendar: when the token expires the app stops
-serving data, not just submissions.**
+serving data.**
 
-### 5.25 Submissions are one file each, and merging moves them
+### 5.25 Submissions go to a Google Sheet, and the review happens there
 
-`inbox/<submission_id>.csv`, not an append to a shared inbox. The GitHub API has
-no append: a shared file means read, decode, append, PUT quoting the blob SHA,
-and two contributors pressing Send in the same second make the second one 409.
-One file per submission has no read-modify-write to lose, and `submission_id`
-makes it idempotent for free.
+Until October 2026 each submission was `inbox/<attempt_id>.csv` in fwise-data,
+committed over the GitHub API, and `dev/qa.R stage`/`fold` turned them into
+review CSVs and back. Opening CSVs in a spreadsheet was damaging the data, and
+the client wanted the QA in one place, so a submission is now one row appended
+to the `submissions` tab of a Google Sheet (`fw_inbox_append()` in
+`forms_store.R`), shown by name rather than by id, with `qa_status` and
+`imported` columns for the reviewer. `dev/qa.R` is one sectioned script the
+reviewer steps through in RStudio: it checks the sheet into tibbles, they fix
+things in the sheet, and it imports what is QA'd. The rules are in
+`R/qa_checks.R`, so a later bulk import can reuse them. The app no longer writes
+to the repository, so `FWISE_DATA_TOKEN` needs read access only.
 
-`dev/qa.R fold` **moves** folded files to `inbox/merged/` rather than
-rewriting a status cell. That is what lets the in-review count list one directory
-instead of opening every file — which over the API would be a request per
-submission, to render a number.
+Sheets appends on Google's side, so there is no read-modify-write to lose. The
+one write that is not an append - `imported` - finds its row by `attempt_id` at
+the moment it writes, because the reviewer may have sorted the sheet.
 
-**A failed GitHub write shows the contributor an error and does not fall back to
+**A failed sheet write shows the contributor an error and does not fall back to
 a local file.** On Connect Cloud the container filesystem is discarded on
 restart, so the fallback would print a confirmation screen for a submission that
-had already ceased to exist. That trap was live: `dev` is in `.rscignore`, so the
-old `fw_write_local()` created the directory inside the container, wrote the row,
-returned success, and lost it at the next restart.
+had already ceased to exist. That trap was live once: `dev` is in `.rscignore`,
+so an old `fw_write_local()` created the directory inside the container, wrote
+the row, returned success, and lost it at the next restart.
 
 ### 5.16 The approval gate is structural
 
@@ -598,12 +602,12 @@ before, 0.075s after at double the rows.
 - **Species and contacts stayed as lookups**, referenced by id, rather than
   being written as text into the row. Alex's call, and the numbers support it:
   a typo cannot mint a phantom species, and 84 of 237 contacts sit on more than
-  one attempt, one on 208. The cost is long cells; the review file carries
-  `_names` companions so nobody reads ids by eye.
+  one attempt, one on 208. The cost is long cells; the inbox sheet shows
+  species and contacts by name so nobody reads ids by eye.
 - **Methods stayed as names.** Seven values fixed by the paper, held in
   `FW_METHODS` in `config.R`, with the ids `ME01`-`ME07` kept so
   `FW_METHOD_COLOURS` did not re-key. A method the data holds that the list does
-  not loads as class `other` and `qa.R stage` flags it.
+  not loads as class `other` and `dev/qa.R` warns of it.
 - **Taxa and family moved to `species.csv`.** They are properties of a species,
   the data holds no name with two taxa, and the reconciliation round-trips the
   source's per-attempt strings through the lookup to prove nothing was lost.
@@ -674,7 +678,8 @@ the failure, which is more use than a disabled button that will not say why.
 
 The form used to ask for it and no longer does. A species the database already
 holds keeps its family; a new one - including a species someone typed in
-themselves - arrives as `"Unknown"` (set by `dev/qa.R`) for QA to fill in.
+themselves - arrives with a blank family in the `new_species` tab for QA to
+fill in; `dev/qa.R` section 4 tries GBIF for a fish whose family is still blank.
 
 ---
 
@@ -721,10 +726,14 @@ change there.
 
 1. Get the per-country invasive fish file. The landing page's central argument
    depends on it and everything else there is ready.
-2. Watch the first live submission land in `fwise-data/inbox/` and run the
-   `dev/qa.R stage` / `fold` loop against it once, before the webinars. The loop
-   is built and tested end to end locally, but it has not yet been exercised
-   against the real repository with the real token.
+2. Set up the inbox sheet (`Rscript dev/check_sheets.R --setup-inbox`), deploy,
+   and take the first live submission through `dev/qa.R` once, into a branch of
+   fwise-data. The loop is tested end to end locally (`dev/qa_test.R`) but not
+   yet against the real sheet. Then run section 7 to move anything the old app
+   left in `fwise-data/inbox/` into the sheet, and delete `inbox/`.
+   **Bulk import and edits to existing records are not built**: a bulk load can
+   meanwhile be pasted into the plain-text `submissions` tab and goes through the
+   same check and import; an edit is a hand edit of the CSV row.
 3. Replace the placeholder copy in `R/copy.R`, working down section 3.
 4. Confirm the Weird Fishes Advisory URL behind the footer logo
    (`footer$wfa_url`). The FWISE logo already links to freshwaterlife.org.

@@ -389,18 +389,20 @@ fw_skip_link <- function(target = "#fw-main") {
 fw_head_meta <- function() {
   title <- fw_t("app", "full_title")
   desc  <- fw_t("app", "meta_description")
-  # The 1200px copy rather than the 8334px original the navbar serves: a link
-  # preview has no use for the extra megabytes.
-  image <- paste0(FW_SITE_URL, sub("^www/", "", FW_LOGO$mark_file))
+  ld_desc <- fw_t("app", "dataset_description")
+  # THE EXPLICIT LOCKUP (14 Oct 2026), so a shared link's picture spells out
+  # the name. Its 2000px copy rather than the 8334px original: a link preview
+  # has no use for the extra megabytes.
+  image <- paste0(FW_SITE_URL, sub("^www/", "", FW_LOGO$explicit_file))
   fwl   <- list(`@type` = "Organization", name = fw_t("footer", "logo_alt_fwl"),
                 url = fw_t("footer", "fwl_url"))
   ld <- list(
     `@context` = "https://schema.org",
     `@graph` = list(
       list(`@type` = "WebSite", name = fw_t("app", "title"),
-           alternateName = title, url = FW_SITE_URL, description = desc,
+           alternateName = title, url = FW_SITE_URL, description = ld_desc,
            publisher = fwl),
-      list(`@type` = "Dataset", name = title, description = desc,
+      list(`@type` = "Dataset", name = title, description = ld_desc,
            url = FW_SITE_URL, creator = fwl,
            license = "https://creativecommons.org/licenses/by-nc/4.0/",
            isAccessibleForFree = TRUE)
@@ -569,6 +571,31 @@ fw_footer_contact <- function() {
   )
 }
 
+fw_footer_review_label <- function(n) {
+  if (isTRUE(n == 1)) fw_t("footer", "in_review_one") else fw_t("footer", "in_review_many")
+}
+
+#' The footer's "N records in review"
+#'
+#' ALWAYS IN THE PAGE, hidden at zero, so the server can fill and show it when
+#' the count moves (the fw-in-review message in fw_client_script()). The
+#' startup count is written into it for the first paint and for crawlers.
+fw_footer_review <- function(in_review = 0L) {
+  tags$span(
+    id = "fw-footer-review", class = "fw-footer__review",
+    hidden = if (!isTRUE(in_review > 0)) NA,
+    tags$span(class = "fw-num", fw_fmt_num(in_review)), " ",
+    tags$span(class = "fw-footer__review-label", fw_footer_review_label(in_review))
+  )
+}
+
+#' Send the footer a new in-review count
+fw_send_review_count <- function(session, n) {
+  session$sendCustomMessage("fw-in-review", list(
+    n = fw_fmt_num(n), label = fw_footer_review_label(n), show = isTRUE(n > 0)
+  ))
+}
+
 fw_footer <- function(last_updated, in_review = 0L) {
   logo <- function(href, src, alt) {
     tags$a(
@@ -654,14 +681,7 @@ fw_footer <- function(last_updated, in_review = 0L) {
                       if (is.na(last_updated)) fw_t("common", "empty_value")
                       else format(last_updated, "%d %B %Y"))
           ),
-          if (isTRUE(in_review > 0)) {
-            tags$span(
-              class = "fw-footer__review",
-              tags$span(class = "fw-num", fw_fmt_num(in_review)), " ",
-              if (in_review == 1) fw_t("footer", "in_review_one")
-              else fw_t("footer", "in_review_many")
-            )
-          },
+          fw_footer_review(in_review),
           fw_doi_link(fw_t("footer", "doi_label")),
           tags$a(href = fw_t("footer", "github_url"), fw_t("footer", "github_label")),
           fw_footer_contact(),
@@ -856,6 +876,15 @@ fw_client_script <- function() {
       });
       Shiny.addCustomMessageHandler('fw-nav', function (value) {
         Shiny.setInputValue('fw_nav_to', value, { priority: 'event' });
+      });
+      // The footer's in-review count, kept current by the server. See
+      // fw_footer_review() and fw_review_count_live().
+      Shiny.addCustomMessageHandler('fw-in-review', function (msg) {
+        var el = document.getElementById('fw-footer-review');
+        if (!el) return;
+        el.querySelector('.fw-num').textContent = msg.n;
+        el.querySelector('.fw-footer__review-label').textContent = msg.label;
+        el.hidden = !msg.show;
       });
       // A PAGE FROM AN EARLIER DEPLOY RELOADS ITSELF, ONCE. The server says
       // which build it is running as the session starts; when that is not the

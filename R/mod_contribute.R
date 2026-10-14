@@ -41,7 +41,9 @@ mod_contribute_ui <- function(id) {
   )
 }
 
-mod_contribute_server <- function(id, data, choices) {
+#' @param on_submit called with no arguments after a submission is safely
+#'   written; app.R uses it to refresh the in-review count at once.
+mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -595,7 +597,7 @@ mod_contribute_server <- function(id, data, choices) {
         session$sendCustomMessage("fw-scroll-to-error", ns("form"))
         return()
       }
-      # fw_safely(): only the GitHub write inside fw_submit_attempt() was
+      # fw_safely(): only the sheet write inside fw_submit_attempt() was
       # guarded, and an error while assembling the record ended the session
       # with the contributor's answers still on the page.
       out <- fw_safely(session, fw_submit_attempt(assemble_record(), data))
@@ -605,6 +607,7 @@ mod_contribute_server <- function(id, data, choices) {
         return()
       }
       result(out)
+      if (is.function(on_submit)) on_submit()
       fw_track(session, "form_submit", list(form = "submission"))
       stage("done")
       fw_announce(session, fw_t("contribute", "confirm", "heading"))
@@ -614,6 +617,12 @@ mod_contribute_server <- function(id, data, choices) {
       # A fresh session is the honest way to reset a form this size. Reloading
       # gives the contributor an empty form with no stale values hiding in
       # inputs that were never re-rendered.
+      #
+      # BACK TO THIS PAGE, NOT THE WELCOME PAGE (client, 14 Oct 2026). A bare
+      # reload opens the app on its first tab. The address is set first - the
+      # two messages arrive in order - and app.R's deep-link observer opens
+      # ?page=contribute and then clears it.
+      updateQueryString("?page=contribute", mode = "replace", session = session)
       session$reload()
     })
 

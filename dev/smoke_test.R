@@ -4,11 +4,9 @@
 #
 #     Rscript dev/smoke_test.R
 #
-# It writes a real submission through the real write path and then deletes the
-# file it made, so the sibling data checkout is left as it was found. It asserts
-# against THAT file rather than against whatever is already in the inbox - an
-# earlier version read line 2 of the shared inbox, which passed on a stale row
-# from a previous run and would have gone on passing if the write had broken.
+# It writes a real submission through the real write path - into a LOCAL inbox
+# in a temporary directory, never the live sheet, whatever .Renviron holds -
+# and asserts against the row it wrote.
 #
 # NOTE: this file tests the ONE SCROLLING PAGE form. It previously tested a
 # stepped wizard - next_step, step_i(), live_steps() - none of which has existed
@@ -19,9 +17,15 @@
 library(shiny)
 source("R/brand.R"); source("R/config.R"); source("R/copy.R"); source("R/copy_contribute.R")
 source("R/copy_export.R"); source("R/copy_forms.R"); source("R/data_load.R")
-for (f in c("ui_helpers.R","theme.R","submit.R","forms.R","mod_explore.R",
+for (f in c("ui_helpers.R","theme.R","submit.R","forms.R","forms_store.R","mod_explore.R",
             "mod_contribute_steps.R","mod_contribute.R","tracking.R")) source(file.path("R", f))
 d <- fw_load_data(); ch <- fw_startup_choices(d)
+
+# NO SHEET. The inbox is pointed at a temporary directory for the whole run, so
+# a developer whose .Renviron holds the real key cannot send a test row to the
+# reviewer's sheet by running this.
+FWISE_INBOX_SHEET_ID <- NULL
+FW_DEV_DIR <- file.path(tempdir(), "fw-smoke"); unlink(FW_DEV_DIR, recursive = TRUE)
 
 failures <- 0L
 ok <- function(lbl, got, want) {
@@ -100,25 +104,27 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   r <- result()
   ok("submission succeeded", r$success, TRUE)
 
-  written <- file.path(fw_inbox_dir(), paste0(r$attempt_id, ".csv"))
-  ok("the submission is on disk where it says it is", file.exists(written), TRUE)
-  row <- utils::read.csv(written, colClasses = "character", check.names = FALSE)
-  ok("the row has exactly the database's columns",
-     identical(names(row), FW_ATTEMPT_COLUMNS), TRUE)
-  ok("a known species is written as its id",
-     identical(row$invasive_species, unname(ch$species_ids[["Common carp (Cyprinus carpio)"]])), TRUE)
-  ok("the contributor travels as a new: reference marked public",
-     grepl("^new:A Tester\\|", row$primary_contact_id) && grepl("public$", row$primary_contact_id), TRUE)
-  # write_csv(na = "") puts NA on disk as an empty cell, which the loader
-  # reads back as NA.
-  ok("the secondary contact is written as NA (a blank cell)",
-     is.na(row$secondary_contact_id) || !nzchar(row$secondary_contact_id), TRUE)
+  ok("the inbox is local for this run", fw_inbox_mode(), "local")
+  inbox <- fw_inbox_read(FW_INBOX_TABS$submissions)
+  row <- inbox[inbox$attempt_id %in% r$attempt_id, , drop = FALSE]
+  ok("the submission is in the inbox under the id it was given", nrow(row), 1L)
+  ok("the row has exactly the inbox's columns",
+     identical(setdiff(names(inbox), "sheet_row"), FW_INBOX_COLUMNS), TRUE)
+  ok("it waits for QA", c(row$qa_status, row$imported, row$status), c("not done", "no", "pending"))
+  ok("a known species is written as its label",
+     row$invasive_species, "Common carp (Cyprinus carpio)")
+  ok("the contributor is split into columns",
+     c(row$contact_name, row$contact_email, row$contact_public),
+     c("A Tester", "tester@essex.org", "yes"))
+  ok("contact_id is left for the reviewer", is.na(row$contact_id), TRUE)
+  ok("no derived column is written",
+     any(c("iso3", "continent", "last_updated", "secondary_contact_id") %in% names(inbox)), FALSE)
   ok("the method note is paired with its method",
      identical(row$method_notes, "Rotenone: CFT Legumine"), TRUE)
   ok("ingredient basis is recorded", identical(row$target_ingredient_basis, "Product"), TRUE)
-  # Leave no litter in fwise-data. The row has been checked; keeping it would
-  # inflate the in-review count of whoever runs the app next.
-  unlink(written)
+  ok("a held species adds no new_species row",
+     nrow(fw_inbox_read(FW_INBOX_TABS$new_species)), 0L)
+  ok("the confirmation counts include the waiting row", r$total_attempts, nrow(d$attempt) + 1L)
   cat("  counts: total", r$total_attempts, "| Norway", r$country_attempts, "\n")
   ok("stage is done", stage(), "done")
 })
@@ -129,11 +135,23 @@ cat("\n-- the email permission is opt-in --\n")
 contact_of <- function(extra) {
   inp <- c(list(primary_contact_name = "B Tester", primary_contact_email = "b@x.org",
                 primary_contact_org = "Org"), extra)
-  fw_collect_submission(inp, rows = list(), choices = ch)$primary_contact_id
+  fw_collect_submission(inp, rows = list(), choices = ch)$contact_public
 }
-ok("unticked -> the address is private", grepl("\\|private$", contact_of(list())), TRUE)
-ok("ticked -> the address is public",
-   grepl("\\|public$", contact_of(list(contact_public = TRUE))), TRUE)
+ok("unticked -> the address is private", contact_of(list()), "no")
+ok("ticked -> the address is public", contact_of(list(contact_public = TRUE)), "yes")
+
+cat("\n-- a typed species is written as typed and listed for the reviewer --\n")
+typed <- fw_collect_submission(
+  list(target_taxa_1 = "Fish", target_species_1 = "Arctic charr (Salvelinus alpinus)",
+       benefit_taxa_1 = "Frog", benefit_species_1 = "Common carp (Cyprinus carpio)"),
+  rows = list(target = 1, benefit = 1), choices = ch)
+ok("the label is the cell", typed$invasive_species, "Arctic charr (Salvelinus alpinus)")
+ok("only the species we do not hold is listed", typed$new_species$label, "Arctic charr (Salvelinus alpinus)")
+ok("with the taxa the contributor chose", typed$new_species$taxa, "Fish")
+nsr <- fw_new_species_rows(typed$new_species, "FW-X")[[1]]
+ok("its new_species row splits the names",
+   unname(nsr[c("common_name", "scientific_name", "taxa", "from_attempt")]),
+   c("Arctic charr", "Salvelinus alpinus", "Fish", "FW-X"))
 
 cat("\n-- check my answers: hard errors block, soft warnings never do --\n")
 testServer(mod_contribute_server, args = list(data = d, choices = ch), {
@@ -181,6 +199,27 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   session$setInputs(consent_data_use=TRUE, start=1, method_1="Netting / Trapping")
   ok("chemical section stays hidden", chemical_selected(), FALSE)
 })
+
+unlink(FW_DEV_DIR, recursive = TRUE)
+
+# THE LINK PREVIEW (client, 14 Oct 2026): the short name under the title, the
+# explicit lockup as its picture, and the longer sentence kept for the
+# structured data, which Google Dataset Search wants at 50 characters or more.
+cat("\n-- the link preview --\n")
+head_html <- as.character(fw_head_meta())
+ok("description is the database's name",
+   grepl('<meta name="description" content="Freshwater Invasive Species Eradication Database"/>',
+         head_html, fixed = TRUE), TRUE)
+ok("og:description matches it",
+   grepl('<meta property="og:description" content="Freshwater Invasive Species Eradication Database"/>',
+         head_html, fixed = TRUE), TRUE)
+ok("og:image is the explicit lockup",
+   grepl(basename(FW_LOGO$explicit_file), head_html, fixed = TRUE) &&
+     file.exists(FW_LOGO$explicit_file), TRUE)
+ld <- jsonlite::fromJSON(sub("(?s).*<script type=\"application/ld\\+json\">(.*?)</script>.*", "\\1",
+                             head_html, perl = TRUE), simplifyDataFrame = FALSE)
+ok("the Dataset description is 50+ characters",
+   nchar(ld[["@graph"]][[2]]$description) >= 50, TRUE)
 
 cat("\n")
 if (failures > 0L) {

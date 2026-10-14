@@ -813,7 +813,14 @@ $fw-band-scale: 0.94;
     border-radius: $fw-radius-input;
     box-shadow: $fw-shadow-raised;
     // A comfortable touch target, and the label stays on one line.
-    padding-inline: $fw-space-3;
+    // 1.1 TIMES EVERY OTHER BUTTON (client, 14 Oct 2026): the label, its
+    // icon (which follows the font) and the padding round it all scale
+    // together, so the whole box grows by that much and keeps its shape.
+    --bs-btn-font-size: calc(1.1 * #{$fw-size-body});
+    // .btn's own padding is 0.5rem by $fw-space-3 (see Buttons below), not
+    // Bootstrap's --bs-btn-padding-y, so it is that which is scaled.
+    padding-block: calc(1.1 * 0.5rem);
+    padding-inline: calc(1.1 * #{$fw-space-3});
     white-space: nowrap;
   }
 }
@@ -3864,22 +3871,6 @@ table.dataTable,
     color: $fw-teal-text;
     font-weight: $fw-weight-bold;
     &::after { content: " \2014"; color: $fw-ink-muted; font-weight: $fw-weight-regular; }
-  }
-
-  // The beneficiary's Red List code after the title, "EN". Its full wording is
-  // in the title and aria-label - see fw_home_iucn_badge().
-  &__iucn {
-    display: inline-block;
-    margin-inline-start: $fw-space-1;
-    padding: 0 0.5em;
-    vertical-align: middle;
-    font-size: $fw-size-body;
-    font-weight: $fw-weight-bold;
-    line-height: 1.6;
-    color: $fw-teal-text;
-    background: $fw-teal-wash;
-    border-radius: $fw-radius-round;
-    cursor: help;
   }
 
   // The beneficiary fills its half of the card.
