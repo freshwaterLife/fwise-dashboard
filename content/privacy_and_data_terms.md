@@ -1,5 +1,7 @@
 This page explains what personal information FWISE collects, why, where it is kept and what you can do about it (Part A), and the terms for using and contributing FWISE data (Part B).
 
+- Version 1.0, 21 October 2026.
+
 ## Part A: Privacy notice {#privacy-notice}
 
 ### Who we are {#who-we-are}
@@ -97,7 +99,7 @@ FWISE works fully if you block GoatCounter with a browser content blocker. If yo
 
 #### Legal basis
 
-Freshwater Life processes this data on the basis of legitimate interests (UK GDPR Article 6(1)(f)): understanding and improving a free public app, and reporting its use to the people who fund it. The only personal data involved is your IP address, which is processed briefly by GoatCounter when a visit is counted and then discarded. It is not stored.
+Freshwater Life processes this data on the basis of legitimate interests: understanding and improving a free public app, and reporting its use to the people who fund it. The only personal data involved is your IP address, which is processed briefly by GoatCounter when a visit is counted and then discarded. It is not stored.
 
 ### Your rights {#your-rights}
 
@@ -115,8 +117,6 @@ You can also complain to a data protection authority.
 ### Changes to this notice {#changes}
 
 The version and date at the top of this page change whenever this notice changes. Material changes are listed here, newest first.
-
-- Draft 0.1, 2 October 2026: first draft.
 
 ## Part B: Data terms {#data-terms}
 

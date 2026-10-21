@@ -329,11 +329,7 @@ fw_confirmation = function(ns, res) {
   )
 }
 
-#' The mark above the confirmation
-#'
-#' [PLACEHOLDER] A frog until the client picks an image. To swap, replace the
-#' span with tags$img(src = ...) and keep the class and aria-label (styling
-#' hangs off .fw-confirm__mark).
+#' The frog above the confirmation (styled by .fw-confirm__mark)
 fw_confirm_mark = function() {
   tags$span(
     class = "fw-confirm__mark",

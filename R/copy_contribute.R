@@ -105,8 +105,6 @@ FW_COPY_CONTRIBUTE = list(
     # fw_step_contributor_ui().
     consent = list(
       heading = "Consent",
-      # [NEEDS CLIENT SIGN-OFF] Covers storing and using the record only;
-      # displaying contact details is the separate fields$contact_public opt-in.
       statement = paste(
         "By sending this record you agree that FWISE staff may store and use",
         "the information in it to review the record, publish it in the FWISE",

@@ -102,7 +102,6 @@ fw_step_site_ui = function(ns, choices) {
     fw_field(fw_select(ns("region"), character(0)), fw_lab("region"),
              help = fw_help("region"),
              input_id = ns("region")),
-
     div(
       class = "fw-field",
       div(class = "fw-field__label-row",

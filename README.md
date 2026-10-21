@@ -530,8 +530,6 @@ outputs are committed; none needs rerunning in normal use.
 
 - **Zenodo DOI.** `footer$doi_url` in `R/copy.R` is `#`; DOI links open a
   "coming soon" card until it's set.
-- **Confirmation image.** A frog stands in on the Add a record thank-you
-  (`fw_confirm_mark()` in `R/mod_contribute_ui.R`, marked `[PLACEHOLDER]`).
 - **Data-use consent wording** (`[NEEDS CLIENT SIGN-OFF]` in
   `R/copy_contribute.R`), and the privacy terms version, still "Draft 0.1"
   (`privacy$version` in `R/copy_forms.R`). Any `[TO CONFIRM: ...]` written into
