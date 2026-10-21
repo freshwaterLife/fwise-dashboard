@@ -112,9 +112,6 @@ row_summary = tibble::tibble(
 print(row_summary, n = Inf)
 message(sum(checks$level == "error"), " error(s), ", sum(checks$level == "warning"), " warning(s); ",
         nrow(contact_matches), " possible contact match(es); ", nrow(species_matches), " possible species match(es)")
-message("Errors stop a row being imported. Warnings do not: QA done means you have looked at them.\n",
-        "To use a contact we hold, type its CO- id in the row's contact_id. To use a species we hold,\n",
-        "replace the typed label with the candidate_label. Then run section 1 again.")
 fw_qa_show(checks, "checks")
 if (nrow(contact_matches)) fw_qa_show(contact_matches, "contact_matches")
 if (nrow(species_matches)) fw_qa_show(species_matches, "species_matches")
@@ -166,7 +163,7 @@ if (nrow(resolved$contacts_add)) fw_qa_show(resolved$contacts_add, "contacts_add
 # few seconds per species. Skip this section and section 4 writes the species
 # without them - dev/fetch_species_images.R can add photographs later.
 
-if (!exists("resolved")) stop("Run section 2 first.", call. = FALSE)
+if (!exists("resolved")) stop("Run section 1 first.", call. = FALSE)
 enriched = fw_enrich_species(resolved$species_add)
 species_add = enriched$species
 enrich_log = enriched$log
