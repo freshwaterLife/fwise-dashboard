@@ -1,18 +1,11 @@
 # smoke_test.R
-# A basic check that the app launches and that the contribute form gates,
-# validates and writes correctly. Run it from the repository root:
+# Checks the Add a record form gates, validates and writes correctly. Run from
+# the repository root:
 #
 #     Rscript dev/smoke_test.R
 #
-# It writes a real submission through the real write path - into a LOCAL inbox
-# in a temporary directory, never the live sheet, whatever .Renviron holds -
-# and asserts against the row it wrote.
-#
-# NOTE: this file tests the ONE SCROLLING PAGE form. It previously tested a
-# stepped wizard - next_step, step_i(), live_steps() - none of which has existed
-# since the form was rebuilt as a single page. Those assertions failed on every
-# run, but partway through, so the output still looked like progress. If you add
-# a test here, make sure a failure is loud.
+# Writes a real submission to a local inbox in a temp directory (never the live
+# sheet) and checks the row.
 
 library(shiny)
 source("R/brand.R"); source("R/config.R"); source("R/copy.R"); source("R/copy_contribute.R")
@@ -21,9 +14,7 @@ for (f in c("ui_helpers.R","theme.R","submit.R","forms.R","forms_store.R","mod_e
             "mod_contribute_steps.R","mod_contribute.R","tracking.R")) source(file.path("R", f))
 d = fw_load_data(); ch = fw_startup_choices(d)
 
-# NO SHEET. The inbox is pointed at a temporary directory for the whole run, so
-# a developer whose .Renviron holds the real key cannot send a test row to the
-# reviewer's sheet by running this.
+# No sheet: the inbox is a temp directory, whatever .Renviron holds.
 FWISE_INBOX_SHEET_ID = NULL
 FW_DEV_DIR = file.path(tempdir(), "fw-smoke"); unlink(FW_DEV_DIR, recursive = TRUE)
 
@@ -37,10 +28,9 @@ ok = function(lbl, got, want) {
 testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   cat("\n-- gating on an empty form --\n")
   ok("all_valid with nothing filled", all_valid(), FALSE)
-  # CONSENT GATES SEND, NOT START (24 Sept 2026). Both boxes sit in the
-  # form's first section, with the contact details (29 Sept 2026).
+  # Consent gates Send, not Start; both boxes are in the first section.
   ok("start opens the form without consent", { session$setInputs(start=1); stage() }, "form")
-  # CONTACT AND CONSENT FIRST (client, 29 Sept 2026).
+  # Contact and consent first.
   ok("the contributor section leads the form", FW_STEPS[[1]]$id, "contributor")
   contributor_html = as.character(fw_step_contributor_ui(NS("c"), ch))
   ok("both consent boxes sit with the contact details",
@@ -84,8 +74,7 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
                     primary_contact_name="A Tester", primary_contact_email="nope",
                     contact_public = TRUE)
   ok("malformed email blocks", all_valid(), FALSE)
-  # Guards the POSIX character-class fix: an address containing the letter "s"
-  # was rejected when the pattern used [^@\\s].
+  # Guards the [:space:] fix (an "s" in an address used to be rejected).
   session$setInputs(primary_contact_email="tester@essex.org")
   ok("address containing 's' is accepted", all_valid(), TRUE)
   # The data-use box is the one consent that gates Send; the display one never does.
@@ -130,8 +119,7 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
 })
 
 cat("\n-- the email permission is opt-in --\n")
-# Built straight from fw_collect_submission(), the function the write path
-# uses, so the default is tested without sending a second record.
+# From fw_collect_submission(), without sending a second record.
 contact_of = function(extra) {
   inp = c(list(primary_contact_name = "B Tester", primary_contact_email = "b@x.org",
                 primary_contact_org = "Org"), extra)
@@ -191,9 +179,7 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   h = strip(output$review_summary)
   ok("required-only form reports clear", grepl("This all looks good", h), TRUE)
   ok("soft warnings are still shown",    grepl("Worth adding if you have it", h), TRUE)
-  # THE POINT OF THE SPLIT. A record with no end year, no size, no beneficiary
-  # and no reference is a real record - most ongoing attempts look like this.
-  # Blocking it would bias the database towards the tidy ones.
+  # Missing optional fields warn but never block.
   ok("soft warnings do not block sending", all_valid(), TRUE)
 
   session$setInputs(end_year = 2005, check_answers = 3)
@@ -219,9 +205,8 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
 
 unlink(FW_DEV_DIR, recursive = TRUE)
 
-# THE LINK PREVIEW (client, 14 Oct 2026): the short name under the title, the
-# explicit lockup as its picture, and the longer sentence kept for the
-# structured data, which Google Dataset Search wants at 50 characters or more.
+# Link preview: short description, explicit lockup image, and a 50+
+# character Dataset description for Google Dataset Search.
 cat("\n-- the link preview --\n")
 head_html = as.character(fw_head_meta())
 ok("description is the database's name",
@@ -240,8 +225,7 @@ ok("the Dataset description is 50+ characters",
 
 cat("\n")
 if (failures > 0L) {
-  # A non-zero exit is what makes this usable from CI or a pre-commit hook.
-  # Without it a broken form reads as a successful run.
+  # Non-zero exit on failure.
   stop(failures, " smoke test assertion(s) failed", call. = FALSE)
 }
 cat("All smoke tests passed.\n")

@@ -1,17 +1,7 @@
 // records.scss
-// Entry file for the attempts download (.html): every matching attempt written
-// out in full, one card after another. Built by fw_write_records_html() in
-// R/report_records.R, which compiles this through fw_compile_css() with the same
-// tokens as the app and inlines the result - and the fonts it names - into the
-// file, so it opens anywhere with no connection.
-//
-// A STYLESHEET OF ITS OWN, not main.scss: this file is read as a document, not
-// used as an app, and main.scss is mostly Bootstrap's frame. But since 29 Sept
-// 2026 it opens on the summary report's figures (the counts, the outcome bars,
-// the species tiles, the map, the contacts table), which are the app's own
-// components, so it takes _components.scss for those - class-scoped rules only,
-// drawn the same as on the page - and its own rules below win on its own
-// classes.
+// Entry file for the Detailed report (.html), compiled with the app's tokens
+// and inlined (fonts too) by R/report_records.R. Imports _components.scss for
+// the shared figures and cards; its own rules cover the document.
 
 @import "tokens";
 @import "components";
@@ -64,8 +54,7 @@ a:hover { color: $fw-teal-hover; }
   margin-block-end: $fw-space-4;
   border-block-end: 3px solid $fw-brand-teal;
 
-  // 7rem, up from 5rem, for the explicit lockup (client, 14 Oct 2026): the
-  // full name under the wordmark is a twentieth of the logo's height.
+  // Tall enough for the explicit lockup's small text.
   &__mark { height: 7rem; width: auto; max-width: 100%; display: block; }
 
   h1 {
@@ -79,8 +68,7 @@ a:hover { color: $fw-teal-hover; }
 
 // ---- The figures ----------------------------------------------------------------------
 
-// The summary report's sequence, before the cards. Each block is a titled
-// section on the page ground, like the page's own .fw-plan__block.
+// The summary figures before the cards, styled like .fw-plan__block.
 .fw-rec-report {
   margin-block-end: $fw-space-4;
 }
@@ -173,8 +161,7 @@ a:hover { color: $fw-teal-hover; }
   padding: 0;
   max-height: 22rem;
   overflow-y: auto;
-  // ONE COLUMN (client, 14 Oct 2026). Two read ambiguously - across, or
-  // down? - and the list is in id order, so a reader had to guess which.
+  // One column (client).
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.3rem $fw-space-4;
@@ -182,10 +169,7 @@ a:hover { color: $fw-teal-hover; }
   a:hover { text-decoration: underline; }
 }
 
-// THE CARD RULES (.fw-rec-id, .fw-rec-card, .fw-rec-outcome, .fw-rec-fields)
-// MOVED TO _components.scss on 1 Oct 2026, when the Plan page's record search
-// started opening the same cards. This file imports components, so it still
-// draws them exactly as before.
+// The card rules (.fw-rec-*) are in _components.scss, shared with Plan.
 
 // ---- The foot ------------------------------------------------------------------------
 
@@ -208,12 +192,7 @@ a:hover { color: $fw-teal-hover; }
   padding-block-start: $fw-space-3;
   color: $fw-ink-muted;
 
-  // THREE TO A ROW, WITH ROOM (client, 1 Oct 2026: "quite squished"). The
-  // five logos used to run on in one wrapping line with a small gap; a grid
-  // puts them in two rows of three and two, each centred in an equal cell, and
-  // two to a row on a phone. The FWISE wordmark joined them on 1 Oct 2026, and
-  // UNIL and the Norwegian Veterinary Institute on 5 Oct 2026, so it is now
-  // two full rows of four.
+  // Logos in a grid: two rows of four, two to a row on a phone.
   &__logos {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -1,23 +1,10 @@
 # mod_contribute.R
-# BUILT. The contribute form.
+# The Add a record form: server logic. One scrolling page, every section
+# rendered once (re-rendering broke repeatable rows and selectize). Validation
+# switches on at the first refused send, then shows live.
 #
-# ONE SCROLLING PAGE, not a wizard. The opening panel sets expectations, then
-# every section is rendered once and scrolled through, with a sticky progress
-# rail at the top. There is no Back and no Next.
-#
-# WHY IT CHANGED. The stepped version rendered the current step through
-# renderUI, so moving between steps destroyed and rebuilt every input on the
-# step being left. Repeatable rows did not survive that, the server-side species
-# selectize was being populated against elements not yet in the DOM, and going
-# back left the form in a state it could not recover from. Rendering everything
-# once removes the whole class of problem, and there is no UI rendering on the
-# form after the first paint.
-#
-# Validation therefore runs at the point of sending rather than per step: the
-# validators are enabled on the first refused send, the page scrolls to the
-# first field that needs attention, and corrections show live from then on.
-#
-# The section UI builders live in mod_contribute_steps.R.
+# Section builders are in mod_contribute_steps.R, page states in
+# mod_contribute_ui.R.
 
 library(shiny)
 library(bslib)
@@ -33,7 +20,7 @@ mod_contribute_ui = function(id) {
       id = "fw-main",
       fw_section(
         fw_container(
-          # Three states: the opening panel, the wizard, the confirmation.
+          # Three states: opening panel, form, confirmation.
           uiOutput(ns("stage"))
         )
       )
@@ -50,8 +37,8 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
     stage = reactiveVal("intro")     # intro | form | done
     result = reactiveVal(NULL)
 
-    # Counters driving the repeatable blocks. Each holds the indices currently on
-    # screen, so removing a row in the middle does not renumber the others.
+    # Row indices on screen per repeatable block, so removing one doesn't
+    # renumber the rest.
     rows = reactiveValues(
       target  = 1L,
       benefit = 1L,
@@ -61,9 +48,8 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
 
     # ---- The conditional section ----------------------------------------------
 
-    # The chemical section appears only when a chemical method has been chosen.
-    # It is shown and hidden in the browser rather than rendered in and out, so
-    # anything already answered there survives a change of mind about the method.
+    # Shown only when a chemical method is chosen. Hidden, not removed, so its
+    # answers survive.
     chemical_selected = reactive({
       picked = vapply(rows$method, function(i) {
         input[[paste0("method_", i)]] %||% ""
@@ -72,14 +58,12 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
     })
 
     output$chemical_needed = reactive(chemical_selected())
-    # Without this the output is suspended while its panel is hidden, and a
-    # suspended output never reports the value that would unhide it.
+    # Otherwise the hidden output is suspended and never unhides itself.
     outputOptions(output, "chemical_needed", suspendWhenHidden = FALSE)
 
     # ---- Validation -----------------------------------------------------------
 
-    # One validator per step. Keeping them separate is what lets Next block on
-    # just this step's required fields rather than on the whole form.
+    # One validator per section.
     iv = InputValidator$new()
 
     iv_site = InputValidator$new()
@@ -145,10 +129,7 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
       timeline = iv_timeline, methods = iv_methods, outcome = iv_outcome,
       contributor = iv_contributor
     )
-    # Deliberately NOT enabled here. A validator enabled up front paints the step
-    # red before the contributor has typed anything, which reads as being told
-    # off for arriving. Each step's validator is enabled the first time they try
-    # to move on from it, and stays enabled after that so corrections show live.
+    # Not enabled yet, so an untouched form isn't painted red.
     touched = reactiveVal(character(0))
 
     fw_touch_step = function(id) {
@@ -166,22 +147,11 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
     iv_consent$add_rule("consent_data_use", function(value) {
       if (!isTRUE(value)) fw_t("contribute", "validate", "consent")
     })
-    # Deliberately NOT enabled here. Enabling at startup shows the contributor an
-    # error on a box they have not had the chance to tick yet. It is enabled
-    # when they check their answers or try to send.
+    # Enabled on "Check my answers" or Send, not at startup.
     
 
-    # Gating is computed independently of the validators, on purpose.
-    #
-    # shinyvalidate's is_valid() returns TRUE for a validator that is DISABLED,
-    # and the step validators start disabled so a contributor is not shown errors
-    # for fields they have not reached. Relying on is_valid() for gating would
-    # therefore leave "Send submission" enabled on an empty form. The validators
-    # own the DISPLAY of errors; this function owns whether the form may be sent.
-    #
-    # Keep the two in step: a required rule added above needs a line here.
-    # fw_is_email() is shared with the newsletter and feedback forms; it lives
-    # in R/forms.R.
+    # Send gating, separate from the validators: is_valid() is TRUE for a
+    # disabled validator. A required rule added above needs a line here too.
 
     filled = function(nm) {
       v = input[[nm]]
@@ -213,16 +183,9 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
 
     # ---- "Check my answers" ---------------------------------------------------
 
-    # ONE source of truth for what is wrong with the form. all_valid() answers
-    # "may this be sent"; this answers "what, specifically, and where". Both read
-    # the same conditions, and the check below is what keeps them honest: every
-    # hard error here corresponds to a clause of all_valid(), so the button
-    # cannot report a clean form that the send gate then refuses.
-    #
-    # HARD blocks sending. SOFT never does. A great many real attempts are
-    # ongoing, unmeasured or unpublished, and refusing those records would bias
-    # the database towards the tidy ones - which is precisely the reporting bias
-    # the caveats warn readers about.
+    # What is wrong and where. Each hard error matches a clause of all_valid().
+    # Hard blocks sending; soft never does (refusing incomplete records would
+    # bias the database).
     fw_check = function() {
       msg = function(key, ...) {
         out = fw_t("contribute", "check", key)
@@ -283,8 +246,7 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
       if (!filled("duration_days"))  note("duration_days", msg("w_duration"))
       if (!filled("method_description"))
         note("method_description", msg("w_method_desc"))
-      # Not an error: the earliest attempt on record is 1934, but an older one is
-      # possible and we would rather have it flagged than refused.
+      # Flagged, not refused: older attempts are possible.
       if (in_range("start_year", 1500, 1900))
         note("start_year", msg("w_old_year", year = as.integer(input$start_year)))
 
@@ -301,9 +263,7 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
       )
     })
 
-    # NOT GATED (24 Sept 2026). Consent is asked in the form's first section,
-    # with the contact details, and Send is what it gates - see all_valid()
-    # and fw_check(). The page goes to its top, where the form starts.
+    # Not gated: consent is in the first section and gates Send.
     observeEvent(input$start, {
       stage("form")
       session$sendCustomMessage("fw-scroll-top", TRUE)
@@ -311,19 +271,12 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
 
     # ---- Repeatable blocks ----------------------------------------------------
 
-    # Row 1 of each block is rendered by the section builder itself, so there is
-    # no insertUI racing the page into existence - the old cause of the invasive
-    # section arriving empty or doubled. insertUI now only ever ADDS to a
-    # container that is already on the page.
+    # Row 1 is rendered by the section builder; insertUI only adds rows to a
+    # container already on the page.
 
     #' Narrow a row's species picker to the group that row names
     #'
-    #' ONE binder for both roles, because they are now the same widget pair.
-    #'
-    #' Client-side: the whole list is already in the browser, so this is a list
-    #' swap rather than a search round trip. A species the contributor typed in
-    #' themselves is carried across, otherwise changing the group after naming a
-    #' species would silently discard it.
+    #' Both roles. Client-side list swap; a typed-in species is kept.
     bind_pair_row = function(i, kind) {
       taxa_id    = paste0(kind, "_taxa_", i)
       species_id = paste0(kind, "_species_", i)
@@ -336,9 +289,7 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
         current = input[[species_id]] %||% ""
         if (nzchar(current) && !current %in% lst) lst = c(current, lst)
 
-        # The blank stays at the front for the same reason it is there in
-        # fw_species_picker(): without it selectize picks the first species by
-        # itself the moment the list is replaced.
+        # Keep the leading blank, or selectize auto-picks the first species.
         updateSelectizeInput(session, species_id, choices = c("", lst),
                              selected = current, server = FALSE)
       })
@@ -348,8 +299,7 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
     bind_pair_row(1L, "target")
     bind_pair_row(1L, "benefit")
 
-    # Narrow the waterbody types to the regime. Still water should not be
-    # offered "River", and flowing water should not be offered "Lake".
+    # Narrow waterbody types to the regime.
     observeEvent(input$water_regime, ignoreInit = TRUE, {
       rg = input$water_regime %||% ""
       lst = choices$waterbody_by_regime[[rg]]
@@ -369,21 +319,13 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
       )
     })
 
-    # THE REGION PICKER FOLLOWS THE COUNTRY. Choosing Australia narrows this to
-    # the eight Australian states and territories rather than leaving someone to
-    # type "NSW", "N.S.W." or "New South Wales" and hope.
-    #
-    # create = TRUE, always. The ISO subdivision list is not exhaustive for
-    # every purpose - a treated site may sit in a catchment, a county or a
-    # district the standard does not name - and a picker that refuses the true
-    # answer is worse than free text. So this narrows the likely answers without
-    # ever blocking an unlikely one.
+    # Region narrows to the country's ISO subdivisions. create = TRUE, since
+    # ISO doesn't name every catchment or district.
     observeEvent(input$country, ignoreInit = TRUE, {
       subs = fw_subdivisions_for(choices, input$country %||% "")
 
       current = input$region %||% ""
-      # Keep what they typed if it still applies; a country change that silently
-      # emptied an answered field would lose work without saying so.
+      # Keep the answer if it still applies.
       keep = if (nzchar(current) && (!length(subs) || current %in% subs)) {
         current
       } else {
@@ -436,18 +378,11 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
 
     # ---- Location picker ------------------------------------------------------
 
-    # The map and the two numeric boxes stay in step in both directions. The
-    # guard flag stops a map click updating the boxes, which updates the map,
-    # which fires another click handler.
+    # Map and coordinate boxes sync both ways; a guard flag stops the loop.
     syncing = reactiveVal(FALSE)
 
     output$picker = renderLeaflet({
-      # THE SAME GROUND AS EVERY OTHER MAP. This used to pick its own basemap -
-      # a lone Esri.WorldGrayCanvas - so a contributor placed their pin on a
-      # different-looking world from the one the dashboard would show it on.
-      # fw_add_basemaps() gives it the shared stack and layer control, which
-      # also means Satellite and Terrain are available for finding a waterbody
-      # by sight, which is exactly what this map is for.
+      # The shared basemaps, so Satellite and Terrain help find the water.
       fw_leaflet() |>
         fw_add_basemaps() |>
         setView(lng = FW_MAP$empty_view$lng, lat = FW_MAP$empty_view$lat,
@@ -478,9 +413,7 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
 
     # ---- Review ---------------------------------------------------------------
 
-    # Turning on the in-place highlighting is a SIDE EFFECT of asking, not of
-    # rendering, so it happens in its own observer. A renderUI that also enabled
-    # validators would fire them again on every invalidation.
+    # Enabling validators is a side effect of asking, so its own observer.
     observeEvent(input$check_answers, {
       for (nm in names(step_validators)) fw_touch_step(nm)
       iv_consent$enable()
@@ -492,8 +425,7 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
       })
     })
 
-    # Jump to a named field from the check list. The browser does the scrolling;
-    # the server only says which field.
+    # Jump to a field from the check list (the browser scrolls).
     observeEvent(input$goto_field, {
       session$sendCustomMessage("fw-scroll-to-field", ns(input$goto_field))
     })
@@ -506,9 +438,7 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
       item = function(x, kind) {
         tags$li(
           class = paste0("fw-check__item fw-check__item--", kind),
-          # An actionLink per row would leave a dead observer behind every time
-          # this panel re-rendered. One input, carrying which field was asked
-          # for, is the same pattern the networking pager uses.
+          # One input for all rows, so observers don't pile up.
           tags$a(
             href = "#",
             onclick = sprintf(
@@ -578,28 +508,21 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
 
     # ---- Assemble and send ----------------------------------------------------
 
-    # The record is shaped by fw_collect_submission() in submit.R, next to the
-    # code that writes it, so the column set and the thing that fills it stay
-    # side by side.
+    # The record is built by fw_collect_submission() in submit.R.
     assemble_record = reactive({
       fw_collect_submission(input, rows, choices)
     })
 
     observeEvent(input$send, {
       if (!all_valid()) {
-        # Enable everything, so the contributor can see which field still needs
-        # attention rather than being refused with no explanation. On one long
-        # page an error can easily be several screens away, so the browser is
-        # asked to take them to the first one.
+        # Show every error and scroll to the first.
         for (nm in names(step_validators)) fw_touch_step(nm)
         iv_consent$enable()
         fw_announce(session, fw_t("contribute", "error", "validation"))
         session$sendCustomMessage("fw-scroll-to-error", ns("form"))
         return()
       }
-      # fw_safely(): only the sheet write inside fw_submit_attempt() was
-      # guarded, and an error while assembling the record ended the session
-      # with the contributor's answers still on the page.
+      # fw_safely(), so an assembly error doesn't end the session.
       out = fw_safely(session, fw_submit_attempt(assemble_record(), data))
       if (is.null(out)) return()
       if (!isTRUE(out$success)) {
@@ -614,14 +537,8 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
     })
 
     observeEvent(input$another, {
-      # A fresh session is the honest way to reset a form this size. Reloading
-      # gives the contributor an empty form with no stale values hiding in
-      # inputs that were never re-rendered.
-      #
-      # BACK TO THIS PAGE, NOT THE WELCOME PAGE (client, 14 Oct 2026). A bare
-      # reload opens the app on its first tab. The address is set first - the
-      # two messages arrive in order - and app.R's deep-link observer opens
-      # ?page=contribute and then clears it.
+      # Reload for a clean form, back on this page via ?page=contribute
+      # (handled and cleared in app.R).
       updateQueryString("?page=contribute", mode = "replace", session = session)
       session$reload()
     })
@@ -632,9 +549,7 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
 
     # ---- Downloads ------------------------------------------------------------
 
-    # Generated from the step builders themselves rather than kept as a separate
-    # document, so it cannot fall out of step with the form. See
-    # R/questions_text.R.
+    # Generated from the section builders (R/questions_text.R).
     output$download_questions = downloadHandler(
       filename = function() paste0("fwise-submission-questions_", fw_file_stamp(), ".docx"),
       contentType = paste0("application/vnd.openxmlformats-officedocument.",
@@ -645,9 +560,7 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
       }
     )
 
-    # The plain-text list stays alongside the Word one. It is the version that
-    # opens on anything, prints predictably, and can be read by a screen reader
-    # without Word - and it costs one handler to keep.
+    # Plain text too: opens anywhere, no Word needed.
     output$download_questions_txt = downloadHandler(
       filename = function() paste0("fwise-submission-questions_", fw_file_stamp(), ".txt"),
       contentType = "text/plain",

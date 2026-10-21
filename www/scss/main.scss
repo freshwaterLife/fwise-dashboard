@@ -5,8 +5,7 @@
 @import "tokens";
 
 // ---- Custom properties ------------------------------------------------------
-// The palette mirrored as CSS custom properties, so inline styles and any
-// future JS can reach it without recompiling Sass. Values come from R/brand.R.
+// The palette as CSS custom properties, for inline styles and JS.
 
 :root {
   --fw-ink:       #{$fw-ink};
@@ -48,10 +47,7 @@
 }
 
 // ---- Fonts -----------------------------------------------------------------
-// Self-hosted so the app renders correctly with the network blocked. No CDN
-// request is made for type at any point. Latin subset only, because all of the
-// app's copy is Latin and the other subsets would quadruple the payload for
-// glyphs that never render.
+// Self-hosted, Latin subset only. No font CDN.
 
 @font-face {
   font-family: "Ubuntu";
@@ -95,12 +91,10 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: $fw-font-body;
-  // Headings sit at 500, not 700. The one exception is the hero, which sets its
-  // own weight. Bold headings everywhere would push the tone towards lobbying.
+  // Headings at 500, not 700.
   font-weight: $fw-weight-medium;
   line-height: $fw-leading-heading;
-  // INDIGO. Every headline on the poster is indigo; teal is a block fill there,
-  // never type. Headings used to be $fw-teal-text.
+  // Indigo headings; teal is for fills.
   color: $fw-ink;
   margin-block: 0 $fw-space-2;
   text-wrap: balance;
@@ -111,8 +105,7 @@ h2 { font-size: $fw-size-h2; }
 h3 { font-size: $fw-size-h3; }
 h4 { font-size: $fw-size-lead; }
 
-// Step the scale down on narrow screens. At 375px the desktop sizes wrap a
-// three-word heading onto three lines, which reads as broken rather than bold.
+// Smaller headings on narrow screens.
 @media (max-width: $fw-bp-xs) {
   h1 { font-size: $fw-size-h1-narrow; }
   h2 { font-size: $fw-size-h2-narrow; }
@@ -121,10 +114,7 @@ h4 { font-size: $fw-size-lead; }
 
 p { margin-block: 0 $fw-space-2; }
 
-// Text runs the full width of whatever contains it. Width is a decision the
-// container makes, not something a paragraph does to itself, so nothing here
-// caps a measure. Where a narrow column genuinely reads better, opt in with
-// .fw-measure on the containing block rather than reintroducing a global cap.
+// No global measure: text fills its container. Opt in with .fw-measure.
 .fw-prose {
   > p, > ul, > ol { max-width: 100%; }
 }
@@ -132,42 +122,30 @@ p { margin-block: 0 $fw-space-2; }
 .fw-measure { max-width: $fw-measure; }
 
 a {
-  // $fw-brand-teal is the true brand teal but does not meet 4.5:1 as text, so links
-  // use $fw-teal-text. See the contrast note in _tokens.scss.
-  //
-  // Teal, while the body text around it is indigo. That hue difference is what
-  // marks a link, so the underline is doing the same job twice and can stay
-  // thin.
+  // $fw-teal-text (brand teal fails AA as text). The hue marks the link, so
+  // the underline stays thin.
   color: $fw-teal-text;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
 
-  // Hover DARKENS to the indigo ink rather than lightening to $fw-brand-teal,
-  // which is the way it used to go. Lightening a link on hover took it to
-  // 3.47:1 on the cream ground - under the floor for text, and at exactly the
-  // moment the user is about to read it.
+  // Hover darkens to ink; lightening would fail contrast.
   &:hover { color: $fw-ink; }
 }
 
-// Numerals only. Ubuntu Mono column-aligns figures so they can be scanned; it is
-// never used for labels or body text.
+// Numerals only (Ubuntu Mono aligns figures). Never labels or prose.
 .fw-num {
   font-family: $fw-font-mono;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
 
-// Caption text is 1rem like everything else, so it is separated from body text
-// by colour alone. .small is in here because Bootstrap sizes that class off its
-// own variable and it would otherwise slip under the floor.
+// Captions. .small is included so Bootstrap can't take it under the floor.
 small, .small, .fw-caption {
   font-size: $fw-size-caption;
   color: $fw-ink-muted;
 }
 
-// A chart's "nothing to draw" line. Shiny puts a validation message in the
-// output's own slot (see fw_chart_or_empty() in charts.R); styled as a caption
-// rather than left to Shiny's grey default, which is under the floor.
+// A chart's "nothing to draw" message (fw_chart_or_empty()), as a caption.
 .shiny-output-error-validation {
   font-size: $fw-size-caption;
   color: $fw-ink-muted;
@@ -175,11 +153,10 @@ small, .small, .fw-caption {
 }
 
 // ---- Focus -----------------------------------------------------------------
-// The browser default is replaced, never merely removed. 3px at an offset, in a
-// colour verified at 3:1 against both the page and card backgrounds.
+// Replaced, never removed: 3px, offset, 3:1 on page and card.
 
 :focus-visible {
-  // $fw-brand-teal, not $fw-teal-hover: see the note on focus-ring-color in theme.R.
+  // Brand teal meets 3:1 here (see theme.R).
   outline: 3px solid $fw-brand-teal;
   outline-offset: 2px;
   border-radius: 2px;
@@ -192,8 +169,7 @@ small, .small, .fw-caption {
 .fw-skip-link {
   position: absolute;
   left: $fw-space-2;
-  // Far enough up that its shadow clears the top of the page too. At -4rem a
-  // sliver of the shadow showed above the navbar on every screen.
+  // Far enough up that the shadow is hidden too.
   top: -8rem;
   z-index: 2000;
   padding: $fw-space-1 $fw-space-2;
@@ -207,8 +183,7 @@ small, .small, .fw-caption {
 }
 
 // ---- Motion ----------------------------------------------------------------
-// Everything animated in this app responds to a user action. There is no
-// page-load or scroll motion and no count-ups anywhere.
+// Motion only answers user actions. No page-load or scroll motion.
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -221,8 +196,7 @@ small, .small, .fw-caption {
   }
 }
 
-// NO BOOTSTRAP GUTTER on any container, at the client's request: the page
-// runs edge to edge and .fw-container sets its own side space.
+// No Bootstrap gutters (client); .fw-container sets the side space.
 .container-fluid, .container-xxl, .container-xl, .container-lg, .container-md, .container-sm {
   --bs-gutter-x: 0rem;
   --bs-gutter-y: 0;

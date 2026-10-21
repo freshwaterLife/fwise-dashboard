@@ -1,27 +1,14 @@
 # submit.R
-# The submission write path.
+# The submission write path. fw_submit_attempt() appends one row to the
+# inbox sheet's `submissions` tab (or dev/forms/submissions.csv) for review in
+# dev/qa.R.
 #
-# There is ONE public function, fw_submit_attempt(record). It appends one row
-# to the `submissions` tab of the inbox sheet - or, with no sheet configured,
-# to dev/forms/submissions.csv - through fw_inbox_append() in forms_store.R.
-# The reviewer QAs the row in the sheet and dev/qa.R imports it.
-#
-# A SUBMISSION IS ONE ROW A PERSON CAN READ (Oct 2026). The sheet holds the
-# columns of attempts.csv with three differences, all so the reviewer can QA it
-# without looking anything up:
-#   - species are their LABELS, "Common carp (Cyprinus carpio)", not SP- ids;
-#   - the contact is split into name, organisation, email and public, with a
-#     blank contact_id the reviewer fills only to point at a contact we hold;
-#   - the columns the import derives (iso3, continent, last_updated) and the
-#     second contact the form never asks for are not there at all.
-# Two columns lead the row for the reviewer: qa_status and imported.
-#
-# A species the contributor typed in, rather than picked, also gets a row of
-# the `new_species` tab, with its names split and the taxa they chose, for the
-# reviewer to complete. dev/qa.R mints its id at import.
+# A row is readable without lookups: species as labels, the contact as
+# name/org/email/public (plus an optional contact_id), and no derived columns.
+# qa_status and imported lead the row. Typed-in species also get a
+# `new_species` row; dev/qa.R mints their ids.
 
-# The submissions tab, in order. Built from FW_ATTEMPT_COLUMNS so a column
-# added to the database arrives here without a second list to keep in step.
+# The submissions tab columns, built from FW_ATTEMPT_COLUMNS.
 FW_INBOX_STATE_COLUMNS = c("qa_status", "imported")
 FW_INBOX_CONTACT_COLUMNS = c("contact_id", "contact_name", "contact_organisation",
                               "contact_email", "contact_public")
@@ -41,21 +28,16 @@ FW_IMPORTED  = c("no", "yes", "rejected")
 
 # ---- Identifiers -------------------------------------------------------------
 
-# Ambiguous characters are left out - no I, O, 0 or 1 - because these ids get
-# read aloud, retyped and pasted into spreadsheets by people.
+# No I, O, 0 or 1: ids get read aloud and retyped.
 FW_ID_ALPHABET = c(as.character(2:9), setdiff(LETTERS, c("I", "O")))
 
 #' Mint n ids that collide with nothing already in use
 #'
-#' Format: PREFIX-YYYYMMDD-XXXXXX, e.g. FW-20260908-7K3QX9. The date is when the
-#' id was first assigned, so ids sort roughly by when a record entered FWISE.
-#' An id, once assigned, is NEVER reassigned: it lives in the row (attempts) or
-#' the lookup (species, contacts) that owns it from the moment it is minted.
+#' PREFIX-YYYYMMDD-XXXXXX, e.g. FW-20260908-7K3QX9 (date first assigned).
+#' Ids are permanent and live in the row that owns them.
 #'
 #' @param prefix "FW", "SP" or "CO"
-#' @param exclude ids already in use, so a collision is impossible rather than
-#'   merely unlikely (32^6 is about a billion, so the loop effectively never
-#'   runs twice).
+#' @param exclude ids already in use
 fw_mint_ids = function(prefix, n, exclude = character(0), date = Sys.Date()) {
   if (n == 0) return(character(0))
   stamp = format(date, "%Y%m%d")
@@ -118,10 +100,8 @@ fw_new_species_rows = function(typed, attempt_id) {
 #'              country_attempts, country)
 fw_submit_attempt = function(record, data = NULL) {
 
-  # THE ATTEMPT ID IS MINTED HERE and travels with the row from the sheet into
-  # attempts.csv unchanged, so a reviewer, a contributor's confirmation screen
-  # and the published data all name the same record. Collisions are excluded
-  # against the ids the app is holding; dev/qa.R checks again against the file.
+  # The attempt id is minted here and kept through import. dev/qa.R checks
+  # again for collisions.
   in_use = if (is.null(data)) character(0) else data$attempt$attempt_id
   record$attempt_id   = fw_mint_ids("FW", 1, exclude = in_use)
   record$status       = "pending"
@@ -129,10 +109,7 @@ fw_submit_attempt = function(record, data = NULL) {
   record$qa_status    = FW_QA_STATUS[1]
   record$imported     = FW_IMPORTED[1]
 
-  # NO FALLBACK TO THE LOCAL FILE IF THE SHEET WRITE FAILS. On Connect Cloud
-  # the container filesystem is thrown away on restart, so a fallback would
-  # report success for a submission that is already gone. Telling the
-  # contributor to try again is worth more than a receipt for nothing.
+  # No local fallback: Connect Cloud's disk is wiped on restart.
   written = tryCatch({
     fw_inbox_append(FW_INBOX_TABS$submissions, list(fw_flatten_record(record)),
                     FW_INBOX_COLUMNS)
@@ -152,9 +129,8 @@ fw_submit_attempt = function(record, data = NULL) {
     ))
   }
 
-  # THE RECORD IS SAFE ONCE THE ROW ABOVE HAS LANDED. A failed new_species
-  # write is logged, not shown to the contributor: dev/qa.R reports the typed
-  # species as unknown and the reviewer adds its row by hand.
+  # The record is safe once its row lands. A failed new_species write is only
+  # logged; dev/qa.R flags the species.
   tryCatch(
     fw_inbox_append(FW_INBOX_TABS$new_species,
                     fw_new_species_rows(record$new_species, record$attempt_id),
@@ -163,8 +139,7 @@ fw_submit_attempt = function(record, data = NULL) {
                                 " failed: ", conditionMessage(e))
   )
 
-  # The in-review count re-reads the inbox on its next ask, so the
-  # contributor sees their own record counted straight away.
+  # So the in-review count includes this record straight away.
   fw_review_count_invalidate()
 
   counts = fw_submission_counts(data, record$country)
@@ -183,8 +158,7 @@ fw_submit_attempt = function(record, data = NULL) {
 
 #' Live counts for the confirmation screen
 #'
-#' The published database plus everything waiting in the inbox, so a
-#' contributor who submits twice in a row sees the number move.
+#' The published database plus the inbox.
 fw_submission_counts = function(data, country) {
   total = if (is.null(data)) 0L else nrow(data$attempt)
   in_country = if (is.null(data) || is.null(country)) {
@@ -210,8 +184,6 @@ fw_submission_counts = function(data, country) {
 
 #' Every submission still waiting: not imported, not rejected
 #'
-#' Feeds the in-review count and the confirmation screen's totals. One read of
-#' the submissions tab.
 fw_pending_submissions = function() {
   inbox = fw_inbox_read(FW_INBOX_TABS$submissions)
   if (!nrow(inbox) || !all(c("imported", "status") %in% names(inbox))) return(data.frame())
@@ -221,17 +193,13 @@ fw_pending_submissions = function() {
 
 # ---- The in-review count, kept current ---------------------------------------
 #
-# ONE CACHE FOR THE WHOLE R PROCESS, not one per visitor. It used to be read
-# once at startup (FW_IN_REVIEW), so it moved only when Connect Cloud started a
-# new process (client, 14 Oct 2026: a submission did not show). Every open page
-# now asks every FW_REVIEW_REFRESH_S, and the sheet is read at most that often
-# between them all.
+# One cache per R process: pages ask every FW_REVIEW_REFRESH_S, and the sheet
+# is read at most that often.
 FW_REVIEW_CACHE = new.env(parent = emptyenv())
 
 #' The in-review count, at most FW_REVIEW_REFRESH_S old
 #'
-#' A failed read keeps the last good count rather than showing 0, which would
-#' say the queue had emptied. The fw.now option pins the clock for the tests.
+#' A failed read keeps the last good count. fw.now pins the clock for tests.
 #'
 #' @param data the loaded data, for the pending rows already in attempts.csv
 fw_review_count_live = function(data, now = getOption("fw.now", Sys.time())) {
@@ -258,14 +226,8 @@ fw_review_count_invalidate = function() {
 
 #' Collect the contribute form's inputs into one record
 #'
-#' Lives here rather than in the module so the column set in
-#' FW_INBOX_COLUMNS and the code that fills it sit side by side. Adding a
-#' field to the form means adding it to the column contract in data_load.R and
-#' filling it here.
-#'
-#' "OTHER (SPECIFY)" GOES INTO THE MAIN COLUMN. The typed value replaces the
-#' placeholder, so the reviewer sees an off-list country, waterbody, driver,
-#' method or agent in the column it belongs to and dev/qa.R flags it.
+#' A new form field needs a column in data_load.R and a line here. "Other
+#' (specify)" values go into the main column, where dev/qa.R flags them.
 #'
 #' @param input   the module's input object
 #' @param rows    the reactiveValues holding which repeatable rows are on screen
@@ -285,12 +247,8 @@ fw_collect_submission = function(input, rows, choices = NULL) {
 
   held = names(choices$species_ids %||% character(0))
 
-  # ONE ENTRY PER ROW, as the species' LABEL, which is what the reviewer reads
-  # and what dev/qa.R resolves to an id. A label we do not hold is one the
-  # contributor typed; it is also collected, with its taxa, for the
-  # new_species tab. IDENTICAL FOR BOTH ROLES: invasive targets and
-  # beneficiaries are the same question asked about two sides of the same
-  # eradication.
+  # One label per row (dev/qa.R resolves ids). Unknown labels also go to
+  # new_species with their taxa. Same for both roles.
   typed = data.frame(label = character(0), taxa = character(0))
   collect_species = function(kind, indices) {
     out = character(0)
@@ -306,8 +264,7 @@ fw_collect_submission = function(input, rows, choices = NULL) {
     paste(out, collapse = FW_MULTI_SEP)
   }
 
-  # Methods travel by NAME; the notes cell pairs each note with its method in
-  # the same order, so the map popup can still say which note belongs where.
+  # Methods by name; notes paired by position.
   method_names = character(0); method_notes = character(0)
   for (i in rows$method) {
     nm = pick(paste0("method_", i), paste0("method_other_", i))
@@ -348,8 +305,7 @@ fw_collect_submission = function(input, rows, choices = NULL) {
     start_year    = get_in("start_year"),
     end_year      = get_in("end_year"),
     duration_days = get_in("duration_days"),
-    # The form collects eradication attempts; control programmes are out of
-    # scope, so this is a constant rather than a question.
+    # Control programmes are out of scope.
     eradication_or_control = "Eradication",
     driver = pick("driver", "driver_other"),
 
@@ -372,15 +328,12 @@ fw_collect_submission = function(input, rows, choices = NULL) {
     neutralising_agent = pick("neutralising_agent", "neutralising_agent_other"),
     neutralising_notes = get_in("neutralising_notes"),
 
-    # The specification keeps verification as one box on the form and splits
-    # it downstream if needed, so it lands in the method column.
+    # One verification box, per the spec.
     verification_method = get_in("verification"),
     verification_notes  = "",
 
-    # The form has no contact picker, so the contributor is always given by
-    # name; dev/qa.R matches them against contacts.csv. OPT-IN (Sept 2026):
-    # the address is shown only when the contributor ticked "I give permission
-    # for my email to be displayed in the app".
+    # The contributor by name (dev/qa.R matches contacts). Public only if
+    # they opted in.
     contact_id           = "",
     contact_name         = get_in("primary_contact_name"),
     contact_organisation = get_in("primary_contact_org"),

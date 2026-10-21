@@ -40,7 +40,7 @@ For questions about your personal information, or to make any of the requests de
 - your email address
 - your organisation (optional)
 - your agreement to the data-use statement on the form
-- whether you allow your name, organisation and email address to be shown publically in FWISE
+- whether you allow your name, organisation and email address to be shown publicly in FWISE
 - anything you write in the notes to the FWISE team
 - the date and time you sent the record
 
@@ -50,54 +50,54 @@ For questions about your personal information, or to make any of the requests de
 
 **Review.** Every record is reviewed by the FWISE team before it is published. We may contact you about it using the email address you gave.
 
-**Where it is kept.** Each submission is saved as a file in a private GitHub repository belonging to Freshwater Life, where the FWISE team reviews it. Reviewed records become part of the FWISE database, which is kept in the same repository. GitHub is a US company, so records may be processed outside the UK and the EU. 
+**Where it is kept.** Each submission is saved as a row in a private Google Sheet, where the FWISE team reviews it. Reviewed records become part of the FWISE database, which is kept in a private GitHub repository belonging to Freshwater Life. Google and GitHub are US companies, so records may be processed outside the UK and the EU.
 
 **How long we keep it.** For as long as the record is part of FWISE.
 
 ### Contacts directory {#contacts}
 
-FWISE shows contact details for people involved in eradications, so that practitioners can find each other. A contributor's contact details are shown only if they opted in when adding a record, or when they submitted the record to FWISE prior to the apps development. 
+FWISE shows contact details for people involved in eradications, so that practitioners can find each other. A contributor's contact details are shown only if they opted in when adding a record, or when they submitted the record to FWISE before the app was built.
 
 You can ask us to remove your contact details from FWISE at any time, using the contact under "Who we are".
 
-## Usage analytics {#usage}
+### Usage analytics {#usage}
 
 We record how FWISE is used so we can improve it and show Freshwater Life's funders and partners how the app is being used. We do this without cookies and without recording who you are.
 
-### What we record
+#### What we record
 
 We use two tools.
 
 GoatCounter counts visits. For each visit it records the page, the website that linked you here (if your browser shares it), your browser and operating system type, your screen size, and your country. Your country is worked out from your IP address when the visit is counted, and the IP address is then discarded. To avoid counting one visit twice, GoatCounter briefly combines your IP address and browser details with a random value into a code that is replaced every 8 hours, so visits cannot be linked from one day to the next. GoatCounter's servers are in Germany, and its own privacy policy is on its website.
 
-Inside the app, we log the actions taken during a visit: which pages are opened, the filters chosen when building a report, and when a report or dataset is downloaded or a contact link is opened. Each visit gets a random session code that is not linked to any other visit.
+Inside the app, we log some actions taken during a visit: the start and end of the visit, the filters chosen when building a report, when a report or dataset is downloaded, when a contact's email address is used, and when a form is sent. Each visit gets a random session code that is not linked to any other visit.
 
-### What we do not record through cookiless trackers
+#### What we do not record through cookieless trackers
 
 - Your IP address, name, email address or any other detail that identifies you.
 - Links between your visits, or between FWISE and other websites.
 
 We do not use this data for advertising, we do not sell it, and we do not combine it with other data to try to identify anyone. It is purely session based information to understand usage.
 
-### How we use and share it
+#### How we use and share it
 
 We use it to see which features are used and which are not, which countries FWISE is reaching, and how many reports and datasets are downloaded. We share it with funders and partners only as totals and charts, and we do not report figures small enough to point to a single person or organisation.
 
-### How long we keep it
+#### How long we keep it
 
-GoatCounter keeps visit totals for as long as FWISE runs. In-app action logs are kept for as long as FWISE runs, or periodic cleanup if needed.
+GoatCounter keeps visit totals for as long as FWISE runs. In-app action logs are kept for as long as FWISE runs, unless removed in a periodic clean-up.
 
-### Our hosting provider
+#### Our hosting provider
 
 FWISE runs on Posit Connect Cloud. Like any web host, Posit receives your IP address in order to deliver the app to your browser. Posit's own privacy policy applies to this.
 
-### Your choices
+#### Your choices
 
 FWISE works fully if you block GoatCounter with a browser content blocker. If you have questions about this data, contact us at {contact_email}.
 
-### Legal basis
+#### Legal basis
 
-Freshwater Life processes this data on the basis of legitimate interests (UK GDPR Article 6(1)(f)): understanding and improving a free public app, and reporting its use to the people who fund it. The only personal data involved is your IP address, which is processed briefly by GoatCounter then circulated out. Only used when a visit is counted and is not stored.
+Freshwater Life processes this data on the basis of legitimate interests (UK GDPR Article 6(1)(f)): understanding and improving a free public app, and reporting its use to the people who fund it. The only personal data involved is your IP address, which is processed briefly by GoatCounter when a visit is counted and then discarded. It is not stored.
 
 ### Your rights {#your-rights}
 
@@ -122,11 +122,11 @@ The version and date at the top of this page change whenever this notice changes
 
 ### Using FWISE data {#using-data}
 
-The published FWISE data is released under CC BY-NC 4.0. Non-commercial. 
+The published FWISE data is released under CC BY-NC 4.0, for non-commercial use.
 
 Please cite FWISE when you use it: the About page gives the citation.
 
-This app always shows the current reviewed version of the data. Citable, versioned releases will be archived on Zenodo. This, when published, can be found at the bottom of the application. 
+This app always shows the current reviewed version of the data. Citable, versioned releases will be archived on Zenodo; once published, the link will be at the bottom of every page.
 
 ### Accuracy and limitations {#accuracy}
 

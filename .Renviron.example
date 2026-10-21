@@ -1,9 +1,25 @@
-# Local development configuration. GITIGNORED - never commit this file.
-# Copy from .Renviron.example.
+# .Renviron.example
+# Copy to .Renviron (gitignored) and fill in what you need. Every variable is
+# optional: with none set the app reads ../fwise-data and writes forms to
+# dev/forms/. Values are in the operations handover. See the README's
+# "Environment variables" table.
 
-# The sibling checkout. Set explicitly rather than left to the default so that
-# running the app from a different working directory still finds the data.
-FWISE_DATA_SOURCE=path/to/data/git/repo
-GS4_SA_KEY_B64=in/handover/docs
-FWISE_FORMS_SHEET_ID=in/handover/docs
-IUCN_API_TOKEN=in/handover/docs
+# Data. Set the token to read the private data repo over the GitHub API, or a
+# path/URL to read from there instead (overrides the token).
+#FWISE_DATA_TOKEN=
+#FWISE_DATA_SOURCE=
+
+# Google Sheets: newsletter and feedback, submissions inbox, usage log.
+# Setting both of the first two makes a local run write to the live sheet.
+#FWISE_FORMS_SHEET_ID=
+#GS4_SA_KEY_B64=
+#FWISE_INBOX_SHEET_ID=
+#FWISE_LOG_MODE=off
+#FWISE_LOG_SHEET_ID=
+
+# Optional overrides.
+#FWISE_CARTO_KEY=
+#QUARTO_PATH=
+
+# Reviewer only (dev/qa.R section 3).
+#IUCN_API_TOKEN=

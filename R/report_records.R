@@ -1,50 +1,15 @@
 # report_records.R
-# The DETAILED REPORT (.html): the summary report's figures, live, followed by
-# every attempt in the reader's selection written out in full, one card after
-# another.
+# The Detailed report (.html): the summary figures, live (fw_pdf_body() order,
+# toggled charts in both versions), then every attempt in the selection as a
+# card with a find box.
 #
-# THE FIGURES FIRST (client, 29 Sept 2026). A keen reader who opens only this
-# file must still get the comparisons, not only the case-by-case detail. So it
-# opens on the same sequence as the PDF - fw_pdf_body() in R/report_pdf.R - as
-# interactive plotly charts and a leaflet map, with both versions of each
-# toggled chart (number of attempts, then success rate) one above the other,
-# and then goes on to the find box and the cards. See fw_records_summary_ui().
+# Cards are rows of fw_export_frame(), so they carry exactly what the
+# spreadsheet does, with the same redaction. Every field is drawn ("Not
+# noted" when empty), except the chemical section on non-chemical attempts
+# (fw_record_group_drop()) and an empty region (FW_RECORD_OMIT_BLANK).
 #
-# THE RECORD-BY-RECORD READING THE CLIENT ASKED FOR. The report builder's table
-# of attempts went because a table of truncated cells is what the CSV already
-# does better; what a reader could not do was sit down and read the attempts
-# themselves. This is that: every field of every attempt, labelled, grouped the
-# way a person reads a record - where, what water, which animals, when, how,
-# what happened, the source, who to ask - and scrollable end to end.
-#
-# BUILT FROM THE EXPORT FRAME, NOT FROM THE DATABASE. The cards are the rows of
-# fw_export_frame() for the same selection, so they carry exactly what the
-# spreadsheet in the same download carries, in the same order, with the same
-# redaction already applied and asserted (fw_assert_export_safe()). A private
-# address cannot reach this file by a route the spreadsheet does not also take.
-#
-# EVERY FIELD, ALWAYS. A blank field says "Not noted" rather than vanishing -
-# the rule the map's record card follows (client, 21 Sept 2026) - so two cards
-# can be compared line for line.
-#
-# WITH TWO EXCEPTIONS. THE CHEMICAL DETAIL (client, 23 Sept 2026): an attempt
-# that used no chemical method has nothing to say about target concentrations
-# or neutralising agents, and seven "Not noted" lines under a heading about
-# chemicals is not a comparison, it is noise. The section is cut from that card
-# alone - see fw_record_group_drop(), which also refuses to cut it when any of
-# those fields actually holds a value, so the rule above can never lose data.
-#
-# AND REGION (client, 24 Sept 2026): see FW_RECORD_OMIT_BLANK below. Both
-# exceptions drop a field or a section that was never going to be filled; a
-# field that COULD have been filled and was not still says "Not noted", which
-# is the whole point of the rule.
-#
-# SELF-CONTAINED. The stylesheet, the fonts, the logos and every widget
-# library (plotly.js, leaflet) are inlined, so it opens from a saved file with
-# no server behind it - most of its size is plotly.js. Two things still come
-# from the network when there is one: the map's background tiles and the
-# species photographs. Without a connection the markers, the charts and the
-# cards all still work.
+# Self-contained: styles, fonts, logos and widget libraries are inlined. Only
+# map tiles and species photos need the network.
 
 library(htmltools)
 
@@ -52,8 +17,7 @@ library(htmltools)
 
 #' The MIME type for an inlined asset, by extension
 #'
-#' A short closed list rather than a guess: anything not on it is something
-#' this file should not be embedding.
+#' A closed list; anything else isn't embedded.
 FW_HTML_MIME = c(
   png = "image/png", jpg = "image/jpeg", jpeg = "image/jpeg",
   svg = "image/svg+xml", woff2 = "font/woff2", woff = "font/woff", ttf = "font/ttf"
@@ -75,9 +39,7 @@ fw_html_data_uri = function(path) {
 
 #' Rewrite every relative url() in a stylesheet to a data URI
 #'
-#' A stylesheet moved out of its own directory takes its relative references
-#' with it: records.scss asks for ../fonts/ubuntu-400.woff2, which resolves
-#' against wherever the reader saved the file and finds nothing there.
+#' Relative urls (the fonts) would break once the file is saved elsewhere.
 fw_html_inline_css_urls = function(css, dir) {
   refs = regmatches(css, gregexpr("url\\(\\s*['\"]?([^'\")]+)['\"]?\\s*\\)", css))[[1]]
   for (ref in unique(refs)) {
@@ -106,27 +68,15 @@ fw_html_dep_dir = function(dep) {
 
 #' A script or style tag whose content cannot close its own element
 #'
-#' plotly.js is three and a half megabytes of minified JavaScript. If a string
-#' literal in there contains the characters "</script", the browser's HTML
-#' parser ends the element in the middle of the library. Escaping the slash is
-#' valid inside a JS string and impossible outside one, so this is safe in both
-#' directions.
+#' Escapes "</" so a "</script" inside plotly.js can't end the element.
 fw_html_guard = function(text, tag) {
   gsub(paste0("</", tag), paste0("<\\/", tag), text, fixed = TRUE)
 }
 
 #' Every dependency of a set of widgets, inlined into head tags
 #'
-#' Order is the order htmltools resolved them in, which is the order the widgets
-#' need: htmlwidgets.js before the bindings, plotly.js before plotly's binding
-#' runs. Do not sort this.
-#'
-#' htmlwidgets.js static-renders every widget on the page on DOMContentLoaded
-#' when Shiny is absent, which is what makes the figures in a saved file draw
-#' themselves with no bootstrapping code of our own. That only works if these
-#' tags are in <head>, before the document finishes parsing.
-#'
-#' Revived from the interactive report dropped on 21 Sept 2026 (git d74d068).
+#' In htmltools' resolved order (don't sort). Must be in <head>, so
+#' htmlwidgets.js renders the widgets on DOMContentLoaded without Shiny.
 fw_html_dependency_tags = function(deps) {
   out = list()
   for (dep in htmltools::resolveDependencies(deps)) {
@@ -155,9 +105,7 @@ fw_html_dependency_tags = function(deps) {
 
 #' The detailed report's stylesheet, compiled and inlined
 #'
-#' records.scss imports the app's own _components.scss, so the summary strip,
-#' outcome bars, species tiles and contacts table are drawn by the same rules
-#' as on the page.
+#' records.scss imports _components.scss, so pieces match the page.
 fw_records_css = function(dir = "www/scss") {
   fw_html_inline_css_urls(fw_compile_css(file.path(dir, "records.scss")), dir)
 }
@@ -169,8 +117,7 @@ fw_record_copy = function(species = NULL) {
        groups = fw_t("export", "record_groups"),
        none = fw_t("species", "p_not_noted"),
        top = fw_t("export", "records_top"),
-       # Each coded species' label to the label with its Red List code, for
-       # the protected species line. NULL without `species`: no codes.
+       # Label -> label with Red List code. NULL without `species`.
        iucn = if (!is.null(species)) fw_iucn_lookup(species))
 }
 
@@ -185,10 +132,7 @@ fw_iucn_lookup = function(species) {
 
 #' The record's protected species, each with its Red List code
 #'
-#' THE CARD ONLY. The export frame the card reads is the download's, and the
-#' download carries no code (Alex, 6 Oct 2026) - fw_export_frame() keeps to
-#' FW_EXPORT_COLUMNS - so the codes are put on the collapsed "a; b" string
-#' here, one name at a time.
+#' Card only: the download carries no codes.
 fw_iucn_relabel = function(x, lookup) {
   if (!length(lookup) || fw_record_blank(x)) return(x)
   parts = strsplit(x, FW_MULTI_SEP, fixed = TRUE)[[1]]
@@ -207,26 +151,15 @@ fw_record_outcome = function(outcome, none) {
 
 #' Whether a field of a record is empty, and so prints as "Not noted"
 #'
-#' Its own predicate because two things now ask the question: the renderer
-#' below, and fw_record_group_drop(), which may not cut a section holding a
-#' value. Two spellings of "empty" would be two answers.
+#' Shared by the renderer and fw_record_group_drop().
 fw_record_blank = function(value) {
   length(value) != 1 || is.na(value) || !nzchar(trimws(as.character(value)))
 }
 
 #' Whether this card should leave a group out altogether
 #'
-#' ONLY THE CHEMICAL DETAIL, and only on an attempt whose methods carry no
-#' chemical class - see the note at the head of this file. `method_classes` is
-#' the export frame's collapsed list of the classes of the methods recorded on
-#' the attempt ("chemical; mechanical"), and an attempt with no method row at
-#' all leaves it NA, which counts as not chemical.
-#'
-#' AND ONLY WHEN THE SECTION IS EMPTY. A handful of records carry a
-#' concentration or a neutralising agent against a method the database has
-#' classed as mechanical. Cutting on the class alone would drop a recorded
-#' value out of the attempts file while the spreadsheet in the same download
-#' still carried it, which is a worse fault than the noise this fixes.
+#' Only the chemical section, only when no method is chemical (NA counts as
+#' not chemical), and only when the section is empty, so no value is lost.
 fw_record_group_drop = function(g, row) {
   if (!identical(g$id, "chemical")) return(FALSE)
   classes = strsplit(as.character(row$method_classes), FW_MULTI_SEP, fixed = TRUE)[[1]]
@@ -234,17 +167,8 @@ fw_record_group_drop = function(g, row) {
   all(vapply(g$fields, function(f) fw_record_blank(row[[f]]), logical(1)))
 }
 
-# A FIELD THAT IS DROPPED RATHER THAN DRAWN EMPTY (client, 24 Sept 2026).
-#
-# Region is a state, province or territory, and only a handful of countries
-# record one at all. "Australia" above "Region: Not noted" reads as a missing
-# Tasmania - the reader goes looking for a value that was never coming - where
-# the other blank fields read as what they are, a gap in the record. So this
-# one vanishes when it is empty and prints normally when it is not.
-#
-# KEEP THIS LIST SHORT. Every name added to it is a line two cards can no
-# longer be compared on. The spreadsheet keeps its region column either way: a
-# blank cell in a grid is unambiguous in a way a missing row in a card is not.
+# Fields hidden when empty rather than shown as "Not noted" (client). Region is
+# rarely recorded. Keep this list short.
 FW_RECORD_OMIT_BLANK = c("region")
 
 fw_record_value = function(field, value, none) {
@@ -257,8 +181,7 @@ fw_record_value = function(field, value, none) {
   }
   if (grepl("_email$", field)) return(paste0('<a href="mailto:', v, '">', v, "</a>"))
   if (field == "outcome") return(fw_record_outcome(value, none))
-  # Stored as Lentic / Lotic; read as Still water / Flowing water, the same
-  # words the filters and the form use. See FW_REGIME_LABELS in R/data_load.R.
+  # Lentic/Lotic shown as Still/Flowing water (FW_REGIME_LABELS).
   if (field == "water_regime") return(htmlEscape(fw_regime_label(as.character(value))))
   v
 }
@@ -281,12 +204,8 @@ fw_record_years = function(row) {
 #'
 #' @param row one row of fw_export_frame(), as a list
 #' @param copy fw_record_copy()
-#' @param top whether to end on the "back to the contents" link. The Plan
-#'   page's record search opens a card under its own table row, where there is
-#'   no contents list to go back to.
-#' @param id whether the card carries the attempt id as its element id, which
-#'   the report's contents list links to. Off on the Plan page, where a map
-#'   card or another output could carry the same id.
+#' @param top end on a "back to the contents" link (off on the Plan page)
+#' @param id use the attempt id as the element id (off on the Plan page)
 fw_record_card = function(row, copy = fw_record_copy(), top = TRUE, id = TRUE) {
   esc = function(x) htmlEscape(as.character(x))
   # The find box matches the plain names; the card shows the coded ones.
@@ -295,14 +214,10 @@ fw_record_card = function(row, copy = fw_record_copy(), top = TRUE, id = TRUE) {
   place = c(row$region, row$country)
   place = paste(place[!is.na(place) & nzchar(place)], collapse = ", ")
   title = if (is.na(row$site_name) || !nzchar(row$site_name)) copy$none else row$site_name
-  # Filtered before the headings are built, so a dropped section takes its <h3>
-  # with it rather than leaving an empty <dl> under one.
+  # Drop sections before building headings.
   shown = Filter(function(g) !fw_record_group_drop(g, row), copy$groups)
   groups = vapply(shown, function(g) {
-    # Filtered before the pairs are built, so an omitted field takes its <dt>
-    # with it rather than leaving a label above an empty <dd>. No group is at
-    # risk of emptying out: "Where" also holds the site, country, continent,
-    # ISO code and coordinates, all of which always draw.
+    # Drop omitted fields before building pairs.
     keep = Filter(function(f) {
       !(f %in% FW_RECORD_OMIT_BLANK) || !fw_record_blank(row[[f]])
     }, g$fields)
@@ -383,10 +298,7 @@ fw_records_pair = function(build, labels) {
 
 #' The summary report's figures, live, in the PDF's order
 #'
-#' The selection, the counts, the outcomes, the top species, the map and the
-#' countries, the kind of water and the methods (each twice: number, then
-#' success rate), how long they took, and who to ask. The same builders the
-#' page and the PDF use, so the three cannot disagree about a figure.
+#' Same builders as the page and the PDF.
 fw_records_summary_ui = function(data, sel, filters = NULL) {
   n_no_coords = sum(is.na(sel$latitude) | is.na(sel$longitude))
   method_caption = fw_method_caption_text(data, sel)
@@ -402,8 +314,7 @@ fw_records_summary_ui = function(data, sel, filters = NULL) {
                                          f = filters))
   }
   map = if (nrow(sel) > n_no_coords) {
-    # A click goes to the attempt's card below. See detail = "anchor" in
-    # fw_add_attempt_markers().
+    # A click scrolls to the card (detail = "anchor").
     m = fw_plan_map(data, sel, detail = "anchor")
     m$width = "100%"
     m$height = "100%"
@@ -441,9 +352,7 @@ fw_records_summary_ui = function(data, sel, filters = NULL) {
       fw_records_chart(fw_chart_duration(data, sel)),
       p(class = "fw-caption",
         fw_fill(fw_t("plan", "r_duration_missing"), n = fw_fmt_num(n_duration)))),
-    # EVERY CONTACT, not the PDF's six busiest: this file is scrolled, not
-    # printed. fw_plan_contacts() has already removed the address of anyone
-    # who asked not to be listed.
+    # Every contact, unlike the PDF. Already redacted.
     if (nrow(people)) {
       fw_records_block(fw_t("plan", "r_contacts"), fw_t("plan", "report_contacts_note"),
                        div(class = "fw-table-scroll",
@@ -457,9 +366,8 @@ fw_records_summary_ui = function(data, sel, filters = NULL) {
 
 #' The find box's script
 #'
-#' Narrows the contents list and the cards to those whose id, site, place,
-#' species or methods contain what was typed. Plain DOM, no library, and it
-#' works from file:// because it asks nothing of the network.
+#' Filters the contents and cards by id, site, place, species or methods.
+#' Plain DOM; works offline.
 fw_records_script = function(total_label) {
   tags$script(HTML(sprintf("
     (function () {
@@ -491,8 +399,7 @@ fw_records_script = function(total_label) {
 fw_write_records_html = function(path, data, sel, export, filters, meta = NULL) {
   generated = format(Sys.time(), "%d %B %Y", tz = "UTC")
   n = nrow(export)
-  # As plain lists: a one-row data frame per card is the slow way to read a
-  # field, and there are fifty-five fields a card.
+  # Plain lists: faster than one-row data frames.
   rows = lapply(seq_len(n), function(i) as.list(export[i, , drop = FALSE]))
   copy = fw_record_copy(data$species)
 
@@ -506,9 +413,7 @@ fw_write_records_html = function(path, data, sel, export, filters, meta = NULL) 
     class = "fw-rec",
     tags$header(
       class = "fw-rec-head",
-      # THE EXPLICIT LOCKUP, full name under the wordmark (client, 14 Oct
-      # 2026), because this file gets passed on. The footer row keeps the
-      # plain mark.
+      # The explicit lockup (full name), since this file gets passed on.
       if (!is.null(fw_html_data_uri(FW_LOGO$explicit_file))) {
         tags$img(class = "fw-rec-head__mark", src = fw_html_data_uri(FW_LOGO$explicit_file),
                  alt = fw_t("app", "full_title"))
@@ -519,7 +424,7 @@ fw_write_records_html = function(path, data, sel, export, filters, meta = NULL) 
       p(class = "fw-rec-head__lead", fw_t("export", "records_lead"))
     ),
 
-    # What was asked, folded: a record of the question, not the thing read.
+    # The filters, folded.
     tags$details(
       class = "fw-rec-panel",
       tags$summary(fw_t("plan", "report_selection")),
@@ -532,7 +437,7 @@ fw_write_records_html = function(path, data, sel, export, filters, meta = NULL) 
       )
     ),
 
-    # THE FIGURES, before a single card.
+    # The figures, before the cards.
     fw_records_summary_ui(data, sel, filters),
 
     tags$nav(
@@ -562,10 +467,7 @@ fw_write_records_html = function(path, data, sel, export, filters, meta = NULL) 
     tags$main(HTML(paste(vapply(rows, fw_record_card, character(1), copy = copy),
                          collapse = "\n"))),
 
-    # HOW IT WAS BUILT AND WHAT TO WATCH FOR, last, and never optional. This
-    # file is the one most likely to be forwarded on its own, and since the
-    # methods-and-caveats .txt stopped travelling beside it (client, 24 Sept
-    # 2026) it is the only thing carrying the section.
+    # Methods and caveats, always last.
     tags$section(
       class = "fw-rec-caveats",
       h2(fw_t("export", "closing_heading")),
@@ -579,9 +481,7 @@ fw_write_records_html = function(path, data, sel, export, filters, meta = NULL) 
 
     tags$footer(
       class = "fw-rec-foot",
-      # FWISE, WEIRD FISHES, THEN THE COLLABORATORS in the app footer's order
-      # (client, 5 Oct 2026, when UNIL and the Norwegian Veterinary Institute
-      # joined). Eight logos, so the four-column grid gives two even rows.
+      # Footer order: FWISE, Weird Fishes, then the collaborators (2 rows of 4).
       div(class = "fw-rec-foot__logos",
           logo(FW_LOGO$mark_file, fw_t("footer", "logo_alt_fwise")),
           logo(FW_LOGO$wfa_file, fw_t("footer", "logo_alt_wfa")),
@@ -602,9 +502,7 @@ fw_write_records_html = function(path, data, sel, export, filters, meta = NULL) 
                                  fw_t("app", "title"))), "</title>\n",
     as.character(fw_html_dependency_tags(rendered$dependencies)),
     if (nzchar(rendered$head %||% "")) as.character(rendered$head) else "",
-    # AFTER the widgets' own stylesheets, so the app's rules win a tie as they
-    # do in the app: leaflet.css sets display:block on every marker, and read
-    # last it undid .fw-cluster's centring of the group count.
+    # After the widget stylesheets, so ours win ties (e.g. .fw-cluster).
     "<style>", fw_records_css(), "</style>\n",
     "\n</head>\n<body>\n",
     rendered$html, "\n</body>\n</html>\n"

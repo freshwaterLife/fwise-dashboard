@@ -1,41 +1,22 @@
 # report_pdf.R
-# The report builder's PDF: the report the reader built, on FWISE letterhead,
-# with every logo the site carries, static charts and a static map, laid out
-# for A4. Rendered on the server by Quarto, whose Typst engine writes the PDF.
+# The Summary report PDF (A4, FWISE letterhead), rendered on the server by
+# Quarto's Typst engine (no LaTeX; Quarto 1.4+ is on Connect Cloud).
 #
-# WHY QUARTO AND TYPST. The client asked for a real PDF, not a web page to
-# print. Typst ships inside Quarto (1.4 and later), so no LaTeX is installed
-# and nothing is added to the deployment beyond the Quarto CLI that Posit
-# Connect Cloud already provides. The PDF this replaced was the old HTML
-# report's print stylesheet driven through the reader's own browser.
+# R decides everything:
+#   1. Figures are drawn to PNG by R/charts_static.R.
+#   2. The body is calls to resources/report/typst-template.typ, with all text
+#      escaped by fw_typ_str().
+#   3. fwise-tokens.typ is written from brand.R, config.R and the copy deck.
+#   4. Quarto renders report.qmd: one raw Typst block, no R chunks (which would
+#      need a second R process).
 #
-# HOW IT IS BUILT. Everything is decided in R, in this process:
-#
-#   1. The figures are drawn to PNG by the ggplot twins in R/charts_static.R,
-#      which count through the same functions as the page's plotly charts.
-#   2. The body is written as calls to the components in
-#      resources/report/typst-template.typ, with every piece of text passed as
-#      an escaped string (fw_typ_str()), never spliced into markup.
-#   3. fwise-tokens.typ is written from R/brand.R, R/config.R and the copy
-#      deck, so the template carries no values of its own.
-#   4. Quarto renders report.qmd, which holds that body as one raw Typst block.
-#
-# THE .qmd HAS NO R CHUNKS, and that is deliberate. A chunk would make Quarto
-# start a second R process in a temp directory, which would have to find this
-# app's renv library and reload the data to draw what this process already has
-# in memory. Here Quarto's only job is markdown to Typst to PDF.
-#
-# SAME ORDER AS THE SCREEN. A reader who looked at the report builder and then
-# downloaded this has to find the same argument in the same sequence: what was
-# asked, the summary, the species, where, what happened, how long, in what
-# water, who, and the caveats last.
+# Same order as the Plan page.
 
 # ---- Quarto ------------------------------------------------------------------
 
 #' Where the Quarto CLI is, or "" if it is not installed
 #'
-#' QUARTO_PATH first, which is Quarto's own convention for pointing at a copy
-#' that is not on the PATH, then the PATH.
+#' QUARTO_PATH first, then the PATH.
 fw_quarto_path = function() {
   p = Sys.getenv("QUARTO_PATH", unset = "")
   if (nzchar(p) && file.exists(p)) return(p)
@@ -58,18 +39,14 @@ fw_quarto_version = function() {
 
 #' A value as a Typst string literal
 #'
-#' THE ONE ESCAPING RULE. Inside a Typst string only the backslash and the
-#' double quote are special, and newlines are written as \n. Everything the
-#' report prints goes through here, so no species name, site name or free-text
-#' note can become markup. NA prints as the empty-value placeholder, the same as
-#' the page's tables.
+#' The one escaping rule: backslash, double quote and newline. All report
+#' text goes through here. NA prints as the empty-value placeholder.
 fw_typ_str = function(x, na = fw_t("common", "empty_value")) {
   x = as.character(x)
   x[is.na(x) | !nzchar(trimws(x))] = na
   x = gsub("\\", "\\\\", x, fixed = TRUE)
   x = gsub("\"", "\\\"", x, fixed = TRUE)
-  # "\\\\n" so the Typst source gets a backslash-n: a bare "\\n" in a gsub()
-  # replacement is just "n", which printed paragraph breaks as "nn".
+  # "\\\\n", so Typst gets a backslash-n (a bare "\\n" replacement is "n").
   x = gsub("\r?\n", "\\\\n", x)
   paste0("\"", x, "\"")
 }
@@ -98,15 +75,13 @@ fw_typ_url = function(x) {
 
 #' The tokens the template reads: colours, sizes, logos and fixed wording
 #'
-#' Written fresh for every render from the same values the app uses. The
-#' template imports this and holds no values of its own.
+#' Written for every render from the app's own values.
 #'
 #' @param logos named file paths, relative to the render directory
 fw_pdf_tokens = function(logos) {
   col = function(name, hex) sprintf('#let %s = rgb("%s")', name, hex)
   pt = function(name, v) sprintf("#let %s = %spt", name, format(v))
-  # A missing explicit lockup falls back to the plain mark, as a missing logo
-  # is skipped rather than failing the download.
+  # Fall back to the plain mark if the explicit lockup is missing.
   masthead = if ("explicit" %in% names(logos)) logos[["explicit"]] else logos[["mark"]]
   c(
     "// Written by fw_pdf_tokens() in R/report_pdf.R. Do not edit.",
@@ -118,41 +93,24 @@ fw_pdf_tokens = function(logos) {
     col("fw-teal-wash", FW_COLOURS$teal_wash),
     col("fw-border", FW_COLOURS$border),
     col("fw-sunken", FW_COLOURS$sunken),
-    # THE PAGE IS THE SURFACE TONE, not the page tone. On screen the page is a
-    # step darker than the cards on it; on paper a full-bleed tint that dark
-    # prints as grey. The surface tone is the lightest value the palette has,
-    # and it is still not white.
+    # The page is the surface tone: the page tone prints grey.
     col("fw-page-fill", FW_COLOURS$surface),
     pt("fw-floor", FW_PRINT$floor),
     pt("fw-title", FW_PRINT$title),
     pt("fw-h2", FW_PRINT$h2),
     pt("fw-h3", FW_PRINT$h3),
     pt("fw-stat", FW_PRINT$stat),
-    # The credit line under a photograph is the type scale's own exemption from
-    # the floor (FW_TYPE$size_credit), and so is the page count beside the logos.
+    # Photo credits and the page count use the size_credit exemption.
     pt("fw-credit", fw_rem_pt(FW_TYPE$size_credit)),
-    # THE ONE SIZE BELOW THE PRINT FLOOR, and the paper twin of $fw-size-fine
-    # on the page. It sets the "What this report covers" table and nothing
-    # else (client, 23 Sept 2026). Everything a reader READS stays at
-    # fw-floor; this is a table they scan to check what they asked for.
+    # Below the print floor, for the "What this report covers" table only.
     pt("fw-small", fw_rem_pt(FW_TYPE$size_fine)),
     sprintf("#let fw-leading = %sem", format(FW_PRINT$leading)),
     sprintf("#let fw-margin = %s", fw_typ_mm(FW_PDF$page_margin_mm)),
-    # BIGGER LOGOS (client, 23 Sept 2026), which needed the footer rebuilt:
-    # at 8mm the logos (six then) and the page count shared one line and there was no
-    # room to grow. The logos now have the line to themselves with the page
-    # count under them - see fw-footer in typst-template.typ - so 11mm fits.
-    # 10mm since 1 Oct 2026, when they went to two rows of three to give each
-    # one room (client: "quite squished"); two rows of 11mm took too much page.
-    # Two rows of four since 5 Oct 2026 (UNIL and the Norwegian Veterinary
-    # Institute); a logo wider than its column shrinks to fit it.
+    # Footer logo height: two rows of four, the page count beneath. A wide
+    # logo shrinks to its column.
     "#let fw-logo-h = 10mm",
-    # The FWISE mark on the letterhead, which the client asked to be bigger
-    # still: it is the masthead of the document, not one logo among nine.
-    # THE EXPLICIT LOCKUP since 14 Oct 2026 (client: a shared report should
-    # say what FWISE stands for), and 45mm rather than 30mm so the full name
-    # under the wordmark prints at about 8pt. The footer keeps the plain mark,
-    # where the name would be too small to read.
+    # Letterhead: the explicit lockup (full name under the mark) at 45mm, so
+    # the name prints at about 8pt.
     "#let fw-mark-h = 45mm",
     paste0("#let fw-logo-mark = ", fw_typ_str(logos[["mark"]])),
     paste0("#let fw-logo-explicit = ", fw_typ_str(masthead)),
@@ -169,9 +127,7 @@ fw_pdf_tokens = function(logos) {
 
 #' Attempts by country
 #'
-#' A reader with the report on paper asking "where has this been tried" wants
-#' a list as well as a picture. Sorted by count and capped, with the tail
-#' gathered rather than dropped, so the total still adds up.
+#' Sorted and capped, with the rest gathered so the total adds up.
 fw_report_country_table = function(sel, limit = FW_REPORT_COUNTRY_ROWS) {
   if (!nrow(sel)) return(NULL)
   counts = sort(table(sel$country), decreasing = TRUE)
@@ -196,11 +152,8 @@ fw_report_country_table = function(sel, limit = FW_REPORT_COUNTRY_ROWS) {
 #'
 #' @param num names of the columns set right-aligned in the mono face
 #' @param widths Typst column widths, or NULL to let the template choose
-#' @param size a Typst length token to set the table's text at, or NULL for the
-#'   document's own size. The only caller that passes one is the report's
-#'   "What this report covers" table (client, 23 Sept 2026) - see fw-small in
-#'   fw_pdf_tokens(). It is the one table a reader scans rather than reads, and
-#'   the only text in the document set below the print floor.
+#' @param size a Typst length for the table text, or NULL. Only the "What
+#'   this report covers" table passes one (fw-small).
 fw_typ_table = function(df, num = character(0), widths = NULL, size = NULL) {
   if (is.null(df) || !nrow(df)) return(NULL)
   rows = vapply(seq_len(nrow(df)), function(i) {
@@ -234,8 +187,7 @@ fw_typ_subhead = function(txt) {
 
 #' A figure drawn to PNG in the render directory, as an fw-figure() call
 #'
-#' @return the Typst call, or NULL when the chart had nothing to draw - and the
-#'   caller drops its block, heading and all, rather than stand it over nothing
+#' @return the Typst call, or NULL (the caller drops the block)
 fw_typ_figure = function(plot, dir, name, height_mm) {
   if (is.null(plot)) return(NULL)
   fw_gg_png(plot, file.path(dir, name), height_mm = height_mm)
@@ -245,9 +197,7 @@ fw_typ_figure = function(plot, dir, name, height_mm) {
 #' The summary strip
 fw_typ_stats = function(s) {
   item = function(value, label) fw_typ_array(fw_typ_str(c(value, label)))
-  # THE SAME INFLECTION THE PAGE APPLIES (client, 23 Sept 2026: one country was
-  # labelled "countries"). This strip and fw_plan_summary_ui() print the same
-  # five figures, so they take their labels the same way.
+  # Labels inflect as on the page (fw_plan_summary_ui()).
   lab = function(n, key) fw_plural(n, fw_t("plan", paste0(key, "_one")),
                                     fw_t("plan", key))
   paste0("#fw-stats(", fw_typ_array(c(
@@ -278,14 +228,10 @@ fw_typ_outcome_bars = function(sel) {
 
 #' Fetch the species photographs a report needs, in parallel
 #'
-#' The cache in species.csv holds URLs, not files: the pictures are
-#' Wikimedia's. The web page lets the browser fetch them; a PDF has to carry
-#' them, so they are fetched here - all at once, each under
-#' FW_PDF$image_timeout_s, with Wikimedia's required User-Agent. One that fails
-#' or times out prints as the page's placeholder. It never fails the report.
+#' In parallel, each under FW_PDF$image_timeout_s, with Wikimedia's required
+#' User-Agent. A miss prints the placeholder; it never fails the report.
 #'
-#' @param prefix names this batch's files, so the two roles' photographs do
-#'   not overwrite each other in the one render directory
+#' @param prefix file prefix, so the two roles don't overwrite each other
 #' @return a named character vector, species_id -> local file, NA where no
 #'   picture arrived
 fw_pdf_fetch_images = function(urls, dir, prefix = "sp") {
@@ -312,8 +258,7 @@ fw_pdf_fetch_images = function(urls, dir, prefix = "sp") {
 
 #' An image file's format from its first bytes, or NA if Typst cannot read it
 #'
-#' From the bytes and not the URL, because a Wikimedia thumbnail's name keeps
-#' the original's extension even where the thumbnail is a different format.
+#' From the bytes: thumbnail names keep the original's extension.
 fw_image_ext = function(path) {
   if (!file.exists(path) || file.size(path) < 16) return(NA_character_)
   b = readBin(path, "raw", 12)
@@ -326,8 +271,7 @@ fw_image_ext = function(path) {
 
 #' One role's species tiles, with their photographs
 #'
-#' @return the Typst call, or NULL when the selection has none of that role -
-#'   and the caller drops the block with it, as the page does
+#' @return the Typst call, or NULL (the caller drops the block)
 fw_typ_species = function(data, sel, role_name, dir, f = NULL) {
   if (!fw_species_row_shown(role_name, f)) return(NULL)
   top = fw_species_top_n(data, sel, role_name, FW_PLAN_SPECIES_N, f)
@@ -341,7 +285,7 @@ fw_typ_species = function(data, sel, role_name, dir, f = NULL) {
     row = top[i, ]
     img = imgs[[i]]
     file = files[row$species_id]
-    # Successful against Failed, as on the page - see fw_tile_rate().
+    # Successful vs Failed, as fw_tile_rate().
     counts = fw_tile_rate(row)
     segs = vapply(names(counts)[counts > 0], function(o) {
       fw_typ_array(c(sprintf("%.2f", 100 * counts[[o]] / sum(counts)),
@@ -350,12 +294,12 @@ fw_typ_species = function(data, sel, role_name, dir, f = NULL) {
     has_img = length(file) == 1 && !is.na(file)
     fw_typ_dict(
       image = if (has_img) fw_typ_str(file) else "none",
-      # The credit and licence travel only with a photograph that is printed.
+      # Credit and licence only with a printed photo.
       credit = if (has_img) fw_typ_str(img$credit) else "none",
       credit_url = if (has_img) fw_typ_url(img$page_url) else "none",
       licence = if (has_img) fw_typ_str(img$licence) else "none",
       licence_url = if (has_img) fw_typ_url(fw_licence_url(img$licence_url)) else "none",
-      # With its Red List code on the protected side, as on the page.
+      # Red List code on the protected side.
       name = fw_typ_str(row$shown),
       count = fw_typ_str(paste(fw_fmt_num(row$n),
         fw_t("plan", if (row$n == 1) "r_tile_attempt" else "r_tile_attempts"))),
@@ -365,18 +309,12 @@ fw_typ_species = function(data, sel, role_name, dir, f = NULL) {
   paste0("#fw-species-tiles(", fw_typ_array(tiles), ")")
 }
 
-#' The contacts, every row, as the page's contacts table
+#' The busiest contacts as a table
 #'
-#' fw_plan_contacts() reads fw_contacts_summary(), which has already removed the
-#' address of anyone who asked not to be listed. The address is printed plainly
-#' here - there is no click to assemble it at - which is the same thing the
-#' spreadsheet in the same download does.
+#' Already redacted (fw_contacts_summary()). Addresses print plainly, as in the
+#' spreadsheet.
 fw_pdf_contacts_table = function(people, limit = FW_PDF$contacts_n) {
-  # THE SIX BUSIEST, not everybody (client, 23 Sept 2026). people arrives
-  # ordered by attempt_count descending from fw_plan_contacts(), so this is
-  # the top of that list. It also makes the document a predictable length -
-  # the contacts table was what turned a six-page report into a twenty-page
-  # one, and fw_pdf_size_estimate() no longer has to guess at it.
+  # The top FW_PDF$contacts_n (client), which also keeps the length predictable.
   people = utils::head(people, limit)
   data.frame(
     a = ifelse(is.na(people$contact_name), "", people$contact_name),
@@ -384,8 +322,7 @@ fw_pdf_contacts_table = function(people, limit = FW_PDF$contacts_n) {
                people$organisation),
     c = people$country_label,
     d = vapply(people$attempt_count, fw_fmt_num, ""),
-    # A break opportunity after every @ and dot. An address has no spaces, so
-    # without these a long one runs straight off the right-hand edge.
+    # Break opportunities after @ and dots, so long addresses wrap.
     e = gsub("([@.])", "\\1\u200b", people$contact_email),
     stringsAsFactors = FALSE
   ) |>
@@ -396,9 +333,7 @@ fw_pdf_contacts_table = function(people, limit = FW_PDF$contacts_n) {
 
 #' The report body, as Typst, with its figures written into `dir`
 #'
-#' Separate from the render so the tests can read what the document says
-#' without needing Quarto: dev/plan_test.R and dev/value_test.R assert against
-#' this text and these files.
+#' Separate from the render, so tests can check it without Quarto.
 #'
 #' @return the Typst body as one string
 fw_pdf_body = function(dir, data, sel, filters, meta = NULL) {
@@ -418,21 +353,15 @@ fw_pdf_body = function(dir, data, sel, filters, meta = NULL) {
   map_fig = if (!is.null(map)) fw_typ_figure(map$plot, dir, "map.png", map$height_mm)
 
   n_rows = function(order_lv) length(order_lv)
-  # BOTH VERSIONS OF THE TWO TOGGLED CHARTS, ONE ABOVE THE OTHER (client, 29
-  # Sept 2026): the number of attempts, then the success rate. The document
-  # used to print whichever the reader's toggle was on, so a reader who never
-  # touched it went away with half the comparison. Each is labelled with the
-  # toggle's own words, so the pair reads the same as the screen.
-  #
-  # NULL for a chart with nothing to draw; its block is dropped, heading and all.
+  # Toggled charts print both versions (count, then rate), labelled with the
+  # toggle's words. NULL if there's nothing to draw.
   both_modes = function(stem, rows_for, gg_for, kind, labels) {
     figs = lapply(c("count", "share"), function(mode) {
       rows = rows_for(mode)
       if (is.null(rows)) return(NULL)
       fig = fw_typ_figure(gg_for(mode), dir, paste0(stem, "-", mode, ".png"),
                            fw_gg_height(kind, n_rows(rows)))
-      # ONE UNBREAKABLE BLOCK, so the label never ends a page with its chart
-      # starting the next.
+      # Unbreakable, so a label never ends a page without its chart.
       paste0("#block(breakable: false)[\n", fw_typ_subhead(labels[[mode]]), "\n",
              fig, "\n]")
     })
@@ -449,7 +378,7 @@ fw_pdf_body = function(dir, data, sel, filters, meta = NULL) {
     if (!is.null(dd)) fw_typ_figure(fw_gg_duration(data, sel), dir, "duration.png",
                                     fw_gg_height("duration", n_rows(dd$order_lv)))
   })
-  # Not printed when the reader filtered to one regime - fw_show_waterbody().
+  # Hidden when one regime is filtered (fw_show_waterbody()).
   waterbody_fig = if (fw_show_waterbody(filters)) both_modes(
     "waterbody",
     function(mode) fw_category_data(fw_waterbody_rows(sel), mode = mode)$order_lv,
@@ -457,38 +386,28 @@ fw_pdf_body = function(dir, data, sel, filters, meta = NULL) {
     list(count = fw_t("plan", "r_waterbody_count"), share = fw_t("plan", "r_waterbody_share")))
 
   people = fw_plan_contacts(data, sel)
-  # Methods then caveats, the same closing section the workbook's last tab and
-  # the records HTML carry. See fw_closing_blocks() in R/export.R.
+  # The closing section (fw_closing_blocks()).
   caveats = fw_closing_blocks(data, meta)
 
   parts = list(
     paste0("#fw-letterhead(title: ", fw_typ_str(fw_t("plan", "report_title")),
            ", subtitle: ", fw_typ_str(fw_fill(fw_t("plan", "report_subtitle"), date = generated)), ")"),
 
-    # What was asked, before anything that came back.
+    # The filters first.
     fw_typ_block(fw_t("plan", "report_selection"), NULL,
                  c(
-                   # APPLIED FILTERS ONLY, AND SET SMALL (client, 23 Sept
-                   # 2026). The workbook's copy of this sheet still lists
-                   # every filter with "All" beside the untouched ones,
-                   # because there it is a record of the settings panel; here
-                   # seventeen rows of mostly "All" pushed the reader's actual
-                   # selection off the top of page one.
+                   # Applied filters only, set small (client).
                    fw_typ_table(fw_filters_sheet(filters, nrow(sel),
                                                  nrow(data$attempt), meta,
                                                  applied_only = TRUE),
                                 widths = c("auto", "1fr"), size = "fw-small"),
-                   # What the report is for, and what it deliberately is not.
                    paste0("#v(3mm)\n#text(fill: fw-ink-muted)[#",
                           fw_typ_str(fw_t("plan", "report_selection_note")), "]")
                  )),
 
     fw_typ_block(fw_t("plan", "r_heading"), NULL, fw_typ_stats(s)),
 
-    # WHAT HAPPENED, THEN WHO IT HAPPENED TO (client, 23 Sept 2026). The
-    # outcome bars used to sit two blocks below the species plates, so the
-    # first thing a reader met after the counts was seven photographs. They
-    # are the summary the rest of the document qualifies, so they lead.
+    # Outcomes lead, before the species (client).
     fw_typ_block(fw_t("plan", "r_outcomes"), fw_t("plan", "r_outcome_note"),
                  fw_typ_outcome_bars(sel)),
 
@@ -526,31 +445,22 @@ fw_pdf_body = function(dir, data, sel, filters, meta = NULL) {
       ))
     },
 
-    # The six busiest contacts (client, 23 Sept 2026) - see
-    # fw_pdf_contacts_table(). No pager: a document is read, not clicked through.
+    # The busiest contacts (fw_pdf_contacts_table()).
     if (nrow(people)) {
       fw_typ_block(fw_t("plan", "r_contacts"), fw_t("plan", "report_contacts_note"),
                    fw_typ_table(fw_pdf_contacts_table(people),
                                 num = fw_t("plan", "col_contact_n"),
-                                # The address the widest (client, 21 Sept
-                                # 2026): it is the column a reader acts on,
-                                # and it has no spaces to break at.
+                                # Address column widest (client).
                                 widths = c("0.9fr", "1.2fr", "0.8fr", "auto", "2.2fr")))
     },
 
-    # Last, and never optional.
+    # Always last.
     paste0("#fw-caveats(", fw_typ_str(fw_t("export", "closing_heading")), ", ",
-           # na = "" ON THE HEADING, not the "-" fw_typ_str() gives an empty
-           # data value: a block with no heading means print no heading, and
-           # the Typst partial tests for exactly "". A dash there would set a
-           # bold hyphen above the text. See fw-caveats in typst-template.typ.
-           # The third item marks a caveat under the "Caveats" part, set
-           # smaller - see fw_closing_blocks().
+           # na = "" for the heading (the template tests for ""). The third
+           # item marks a caveat block, set smaller.
            fw_typ_array(vapply(caveats, function(b) fw_typ_array(c(
              fw_typ_str(fw_caveat_title(b$heading), na = ""),
-             # The paragraphs as an array; the template sets a paragraph
-             # break between them. No paragraphs is "()": fw_typ_str() of
-             # nothing would be one empty string, and a blank line with it.
+             # Paragraphs as an array; none is "()", not one empty string.
              if (length(b$body)) fw_typ_array(fw_typ_str(b$body)) else "()",
              if (isTRUE(b$sub)) "true" else "false")), "")), ")"),
 
@@ -566,9 +476,8 @@ fw_pdf_body = function(dir, data, sel, filters, meta = NULL) {
 #' @param path where to write. The download handler's temp file.
 #' @param keep a directory to copy the render directory into, for debugging
 #'   and the tests. NULL removes it.
-#' @param progress called as progress(fraction, detail) as the report is built,
-#'   fraction running 0 to 1 across this report alone. fw_write_bundle() maps
-#'   it onto its own bar; the default does nothing, so tests need no Shiny.
+#' @param progress progress(fraction, detail), 0 to 1 over this report.
+#'   fw_write_bundle() maps it onto its bar.
 fw_write_pdf_report = function(path, data, sel, export = NULL, filters, meta = NULL,
                                 keep = NULL,
                                 progress = function(fraction, detail) NULL) {
@@ -589,9 +498,7 @@ fw_write_pdf_report = function(path, data, sel, export = NULL, filters, meta = N
             file.path(dir, "fonts"))
   logo_src = c(mark = FW_LOGO$mark_file, explicit = FW_LOGO$explicit_file,
                 wfa = FW_LOGO$wfa_file, FW_LOGO$collab_files)
-  # A logo that is missing is skipped, as the old report did, rather than
-  # failing the download - but only if it is missing; dev/plan_test.R checks
-  # every one is there.
+  # A missing logo is skipped; dev/plan_test.R checks they all exist.
   logo_src = logo_src[file.exists(logo_src)]
   logos = stats::setNames(paste0("logo-", names(logo_src), ".png"), names(logo_src))
   file.copy(logo_src, file.path(dir, logos))
@@ -607,9 +514,7 @@ fw_write_pdf_report = function(path, data, sel, export = NULL, filters, meta = N
     "    papersize: a4",
     "    font-paths: [fonts]",
     "    template-partials: [typst-template.typ, typst-show.typ, page.typ]",
-    # The intermediate .typ is kept beside the PDF: it is deleted with the
-    # render directory anyway, and the tests and fw_write_pdf_report(keep =)
-    # read it.
+    # Keep the .typ for the tests and keep =.
     "    keep-typ: true",
     "engine: markdown",
     "---",
@@ -621,7 +526,7 @@ fw_write_pdf_report = function(path, data, sel, export = NULL, filters, meta = N
   )
   writeLines(enc2utf8(qmd), file.path(dir, "report.qmd"), useBytes = TRUE)
 
-  # The charts and the map take about a third of the time; Quarto the rest.
+  # Charts and map are about a third of the time; Quarto the rest.
   progress(0.35, fw_t("plan", "progress_pdf"))
   log = suppressWarnings(system2(
     quarto, c("render", shQuote(file.path(dir, "report.qmd")), "--quiet"),
@@ -635,16 +540,14 @@ fw_write_pdf_report = function(path, data, sel, export = NULL, filters, meta = N
     file.copy(list.files(dir, full.names = TRUE), keep, recursive = TRUE, overwrite = TRUE)
   }
 
-  # A PDF that silently arrives empty is worse than an error: checked, the same
-  # rule as the zip in fw_write_bundle().
+  # Error rather than an empty PDF.
   if (!identical(as.integer(status), 0L) || !file.exists(out) || file.size(out) < 1000) {
     stop("Could not write the PDF report (quarto exit status ", status, "): ",
          paste(utils::tail(log, 8), collapse = "\n"), call. = FALSE)
   }
   file.copy(out, path, overwrite = TRUE)
 
-  # A large one is logged beside its estimate, so the calibration in FW_PDF can
-  # be checked against what readers actually download.
+  # Log large PDFs with their estimate, to check FW_PDF's calibration.
   mb = file.size(path) / 1e6
   pages = fw_pdf_page_count(path)
   if (mb >= FW_PDF$warn_mb || isTRUE(pages >= FW_PDF$warn_pages)) {
@@ -657,14 +560,12 @@ fw_write_pdf_report = function(path, data, sel, export = NULL, filters, meta = N
 
 #' How big a PDF of this selection will be, before it is made
 #'
-#' Read by the download picker, which warns at FW_PDF$warn_pages or
-#' FW_PDF$warn_mb. The charts cost about the same whatever the selection; what
-#' grows is the contacts table (a row per person), the map (a dot per attempt)
-#' and the species photographs. Coefficients in FW_PDF, fitted to real renders.
+#' For the picker's warning. Grows with contacts, map dots and photos;
+#' coefficients in FW_PDF.
 #'
 #' @return list(mb, pages)
 fw_pdf_size_estimate = function(data, sel, filters = NULL) {
-  # Capped the same way the table is - see fw_pdf_contacts_table().
+  # Capped as in fw_pdf_contacts_table().
   n_contacts = min(nrow(fw_plan_contacts(data, sel)), FW_PDF$contacts_n)
   n_images = sum(vapply(c("invasive", "beneficiary"), function(r) {
     top = fw_species_top_n(data, sel, r, FW_PLAN_SPECIES_N, filters)
@@ -680,9 +581,8 @@ fw_pdf_size_estimate = function(data, sel, filters = NULL) {
 
 #' How many pages a PDF has, read from its page tree
 #'
-#' The page tree's /Count is the one page figure Typst writes uncompressed, so
-#' this needs no PDF library. The largest /Count is the root's - an outline
-#' carries a /Count of its own. For the tests and the size calibration.
+#' The largest /Count in the page tree (uncompressed in Typst output). For the
+#' tests and calibration.
 fw_pdf_page_count = function(path) {
   bytes = readBin(path, "raw", file.size(path))
   hits = grepRaw("/Count [0-9]+", bytes, value = TRUE, all = TRUE)

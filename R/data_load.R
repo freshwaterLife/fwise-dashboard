@@ -1,22 +1,11 @@
 # data_load.R
-# The data contract. Every module reads through the functions in this file and
-# no module reads a CSV directly. When the data layout changes, this is the only
-# file that should need to change.
+# The data contract. Every module reads data through this file; none reads a
+# CSV directly.
 #
-# THE DATA IS ONE WIDE TABLE AND TWO LOOKUPS. attempts.csv holds one row per
-# eradication attempt with every column the client's export has, plus the few
-# the app owns (id, status, dates). Species and contacts are referenced by id
-# into species.csv and contacts.csv, so a name is corrected in one place and a
-# typo cannot mint a phantom species. Multi-value cells are FW_MULTI_SEP lists.
-#
-# THE STAR SCHEMA STILL EXISTS - IN MEMORY. fw_unpack() below splits the wide
-# table into the six tables every module was written against (attempt, species,
-# attempt_species, method, attempt_method, contact), so nothing downstream
-# changed when the files did. At 2,000 rows the split takes well under a tenth
-# of a second, measured, and it runs once at startup rather than per session.
-#
-# The tables are loaded once at app startup, not once per session, because
-# they are read-only and identical for every visitor.
+# One wide table (attempts.csv, one row per attempt) and two lookups referenced
+# by id (species.csv, contacts.csv). Multi-value cells are FW_MULTI_SEP lists.
+# fw_unpack() splits them into six in-memory tables (attempt, species,
+# attempt_species, method, attempt_method, contact). Loaded once at startup.
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -28,17 +17,12 @@ suppressPackageStartupMessages({
 
 # ---- The columns -------------------------------------------------------------
 
-# THE COLUMN CONTRACT for attempts.csv, in file order. A file with a column
-# missing or an extra one stops the load (fw_validate_files), which is the guard
-# that an earlier hand-written column list did not have: a source column that
-# never got named simply vanished, silently, and took its 325 values with it.
+# Column contract for attempts.csv, in file order. A missing or extra column
+# stops the load (fw_validate_files()). The inbox sheet's columns derive from
+# this too (FW_INBOX_COLUMNS in submit.R).
 #
-# The submissions inbox is built from the SAME vector (FW_INBOX_COLUMNS in
-# submit.R), so a column added here reaches the sheet without a second list.
-#
-# Values are stored as the source's text, verbatim. "0.010-0.020" stays a
-# range, "≥0.5" keeps its sign, a year is the four characters the client typed.
-# Casting is done here, in memory, for the columns in FW_ATTEMPT_NUMERIC only.
+# Values are stored as the source text ("0.010-0.020", "≥0.5"); only
+# FW_ATTEMPT_NUMERIC columns are cast, in memory.
 FW_ATTEMPT_COLUMNS = c(
   # App-owned
   "attempt_id", "status", "submitted_at", "last_updated", "consent_data_use",
@@ -75,7 +59,7 @@ FW_ATTEMPT_COLUMNS = c(
 
 FW_SPECIES_COLUMNS = c(
   "species_id", "common_name", "scientific_name", "taxa", "family",
-  # The IUCN Red List assessment, from dev/import_iucn.R (5 Oct 2026)
+  # IUCN Red List assessment (dev/qa.R fills these for new species)
   "iucn_status", "iucn_category", "iucn_url", "iucn_year", "iucn_note", "iucn_matched_name",
   "image_url", "image_credit", "image_licence", "image_licence_url", "image_page_url"
 )
@@ -84,43 +68,31 @@ FW_CONTACT_COLUMNS = c(
   "contact_id", "contact_name", "contact_email", "organisation", "contact_public"
 )
 
-# The attempt columns that are numbers in memory. Every one of them is numeric
-# on every row of the source. The two that LOOK numeric but are not -
-# toxin_conc_target_mg_l (120 ranges and inequalities) and labour_person_days
-# (189 sentences) - stay as text, because casting them threw those values away.
+# Columns cast to numbers in memory. toxin_conc_target_mg_l and
+# labour_person_days look numeric but hold ranges and sentences, so stay text.
 FW_ATTEMPT_NUMERIC = c(
   "latitude", "longitude", "area_treated", "depth_m", "volume_m3", "max_flow_m3s",
   "water_temp_c", "invasion_year", "start_year", "end_year", "duration_days",
   "cost_estimate"
 )
 
-# The wide-table cells that fw_unpack() turns into bridge tables. They are
-# dropped from the in-memory attempt table so they cannot collide with the
-# columns fw_export_frame() builds under the same names. method_notes stays: nine
-# attempts have no method and a note saying why, which has no bridge row to
-# live in, and the raw cell is the only place it survives in memory.
+# Packed cells that become bridge tables, dropped from the in-memory attempt
+# table so they don't clash with fw_export_frame()'s columns. method_notes stays:
+# attempts with no method can still have a note.
 FW_ATTEMPT_PACKED = c("invasive_species", "beneficiary_species", "methods")
 
 # ---- Where the data comes from -----------------------------------------------
 
-# ONE RESOLVER. Every read in the application goes through fw_data_path(), so
-# there is exactly one place that knows whether the data is on disk, on the far
-# end of an authenticated API call, or at a plain URL.
+# Every read goes through fw_data_path(), the one place that knows where the
+# data lives.
 
-#' Which of the three ways the data is reached
+#' How the data is reached
 #'
-#' THE TOKEN IS THE SWITCH, and it is the only thing a deployment sets. The
-#' repository and branch are constants in config.R because neither is a secret
-#' and neither varies.
+#'   local  ../fwise-data/ or a FWISE_DATA_SOURCE path. No network.
+#'   api    the private repo over the GitHub API (FWISE_DATA_TOKEN). Production.
+#'   url    an https:// FWISE_DATA_SOURCE, no credential.
 #'
-#'   local  ../fwise-data/, or whatever path FWISE_DATA_SOURCE names. No network
-#'          calls whatsoever, which is what local development runs on.
-#'   api    the private repository over the GitHub API, using FWISE_DATA_TOKEN.
-#'          This is production.
-#'   url    an https:// base read with no credential, for a public mirror.
-#'
-#' FWISE_DATA_SOURCE wins when it is set, so a test deploy can be pointed at a
-#' fork or a local path without a code change. It is not needed in production.
+#' FWISE_DATA_SOURCE wins when set.
 fw_data_mode = function() {
   src = FWISE_DATA_SOURCE
   if (!is.null(src)) return(if (grepl("^https?://", src)) "url" else "local")
@@ -133,20 +105,14 @@ fw_data_mode = function() {
 #' Meaningless in api mode, where the root is the repository itself.
 fw_data_source = function() {
   src = FWISE_DATA_SOURCE %||% FW_DATA_DIR
-  # A trailing slash is the easiest thing in the world to leave on the end of a
-  # pasted URL, and it produces a "//" that some hosts 404 on.
+  # Drop trailing slashes: "//" 404s on some hosts.
   sub("/+$", "", src)
 }
 
 #' Resolve one file below the data root, fetching it if it is remote
 #'
-#' Returns something read_csv() and fromJSON() can open: a path on disk, a URL,
-#' or - in api mode - the path of the temporary file the response was streamed
-#' to. Every reader below therefore just opens a path and none of them contains
-#' a second copy of this decision.
-#'
-#' NULL means the file is not there. Some callers treat that as fatal and others
-#' as simply absent, which is why it is a return value rather than an error.
+#' Returns a path, URL or (api mode) temp file that read_csv() can open, or
+#' NULL if the file isn't there (callers decide whether that's fatal).
 #'
 #' @param ... path segments, e.g. "attempts.csv"
 fw_data_path = function(...) {
@@ -162,12 +128,7 @@ fw_data_path = function(...) {
   )
 }
 
-#' Why a data file could not be read, in terms of how this app is configured
-#'
-#' Worth the words. A deployment that has not been given a token falls back to
-#' the sibling checkout, which does not exist on the server, and the resulting
-#' "no such file" names a path that means nothing to whoever is reading the log.
-#' This says which mode produced it and what to do about it.
+#' Why a data file couldn't be read, naming the mode and the fix
 fw_data_missing = function(rel) {
   switch(
     fw_data_mode(),
@@ -189,10 +150,7 @@ fw_data_missing = function(rel) {
 
 #' Read one of the three data files, every column as text
 #'
-#' Text on purpose. readr guessing from the first 1000 rows has bitten this kind
-#' of file before - a mostly-empty numeric column reads as logical and every
-#' join downstream breaks in a confusing way - and the file's contract is that
-#' it holds the source's text verbatim. The casts happen in fw_unpack().
+#' Text so readr can't mis-guess types; fw_unpack() casts.
 fw_read_table = function(name) {
   path = fw_data_path(name)
   if (is.null(path)) stop(fw_data_missing(name), call. = FALSE)
@@ -201,10 +159,7 @@ fw_read_table = function(name) {
 
 #' Load the data and unpack it into the six in-memory tables
 #'
-#' READ ONCE, AT STARTUP. Not per session and not on a poll. The data changes
-#' when the review team imports submissions, and visibility comes from a
-#' deliberate restart, so re-reading it would spend a request per visitor to
-#' discover that nothing had changed.
+#' Read once at startup. New data appears after a republish.
 #'
 #' @return A named list of six tibbles, filtered to approved rows.
 fw_load_data = function() {
@@ -220,24 +175,13 @@ fw_load_data = function() {
 
 #' Stop the load when a row's iso3 or continent disagrees with the ISO lookup
 #'
-#' THE RULE FOR PLACE, in one sentence: `country` is the ISO 3166-1 name of the
-#' country or territory the site is in, and `iso3` and `continent` are
-#' properties of that country and of nothing else.
+#' `country` is the ISO 3166-1 country or territory; `iso3` and `continent`
+#' follow from it alone. A territory with its own ISO entry (Guam) is its own
+#' country; a region (Hawaii) never changes the country or continent. `region`
+#' is free text.
 #'
-#' Two consequences, both of which the data used to get wrong:
-#'   - a territory with its own ISO entry (Guam, Bermuda, Puerto Rico) is its
-#'     own country, not a region of the state that administers it;
-#'   - a region never moves its country between continents. Hawaii is a state
-#'     of the United States, so it is USA and North America wherever it sits.
-#' `region` is free text within the country - a state, a province, an island
-#' group - and says nothing about the two derived columns.
-#'
-#' dev/qa.R writes iso3 and continent from the lookup at import; this is the
-#' check that a hand edit has not undone that. A country the lookup does not
-#' know is not checked here; dev/qa.R refuses to import one.
-#'
-#' The lookup is optional (see fw_load_iso), so a checkout without it loads
-#' unchecked rather than failing.
+#' Catches hand edits that undo dev/qa.R's import. Skipped if the lookup is
+#' missing.
 fw_validate_geography = function(attempts) {
   iso = tryCatch(fw_read_lookup("lookup_iso3166.csv"), error = function(e) NULL)
   if (is.null(iso)) return(invisible(TRUE))
@@ -248,8 +192,7 @@ fw_validate_geography = function(attempts) {
   want_cont = iso$continent[m]
   differs = function(have, want) known & !is.na(want) & (is.na(have) | have != want)
   bad = differs(attempts$iso3, want_iso3) | differs(attempts$continent, want_cont)
-  # A region that is itself a country in the standard is a territory filed
-  # under its administering state, which is the Guam mistake.
+  # A region that is an ISO country is a territory filed under its state.
   bad = bad | (!is.na(attempts$region) & attempts$region %in% iso$country)
   if (!any(bad)) return(invisible(TRUE))
 
@@ -270,11 +213,8 @@ fw_validate_geography = function(attempts) {
 
 #' Fail loudly on a file whose columns are not the contract
 #'
-#' EXACT, in both directions. A missing column would make a page fail three
-#' clicks later with a message about a variable nobody remembers; an extra one
-#' is a value with nowhere to go, which is precisely how the ingredient-basis
-#' column was lost from the old build. Order is not checked - dev/qa.R writes
-#' the canonical order and a hand edit that reorders columns does no harm.
+#' Exact in both directions (an extra column is data with nowhere to go).
+#' Order isn't checked.
 fw_validate_files = function(attempts, species, contacts) {
   check = function(name, have, want) {
     missing = setdiff(want, have)
@@ -308,8 +248,7 @@ fw_validate_files = function(attempts, species, contacts) {
 
 #' Split one FW_MULTI_SEP cell into its items
 #'
-#' @return a character vector, empty for a blank cell. Items are trimmed so a
-#'   hand edit with an extra space does not become a new id.
+#' @return a character vector, empty for a blank cell. Items are trimmed.
 fw_split_multi = function(x, sep = FW_MULTI_SEP) {
   if (is.na(x) || !nzchar(x)) return(character(0))
   out = trimws(strsplit(x, sep, fixed = TRUE)[[1]])
@@ -331,10 +270,8 @@ fw_unpack_multi = function(attempts, column, value_name, sep = FW_MULTI_SEP) {
 
 #' The method dimension for whatever names the data holds
 #'
-#' FW_METHODS supplies the seven known methods with their fixed ids and classes.
-#' Anything else - a method a contributor typed in and the reviewer accepted -
-#' gets an id derived from its name and the class "other", so it loads and
-#' charts rather than stopping the app. dev/qa.R warns the reviewer of these.
+#' FW_METHODS plus any other name in the data, which gets a hashed id and
+#' class "other" (dev/qa.R warns about these).
 fw_method_table = function(names_in_data) {
   known = FW_METHODS
   extra = setdiff(unique(names_in_data[!is.na(names_in_data)]), known$method_name)
@@ -350,10 +287,8 @@ fw_method_table = function(names_in_data) {
 
 #' Turn the wide table and the two lookups into the six tables the app reads
 #'
-#' Every id in attempts.csv must resolve to a row in its lookup, and the load
-#' stops if one does not, naming the attempts. This is the integrity check the
-#' old bridge tables could not give a spreadsheet: a reviewer who mistypes a
-#' species id finds out at the next restart rather than never.
+#' Every id in attempts.csv must resolve to its lookup, or the load stops
+#' naming the attempts.
 fw_unpack = function(attempts, species, contacts) {
   a = attempts
   for (col in FW_ATTEMPT_NUMERIC) a[[col]] = suppressWarnings(as.numeric(a[[col]]))
@@ -377,9 +312,8 @@ fw_unpack = function(attempts, species, contacts) {
   am = fw_unpack_multi(a, "methods", "method_name")
   notes = fw_unpack_multi(a, "method_notes", "note", sep = FW_NOTES_SEP)
   am = left_join(am, notes, by = c("attempt_id", "position"))
-  # Each note entry is "Method name: text". The prefix is stripped by the name
-  # in the same position rather than by a regex on any name, so a note that
-  # happens to start with a method's name is left intact.
+  # Notes are "Method name: text". Strip the prefix of the method in the same
+  # position only.
   prefix = paste0(am$method_name, ":")
   has_prefix = !is.na(am$note) & startsWith(am$note, prefix)
   am$note[has_prefix] = trimws(substring(am$note[has_prefix], nchar(prefix[has_prefix]) + 1))
@@ -423,32 +357,17 @@ fw_stop_unresolved = function(refs, id_col, known, from_file, to_file) {
 
 # ---- The approval gate -------------------------------------------------------
 
-# The three permitted values. Anything else in the column is a data error and
-# stops the load, because the alternative is a row with a typo in its status
-# quietly becoming invisible - or worse, quietly becoming visible.
+# Permitted status values. Anything else stops the load.
 FW_STATUS = c("pending", "approved", "rejected")
 
 #' Keep only approved data, and everything reachable from it
 #'
-#' THE SUBTLE PART, AND THE EASY ONE TO GET WRONG. It is not enough to filter the
-#' attempt table. A pending submission can introduce a new species, a new method
-#' or a new contact, and those dimension rows sit in the same tables as the
-#' approved ones. Filtering only the fact table leaves them in place, where every
-#' dropdown, every lookup and the whole networking directory would pick them up -
-#' publishing an unreviewed person's name and email on a public site.
+#' Blocker so unreviewed data never reaches a page. Drops unapproved attempts
+#' and every species, method and contact only they reference, so a pending
+#' person's name can't leak through a dropdown or the directory. Don't reduce
+#' this to filtering the attempt table.
 #'
-#' So the filtering is STRUCTURAL rather than a rule each consumer has to
-#' remember. Everything downstream - fw_startup_choices(), fw_species_by_taxa(),
-#' fw_choices(), fw_contacts_summary(), the report builder - is handed a set of
-#' tables that contains nothing unapproved, so it cannot leak even if the person
-#' writing it never thinks about approval at all. A new page added next year
-#' inherits the guarantee for free.
-#'
-#' Foreign keys still resolve, because a dimension row is dropped only when
-#' nothing approved refers to it any more.
-#'
-#' The pre-filter counts are attached as an attribute, for the in-review
-#' indicator. See fw_review_count().
+#' Pre-filter status counts are attached as an attribute for fw_review_count().
 fw_filter_approved = function(tables) {
   bad = setdiff(unique(tables$attempt$status), c(FW_STATUS, NA))
   if (length(bad) > 0) {
@@ -484,10 +403,7 @@ fw_filter_approved = function(tables) {
 
 #' How many records are waiting on review
 #'
-#' Two sources, because a submission is in review from the moment it is sent, not
-#' from the moment someone imports it into the data: rows already carried into
-#' attempts.csv as `pending`, plus every row of the inbox sheet that has been
-#' neither imported nor rejected.
+#' Pending rows in attempts.csv plus inbox rows neither imported nor rejected.
 #'
 #' @param strict TRUE lets a failed inbox read raise, so fw_review_count_live()
 #'   can keep its last good count; FALSE counts the inbox as empty.
@@ -495,8 +411,7 @@ fw_review_count = function(data, strict = FALSE) {
   counts = attr(data, "status_counts")
   in_schema = if (is.null(counts)) 0L else as.integer(counts[["pending"]])
 
-  # Only submissions NOT yet imported. An imported one is already counted by
-  # in_schema above (if it went in as pending) or is published.
+  # Not-yet-imported only; imported ones are pending (counted above) or live.
   inbox = if (strict) fw_pending_submissions() else
     tryCatch(fw_pending_submissions(), error = function(e) data.frame())
 
@@ -505,14 +420,8 @@ fw_review_count = function(data, strict = FALSE) {
 
 #' The release metadata that travels with the data
 #'
-#' Carries the release date and the row counts as published, so the footer's
-#' "last updated" line states when the data was released rather than inferring it
-#' from a column inside the data. Written by dev/qa.R on every import, so the
-#' counts cannot drift away from the tables they describe.
-#'
-#' A missing or unreadable file is not fatal - the app is still perfectly usable
-#' without a date in the footer, and failing to boot over it would be a poor
-#' trade.
+#' Release date and row counts, written by dev/qa.R on import. Not fatal if
+#' missing.
 fw_load_metadata = function() {
   out = tryCatch({
     path = fw_data_path("metadata.json")
@@ -534,11 +443,9 @@ fw_load_metadata = function() {
 
 #' A display label for a species, searchable by either name
 #'
-#' Some entries in the source have no parenthetical scientific name, e.g.
-#' "Amphipoda" or "Barbus sp.". For those the whole string sits in common_name,
-#' so coalescing here keeps every species findable in a dropdown.
-# TODO(alex): the client's QA cleaning should eventually split these properly.
-# Until it does, a search for "Amphipoda" matches on the common_name field.
+#' Some entries ("Amphipoda", "Barbus sp.") have no scientific name and sit
+#' whole in common_name; coalescing keeps them findable.
+# TODO(alex): the client's QA cleaning should split these properly.
 fw_species_label = function(species) {
   species |>
     mutate(
@@ -553,12 +460,8 @@ fw_species_label = function(species) {
 
 #' A protected species' label as it is shown, with its Red List code
 #'
-#' Adds `shown`: "Little grebe (Tachybaptus ruficollis) (IUCN: LC)", or the
-#' plain label when the species has no status. FOR PROTECTED SPECIES ONLY, and
-#' for display only (Alex, 5 and 6 Oct 2026): the map's hover card and record,
-#' the protected-species tiles on the Plan page and in both reports, and the
-#' attempts .html record cards. `label` stays the key everything matches on,
-#' and the downloads, the filter pickers and the form carry no code.
+#' Adds `shown`, e.g. "Little grebe (Tachybaptus ruficollis) (IUCN: LC)".
+#' Display only, protected species only; `label` stays the matching key.
 #'
 #' @param species rows of fw_species_label()
 fw_species_shown = function(species) {
@@ -573,23 +476,11 @@ fw_species_shown = function(species) {
 
 #' One row per contact, with countries and continents derived from their attempts
 #'
-#' A contact attached to attempts in more than one country belongs to all of
-#' them, so country and continent are list columns rather than single values.
+#' country and continent are list columns (a contact can span several).
 #'
-#' REDACTION: a contact whose contact_public is FALSE is DROPPED here, name and
-#' all, before the data reaches any session. The Networking page and the report
-#' builder's contacts block both read only from this function, so a private
-#' contact never enters the browser and cannot be recovered from anything served
-#' to it.
-#'
-#' THE NAME GOES WITH THE ADDRESS (client, 23 Sept 2026). This used to blank the
-#' address and keep the row, which left the directory listing people by name and
-#' organisation with an empty action beside them - identifying them publicly
-#' while implying they had something to hide. Someone who did not agree to be
-#' contacted here is not listed here.
-#'
-#' The attempts themselves are untouched: every record still travels in full,
-#' and an attempt whose only contact is private simply has nobody to write to.
+#' Blocker to ensure no privacy leaks: contacts with contact_public FALSE are
+#' dropped here, name and all, before any session sees them. The directory and
+#' Plan contacts read only from this. Attempts are untouched.
 fw_contacts_summary = function(data) {
   # Both contact slots on an attempt count towards that contact's totals.
   links = bind_rows(
@@ -611,9 +502,7 @@ fw_contacts_summary = function(data) {
     )
 
   data$contact |>
-    # THE REDACTION ITSELF. Do not move this downstream, and do not soften it
-    # into a blanked column: the row must not exist, or the name is still here
-    # for anything that later decides to read it.
+    # The redaction. Drop the row; don't blank or move it downstream.
     filter(contact_public) |>
     left_join(derived, by = "contact_id") |>
     mutate(
@@ -624,16 +513,13 @@ fw_contacts_summary = function(data) {
       country_label   = map_chr(countries,  ~ paste(.x, collapse = ", ")),
       continent_label = map_chr(continents, ~ paste(.x, collapse = ", "))
     ) |>
-    # An older contact table carried an always-empty country column; drop it if
-    # present so nothing downstream mistakes it for the derived value.
+    # Drop any legacy empty country column.
     select(-any_of("country")) |>
     arrange(desc(attempt_count), contact_name)
 }
 
 #' Sorted unique values from any loaded table, for populating dropdowns
 #'
-#' Choices come from the data rather than a hardcoded list, so the client's
-#' ongoing cleaning flows through without a code change.
 fw_choices = function(data, table, column) {
   values = data[[table]][[column]]
   if (is.null(values)) {
@@ -645,11 +531,7 @@ fw_choices = function(data, table, column) {
 
 #' The date shown in the footer
 #'
-#' The RELEASE date from metadata.json, not the maximum of a column inside the
-#' data. Those are different things: a release can republish unchanged rows, and
-#' last_updated is a property of a record rather than of the publication. Falls
-#' back to the column if metadata is missing, so the footer degrades to the old
-#' behaviour rather than to nothing.
+#' The release date from metadata.json; falls back to the latest last_updated.
 fw_last_updated = function(data, meta = NULL) {
   release = meta$release %||% NA
   if (!is.null(release) && !all(is.na(release)) && nzchar(release[1])) {
@@ -662,9 +544,7 @@ fw_last_updated = function(data, meta = NULL) {
 
 #' Headline counts for the whole database
 #'
-#' Computed at runtime from the loaded data, never hardcoded. Read by the
-#' Explore page's database panel, the About page's scale sentence and citation,
-#' and the Welcome page's species-protected figure. Counts only, never a rate.
+#' For the Explore panel and the Welcome figure. Counts only, never a rate.
 fw_headline_stats = function(data) {
   role_ids = function(role_name) {
     unique(data$attempt_species$species_id[data$attempt_species$role == role_name])
@@ -687,46 +567,20 @@ fw_headline_stats = function(data) {
   )
 }
 
-#' Choropleth source for the landing and explore maps
-#'
-#' Isolated behind one function so swapping a real per-country invasive fish
-#' count for the current placeholder is a single change.
-#'
-# [PLACEHOLDER] No per-country invasive fish species file is present in the
-# repository, so this returns the count of invasive species RECORDED IN FWISE
-# per country. That is the response, not the burden, so it does not yet tell the
-# mismatch story the landing page needs. Replace the body when the real burden
-# file arrives.
-fw_country_burden = function(data) {
-  data$attempt |>
-    select(attempt_id, country, iso3, continent) |>
-    inner_join(filter(data$attempt_species, role == "invasive"), by = "attempt_id") |>
-    group_by(country, iso3, continent) |>
-    summarise(species_count = n_distinct(species_id), .groups = "drop") |>
-    arrange(desc(species_count))
-}
-
 # ---- Dropdown choices, built once at startup ---------------------------------
 
-# The text appended to a dropdown when the user needs to supply their own value.
-# Selecting it reveals a free-text box.
+# Appended to dropdowns; selecting it reveals a free-text box.
 FW_OTHER = "Other (specify)"
 
-# The key under which a choice list keeps its unfiltered version. A real name
-# rather than "", because R's [[ ]] does not retrieve an empty name.
+# Key for a choice list's unfiltered version (R's [[ ]] can't use "").
 FW_ALL = ".all"
 
 # ---- ISO 3166 ----------------------------------------------------------------
 
 #' The ISO country and subdivision lookups
 #'
-#' Read from disk like every other table - the app makes no network call for
-#' these. Built by dev/build_iso_lookups.R and committed alongside the data.
-#'
-#' DEGRADES RATHER THAN FAILS. If the files are absent - an older data checkout,
-#' say - the form falls back to the countries present in the attempts and offers
-#' a free-text region, which is exactly what it did before these existed. A
-#' missing convenience must not stop someone submitting a record.
+#' From the data repo. If missing, the form falls back to recorded countries
+#' and a free-text region.
 fw_load_iso = function() {
   empty = list(countries = NULL, subdivisions = list())
 
@@ -751,8 +605,6 @@ fw_load_iso = function() {
 
 #' Read one lookup file from the data source, or NULL if it is not there
 #'
-#' These sit at the ROOT of the data source, beside metadata.json and the three
-#' data files - they describe the standard, not this dataset.
 fw_read_lookup = function(name) {
   path = fw_data_path(name)
   if (is.null(path)) return(NULL)
@@ -778,16 +630,12 @@ fw_subdivisions_for = function(choices, country) {
 
 #' Build every dropdown's options once, at startup
 #'
-#' Options are derived from the loaded data so the client's ongoing cleaning
-#' flows through without a code change. A handful of values appear in the form
-#' specification but not yet in the data, so the two are unioned rather than the
-#' data alone being used; otherwise a contributor could not pick an answer the
-#' client has explicitly asked for.
+#' From the data, unioned with the form specification's values so every
+#' specified answer is pickable.
 fw_startup_choices = function(data) {
   species_labelled = fw_species_label(data$species)
 
-  # Sorted by how often a species actually appears, so the common answers are
-  # near the top of a 390-entry list, then alphabetical within that.
+  # Most-recorded species first, then alphabetical.
   species_freq = data$attempt_species |>
     count(species_id, name = "n")
 
@@ -804,15 +652,10 @@ fw_startup_choices = function(data) {
   iso = fw_load_iso()
 
   list(
-    # THE FULL ISO 3166-1 LIST, not the 29 countries that happen to have a
-    # record already. Offering only what is in the database is circular: the
-    # form exists to add the countries that are missing from it. Countries that
-    # DO have attempts float to the top, because they are the likely answers,
-    # and "Other (specify)" catches anything the standard does not cover.
+    # Full ISO 3166-1 list, recorded countries first, then "Other (specify)".
     country = fw_country_choices(data, iso$countries),
 
-    # Keyed by country name, so the region field can narrow to that country's
-    # subdivisions once it is answered. See fw_subdivisions_for().
+    # Keyed by country, for the region picker. See fw_subdivisions_for().
     subdivision = iso$subdivisions,
 
     waterbody_type = c(fw_choices(data, "attempt", "waterbody_type"), FW_OTHER),
@@ -872,45 +715,28 @@ fw_startup_choices = function(data) {
       FW_OTHER
     ),
 
-    # Fixed by the specification, not derived: these four are the analysis
-    # categories the paper uses and must not drift with the data.
+    # Fixed: the paper's four outcome categories.
     outcome = c("Successful", "Failed", "Ongoing", "Unknown"),
 
-    # Waterbody types split by regime, so the contribute form can narrow the
-    # list once still or flowing has been answered. See fw_waterbody_by_regime().
+    # Waterbody types by regime, for the form. See fw_waterbody_by_regime().
     waterbody_by_regime = fw_waterbody_by_regime(data),
 
-    # Species split by the group they belong to, so choosing "Fish" narrows the
-    # species picker to fish. The FW_ALL element is every species, for a target
-    # whose group is not yet answered or is one with nothing recorded under it.
+    # Species by taxa, so picking "Fish" narrows the picker. FW_ALL is all.
     species_by_taxa = fw_species_by_taxa(species_labelled, species_choices),
 
-    # label -> species_id, so the form writes the id the database already
-    # holds for a species the contributor picked. A species they typed in has
-    # no entry here and travels as text for the reviewer - see submit.R.
+    # label -> species_id for picked species. Typed-in species have no entry
+    # and travel as text (see submit.R).
     species_ids = stats::setNames(species_labelled$species_id, species_labelled$label)
   )
 }
 
-# THE ONE PLACE THAT SAYS WHICH WATERBODIES FLOW.
-#
-# Read by TWO consumers that used to disagree:
-#   - the migration that built attempts.csv, which corrected water_regime once
-#   - fw_waterbody_by_regime() below, which narrows the contribute form's
-#     waterbody list once "still or flowing" has been answered
-#
-# Before this was shared, the override existed only for the form, so the form
-# knew a tributary flows while the data still filed three of them under Lentic.
-# Anything not named here keeps whatever the source says; anything genuinely
-# missing is covered by "Other (specify)", which is always appended.
-#
-# NOT A REGIME AT ALL. "Multiple" means more than one system was treated, so
-# claiming either regime for it is a statement the record does not support.
+# Which waterbody types flow. Used by fw_waterbody_by_regime() and
+# dev/reconcile_source.R. Unlisted types keep the source's regime. "Multiple"
+# has no regime.
 FW_REGIME_BY_TYPE = c(
   Canal = "Lotic", Channel = "Lotic", Creek = "Lotic", River = "Lotic",
   Stream = "Lotic", Tributary = "Lotic",
-  # A spring is a discharge point and a drain is an engineered channel; the
-  # water in both is moving. Both arrived from the source marked Lentic.
+  # Springs and drains move water, though the source marked them Lentic.
   Spring = "Lotic", Drain = "Lotic",
   Multiple = NA_character_
 )
@@ -921,18 +747,12 @@ FW_LOTIC_ALWAYS = names(FW_REGIME_BY_TYPE)[
 
 # ---- Regime wording ----------------------------------------------------------
 
-# LABELS ONLY. Lentic and Lotic are the STORED vocabulary: they are what sits in
-# attempt.csv, what the data dictionary defines, what the submissions sheet
-# carries and what FW_REGIME_BY_TYPE above is keyed on. A contributor should not
-# have to know the words, so the pickers show plain English and hand back the
-# stored value unchanged. Recoding the column instead would have meant rebuilding
-# the schema and chasing every "Lotic" comparison in the app.
+# Display labels only. Lentic/Lotic stay the stored values.
 FW_REGIME_LABELS = c(Lentic = "Still water", Lotic = "Flowing water")
 
 #' The plain-English wording for a stored regime value
 #'
-#' Anything the lookup has not been told about passes through as itself, so a
-#' new value appears in the picker rather than silently becoming NA.
+#' Unknown values pass through unchanged.
 fw_regime_label = function(x) {
   out = unname(FW_REGIME_LABELS[x])
   ifelse(is.na(out), x, out)
@@ -940,8 +760,7 @@ fw_regime_label = function(x) {
 
 #' Stored regime values, named by what the user should see
 #'
-#' selectizeInput() and radioButtons() both display the NAMES and submit the
-#' VALUES, so this is the whole of the translation.
+#' Pickers show the names and submit the values.
 fw_regime_choices = function(values) {
   stats::setNames(values, fw_regime_label(values))
 }
@@ -965,8 +784,7 @@ fw_waterbody_by_regime = function(data) {
   })
   names(out) = regimes
 
-  # The unfiltered list, for before the regime question is answered. Keyed by
-  # FW_ALL rather than "": R's [[ ]] does not retrieve an empty name reliably.
+  # The unfiltered list, before regime is answered.
   out[[FW_ALL]] = c(sort(unique(seen$waterbody_type)), FW_OTHER)
   out
 }

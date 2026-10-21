@@ -1,9 +1,9 @@
 # Usage tracking
 
-FWISE records how it is used so that Freshwater Life can report usage to funders. There are two layers:
+FWISE records usage so Freshwater Life can report to funders. Two layers:
 
-1. **GoatCounter** counts arrivals: visits, referrers, campaign source, country and device. It does nothing else. There are no click or event calls.
-2. **The event log** records actions inside the app, one row per event, in the `events` tab of a private Google Sheet. All funder headline figures come from this log.
+1. **GoatCounter** counts arrivals: visits, referrers, campaign, country and device. Nothing else.
+2. **The event log** records actions in the app, one row per event, in the `events` tab of a private Google Sheet. Funder figures come from this.
 
 The code is in `R/tracking.R`. The settings are in `R/config.R`.
 
@@ -15,7 +15,7 @@ Tag inbound links with `?campaign=<source>`, for example:
 - `https://fwise.org/?campaign=issg`
 - `https://fwise.org/?campaign=internal`
 
-GoatCounter shows it under Campaigns, and the event log stores it on `session_start`. Before it is stored, the value is lowercased. It is kept only if it uses letters, digits and hyphens and is 30 characters or fewer; anything else is recorded as `other`. A visit with no `campaign` is recorded as `direct`. Do not use `?ref=` on its own: GoatCounter reads it only alongside a campaign, so it shows nowhere. Keep a list of the values in use here:
+GoatCounter shows it under Campaigns, and the event log stores it on `session_start`. It is lowercased and kept only if it is letters, digits and hyphens, 30 characters at most; otherwise it is recorded as `other`. No `campaign` is `direct`. Don't use `?ref=` alone (GoatCounter ignores it). Values in use:
 
 | campaign | Used for |
 |---|---|
@@ -57,7 +57,7 @@ Multi-select filters are always JSON arrays, even with one value. The FWISE addr
 
 Events are held in memory for each session and written in one append request when the session ends. The write reuses the forms' Google service account sign-in (`fw_google_token()` in `R/forms_store.R`). It has a 5 second timeout and no retry. If anything fails, the session's rows are dropped, and the server log records one line giving the reason but no row contents. Visitors never see an error.
 
-The write blocks the R process while it runs, so other sessions on the same process wait for up to the timeout, plus up to 5 seconds more if the hourly token needs renewing. Rows still in memory are lost if the process is stopped before its sessions end, for example during a redeploy.
+The write blocks the R process, so other sessions wait up to the timeout (plus up to 5 seconds if the token needs renewing). Rows in memory are lost if the process stops first, for example on a redeploy.
 
 A session is capped at 500 events.
 
@@ -71,13 +71,13 @@ A session is capped at 500 events.
 
 If `sheet` mode has no sheet ID or no key, logging is off. The startup log gives the mode and, when it is off, names the setting at fault, e.g. `FWISE startup: event log off (FWISE_LOG_MODE is not set)`.
 
-The GoatCounter site code is `FW_GOATCOUNTER_CODE` in `R/config.R`. While it holds the placeholder `GOATCOUNTER_CODE`, no script is added. GoatCounter does not count visits from localhost.
+The GoatCounter site code is `FW_GOATCOUNTER_CODE` in `R/config.R` (`fwise-stats`). GoatCounter doesn't count visits from localhost.
 
 To test locally, run `FWISE_LOG_MODE=console Rscript -e 'shiny::runApp(port = 8790)'`, use the app, then close the tab. Each row is printed as `FWISE event: ...`.
 
 ## Metric definitions
 
-Draft definitions, to be confirmed by Freshwater Life. Every figure is counted over a reporting period, by UTC timestamp.
+Draft definitions, awaiting confirmation by Freshwater Life. Every figure is counted over a reporting period, by UTC timestamp.
 
 | Metric | Definition |
 |---|---|

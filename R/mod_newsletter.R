@@ -1,15 +1,7 @@
 # mod_newsletter.R
-# The "Get FWISE updates" sign-up, in a dialog.
-#
-# ONE INSTANCE FOR THE WHOLE APP, started in app.R's server rather than inside
-# a page, because its buttons are on more than one page and in the footer. Any
-# fw_form_open("newsletter", ...) opens it; see that function in R/forms.R.
-#
-# ONE SIGN-UP PER VISIT. Once it has gone, every button that opens the form
-# opens the thank-you instead, for the rest of the session.
-#
-# Rules and records are in R/forms.R, the write in R/forms_store.R, the words
-# in R/copy_forms.R.
+# The "Get FWISE updates" dialog. One instance for the app (started in app.R),
+# opened by fw_form_open("newsletter", ...). One sign-up per visit; after that
+# the buttons open the thank-you. Rules in forms.R, storage in forms_store.R.
 
 #' @param open a reactive holding input$fw_open_form: list(form, source)
 mod_newsletter_server = function(id, open) {
@@ -25,9 +17,7 @@ mod_newsletter_server = function(id, open) {
                                           input$organisation, input$consent))
     problems = reactive(fw_newsletter_problems(vals()))
 
-    # ONE VALIDATOR PER FIELD, so each can start showing its message on its
-    # own, when the reader leaves that field. A single validator would light up
-    # every empty field the moment it was switched on.
+    # One validator per field, so each shows its message only once left.
     fields = c("name", "email", "organisation", "consent")
     validators = lapply(stats::setNames(fields, fields), function(f) {
       iv = shinyvalidate::InputValidator$new()
@@ -50,8 +40,7 @@ mod_newsletter_server = function(id, open) {
       if (f %in% fields) validators[[f]]$enable()
     })
 
-    # A FRESH FORM ON EVERY OPEN, and NOT redrawn on a failed send: the failure
-    # message goes into its own slot, so what the reader typed stays put.
+    # A fresh form on every open; a failed send keeps what was typed.
     output$body = renderUI({
       opened()
       if (done()) return(fw_form_success(fw_t("newsletter", "success")))
@@ -73,8 +62,7 @@ mod_newsletter_server = function(id, open) {
         return()
       }
 
-      # The button is disabled while anything is wrong, so this is the browser
-      # having been talked round. Show every message and stop.
+      # The button is disabled while invalid, so show every message and stop.
       if (length(problems()) > 0) {
         for (iv in validators) iv$enable()
         updateActionButton(session, "submit", disabled = TRUE)
@@ -122,9 +110,7 @@ fw_newsletter_form = function(ns) {
     p(class = "fw-modal-form__required-note", fw_t("forms", "required_note")),
     div(
       class = "fw-modal-form__actions",
-      # Disabled until the form is valid. data-fw-busy disables it again in
-      # the browser the instant it is pressed, so a double press cannot send
-      # twice while the row is being written.
+      # Disabled until valid; data-fw-busy blocks a double press.
       actionButton(ns("submit"), t("submit"), class = "btn btn-primary",
                    disabled = TRUE, `data-fw-busy` = "true")
     ),

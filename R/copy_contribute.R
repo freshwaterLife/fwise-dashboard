@@ -1,21 +1,11 @@
 # copy_contribute.R
-# EVERY user-facing string on the contribute form: the page copy, the section
-# titles and blurbs, every field label, help line, placeholder, tooltip,
-# validation message and announcement. It is read through the same fw_t()
-# as the rest of the copy deck - fw_t("contribute", "fields", "site_name") -
-# because fw_copy_all() in copy.R merges this list into FW_COPY at call time.
+# The copy deck, part 2: every string on the Add a record form, read with
+# fw_t("contribute", ...). The section name `contribute` must not appear in
+# another copy file (fw_copy_all() keeps the first).
 #
-# It is its own file because the form is the largest single block of copy in
-# the app and copy.R was becoming hard to scan. The section name `contribute`
-# must not also appear in copy.R or copy_export.R: fw_copy_all() would
-# silently keep the first one it met.
-#
-# House style: UK spelling, sentence case, active voice. A button says what
-# happens and keeps the same name through the whole flow.
-#
-# Field labels, prompts and tooltips follow the FWISE Upload Form field
-# specification. Where the specification was ambiguous a TODO(alex) comment
-# sits next to the field in mod_contribute_steps.R.
+# UK spelling, sentence case, active voice. Labels and tooltips follow the
+# FWISE Upload Form specification; ambiguities are TODO(alex) in
+# mod_contribute_steps.R.
 
 FW_COPY_CONTRIBUTE = list(
 
@@ -26,24 +16,11 @@ FW_COPY_CONTRIBUTE = list(
       "only a few fields are required."
     ),
 
-    # THE DEFINITION AND THE SCOPE, pinned to the top of the page. Every word of
-    # this is the client's (24 Sept 2026); do not reword any of it without
-    # asking them. Shown by fw_preamble() on the contribute page only - it came
-    # off About on 21 Sept, see the note at the top of mod_about.R.
-    #
-    # THE ** PAIRS ARE LOAD-BEARING: fw_emphasis() turns them into <strong>, and
-    # the client chose which clause in each point is the one that has to be read
-    # if nothing else is.
-    #
-    # `citation` is the reference `cite_short` resolves to, and the only place
-    # in the app where it is written out in full. Keep the three in step, and
-    # keep them in step with the outcome tooltip below, which cites the same
-    # work.
-    #
-    # THE CAVEATS DEFINE IT TOO. The client's "Success and other outcomes"
-    # caveat (R/copy_export.R, 6 Oct 2026) quotes the same Genovesi words, so
-    # keep the two in step - a reader who met the definition on this form must
-    # not meet a different one in the download.
+    # Definition and scope at the top of the form (fw_preamble()). Client
+    # wording: don't reword without asking. The ** pairs are the client's
+    # emphasis. `citation` is the full reference behind `cite_short`. The same
+    # Genovesi definition is in the outcome tooltip below and the "Success and
+    # other outcomes" caveat in copy_export.R: keep all three in step.
     preamble = list(
       heading = "What counts as an eradication",
       definition = paste(
@@ -60,8 +37,6 @@ FW_COPY_CONTRIBUTE = list(
         "Institute, Italy."
       ),
       scope_heading = "What is the scope of contributions?",
-      # A list rather than prose because the three points answer different
-      # questions: which outcomes we want, what we are not, and which organisms.
       scope = c(
         paste(
           "FWISE **includes and is equally interested in all outcomes of an",
@@ -126,16 +101,12 @@ FW_COPY_CONTRIBUTE = list(
       start_action   = "Start the form"
     ),
 
-    # Consent controls, section 0.1 of the specification. In the form's first
-    # section, with the contact details, since 29 Sept 2026 - see
+    # Consent controls (spec section 0.1), in the first section. See
     # fw_step_contributor_ui().
     consent = list(
       heading = "Consent",
-      # [NEEDS CLIENT SIGN-OFF] Reworded 24 Sept 2026 at Alex's request. The
-      # specification's wording also granted permission to DISPLAY contact
-      # details, which contradicted the separate opt-in for exactly that
-      # (fields$contact_public), so this now covers storing and using the record
-      # only.
+      # [NEEDS CLIENT SIGN-OFF] Covers storing and using the record only;
+      # displaying contact details is the separate fields$contact_public opt-in.
       statement = paste(
         "By sending this record you agree that FWISE staff may store and use",
         "the information in it to review the record, publish it in the FWISE",
@@ -143,8 +114,7 @@ FW_COPY_CONTRIBUTE = list(
       ),
       agree_label = "I agree to FWISE storing and using this information as described.",
       agree_yes   = "Yes, I agree",
-      # Links to the submissions section of the Privacy and data terms page
-      # (Oct 2026), whose text is itself still a draft awaiting the client.
+      # Links to the submissions section of the privacy page.
       terms_link_label = "Read the full terms of data use"
     ),
 
@@ -184,14 +154,9 @@ FW_COPY_CONTRIBUTE = list(
     check_action    = "Check my answers",
 
     # ---- "Check my answers" ---------------------------------------------------
-    # HELPFUL, NOT PUNITIVE. A contributor is doing us a favour by filling this
-    # in. The wording says what is missing and why it is worth having, and never
-    # implies they have done something wrong.
-    #
-    # HARD vs SOFT is the important distinction. Hard errors block sending
-    # because the record would be unusable without them. Soft warnings NEVER
-    # block: a great many real attempts are ongoing, unmeasured or unpublished,
-    # and refusing those records would bias the database towards tidy ones.
+    # Helpful, not punitive. Hard errors block sending (the record would be
+    # unusable). Soft warnings never block, or the database would skew towards
+    # tidy records.
     check = list(
       heading_clear  = "This all looks good",
       body_clear     = paste(
@@ -246,14 +211,12 @@ FW_COPY_CONTRIBUTE = list(
     ),
 
     send_note       = "Required fields are marked with an asterisk.",
-    add_species     = "Add another species",
     add_method      = "Add another method",
     add_beneficiary = "Add another beneficiary",
     remove_row      = "Remove this row",
 
     # The action keeps this name from the button through to the confirmation.
     send_action = "Send submission",
-    sending     = "Sending your submission",
 
     # Confirmation
     confirm = list(
@@ -285,10 +248,8 @@ FW_COPY_CONTRIBUTE = list(
       validation = "Some answers still need attention. They are marked below."
     ),
     # ---- Field labels ----------------------------------------------------------
-    # One entry per question on the form, keyed by the input id it labels (or
-    # the heading it names). mod_contribute_steps.R reads these through
-    # fw_lab(); the question-list downloads read the rendered form, so they
-    # follow automatically.
+    # Keyed by input id (or heading). Read via fw_lab(); the question-list
+    # downloads follow automatically.
     fields = list(
       site_name        = "Site name",
       country          = "Country",
@@ -393,8 +354,7 @@ FW_COPY_CONTRIBUTE = list(
     ),
 
     # ---- Tooltips ------------------------------------------------------------
-    # One per field, behind the (i) glyph. Kept together so the client can
-    # review the whole set in one place.
+    # One per field, behind the (i).
     tips = list(
       site_name    = "A descriptive name for the site or waterbody, as you would refer to it in a report.",
       country      = "The country the site sits in. Pick the region as well where the site is in a territory recorded separately, such as Hawaii or the Galapagos Islands.",
@@ -461,7 +421,7 @@ FW_COPY_CONTRIBUTE = list(
     ),
 
     # ---- Announcements ---------------------------------------------------------
-    # Written to the polite live region so a screen reader hears them.
+    # Read out via the polite live region.
     announce = list(
       waterbody_changed = "The waterbody types have changed to match {regime}. Please choose again.",
       regions_changed   = "The regions have changed to match {country}. Please choose again.",

@@ -1,30 +1,17 @@
 # qa_checks.R
-# THE RULES A SUBMISSION MUST MEET BEFORE IT JOINS THE DATA, and the step that
-# turns a reviewed sheet row into a database row. Used by dev/qa.R, which the
-# reviewer steps through in RStudio. In R/ rather than dev/ so that anything
-# later built on the same inbox (a bulk import) applies exactly these rules.
+# Review rules for submissions and the import into the data files, used by
+# dev/qa.R. In R/ so a future bulk import uses the same rules.
 #
-# PURE FUNCTIONS, APART FROM TWO. fw_qa_read_db() reads the data checkout, and
-# fw_qa_write_import() is the import's one write - to the data files and then
-# the sheet's `imported` column. Everything else decides and returns. dev/qa.R
-# calls them in order.
+# Pure functions except fw_qa_read_db() (reads the checkout) and
+# fw_qa_write_import() (writes the data, then the sheet's `imported` column).
+# Works on the inbox sheet's shape (FW_INBOX_COLUMNS): species as labels,
+# contacts as name/org/email/public; fw_inbox_resolve() maps them to ids.
 #
-# THE SHAPE IT WORKS ON is the inbox sheet's (FW_INBOX_COLUMNS in submit.R):
-# species as labels, the contact as name / organisation / email / public with
-# an optional contact_id. fw_inbox_resolve() maps those to ids.
-#
-# ERRORS BLOCK, WARNINGS DO NOT. An error stops that row being imported. A
-# warning is something the reviewer should look at; setting qa_status to
-# "done" is their acceptance of it.
-#
-# A FUZZY MATCH NEVER MERGES ANYTHING. fw_contact_matches() and
-# fw_species_matches() suggest; a contact is only reused on an exact match of
-# name and organisation, or on the contact_id the reviewer typed, and a species
-# only on its exact label.
+# Errors block a row; warnings don't (qa_status "done" accepts them). Fuzzy
+# matches only suggest: contacts are reused on an exact name + organisation or
+# a typed contact_id, species on an exact label.
 
-# Sheet cells hold "; "-separated lists, but a reviewer typing ";" without the
-# space should not mint a species called "Carp;Pike", so the inbox is split on
-# the semicolon alone.
+# Split on ";" alone, so a typed "Carp;Pike" is still two species.
 fw_qa_split = function(x) {
   if (is.na(x) || !nzchar(x)) return(character(0))
   out = trimws(strsplit(x, ";", fixed = TRUE)[[1]])
@@ -42,10 +29,8 @@ fw_qa_blank_na = function(df) {
 
 #' The three data files and the ISO lookup, from a data checkout, as text
 #'
-#' @param tidy TRUE trims every value and makes blanks NA, for checking. FALSE
-#'   reads the files exactly as they are (no trimming, only empty cells as NA),
-#'   which write_csv(na = "") writes back byte for byte - what dev/qa.R uses
-#'   when it appends, so the rows it did not touch do not change.
+#' @param tidy TRUE trims values and blanks to NA, for checking. FALSE reads
+#'   as-is, so write_csv(na = "") writes untouched rows back byte for byte.
 fw_qa_read_db = function(dir = FW_DATA_DIR, tidy = TRUE) {
   rd = function(name) {
     path = file.path(dir, name)
@@ -86,8 +71,7 @@ fw_qa_initial = function(x) substr(fw_qa_norm(x), 1, 1)
 
 #' Two strings are "similar" when an edit or two apart, scaled to their length
 #'
-#' Two edits in a ten-letter name is a typo; two edits in "Li" is a different
-#' person, so the allowance is a quarter of the shorter string, at most two.
+#' Allows a quarter of the shorter string's length, at most two edits.
 fw_qa_similar = function(a, b) {
   if (!nzchar(a) || !nzchar(b) || identical(a, b)) return(FALSE)
   d = utils::adist(a, b)[1, 1]
@@ -148,8 +132,7 @@ fw_qa_exact_contact = function(contacts, name, org) {
 #' Contacts in the open rows that may be someone we already hold, or the same
 #' person typed differently in another open row
 #'
-#' Rows whose contact_id is filled are settled and skipped, and so is an exact
-#' match on name and organisation (it is reused anyway).
+#' Skips rows with a contact_id or an exact name + organisation match.
 fw_contact_matches = function(inbox, db) {
   open = which(fw_inbox_open(inbox, db) & !inbox$status %in% "rejected")
   out = list()
@@ -233,7 +216,7 @@ fw_inbox_check = function(inbox, new_species, db) {
   out = list()
   flag = function(i, column, level, problem, value = NA_character_) {
     if (!length(i)) return(invisible())
-    out[[length(out) + 1]] <= tibble::tibble(
+    out[[length(out) + 1]] <<- tibble::tibble(
       attempt_id = if (is.null(inbox$attempt_id)) NA_character_ else inbox$attempt_id[i],
       sheet_row = inbox$sheet_row[i], column = column,
       value = rep_len(as.character(value), length(i)), level = level, problem = problem)
@@ -384,9 +367,8 @@ fw_inbox_check = function(inbox, new_species, db) {
          "a typed species may be one we hold: see species_matches", paste(labs, collapse = "; "))
   }
 
-  # THE GATE. Rows with no error so far are resolved, as if approved, and run
-  # through the loader the app uses at startup. Anything it would refuse is an
-  # error here rather than a broken app after the push.
+  # Run clean rows through the app's own loader, so anything it would refuse
+  # is an error here, not a broken app after the push.
   so_far = done()
   clean = which(open & !inbox$attempt_id %in% so_far$attempt_id[so_far$level == "error"])
   if (length(clean)) {
@@ -405,11 +387,8 @@ fw_inbox_check = function(inbox, new_species, db) {
 
 #' A new species' two names: the new_species tab's, blanks filled from the label
 #'
-#' A BARE LABEL IS NOT A COMMON NAME WHEN A SCIENTIFIC NAME IS GIVEN. Split, a
-#' label with no "(...)" is all common name, so "Oreochromis grahami" with
-#' scientific_name filled used to gain the common name "Oreochromis grahami"
-#' too, and failed to rebuild its own label (21 Oct 2026). A bare label fills
-#' common_name only when the tab gives neither name.
+#' A bare label (no "(...)") fills common_name only when the tab gives
+#' neither name, so the label still rebuilds.
 fw_new_species_names = function(labels, common, scientific) {
   nm = fw_split_species_label(labels)
   bare = is.na(nm$scientific)
@@ -450,8 +429,7 @@ fw_inbox_resolve = function(rows, new_species, db, today = Sys.Date()) {
       taxa = ns$taxa, family = ns$family)
     for (col in setdiff(FW_SPECIES_COLUMNS, names(species_add))) species_add[[col]] = NA_character_
     species_add = species_add[, FW_SPECIES_COLUMNS]
-    # The label the new row will carry must be the one typed, or the next
-    # import would not recognise it as held.
+    # Keep the typed label, so the next import recognises it.
     relabel = fw_species_label(species_add)$label
     if (!identical(relabel, new_labels))
       stop("New species whose names do not rebuild their label: ",
@@ -505,8 +483,7 @@ fw_inbox_resolve = function(rows, new_species, db, today = Sys.Date()) {
   to_add$beneficiary_species = vapply(rows$beneficiary_species, to_ids, "", USE.NAMES = FALSE)
   to_add$primary_contact_id  = contact_of
   to_add$secondary_contact_id = NA_character_
-  # DERIVED, NOT REVIEWED. iso3 and continent are properties of the country
-  # (fw_validate_geography() in data_load.R).
+  # iso3 and continent come from the country (fw_validate_geography()).
   m = match(to_add$country, db$iso$country)
   if (anyNA(m)) stop("Country not in lookup_iso3166.csv: ",
                      paste(unique(to_add$country[is.na(m)]), collapse = ", "), call. = FALSE)
@@ -548,10 +525,8 @@ fw_inbox_ready = function(inbox, db, import_ids = NULL) {
 
 #' Write an import: the data files, metadata.json, then the sheet
 #'
-#' THE DATA FILES FIRST, THEN THE SHEET. If the sheet write fails, a second
-#' call adds nothing (every id, species and contact already written is
-#' skipped) and marks every open row whose id is now in attempts.csv - so a
-#' failed run is repaired by running it again.
+#' Data files first, then the sheet. Rerunning after a failed sheet write
+#' adds nothing and marks the rows already imported.
 #'
 #' @param resolved    fw_inbox_resolve()
 #' @param species_add the new species rows, enriched or not

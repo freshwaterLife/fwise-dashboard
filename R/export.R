@@ -1,23 +1,10 @@
 # export.R
-# The export contract: one flat row per attempt, and the workbook that carries it.
+# The export contract: one flat row per attempt, the workbook, and the download
+# bundle.
 #
-# ONE FLATTENING FUNCTION, fw_export_frame(). The filtered download on the report
-# builder and the full public dataset published to Zenodo are the SAME function
-# called with and without a set of attempt ids. That is deliberate and it is the
-# whole reason this file exists separately from the module: if the two were built
-# by different code they could disagree, and a reader comparing a download
-# against the citable dataset would find different numbers with no way to tell
-# which was right.
-#
-# MULTI-VALUE FIELDS FLATTEN TO SEMICOLON-DELIMITED SINGLE COLUMNS. Neither of
-# the source's own conventions survives into an export:
-#
-#   - eight numbered species columns   ->  one `invasive_species` column
-#   - underscore-nested taxa strings   ->  one `invasive_taxa` column
-#
-# The underscore is a legacy convention of the client's spreadsheet. The
-# semicolon is the published convention. The data dictionary sheet says so, so
-# nobody splits on the wrong character.
+# fw_export_frame() builds both the filtered download and the full Zenodo
+# dataset (with and without ids), so the two can't disagree.
+# Multi-value fields flatten to one FW_MULTI_SEP-delimited column each.
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -26,11 +13,7 @@ suppressPackageStartupMessages({
   library(purrr)
 })
 
-# FW_MULTI_SEP, the delimiter for every multi-value column, lives in config.R
-# because attempts.csv uses the same one.
-
-# Column order of the export, and the label each column carries. Order is the
-# order a person reads a record in: where, what, when, how, what happened, who.
+# Export columns in reading order: where, what, when, how, outcome, who.
 FW_EXPORT_COLUMNS = c(
   "attempt_id",
   "site_name", "country", "region", "continent", "iso3", "latitude", "longitude",
@@ -51,26 +34,17 @@ FW_EXPORT_COLUMNS = c(
   "secondary_contact_name", "secondary_contact_org", "secondary_contact_email"
 )
 
-# Columns deliberately NOT exported. FW_EXPORT_COLUMNS is an allowlist, so
-# these stay out by being absent from it; they are named here so nobody adds
-# one back without reading why.
-#
-# `status` - every exported row is approved by construction, so the column would
-#   be a constant that invites the reader to wonder what else there is.
-# `notes_for_fwise` - a contributor's private message TO the review team. It is
-#   collected so the team can read it, not so it can be republished, and it may
-#   carry asides the contributor would not put their name to publicly. Stored in
-#   the database and shown in record detail; never exported.
-# `last_updated`, `submitted_at`, `consent_data_use`, `sent`,
-#   `eradication_or_control` - properties of the row's maintenance, not of the
-#   eradication (the last is the constant "Eradication" on every row).
+# Deliberately not exported (FW_EXPORT_COLUMNS is an allowlist):
+#   status            always "approved" here
+#   notes_for_fwise   a private message to the review team. Never export.
+#   last_updated, submitted_at, consent_data_use, sent, eradication_or_control
+#                     row maintenance, not facts about the eradication
 
 #' Collapse a bridge table into one semicolon-delimited value per attempt
 #'
 #' @param bridge rows carrying attempt_id and the value column
 #' @param value  the column to collapse
-#' @param ids    every attempt id that must appear in the result, so an attempt
-#'   with nothing recorded comes back as NA rather than dropping out of the join
+#' @param ids    every attempt id to return (NA where nothing is recorded)
 fw_collapse = function(bridge, value, ids) {
   out = bridge |>
     filter(!is.na(.data[[value]]), .data[[value]] != "") |>
@@ -80,17 +54,15 @@ fw_collapse = function(bridge, value, ids) {
   unname(setNames(out$v, out$attempt_id)[ids])
 }
 
-#' THE export frame: one flat row per attempt
+#' The export frame: one flat row per attempt
 #'
-#' @param data the loaded star-schema tables, already filtered to approved.
-#' @param attempt_ids optional subset. NULL means every approved attempt, which
-#'   is what the Zenodo release uses. Pass ids for a filtered download.
+#' @param data the loaded tables, already filtered to approved.
+#' @param attempt_ids optional subset. NULL = every attempt (the Zenodo release).
 #' @return a data frame, one row per attempt, no list columns, no numbered slots.
 fw_export_frame = function(data, attempt_ids = NULL) {
   a = data$attempt
   if (!is.null(attempt_ids)) a = filter(a, attempt_id %in% attempt_ids)
-  # Stable, meaningful order. Not row order, which carries no meaning now that
-  # ids are minted rather than positional.
+  # A stable, readable order.
   a = arrange(a, country, site_name, start_year)
   ids = a$attempt_id
 
@@ -105,15 +77,9 @@ fw_export_frame = function(data, attempt_ids = NULL) {
               by = "method_id") |>
     arrange(attempt_id, method_order)
 
-  # Contacts are joined by id twice, once per slot. Redaction is applied here
-  # and asserted afterwards - see fw_assert_export_safe().
-  #
-  # THE NAME GOES WITH THE ADDRESS (client, 23 Sept 2026). A contact who did
-  # not agree to their address being published has not agreed to being named
-  # either, so a private contact exports as a blank name, a blank organisation
-  # and a blank address rather than as a named person we decline to put an
-  # address beside. The attempt's own row still travels in full; only who to
-  # ask about it is withheld.
+  # Contacts joined by id, once per slot. Blocker to ensure no privacy leaks:
+  # a private contact's name, organisation and address are all blanked here,
+  # then checked by fw_assert_export_safe().
   contacts = data$contact |>
     mutate(
       contact_name  = if_else(contact_public, contact_name,  NA_character_),
@@ -155,12 +121,8 @@ fw_export_frame = function(data, attempt_ids = NULL) {
       method_notes        = fw_collapse(me, "method_notes", ids)
     )
 
-  # A NOTE WITH NO METHOD STILL TRAVELS. Nine attempts in the source record
-  # something about the method - "Piscicide (unspecified)", "Chemical" - and no
-  # method at all. They have no bridge row, so the collapse above leaves them
-  # blank and the only copy of the note is the raw cell on the attempt. It goes
-  # out as it stands, with `methods` left NA beside it, because a blank here
-  # would be a value the client's export has and ours does not.
+  # Attempts with a method note but no method have no bridge row: export the
+  # raw note.
   no_method = !out$attempt_id %in% me$attempt_id
   raw_notes = a$method_notes[match(out$attempt_id[no_method], a$attempt_id)]
   out$method_notes[no_method] = gsub(FW_NOTES_SEP, FW_MULTI_SEP, raw_notes, fixed = TRUE)
@@ -174,17 +136,10 @@ fw_export_frame = function(data, attempt_ids = NULL) {
   out
 }
 
-#' Refuse to export the name or address of a contact who asked to stay private
+#' Blocker: refuse any export carrying a private contact's name or address
 #'
-#' The redaction happens above, in fw_export_frame(). This is the control that
-#' makes it a control rather than something we remembered to do: "we applied the
-#' filter" is not a guarantee, and an export is the one place a mistake travels
-#' outside the building and cannot be recalled.
-#'
-#' BOTH FIELDS, since 23 Sept 2026. The flag used to gate the address alone, so
-#' a private contact still went out named; the client's rule is that no
-#' personally identifying detail of theirs appears anywhere in the app or its
-#' downloads. A name is identifying on its own, so it is checked here too.
+#' Checks the redaction in fw_export_frame() actually held. An export can't be
+#' recalled.
 fw_assert_export_safe = function(x, data) {
   hidden = !data$contact$contact_public
   clean = function(v) v[!is.na(v) & nzchar(v)]
@@ -202,9 +157,7 @@ fw_assert_export_safe = function(x, data) {
   }
 
   check(data$contact$contact_email[hidden], "_email$", "address(es)")
-  # _contact_name$, not _name$: site_name is also a name column, and a site
-  # that happened to share a string with a private contact would halt every
-  # download rather than protect anybody.
+  # _contact_name$, not _name$, so site_name isn't checked.
   check(data$contact$contact_name[hidden], "_contact_name$", "name(s)")
   invisible(TRUE)
 }
@@ -213,19 +166,10 @@ fw_assert_export_safe = function(x, data) {
 
 #' The caveats, with their numbers computed from the data
 #'
-#' THE SAME TEXT travels into every export and sits beside every result on the
-#' report builder. That is a requirement, not a nicety: a spreadsheet that turns
-#' up in somebody's inbox six months later has to carry its own qualifications,
-#' because by then nobody remembers what was on screen when it was downloaded.
+#' Wording is in copy_export.R; counts are filled from the data here. Used by
+#' About and every export.
 #'
-#' The wording lives in R/copy_export.R as templates; the counts are derived
-#' here and filled in, so they cannot drift away from the data they describe.
-#' A caveat with a stale number in it is worse than no caveat, because it reads
-#' as precision.
-#'
-#' @return a list of list(heading =, body =), in document order. ADD OR REMOVE
-#'   A BLOCK IN THE COPY AND NOTHING ELSE HAS TO CHANGE: the panel loops, the
-#'   grid reflows, and the tests count what they find.
+#' @return a list of list(heading =, body =), in document order
 fw_caveat_blocks = function(data) {
   a = data$attempt
   n = nrow(a)
@@ -254,31 +198,8 @@ fw_caveat_blocks = function(data) {
   })
 }
 
-#' The caveats as one flat vector, for the workbook sheet
-#'
-#' Heading in capitals, body, blank line, repeated. Derived from
-#' fw_caveat_blocks() so the two can never say different things.
-#'
-#' A BLOCK MAY HAVE NO HEADING and then prints none, rather than a blank line
-#' where a heading would be. The client's caveats (6 Oct 2026) all have one.
-fw_caveats = function(data) {
-  blocks = fw_caveat_blocks(data)
-  out = character(0)
-  for (i in seq_along(blocks)) {
-    h = blocks[[i]]$heading
-    if (length(h) && nzchar(h)) out = c(out, toupper(h))
-    out = c(out, blocks[[i]]$body)
-    if (i < length(blocks)) out = c(out, "")
-  }
-  out
-}
-
 #' The methods statement, in the same shape as a caveat block
 #'
-#' So the closing section of every export is ONE LIST TO LOOP OVER: the methods
-#' first, then whatever caveats there are. Kept as its own block rather than
-#' folded into the caveats because the two are being written by different
-#' people - the methods statement is export$methods in R/copy_export.R.
 fw_methods_blocks = function() {
   list(list(heading = fw_t("export", "methods_heading"),
             body = fw_t("export", "methods")))
@@ -286,11 +207,8 @@ fw_methods_blocks = function() {
 
 #' The database citation
 #'
-#' ONE ACCESSOR for the About page and the closing section of every export, so
-#' the citation a reader copies cannot differ between them. The client's form
-#' (6 Oct 2026) is literal - no release or attempt count - so `meta` and `n`
-#' are unused; they stay so the callers need not change if a filled form
-#' comes back.
+#' Shared by About and every export. The citation is literal, so `meta` and
+#' `n` are unused.
 #'
 #' @param meta the release metadata (unused)
 #' @param n the number of attempts in the database (unused)
@@ -300,18 +218,8 @@ fw_citation_text = function(meta = NULL, n = NULL) {
 
 #' The whole closing section: methods, then caveats, then the citation
 #'
-#' THE LAST THING IN EVERY EXPORT - the workbook's last sheet, the PDF's last
-#' section, the records HTML's last section. It used to be a text file that
-#' travelled alongside them whatever the reader ticked; the client removed that
-#' download on 24 Sept 2026, so each document now carries the section itself,
-#' which is what the text file was for in the first place.
-#'
-#' THREE TITLED PARTS (client, 24 Sept 2026): Methods, Caveats, Citation.
-#' Since the client's own caveats arrived (6 Oct 2026) every caveat block has a
-#' heading of its own, so "Caveats" is a title block with no body, and the
-#' blocks under it are marked `sub = TRUE`: a smaller heading in the PDF and
-#' the records HTML, and not shouted in the workbook. The About panel is
-#' already titled "Data caveats" and shows the blocks alone.
+#' The last section of every export (workbook, PDF, records HTML). "Caveats"
+#' is a title with no body; its blocks are `sub = TRUE` (smaller headings).
 #'
 #' @return a list of list(heading =, body =, sub =)
 fw_closing_blocks = function(data, meta = NULL) {
@@ -329,22 +237,14 @@ fw_closing_blocks = function(data, meta = NULL) {
 
 #' The closing section as flat lines, for the workbook's last sheet
 #'
-#' The same three parts fw_closing_blocks() gives the PDF and the records
-#' HTML - methods, caveats, citation - flattened one line per row because that
-#' is what a sheet can hold. Built from fw_closing_blocks() itself, so the
-#' spreadsheet and the two documents cannot say different things.
-#'
-#' THIS USED TO BE A .txt IN EVERY DOWNLOAD. The client removed that file on
-#' 24 Sept 2026: a reader who ticks the PDF should get a PDF, not a zip holding
-#' a PDF and a text file, and the three documents can each carry the section.
+#' fw_closing_blocks() flattened to one line per row.
 fw_methods_caveats_text = function(data, meta = NULL) {
   blocks = fw_closing_blocks(data, meta)
   out = character(0)
   for (i in seq_along(blocks)) {
     b = blocks[[i]]
     h = b$heading
-    # The three parts in capitals; a caveat's own heading as written, so the
-    # sheet still shows which is the part and which the block inside it.
+    # Part titles in capitals; caveat headings as written.
     if (length(h) && nzchar(h)) out = c(out, if (isTRUE(b$sub)) h else toupper(h))
     out = c(out, b$body)
     # A title with no body runs straight into its first block.
@@ -357,8 +257,7 @@ fw_methods_caveats_text = function(data, meta = NULL) {
 
 #' The data dictionary that travels with the export
 #'
-#' The definitions live in R/copy_export.R, one per exported column. This only
-#' shapes them into the sheet.
+#' From export$dictionary in copy_export.R.
 fw_field_definitions = function() {
   d = fw_t("export", "dictionary")
   out = data.frame(names(d), unname(d), stringsAsFactors = FALSE)
@@ -370,28 +269,17 @@ fw_field_definitions = function() {
 
 #' Text as a one-column sheet
 #'
-#' One row per line, NOT one cell holding the whole document. Collapsing to a
-#' single newline-joined string renders as one unreadable cell in Excel.
+#' One row per line; a single newline-joined cell is unreadable in Excel.
 fw_text_sheet = function(lines, heading) {
   stats::setNames(data.frame(lines, stringsAsFactors = FALSE), heading)
 }
 
 #' A readable description of every filter that produced this extract
 #'
-#' Goes into the workbook as its own sheet, so a file that turns up in somebody's
-#' inbox six months later still says what it is a slice of.
-#'
-#' The filter rows are built by fw_filter_summary() from the SAME registry that
-#' draws the controls, so a filter cannot be offered on the page and then be
-#' missing from the spreadsheet that is supposed to record what was selected.
-#' Only the provenance rows above them are written out by hand.
-#' @param applied_only drop the filters the reader left alone. FALSE for the
-#'   workbook, where the sheet is a record of the whole settings panel and a row
-#'   reading "All" is a fact about the extract worth keeping. TRUE for the PDF
-#'   report (client, 23 Sept 2026), where seventeen rows of mostly "All" pushed
-#'   the reader's actual selection off the top of the page. The rule is the one
-#'   the report builder's on-screen summary already applies - see
-#'   output$filters_summary in mod_plan.R.
+#' Provenance rows, then one row per filter from fw_filter_summary() (the
+#' same registry that draws the controls).
+#' @param applied_only drop untouched filters. FALSE for the workbook (a full
+#'   record); TRUE for the PDF, as on screen.
 fw_filters_sheet = function(filters, n_rows, n_total, meta = NULL,
                              applied_only = FALSE) {
   provenance = list(
@@ -406,9 +294,7 @@ fw_filters_sheet = function(filters, n_rows, n_total, meta = NULL,
   )
   set = fw_filter_summary(filters)
   if (applied_only) {
-    # "All" is an untouched multi-select; "Yes" is an include-the-unrecorded
-    # switch left at its default. Both mean the reader did not narrow on that
-    # field. The provenance rows above are never dropped.
+    # "All" and a default "Yes" both mean untouched.
     skip = c(fw_t("export", "filter_all"), fw_t("export", "filter_yes"))
     set = Filter(function(r) {
       if (isTRUE(r$untouched)) return(FALSE)
@@ -429,14 +315,8 @@ fw_filters_sheet = function(filters, n_rows, n_total, meta = NULL,
 
 #' Write the workbook
 #'
-#' FOUR SHEETS, ALWAYS. The data is useless to a careful reader without the other
-#' three, and a reader who did not ask for the caveats is exactly the reader who
-#' needs them. There is no contacts sheet: the attempts sheet already carries
-#' primary_contact_* and secondary_contact_* on every row (client, 21 Sept 2026).
-#'
-#' METHODS AND CAVEATS IS THE LAST TAB (client, 24 Sept 2026), where the PDF and
-#' the records HTML also close. It carries what the retired
-#' fwise-methods-and-caveats.txt used to carry out of the building on its own.
+#' Always four sheets: attempts, definitions, filters, then methods and
+#' caveats last. Contacts are columns on the attempts sheet.
 fw_write_workbook = function(path, data, export, filters, meta = NULL) {
   wb = openxlsx::createWorkbook()
   header = openxlsx::createStyle(
@@ -450,8 +330,7 @@ fw_write_workbook = function(path, data, export, filters, meta = NULL) {
     openxlsx::setColWidths(wb, name, cols = seq_len(max(1, ncol(x))), widths = widths)
   }
 
-  # THE ADD ORDER IS THE TAB ORDER, and it matches `sheets` in R/copy_export.R.
-  # Move one there and move it here.
+  # Add order is tab order; keep it in step with `sheets` in copy_export.R.
   sheets = fw_t("export", "sheets")
   add(sheets$attempts, export)
   add(sheets$definitions, fw_field_definitions(), widths = c(26, 100))
@@ -468,14 +347,8 @@ fw_write_workbook = function(path, data, export, filters, meta = NULL) {
 
 #' When a download was made, for its filename
 #'
-#' DATE AND TIME, NOT THE DATE ALONE (client, 30 Sept 2026): two downloads on
-#' the same day with different filters otherwise arrive under one name, and the
-#' second becomes "(1)". UTC, because the server has no idea where the reader
-#' is - the same clock the workbook's Filters tab records. The chart PNGs build
-#' the same stamp in the browser; see fw_plotly_style() in R/charts.R.
-#'
-#' The fw.now option pins the clock, so the tests can compare a name made
-#' before a slow download with one made after it.
+#' UTC date and time, so two downloads a day get distinct names. Chart PNGs
+#' match (fw_png_button()). The fw.now option pins the clock for tests.
 fw_file_stamp = function(time = getOption("fw.now", Sys.time())) {
   format(time, "%Y%m%d-%H%M%S", tz = "UTC")
 }
@@ -487,53 +360,27 @@ fw_export_filename = function(stamp = fw_file_stamp()) {
 
 # ---- The bundle --------------------------------------------------------------
 #
-# ONE DOWNLOAD, ASSEMBLED FROM WHAT THE READER TICKED. The report builder offers
-# a picker and one button. See fw_plan_download_ui() in mod_plan.R.
-#
-# NOTHING RIDES ALONG ANY MORE (client, 24 Sept 2026). A methods-and-caveats
-# .txt used to go into every download whatever was ticked, which meant a reader
-# who wanted the PDF got a zip holding a PDF and a text file. The section it
-# carried is now the last tab of the workbook and the last section of the PDF
-# and the records HTML, so ticking one thing downloads that one thing.
-#
-# THREE PARTS, at the client's request (23 Sept 2026): the PDF report, the
-# attempts file and the spreadsheet. The interactive HTML report they replace -
-# live plotly charts and a leaflet map, printed to PDF through the browser - is
-# gone; the PDF is now a real one, made on the server.
-#
-# THE CSV WENT WITH THAT ROUND. It was the .xlsx's rows a second time in a
-# plainer wrapper, and offering the same data twice made the picker read as
-# four decisions when it is three. A reader who wants delimited text opens the
-# workbook and saves it as one.
+# One download built from what the reader ticks on Plan (fw_plan_download_ui()).
+# One part arrives as itself; more arrive as a zip.
 
-# The parts a reader can choose, in the order they are written. The download
-# picker lists them in this order too - see fw_plan_download_ui() in mod_plan.R.
+# The parts, in write order and picker order.
 FW_BUNDLE_PARTS = c("pdf", "records", "xlsx")
 
 #' Which files a selection actually produces
 #'
-#' Anything not recognised is dropped. The PDF is dropped too when this server
-#' cannot make one (no Quarto): the picker has already told the reader so, and
-#' the rest of their download should not fail with it.
+#' Drops unknown parts, and the PDF when there's no Quarto.
 fw_bundle_parts = function(parts = character(0)) {
   parts = intersect(FW_BUNDLE_PARTS, parts %||% character(0))
   if (!fw_pdf_available()) parts = setdiff(parts, "pdf")
-  # A DEFENSIVE FLOOR, NOT A FEATURE. The download button is disabled while
-  # nothing is ticked (see fw_plan_download_ui() in mod_plan.R), so an empty
-  # selection cannot be asked for from the page. This is here so that a request
-  # that arrives empty anyway - a stale browser, the PDF dropped above as the
-  # only tick - hands back a real spreadsheet rather than a zero-byte file.
-  # It also keeps fw_bundle_filename() and fw_write_bundle() answering the same
-  # question, which they must: the handler names the file before it writes it.
+  # Fallback for an empty request (the button is disabled, but e.g. PDF-only
+  # with no Quarto): a spreadsheet, not a zero-byte file.
   if (!length(parts)) parts = "xlsx"
   parts
 }
 
 #' What one part is called on its own
 #'
-#' The single-file case below, and the name each part is written under inside a
-#' zip. One place, so the handler's filename() and fw_write_bundle() cannot
-#' disagree about what a lone PDF is called.
+#' Used for a lone file and for names inside a zip.
 FW_BUNDLE_FILENAME = list(
   pdf     = function(stamp) fw_pdf_filename(stamp),
   records = function(stamp) fw_records_filename(stamp),
@@ -542,10 +389,7 @@ FW_BUNDLE_FILENAME = list(
 
 #' What a download of this selection will be called
 #'
-#' A zip when more than one thing was ticked, THE FILE ITSELF WHEN ONE WAS
-#' (client, 24 Sept 2026). Ticking the PDF and being handed a zip was the whole
-#' complaint, and it was the methods-and-caveats text - which always travelled -
-#' that made every download a zip of two things.
+#' A zip for several parts, the file itself for one.
 fw_bundle_filename = function(parts = character(0), stamp = fw_file_stamp()) {
   parts = fw_bundle_parts(parts)
   if (length(parts) == 1) return(FW_BUNDLE_FILENAME[[parts]](stamp))
@@ -563,20 +407,12 @@ fw_write_bundle = function(path, parts, data, sel, export, filters, meta = NULL,
                             progress = function(value, detail) NULL) {
   parts = fw_bundle_parts(parts)
 
-  # EVERY NAME FROM ONE STAMP. The names carry the time to the second and the
-  # PDF takes several to make, so asking for its name again after writing it
-  # would name a file that is not there.
+  # One stamp for every name: the PDF takes seconds to make.
   stamp = fw_file_stamp()
   names = lapply(FW_BUNDLE_FILENAME, function(f) f(stamp))
 
-  # THE BAR IS WEIGHTED BY WHAT TAKES THE TIME, not by the number of steps: the
-  # PDF (Quarto on the server) is most of any bundle that has one, and a bar
-  # that spent a third of itself on the spreadsheet would stall at the end.
-  #
-  # THE ZIP STEP ONLY EXISTS WHEN THERE IS MORE THAN ONE FILE. It used to be
-  # claimed whenever anything was ticked, which was right only because the
-  # methods text guaranteed a second file; with that gone, a lone PDF never
-  # reaches the zip and a bar holding a twelfth back for it would stop short.
+  # Progress weighted by time taken (the PDF dominates). The zip step only
+  # exists for more than one file.
   steps = c(xlsx = 2, pdf = 12, records = 3, zip = 1)
   steps = steps[c(parts, if (length(parts) > 1) "zip")]
   ends = cumsum(steps) / sum(steps)
@@ -588,12 +424,7 @@ fw_write_bundle = function(path, parts, data, sel, export, filters, meta = NULL,
 
   files = character(0)
 
-  # THE WRITE ORDER IS FW_BUNDLE_PARTS' ORDER, and that is load-bearing rather
-  # than tidy. fw_bundle_parts() above has already sorted `parts` into the
-  # canonical order, and the weighted bar computes each step's start from that
-  # same sequence - so a block written out of sequence reports a fraction it
-  # has already passed and the progress bar jumps backwards. If a part moves in
-  # FW_BUNDLE_PARTS, move its block here to match.
+  # Write in FW_BUNDLE_PARTS order, or the progress bar jumps backwards.
   if ("pdf" %in% parts) {
     fw_write_pdf_report(
       path = file.path(dir, names$pdf), data = data, sel = sel,
@@ -617,8 +448,7 @@ fw_write_bundle = function(path, parts, data, sel, export, filters, meta = NULL,
                       filters, meta)
     files = c(files, names$xlsx)
   }
-  # ONE FILE ARRIVES AS ITSELF (client, 24 Sept 2026). fw_bundle_filename() has
-  # already named it, and it must reach the same conclusion as this branch.
+  # One file arrives as itself (fw_bundle_filename() agrees).
   if (length(files) == 1) {
     file.copy(file.path(dir, files), path, overwrite = TRUE)
     progress(1, fw_t("plan", "progress_done"))
@@ -626,16 +456,9 @@ fw_write_bundle = function(path, parts, data, sel, export, filters, meta = NULL,
   }
   step("zip", "progress_zip")
 
-  # WRITE TO A NAME ENDING IN .zip, THEN MOVE IT. The zip binary appends ".zip"
-  # to an output name that has no extension, and a downloadHandler's temp file
-  # never has one - so zipping straight to `path` wrote the archive beside it
-  # and left `path` empty. The handler renames it on the way out anyway, using
-  # fw_bundle_filename().
-  #
-  # utils::zip() shells out and reports failure through a status code rather
-  # than a condition, so the status is checked: a download that silently hands
-  # back a zero-byte file is worse than one that errors. Relative paths, from
-  # inside the directory, so the archive carries no absolute path.
+  # Zip to a .zip temp name, then copy: zip appends ".zip" to an extensionless
+  # path. utils::zip() signals failure by status only, so check it. Relative
+  # paths so the archive holds no absolute paths.
   archive = tempfile(fileext = ".zip")
   wd = setwd(dir); on.exit(setwd(wd), add = TRUE, after = FALSE)
   status = utils::zip(archive, files, flags = "-q")

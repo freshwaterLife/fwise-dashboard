@@ -1,16 +1,10 @@
 # copy_forms.R
-# Every user-facing string on the newsletter form, the feedback form and the
-# privacy page's furniture (the privacy TEXT itself is content/
-# privacy_and_data_terms.md). Read through fw_t() like the rest of the deck:
-# fw_copy_all() in copy.R merges this list in at call time. The section names
-# here - newsletter, feedback, privacy - must not appear in another copy file.
+# The copy deck, part 4: newsletter, feedback and the privacy page's chrome
+# (its text is content/privacy_and_data_terms.md). newsletter, feedback and
+# privacy must not appear in another copy file.
 #
-# House style: UK spelling, sentence case, active voice.
-#
-# THE FORM WORDING IS ALEX'S BRIEF OF 2 OCT 2026, word for word where the brief
-# gave words. The consent sentence in particular is stored with every sign-up
-# (consent_wording), so changing it changes what new sign-ups agreed to: bump
-# privacy$version when it changes.
+# The consent sentence is stored with every sign-up: bump privacy$version when
+# it changes.
 
 FW_COPY_FORMS = list(
 
@@ -45,8 +39,7 @@ FW_COPY_FORMS = list(
     open_label = "Send feedback",
     title      = "Send feedback",
     page       = "Page",
-    # The two choices that are not pages. The pages themselves take their
-    # navbar labels from `nav` in copy.R.
+    # The two non-page choices; pages use `nav` labels.
     page_general = "General",
     page_other   = "Other",
     issue        = "What's the issue or suggestion?",
@@ -76,7 +69,7 @@ FW_COPY_FORMS = list(
   # Shared by both forms.
   forms = list(
     data_link   = "How we use your data.",
-    # Read out after any link that opens a new tab, so it is never a surprise.
+    # Read out after any link that opens a new tab.
     new_tab     = " (opens in a new tab)",
     # The honeypot's label. Never seen by a person; see fw_honeypot().
     honeypot    = "Website",
@@ -86,14 +79,9 @@ FW_COPY_FORMS = list(
 
   privacy = list(
     title = "Privacy and data terms",
-    # THE TERMS VERSION. Written into every newsletter and feedback row
-    # (terms_version), and shown at the top of the page with the date below.
-    #
-    # WHEN THIS CHANGES, ADD A DATED LINE under "Changes to this notice" in
-    # content/privacy_and_data_terms.md. Submissions do not store the version:
-    # their submitted_at date, read against that list, is how anyone later
-    # works out which terms a contributor agreed to (decided 2 Oct 2026). A
-    # change with no dated line breaks that.
+    # Terms version, stored on every newsletter and feedback row. When it
+    # changes, add a dated line under "Changes to this notice" in the privacy
+    # page: submissions are matched to terms by date. plan_test.R checks it.
     version       = "Draft 0.1",
     last_updated  = "2026-10-02",
     version_label = "Version",

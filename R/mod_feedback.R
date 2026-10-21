@@ -1,18 +1,8 @@
 # mod_feedback.R
-# "Send feedback", in a dialog.
-#
-# ONE INSTANCE FOR THE WHOLE APP, like the newsletter (see mod_newsletter.R),
-# opened by any fw_form_open("feedback", ...).
-#
-# MORE THAN ONE PER VISIT IS FINE, unlike the newsletter: someone working
-# through the app may find three things. Each opening of the dialog is a fresh
-# form; the thank-you has no "send more" button (Alex, 2 Oct 2026). A short cooldown
-# (FW_FEEDBACK_COOLDOWN_S) stops a double press or an impatient resend writing
-# the same message twice.
-#
-# NO CONSENT BOX. Feedback is not marketing, and the email is optional and used
-# only to reply; the lawful basis is legitimate interests, which the privacy
-# page says in its feedback section.
+# The "Send feedback" dialog. One instance for the app, opened by
+# fw_form_open("feedback", ...). Several sends per visit are allowed, with a
+# FW_FEEDBACK_COOLDOWN_S pause. No consent box: the email is optional and only
+# used to reply (legitimate interests, per the privacy page).
 
 #' @param open a reactive holding input$fw_open_form: list(form, source)
 #' @param nav  a reactive holding input$fw_nav, the page the reader is on
@@ -108,19 +98,15 @@ fw_feedback_form = function(ns, selected) {
   max = FW_FORM_LIMITS$message
   counter_id = ns("message_counter")
 
-  # THE LIMIT IS ENFORCED BY THE BROWSER AS WELL AS CHECKED HERE: maxlength
-  # stops typing at the limit, and the counter under the box says how close
-  # the reader is. The server checks again, because maxlength is a request.
+  # maxlength and a counter in the browser; the server checks again.
   area = htmltools::tagQuery(textAreaInput(ns("message"), label = NULL,
                                             width = "100%", rows = 6))
   area$find("textarea")$addAttrs(maxlength = max, `aria-required` = "true",
                                  `data-fw-counter` = counter_id,
                                  `aria-describedby` = counter_id)
 
-  # A NATIVE SELECT, NOT SELECTIZE: eight fixed choices need no search box,
-  # and the browser's own control is the most dependable one for a keyboard
-  # and a screen reader. Shiny gives it .form-control, which in Bootstrap 5
-  # draws no chevron, so it gets .form-select instead.
+  # A native select (best for keyboards and screen readers), with
+  # .form-select for Bootstrap 5's chevron.
   page_select = htmltools::tagQuery(
     selectInput(ns("page"), label = NULL, choices = fw_feedback_pages(),
                 selected = selected, selectize = FALSE, width = "100%"))

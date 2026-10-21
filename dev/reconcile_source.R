@@ -1,30 +1,19 @@
 # reconcile_source.R
-# PROVES THE DATA HOLDS EVERY SOURCE COLUMN AND EVERY SOURCE VALUE, identically
-# coded. Reads the client's export under fwise-data/source/ (xlsx or csv), the
-# row-to-id map beside it, and attempts.csv, species.csv and contacts.csv, and
-# walks every source column. Each has exactly one rule; a column with no rule
-# is itself a failure, so a new column in a future export cannot slip through
-# unnoticed.
+# Checks the data holds every source column and value from the client's export
+# (fwise-data/source/), via the row-to-id map. Every source column needs a
+# rule; a column without one fails.
 #
 #     Rscript dev/reconcile_source.R
 #
-# Plain base R for the checks, deliberately: dev/build_from_export.R wrote the
-# data, and a test that repeats the build's own code would only prove it agrees
-# with itself. In particular numbers are compared as numbers here, not by
-# re-running the build's formatting.
+# Base R, independent of the code that built the data.
 #
-# WHAT COUNTS AS A DIFFERENCE. Cells are compared as trimmed text with blank
-# and NA treated as the same absence and Windows line endings inside a cell
-# read as plain newlines. A cell that is a number on both sides is compared as
-# a number to 15 significant digits, which is the tidying of Excel's float
-# noise ("3.3000000000000002E-2" stored as "0.033"). The country/region split
-# and the water-regime corrections are asserted rather than skipped.
+# Cells compare as trimmed text (blank = NA, \r\n = \n); numbers on both
+# sides compare to 15 significant digits (Excel float noise). The
+# country/region split and regime corrections are asserted.
 #
-# REPORTED, NOT FAILED, because each is a decision already taken: the regime
-# corrections named in FW_REGIME_BY_TYPE; the float-noise tidying; a contact
-# whose email differed between rows and now carries one address; and, listed
-# in qa/build_issues_<date>.csv for fixing in the export, a method note
-# in a slot with no method.
+# Reported, not failed: FW_REGIME_BY_TYPE corrections, float-noise tidying, a
+# contact with differing emails merged to one, and a method note in a slot with
+# no method.
 
 source(file.path("R", "brand.R")); source(file.path("R", "config.R"))
 source(file.path("R", "data_load.R"))
@@ -41,11 +30,8 @@ raw_path = list.files(src_dir, pattern = "^fwise_.*[0-9]\\.(csv|xlsx)$", full.na
 if (length(raw_path) != 1) stop("Expected exactly one raw export, found: ", paste(raw_path, collapse = ", "))
 ids_path = file.path(src_dir, sub("\\.(csv|xlsx)$", "_ids.csv", basename(raw_path)))
 
-# OPENXLSX LEAVES XML ESCAPES IN INLINE STRINGS. The 5 Oct 2026 export stores
-# its text inline in each cell (t="inlineStr") rather than in Excel's shared
-# strings table, and read.xlsx() decodes the escaping only in the latter, so
-# "Abel Creek & North Fork" arrived as "Abel Creek &amp; North Fork" (471
-# cells). This undoes the reader's omission; it is not a change to the data.
+# Gotcha: openxlsx leaves XML escapes ("&amp;") in inline-string cells.
+# Decode them.
 xml_unescape = function(x) {
   if (!is.character(x)) return(x)
   ok = !is.na(x) & grepl("&#", x, fixed = TRUE)
@@ -64,8 +50,7 @@ raw = if (grepl("\\.xlsx$", raw_path)) {
   x[] = lapply(x, xml_unescape)
   x
 } else read_text(raw_path)
-# Numeric Excel columns to text at full precision, so the number comparison
-# below sees what the file holds rather than a rounded print.
+# Numeric columns to text at full precision.
 raw[] = lapply(raw, function(x) norm(if (is.numeric(x)) sprintf("%.17g", x) else as.character(x)))
 raw[] = lapply(raw, function(x) { x[x %in% "NA"] = NA; x })
 map = read_text(ids_path)
@@ -113,8 +98,7 @@ checked_cols = character(0)
 rule = function(source_col, ...) { checked_cols <<- c(checked_cols, source_col); record(source_col, ...) }
 
 # ---- 1. Identity columns ------------------------------------------------------
-# Every source column that has a same-named home in attempts.csv, plus the one
-# renamed column. country and water_regime have their own rules below.
+# Same-named columns, plus the one rename. country and water_regime are below.
 identity = setdiff(intersect(names(raw), names(att)), c("country", "water_regime"))
 identity = c(setNames(identity, identity), reason = "driver")
 tidied = integer(0); tidied_cols = character(0)
@@ -192,9 +176,8 @@ check_contact = function(prefix, id_col) {
   nm = raw[[paste0(prefix, "_contact_name")]]; em = raw[[paste0(prefix, "_contact_email")]]
   og = raw[[paste0(prefix, "_contact_organisation")]]
   c_ = con_by_id[a[[id_col]], ]
-  # A slot with anything in it - a name, an organisation, even only an email -
-  # must cite a contact; a wholly empty slot must cite none. A contact with no
-  # name is the organisation itself, so the name matches as absent on both sides.
+  # A non-empty slot must cite a contact; an empty one none. A contact with no
+  # name is the organisation.
   filled = !is.na(nm) | !is.na(og) | !is.na(em)
   cited  = !is.na(a[[id_col]])
   bad_nm = which(filled != cited | (filled & !same_text(nm, c_$contact_name)))
@@ -222,9 +205,8 @@ rule("redact_email", "contacts.csv$contact_public", n, unique(bad),
      list(src = raw$redact_email, dst = rep("", n)))
 
 # ---- 5. The two transformations ----------------------------------------------
-# "Country (Region)" is split. A region that is itself an ISO 3166-1 country is
-# the country (Guam), and iso3 and continent follow the country. See
-# fw_validate_geography() in R/data_load.R.
+# "Country (Region)" is split; a region that is an ISO country is the country.
+# See fw_validate_geography().
 rebuilt = ifelse(is.na(a$region), a$country, paste0(a$country, " (", a$region, ")"))
 territory = is.na(a$region) & a$country %in% iso$country &
   !is.na(raw$country) & endsWith(raw$country, paste0("(", a$country, ")"))

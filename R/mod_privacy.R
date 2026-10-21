@@ -1,22 +1,8 @@
 # mod_privacy.R
-# The Privacy and data terms page.
-#
-# A PAGE WITH NO NAVBAR LINK. It is a nav_panel like any other (value
-# "privacy"), so nav_select() can show it and it sits in the page's own
-# structure, but its link is hidden by CSS - see the rule for
-# .nav-link[data-value="privacy"] in _components.scss. CSS rather than
-# nav_hide() from the server, because the stylesheet is in place before the
-# first paint and a server call is not: the link would flash in and out.
-#
-# HOW PEOPLE ARRIVE. The footer's "Privacy and data terms" link, and links of
-# the form ?page=privacy&section=feedback from the forms, which open in a new
-# tab. app.R reads that query string once at the start of a session, opens the
-# page and asks the browser to scroll to the section; while the page is open
-# the address says ?page=privacy, so it can be copied and shared. The
-# observers are in app.R because the navbar is the app's, not this page's.
-#
-# THE TEXT IS A MARKDOWN FILE, content/privacy_and_data_terms.md, read once
-# when the UI is built. Its header comment says how to edit it.
+# The Privacy and data terms page. A nav_panel whose navbar link is hidden by
+# CSS (nav_hide() would flash). Reached from the footer and ?page=privacy
+# links; app.R handles the URL. Text is content/privacy_and_data_terms.md,
+# read once.
 
 FW_PRIVACY_FILE = file.path("content", "privacy_and_data_terms.md")
 
@@ -86,8 +72,7 @@ fw_privacy_html = function(path = FW_PRIVACY_FILE) {
 
 #' The contents list: each part, with its sections under it
 #'
-#' Built from the headings fw_privacy_html() found, so it cannot list a
-#' section the text no longer has.
+#' Built from the headings fw_privacy_html() found.
 fw_privacy_contents = function(ns, toc) {
   item = function(i) tags$a(href = paste0("#", toc$id[i]), HTML(toc$title[i]))
   parts = which(toc$level == 2)
@@ -113,9 +98,8 @@ fw_privacy_contents = function(ns, toc) {
 fw_privacy_script = function() {
   tags$script(HTML("
     $(function () {
-      // Scroll to one section, once its page is showing. A deep link selects
-      // the page and asks for the section in the same breath, so the pane may
-      // not be active yet: then wait for Bootstrap to say it has been shown.
+      // Scroll to a section once the page is shown (wait for Bootstrap if
+      // the pane isn't active yet).
       Shiny.addCustomMessageHandler('fw-scroll-to-section', function (id) {
         var go = function () {
           var el = document.getElementById(id);
@@ -128,13 +112,11 @@ fw_privacy_script = function() {
         if (!pane || pane.classList.contains('active')) { setTimeout(go, 0); return; }
         $(document).one('shown.bs.tab', function () { setTimeout(go, 0); });
       });
-      // Leaving the page: the address goes back to the bare app, as a new
-      // history entry, so Back returns to the privacy page.
+      // Leaving: push the bare address, so Back returns here.
       Shiny.addCustomMessageHandler('fw-url-clear', function (_) {
         history.pushState(null, '', location.pathname);
       });
-      // Back and Forward change the address without reloading; tell the
-      // server, which moves the page to match.
+      // Back/Forward: tell the server, which moves the page.
       window.addEventListener('popstate', function () {
         Shiny.setInputValue('fw_popstate', location.search, { priority: 'event' });
       });

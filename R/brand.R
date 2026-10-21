@@ -1,183 +1,99 @@
 # brand.R
-# THE ONE PLACE DESIGN VALUES LIVE. Colour, type, spacing, radius, shadow,
-# motion and breakpoints, for the whole application: the Shiny UI, the Bootstrap
-# theme (R/theme.R), every plotly chart (R/charts.R), the maps (R/maps.R), the
-# workbook export (R/export.R), the Word question list (R/questions_docx.R) and
-# the PDF report (R/report_pdf.R, R/charts_static.R) and the attempts download
-# (R/report_records.R).
+# Every design value: colour, type, spacing, radius, shadow, motion and
+# breakpoints. Read by the UI, the Bootstrap theme, charts, maps and every
+# export.
 #
-# HOW IT REACHES THE STYLESHEET. www/scss/_tokens.scss contains NO literal
-# values. fw_sass_variables() below flattens everything here into Sass variables
-# and fw_compile_css() (R/ui_helpers.R) hands them to sass::sass() ahead of the
-# stylesheet, so `$fw-ink` in Sass IS FW_COLOURS$ink. Change a value here and it
-# changes everywhere at the next start. There is no second copy to keep in step.
+# _tokens.scss holds no literals: fw_sass_variables() passes these to Sass, so
+# `$fw-ink` is FW_COLOURS$ink. After changing a colour, run
+# dev/check_contrast.R and dev/check_literals.R.
 #
-# TO CHANGE A COLOUR: edit FW_COLOURS, then run
-#     Rscript dev/check_contrast.R    (every text/background pair against WCAG AA)
-#     Rscript dev/check_literals.R    (nothing has crept back in as a literal)
+# No dependencies, so dev scripts can source it alone. Shiny sources R/ in byte
+# order, so this file must keep a name that sorts first.
 #
-# THIS FILE HAS NO DEPENDENCIES. It does not call library() and does not read
-# any other file, so a dev script can source() it on its own. Shiny sources R/
-# in C byte order, which puts brand.R before every file that reads it; keep the
-# name, or rename it to something that still sorts first.
-#
-# NAMING. Tokens are named for their ROLE, not their hue, so a value can change
-# without the name lying. If a new role is needed, add a token rather than
-# reusing one that happens to have the right value today.
+# Tokens are named for their role, not their hue.
 
 # ---- Colour ------------------------------------------------------------------
 
-# THE TWO CLIENT VALUES ARE #0F8B79 (teal) AND #191144 (indigo). Everything
-# else is derived from them or is a neutral tinted towards the indigo.
+# Client values: #0F8B79 (teal) and #191144 (indigo). Everything else derives
+# from them or is a neutral tinted towards the indigo. No white anywhere.
+# Surfaces are lifted by tone and FW_SHADOW$card, not borders.
 #
-# THERE IS NO WHITE. The page is a cool off-white tinted from the indigo and
-# every surface on it - cards, tables, inputs, the navbar, popups, the report
-# sheet - is one tonal step lighter, never #ffffff. Surfaces are lifted by
-# that step and by FW_SHADOW$card, not by a border.
-#
-# CONTRAST. The brand teal does not reach 4.5:1 as text on any light surface,
-# so it is reserved for NON-TEXT roles (accents, the active nav marker, the KPI
-# rule, the focus ring) and every text or button role uses teal_text, which is
-# the same hue stepped down until it passes. Never set body-sized text in
-# brand_teal. dev/check_contrast.R lists every pair the interface uses and is
-# the arbiter; re-run it after touching any value here.
+# brand_teal fails AA as text, so it is non-text only; text and buttons use
+# teal_text. dev/check_contrast.R checks every pair.
 FW_COLOURS = list(
   # Text
-  ink             = "#191144",  # CLIENT VALUE. Body text and headings
+  ink             = "#191144",  # client value. Body text and headings
   ink_muted       = "#4a4468",  # secondary text, captions, help
 
   # Brand
-  brand_indigo    = "#191144",  # CLIENT VALUE. The page-title band and footer ground
-  brand_teal      = "#0f8b79",  # CLIENT VALUE. Accents and markers. NON-TEXT ONLY
+  brand_indigo    = "#191144",  # client value. Page-title band and footer
+  brand_teal      = "#0f8b79",  # client value. Accents and markers, non-text only
   teal_text       = "#0c7565",  # links and primary buttons: the teal that passes AA
-  teal_hover      = "#0a6152",  # hover state for links and buttons: a step darker
+  teal_hover      = "#0a6152",  # hover for links and buttons, a step darker
   teal_tint       = "#c9e7e3",  # chips, progress track, tinted panels
-  teal_wash       = "#e4f1ee",  # the faintest teal: notices, subtle washes
-  teal_light      = "#7fc5bd",  # links and accents ON the indigo ground
+  teal_wash       = "#e4f1ee",  # faintest teal: notices, subtle washes
+  teal_light      = "#7fc5bd",  # links and accents on the indigo ground
 
   # Surfaces
-  page            = "#e9ebf3",  # the page ground behind everything
+  page            = "#e9ebf3",  # the page ground
   surface         = "#f7f8fc",  # cards, tables, inputs, navbar, popups, report sheet
   sunken          = "#eef0f7",  # table header rows, disabled fields, skeleton base
 
   # Lines
-  border          = "#d9dcea",  # hairlines, dividers, the chart grid. Decorative
-  border_input    = "#6b6486",  # input edges: an interactive boundary, needs 3:1
+  border          = "#d9dcea",  # hairlines, dividers, chart grid. Decorative
+  border_input    = "#6b6486",  # input edges: interactive, needs 3:1
 
   # Text on the indigo ground
   on_indigo       = "#f7f8fc",
   on_indigo_muted = "#c9c4e3",
 
-  # The two keys of the Welcome page's map pictures. SAMPLED FROM THE CLIENT'S
-  # IMAGES (www/img/home/map-*.png), not chosen: they are swatches beside the
-  # map caption and have to match the fill in the picture. Non-text only.
+  # Welcome map keys, sampled from www/img/home/map-*.png. Non-text only.
   map_now         = "#54a1cb",
   map_next        = "#eebf54",
-  # The same two hues darkened to pass as text. The map caption is its own
-  # legend: "past successes" in the one, "future opportunities" in the other.
-  # The amber was lightened on the client's instruction (#8a5f00 read brown).
-  # It passes 3:1, not 4.5:1: the caption is 1.3rem bold, which is WCAG large
-  # text. Do not use it for body-sized text.
+  # The same hues darkened for the map caption. map_next_text passes 3:1 only
+  # (large bold text), so don't use it for body text.
   map_now_text    = "#2e6f9a",
   map_next_text   = "#b07b00"
 )
 
 # ---- Type --------------------------------------------------------------------
 
-# Ubuntu throughout, self-hosted from www/fonts/. Ubuntu Mono is for numerals
-# only (.fw-num): it column-aligns figures. Never set labels or prose in it.
+# Ubuntu, self-hosted from www/fonts/. Ubuntu Mono for numerals only (.fw-num).
 #
-# THE 1rem FLOOR. No text that stays on the page may be set below 1rem; that
-# is a client instruction. `min` is that floor, and the one exemption is
-# `popup`: transient overlay text (popovers, the map card) may sit under it.
-# floor_px is the same floor in the unit plotly understands.
-#
-# THE SCALE MOVED UP. The client asked for subtitles - the qualifying line
-# under a block heading, which is `caption` - at 1.15rem rather than 1rem.
-# Raising caption ALONE would have made it larger than body prose at 1.0625rem,
-# so a chart's qualification would have outranked the paragraph that introduced
-# it. The whole scale therefore went up together and the ratios between the
-# steps are unchanged; only `min`, `popup` and `credit` stayed where they were,
-# because those are the floor and its two exemptions rather than steps on the
-# scale. `caption` is now separated from body text by size AS WELL AS by colour.
+# 1rem floor (client): nothing that stays on the page goes below size_min.
+# Exemptions: size_popup (transient overlays), size_fine, size_credit and
+# size_photo_credit. floor_px is the same floor for plotly.
 FW_TYPE = list(
   font_body = paste0('"Ubuntu", -apple-system, BlinkMacSystemFont, "Segoe UI", ',
                      'Roboto, "Helvetica Neue", Arial, sans-serif'),
   font_mono = paste0('"Ubuntu Mono", ui-monospace, SFMono-Regular, "SF Mono", ',
                      'Menlo, Consolas, "Liberation Mono", monospace'),
-  # The family name plotly is given. It cannot take the full stack.
+  # plotly can't take the full stack.
   font_plot = "Ubuntu, system-ui, sans-serif",
-  # The Word question list. Word on the reader's machine will not have Ubuntu.
+  # Word question list: readers won't have Ubuntu.
   font_docx = "Calibri",
 
-  # THE SCALE MOVED IN TWO DIRECTIONS AT ONCE, and that was the instruction:
-  # headings and the navigation up a step, everything else down a step. The
-  # app read as uniformly large - a note and the heading above it were four
-  # hundredths of a rem apart - so nothing was emphasised by being big.
-  #
-  # THEN THE SMALL HALF CAME BACK UP ONE NOTCH, on a later client instruction:
-  # the running text had ended up a shade too small to read comfortably. Only
-  # the small half moved - lead, body, caption and the floor - so the headings
-  # keep the sizes they were given and the emphasis the earlier reduction bought
-  # is not spent. The gap between size_h3 and size_lead is narrower than it was;
-  # that is the cost, and it was accepted.
-  #
-  # NOTHING WENT BELOW size_min, which is now 1.05rem. The floor is a client
-  # instruction and not a preference. size_popup is the one exemption and did
-  # NOT move with the rest: it sizes transient overlays - the (i) popovers and
-  # the map hover card - and raising it would grow every card on the map.
-  size_display = "3.05rem",
   size_h1      = "2.4rem",
   size_h2      = "1.9rem",
   size_h3      = "1.55rem",
-  # The navigation, which is bigger than the body text rather than smaller than
-  # it. It used to take size_caption, so the six tabs were the smallest chrome
-  # on the page; the client asked for the tabs and the logo to carry the top of
-  # the page together. Its own step, because it is neither a heading nor body.
+  # Navigation tabs: its own step, larger than body.
   size_nav     = "1.3rem",
   size_lead    = "1.3rem",
   size_body    = "1.2rem",
   size_caption = "1.15rem",    # subtitles and notes
-  size_min     = "1.05rem",    # THE FLOOR. Not a step on the scale; do not lower.
-  size_popup   = "0.9rem",     # THE ONE EXEMPTION: transient overlays only
+  size_min     = "1.05rem",    # the floor. Do not lower.
+  size_popup   = "0.9rem",     # exemption: transient overlays only
 
-  # THE THIRD EXEMPTION, and like the other two it is a client instruction
-  # rather than a drift (23 Sept 2026): "smaller than 1rem", for small print
-  # that qualifies the page without competing with it. FOUR PLACES ONLY -
-  # the Welcome page's evidence footnote, the Mercator note under both maps,
-  # the footer's licence line (added 24 Sept 2026 at the client's request),
-  # and, on paper, the report's "What this report covers" table (fw-small in
-  # fw_pdf_tokens()).
-  #
-  # 0.95rem, not the 0.8rem the credits take: this is running prose a reader
-  # is expected to read through, where a credit is a line they glance at.
-  #
-  # THE FLOOR STILL STANDS FOR EVERYTHING ELSE. If a fifth caller wants this,
-  # that is the point at which to ask the client whether the floor has moved
-  # rather than to add it here.
-  size_fine    = "0.95rem",    # footnotes and map notes. See $fw-size-fine.
+  # Exemption (client): small print that qualifies the page. Only the Welcome
+  # footnote, the Mercator note under maps, the footer licence line and the
+  # PDF's "What this report covers" table. Ask the client before adding more.
+  size_fine    = "0.95rem",
 
-  # THE SECOND EXEMPTION, and a client instruction rather than a drift. A
-  # photograph's credit line is an obligation under the licence - it has to be
-  # present and legible - but in the dashboard's attempts table it sits under
-  # two thumbnails in every row, and at 1rem the attribution was setting the
-  # column width and pushing the species name onto three lines. The name is
-  # what the reader is scanning for; the credit only has to be readable when
-  # they look at it.
-  #
-  # 0.8rem, roughly 13px, NOT the half of 1rem the instruction says literally:
-  # 8px attribution is not legible at arm's length on a laptop and would fail
-  # the obligation it exists to meet. Raise or lower it here, in one place.
-  #
-  # EVERY PHOTOGRAPH CREDIT since 29 Sept 2026: the client asked for the credit
-  # under the hover card, the full record and the report tiles to be smaller,
-  # so all of them take this step rather than the floor or the popup size.
-  size_credit  = "0.8rem",     # the footer credits, and photo credits on paper
+  # Exemption (client): footer credits and photo credits on paper. Must stay
+  # legible, since the credit is a licence obligation.
+  size_credit  = "0.8rem",
 
-  # THE THIRD EXEMPTION: the Wikimedia credit under every photograph on the
-  # page - the hover card, the full record, the report tiles and the attempts
-  # table - taken down again to 0.6rem (client, 30 Sept 2026). The footer's
-  # small print and the PDF's credits stay at size_credit, above.
+  # Exemption (client): the Wikimedia credit under on-page photographs.
   size_photo_credit = "0.6rem",
 
   # Narrow screens (under FW_BREAKPOINTS$xs) step the headings down.
@@ -199,27 +115,12 @@ FW_TYPE = list(
 
 # ---- Print -------------------------------------------------------------------
 
-# THE PDF REPORT'S TYPE, in points. A printed page has no rem, so the floor is
-# carried across by the CSS definition of the units: 1rem is 16px and 16px is
-# 12pt, so FW_TYPE$size_min (1.05rem) is 12.6pt on paper. Body text and the
-# charts' own labels sit ON that floor - the client's rule does not relax
-# because the page is printed - and the headings step up from it. The charts
-# are drawn at their printed size, so a label set at `floor` in ggplot prints
-# at `floor`.
+# PDF type in points. 1rem = 16px = 12pt, so size_min (1.05rem) is 12.6pt. Body
+# text and chart labels sit on that floor; charts are drawn at printed size.
 fw_rem_pt = function(rem) 12 * as.numeric(sub("rem$", "", rem))
-# THE PRINTED MAP'S OWN COLOURS, and the one place in the app where water and
-# land are drawn as themselves rather than as surface tones (client, 23 Sept
-# 2026). Everywhere else the map is a ground for data - light land, slightly
-# darker sea, both from the neutral palette - because colour there belongs to
-# the outcome dots. On paper the client asked for it to read as a map.
-#
-# MUTED ON PURPOSE. These sit under the four Wong outcome colours, which are
-# the data, and a saturated green would compete with the dots sitting on it.
-# Both are well below the outcome palette in chroma; check with
-# dev/check_contrast.R if either is changed.
-#
-# `frame` is the figure's border, its ticks and the scale bar: one dark grey,
-# stated once, so the three read as parts of the same edge.
+
+# Printed map colours (client): land and water drawn as themselves, muted so the
+# outcome dots stay the data. `frame` is the border, ticks and scale bar.
 FW_MAP_PRINT = list(
   land    = "#dbe6d4",   # pale green
   water   = "#cfe0ea",   # pale blue - the sea, and every lake
@@ -241,14 +142,13 @@ FW_PRINT = list(
 # An 8px scale. The content column is a share of the viewport, not a pixel cap.
 FW_SPACE = list(
   s1 = "0.5rem", s2 = "1rem", s3 = "1.5rem", s4 = "2rem",
-  s5 = "3rem",   s6 = "4rem", s7 = "6rem",
+  s5 = "3rem",   s6 = "4rem",
   container_width = "95%"
 )
 
 # ---- Radius ------------------------------------------------------------------
 
-# Radius varies by hierarchy on purpose: one radius everywhere flattens the
-# difference between a control and a container.
+# Controls and containers get different radii on purpose.
 FW_RADIUS = list(
   input = "8px",
   card  = "12px",
@@ -257,9 +157,7 @@ FW_RADIUS = list(
 
 # ---- Shadow ------------------------------------------------------------------
 
-# Surfaces sit on the page by tone and by these. `card` is the resting state of
-# a card; `raised` is for things that genuinely float (popups, the map card).
-# Turn either down here and every surface follows.
+# `card` is a resting card; `raised` is for things that float (popups, map card).
 FW_SHADOW = list(
   card   = "0 1px 2px rgba(25, 17, 68, 0.05), 0 6px 20px rgba(25, 17, 68, 0.08)",
   raised = "0 12px 32px rgba(25, 17, 68, 0.18)"
@@ -267,8 +165,7 @@ FW_SHADOW = list(
 
 # ---- Motion ------------------------------------------------------------------
 
-# Motion only ever answers a user action. No page-load or scroll motion, no
-# count-ups.
+# Motion only answers a user action. No page-load or scroll motion, no count-ups.
 FW_MOTION = list(
   fast   = "150ms",
   base   = "200ms",
@@ -277,23 +174,19 @@ FW_MOTION = list(
 
 # ---- Breakpoints -------------------------------------------------------------
 
-# Named so a media query says what it is for. `xl_max` is the top of the band
-# where the navbar brand and the six nav items compete for one row.
+# `xl_max` is the top of the band where the navbar brand and nav items compete
+# for one row.
 FW_BREAKPOINTS = list(
   xs = "480px", sm = "600px", md = "768px", lg = "900px",
   xl = "992px", xl_max = "1099px"
 )
 
-# Fully transparent, for plotly's paper and plot backgrounds so a chart takes
-# the colour of whatever surface it sits on.
+# Transparent plotly backgrounds, so a chart takes its surface's colour.
 FW_TRANSPARENT = "rgba(0,0,0,0)"
 
 # ---- Helpers -----------------------------------------------------------------
 
-#' A token as a CSS rgba() string
-#'
-#' For the places that need a colour at partial opacity in R rather than in
-#' Sass: plotly fills, inline styles.
+#' A token as a CSS rgba() string, for partial opacity in R (plotly, inline styles)
 fw_rgba = function(hex, alpha) {
   rgb = grDevices::col2rgb(hex)[, 1]
   sprintf("rgba(%d,%d,%d,%s)", rgb[1], rgb[2], rgb[3], format(alpha))
@@ -301,15 +194,9 @@ fw_rgba = function(hex, alpha) {
 
 #' Every token above as a named list of Sass variables
 #'
-#' Names are the Sass names without the `$`: FW_COLOURS$ink becomes `fw-ink`,
-#' FW_TYPE$size_h1 becomes `fw-size-h1`, FW_SPACE$s1 becomes `fw-space-1`.
-#' Values are pasted into the stylesheet verbatim, so a quoted font stack stays
-#' quoted and a number stays a number.
-#'
-#' The Wong data palette is included as `fw-data-*` so the few CSS rules that
-#' need a data colour (validation, the check panel) read the same values the
-#' charts do. It lives in R/config.R and is read at call time, which is after
-#' every file in R/ has been sourced.
+#' FW_COLOURS$ink -> `fw-ink`, FW_TYPE$size_h1 -> `fw-size-h1`,
+#' FW_SPACE$s1 -> `fw-space-1`. Values are pasted verbatim. The Wong palette
+#' (R/config.R) is added as `fw-data-*`, read at call time.
 fw_sass_variables = function() {
   flatten = function(prefix, x) {
     stats::setNames(as.list(unname(unlist(x))),

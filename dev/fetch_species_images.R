@@ -6,25 +6,10 @@
 #     Rscript dev/fetch_species_images.R --refresh # re-resolve everything
 #     Rscript dev/fetch_species_images.R --limit 20
 #
-# WHY THIS IS A BUILD SCRIPT AND NOT SOMETHING THE APP DOES. config.R promises
-# that local development makes no network calls, and a popup that waits on a
-# third-party API is a popup that sometimes does not open. Resolving once and
-# committing the result keeps the running app offline and instant. The app still
-# has a live fallback for a species added since the last run - see
-# fw_species_image() in R/species_images.R - but on a full cache it never fires.
-#
-# Most of these images are CC BY-SA, which requires the author and the licence to be shown wherever the
-# image is. So image_credit, image_licence and image_page_url are resolved and
-# stored alongside the URL, and a row missing them is treated as a miss rather
-# than shipped without them.
-#
-# AND THE LICENCE MUST BE A LINK, NOT A NAME. Both CC BY and CC BY-SA require a
-# link to the licence itself, so "CC BY-SA 4.0" as plain text does not satisfy
-# them however prominently it is shown. Commons returns LicenseUrl in the same
-# extmetadata call as the author and the short name, so image_licence_url costs
-# nothing extra to collect; fw_species_figure() wraps the name in it. Rows
-# resolved before the column existed are filled in by the backfill pass at the
-# bottom of this script, which needs the Commons call only.
+# Resolved once and committed, so the app stays offline (it has a live
+# fallback for new species). Credit, licence, licence URL and file page are
+# stored with each URL (CC BY-SA needs them); a row missing a licence is a
+# miss.
 
 suppressMessages({
   library(dplyr)
@@ -64,7 +49,7 @@ misses = character(0)
 for (i in seq_along(todo)) {
   r = todo[i]
   got = fw_resolve_species(species$scientific_name[r], species$common_name[r])
-  # %||% only catches NULL; a great many rows have no scientific name at all.
+  # %||% only catches NULL; many rows have no scientific name.
   label = species$scientific_name[r]
   if (is.na(label) || !nzchar(label)) label = species$common_name[r]
   if (is.na(label)) label = species$species_id[r]
@@ -82,21 +67,14 @@ for (i in seq_along(todo)) {
   cat(sprintf("  [%3d/%3d] %-42s %s\n", i, length(todo),
               substr(label, 1, 42), substr(got$licence, 1, 22)))
 
-  # Written as it goes, so an interrupted run keeps what it already found.
+  # Written as it goes, so an interrupted run keeps its progress.
   if (i %% 20 == 0) write_csv(species, path, na = "")
 }
 
 # ---- Backfill: licence URLs -------------------------------------------------
 #
-# image_licence_url arrived after the first 308 photographs were already
-# resolved, and re-running the whole script to collect one field would mean 600
-# needless Wikipedia calls. These rows already name their Commons file, so the
-# Commons half of the lookup is all that is missing - and Commons takes up to 50
-# titles per query, which turns 300 polite one-a-second requests into seven.
-#
-# Idempotent like the rest of the script: a row that already has a licence URL,
-# and a licence with no deed to link to (most public-domain tags), are both left
-# alone, so a second run asks for nothing.
+# Fills missing licence URLs from Commons only, 50 titles per query.
+# Idempotent: rows with a URL, or a licence with no deed, are skipped.
 
 species = fw_backfill_licence_urls(species)
 

@@ -1,69 +1,46 @@
 # config.R
-# Central place for paths, environment variables, the data palettes and the
-# behaviour constants. If you need to change where data comes from, where
-# submissions go, how many items a chart names or where an empty map points,
-# change it here rather than hunting through the modules.
-#
-# Design values (colour, type, spacing, radius, shadow) are NOT here: they live
-# in R/brand.R. This file reads FW_COLOURS from there, which is safe because
-# Shiny sources R/ in byte order and brand.R comes first.
+# Paths, environment variables, data palettes and behaviour constants.
+# Design values (colour, type, space) live in R/brand.R, which sources first.
 
 # ---- Paths -------------------------------------------------------------------
 
-# THE DATA LIVES IN A SEPARATE REPOSITORY. fwise-data/ is a sibling of this
-# directory, not a subdirectory of it, so that the client can publish new data by
-# pushing to that repository without touching, rebuilding or redeploying the app.
-#
-# Nothing in here should ever assume the two are checked out together beyond the
-# development default below. In production the data arrives over the GitHub API
-# instead. Submissions are not written here at all: they go to a Google Sheet
-# and reach the data through dev/qa.R. See fw_data_mode() in data_load.R and
-# R/github.R.
+# The data is a separate repository (../fwise-data locally, the GitHub API in
+# production) so the client can publish data without redeploying. Submissions
+# go to a Google Sheet, not here. See fw_data_mode() and R/github.R.
 
 FW_ROOT       = getwd()
 FW_DEV_DIR    = file.path(FW_ROOT, "dev")
 
-# The development default: the sibling checkout. Overridden by FWISE_DATA_SOURCE.
+# Local default: the sibling checkout. Overridden by FWISE_DATA_SOURCE.
 FW_DATA_DIR   = normalizePath(file.path(FW_ROOT, "..", "fwise-data"),
                                mustWork = FALSE)
 
-# THE THREE FILES THAT ARE THE DATA. One wide table of attempts and two lookups
-# it references by id. Everything else in fwise-data/ is provenance or a
-# standard. Relative to the data root, because in production the
-# same names are fetched over the GitHub API - see fw_data_path().
+# The three data files, relative to the data root (also fetched by these names
+# over the API, see fw_data_path()).
 FW_ATTEMPTS_FILE = "attempts.csv"
 FW_SPECIES_FILE  = "species.csv"
 FW_CONTACTS_FILE = "contacts.csv"
 
+# Local paths, used by the dev scripts.
 FW_ATTEMPTS_CSV = file.path(FW_DATA_DIR, FW_ATTEMPTS_FILE)
 FW_SPECIES_CSV  = file.path(FW_DATA_DIR, FW_SPECIES_FILE)
 FW_CONTACTS_CSV = file.path(FW_DATA_DIR, FW_CONTACTS_FILE)
 
 # ---- Multi-value cells -------------------------------------------------------
 
-# The delimiter for every multi-value cell, in the data and in every export.
-# Chosen over a comma because references, site names and notes are full of
-# commas, and over the source's underscore because species names contain them
-# far less predictably than they contain spaces. A semicolon never occurs in a
-# species or method name in the data.
+# Separator for every multi-value cell, in the data and exports. Never occurs in
+# a species or method name.
 FW_MULTI_SEP = "; "
 
-# The delimiter between per-method notes in attempts.csv, where each entry is
-# "Method name: note". A different character from FW_MULTI_SEP on purpose: 32 of
-# the method notes contain a semicolon and none contain a pipe.
+# Separator between per-method notes ("Method: note"). A pipe because some notes
+# contain semicolons.
 FW_NOTES_SEP = " | "
 
 # ---- Methods -----------------------------------------------------------------
 
-# THE METHOD VOCABULARY. Seven values, fixed by the paper, so they live in code
-# rather than in a table that would only ever hold these rows. attempts.csv
-# stores the NAME; the id exists so anything keying on a method keys on
-# something a rename cannot silently move, and `class` drives the conditional
-# chemical-detail section on the contribute form.
-#
-# A method that arrives from a submission and is not listed here is still
-# loaded - it gets an id derived from its name and the class "other" - and
-# dev/qa.R flags it for the reviewer. Add it here once it is accepted.
+# The seven methods, fixed by the paper. attempts.csv stores the name; the id is
+# a stable key, and `class` drives the chemical-detail section of the form. An
+# unlisted method still loads (class "other") and dev/qa.R flags it.
 FW_METHODS = data.frame(
   method_id    = c("ME01", "ME02", "ME03", "ME04", "ME05", "ME06", "ME07"),
   method_name  = c("Antimycin-A", "Draining", "Electrofishing", "Netting / Trapping",
@@ -73,118 +50,75 @@ FW_METHODS = data.frame(
   stringsAsFactors = FALSE
 )
 
-# The two methods that are not methods. "Other chemical" and "Other mechanical"
-# are the remainder of the list rather than a treatment anyone chose, so every
-# chart that ranks methods pins these to the bottom whatever their counts - the
-# client's standard, and the same rule fw_chart_category() applies to its own
-# "Other" bar. Held as ids, not names: renaming either above must not quietly
-# unpin it. See fw_chart_method() in charts.R.
+# "Other chemical" and "Other mechanical": always pinned to the bottom of method
+# rankings. Ids, so a rename can't unpin them. See fw_chart_method().
 FW_METHOD_OTHER = c("ME05", "ME06")
 
 # ---- Environment -------------------------------------------------------------
 
-# Small helper so a missing or empty environment variable behaves the same way.
+# Treats a missing and an empty environment variable the same.
 fw_env = function(name, default = NULL) {
   value = Sys.getenv(name, unset = "")
   if (identical(value, "")) default else value
 }
 
-# WHERE THE DATA COMES FROM.
-#
-# THE DATA REPOSITORY IS A CONSTANT, NOT A SETTING. It is private, it is not
-# going to move, and its name is not a secret. Making it something the client has
-# to type into a deployment console would add a way to get the app wrong without
-# adding anything you can do with it.
+# The data repository and branch. Constants, not settings: neither is secret
+# or varies.
 FW_DATA_REPO = "freshwaterLife/fwise-data"
 FW_DATA_REF  = "main"
 
-# THE ONE SECRET, and the switch. Set FWISE_DATA_TOKEN and the app reads the
-# repository above over the GitHub API. Leave it unset and the data comes from
-# the local sibling checkout, with no GitHub calls at all - a developer on a
-# train gets the same app as a developer at a desk, and a GitHub outage does
-# not stop local work.
-#
-# It is a fine-grained personal access token with Contents: Read, resource
-# owner freshwaterLife, scoped to that one repository. The app no longer writes
-# to the repository (submissions go to the inbox sheet, Oct 2026), so read
-# access is enough. IT EXPIRES, and when it does the app stops reading data.
+# Fine-grained GitHub token, Contents: Read on the repo above. Set = read over
+# the API; unset = local sibling checkout, no network. It expires, and then the
+# app stops reading data.
 FWISE_DATA_TOKEN = fw_env("FWISE_DATA_TOKEN", default = NULL)
 
-# THE OVERRIDE, and it is not needed in production. Set it to point a test deploy
-# at a fork, a branch or a local path without touching code. Three shapes, all
-# resolved by fw_data_mode() in data_load.R:
-#
-#   unset            the token decides - API if it is set, ../fwise-data/ if not
-#   /some/path       that directory, read as files
-#   https://...      that base URL, read over plain HTTPS with NO credential
-#
-# Point it at the directory holding attempts.csv and metadata.json. A trailing
-# slash is tolerated.
+# Test-deploy override, not needed in production (see fw_data_mode()):
+#   unset        the token decides
+#   /some/path   read that directory
+#   https://...  read that base URL, no credential
+# Point it at the directory holding attempts.csv and metadata.json.
 FWISE_DATA_SOURCE = fw_env("FWISE_DATA_SOURCE", default = NULL)
 
-# WHERE NEWSLETTER SIGN-UPS AND FEEDBACK GO (Oct 2026). One private Google
-# Sheet, one tab each, written by a service account. BOTH must be set for the
-# app to write to it; with either missing the forms write to dev/forms/ on this
-# machine instead - see fw_forms_mode() in R/forms_store.R.
-#
-#   FWISE_FORMS_SHEET_ID     the long id in the sheet's URL, between /d/ and /edit
-#   GS4_SA_KEY_B64   the service account's JSON key, either as the JSON
-#                      itself or base64 of it (`base64 -i key.json`), which
-#                      survives a deployment console's single-line field
-#
-# The sheet must be shared with the key's client_email as an Editor.
+# Newsletter and feedback sheet. Both must be set, otherwise the forms write to
+# dev/forms/ (see fw_forms_mode()).
+#   FWISE_FORMS_SHEET_ID  the id in the sheet URL, between /d/ and /edit
+#   GS4_SA_KEY_B64        service account JSON key, raw or base64
+# Share the sheet with the key's client_email as an Editor.
 FWISE_FORMS_SHEET_ID   = fw_env("FWISE_FORMS_SHEET_ID", default = NULL)
 GS4_SA_KEY_B64 = fw_env("GS4_SA_KEY_B64", default = NULL)
 
-# WHERE SUBMISSIONS GO (Oct 2026): the `submissions` and `new_species` tabs of
-# a Google Sheet, which the reviewer QAs and dev/qa.R imports from. OPTIONAL:
-# unset, it is the forms sheet. Signed in with the same GS4_SA_KEY_B64. With no
-# sheet or no key, submissions go to dev/forms/ on this machine - see
-# fw_inbox_mode() in R/forms_store.R.
+# Submissions sheet (`submissions` and `new_species` tabs). Defaults to the
+# forms sheet. See fw_inbox_mode().
 FWISE_INBOX_SHEET_ID = fw_env("FWISE_INBOX_SHEET_ID", default = FWISE_FORMS_SHEET_ID)
 
-# USAGE TRACKING (Oct 2026). See R/tracking.R and TRACKING.md.
-#
-#   FWISE_LOG_MODE      "sheet" (production), "console" (print the rows here)
-#                       or "off". Unset means off, so a local run never writes
-#                       to the live sheet.
-#   FWISE_LOG_SHEET_ID  the sheet holding the `events` tab. OPTIONAL: unset, it
-#                       is the forms sheet, which is the usual set-up (the
-#                       `events` tab beside `newsletter` and `feedback`).
-#                       Signed in with the
-#                       same GS4_SA_KEY_B64 as the forms.
+# Usage log. See R/tracking.R and TRACKING.md.
+#   FWISE_LOG_MODE      "sheet", "console" or "off" (default, so local runs
+#                       never write to the live sheet)
+#   FWISE_LOG_SHEET_ID  sheet with the `events` tab; defaults to the forms sheet
 FWISE_LOG_MODE     = fw_env("FWISE_LOG_MODE", default = NULL)
 FWISE_LOG_SHEET_ID = fw_env("FWISE_LOG_SHEET_ID", default = FWISE_FORMS_SHEET_ID)
 
-# The GoatCounter site code, the part before .goatcounter.com. Not a secret:
-# it is served in every page. While it is the placeholder no script is added.
+# GoatCounter site code (the part before .goatcounter.com). Public.
 FW_GOATCOUNTER_CODE = "fwise-stats"
 
-# Written on every event row, so figures can be split by release. Bump it by
-# hand when a release changes what is logged or how.
+# Written on every event row. Bump by hand when logging changes.
 FW_APP_VERSION = "1.0.0"
 
 # ---- Data visualisation palette ----------------------------------------------
 
-# Wong (2011) colourblind-safe palette. The associated academic paper uses this,
-# so the app must match it for figures to stay consistent across the paper, the
-# app and exported reports.
-#
-# These are DATA colours. Never use them as interface chrome, and never use the
-# interface teals to encode data.
+# Wong (2011) colourblind-safe palette, matching the paper. Data colours only:
+# never interface chrome, and interface teals never encode data.
 FW_PALETTE = c(
   successful = "#009E73",
   failed     = "#E69F00",
   ongoing    = "#56B4E9",
   unknown    = "#CC79A7",
   neutral    = "#999999",
-  emphasis   = "#0072B2",
   vermilion  = "#D55E00"
 )
 
-# Outcome values as they appear in the data, mapped to palette keys. Keeping the
-# mapping explicit means a renamed outcome category fails loudly here rather than
-# silently falling through to grey.
+# Outcome values mapped to palette keys. Explicit, so a renamed outcome fails
+# here rather than falling through to grey.
 FW_OUTCOME_COLOURS = c(
   "Successful" = unname(FW_PALETTE["successful"]),
   "Failed"     = unname(FW_PALETTE["failed"]),
@@ -192,15 +126,8 @@ FW_OUTCOME_COLOURS = c(
   "Unknown"    = unname(FW_PALETTE["unknown"])
 )
 
-# The count that sits inside each outcome segment. ALL FOUR ARE INDIGO, and
-# that is a measured result rather than a style choice: white numerals came to
-# 2.25:1 on the Failed orange and 2.31:1 on the Ongoing blue, so the figure the
-# reader is meant to read off the bar was the least legible thing on the page.
-# None of the four Wong colours is dark enough to take white at 4.5:1; every one
-# of them clears it with indigo.
-#
-# Kept as a named vector rather than one constant so that dev/check_palette.R
-# can check them one by one, and so a future palette change fails loudly here.
+# Ink for the count inside each outcome segment. Indigo, because white fails AA
+# on every Wong colour. Per outcome so dev/check_palette.R checks each.
 FW_OUTCOME_LABEL_INK = c(
   "Successful" = FW_COLOURS$ink,
   "Failed"     = FW_COLOURS$ink,
@@ -208,116 +135,51 @@ FW_OUTCOME_LABEL_INK = c(
   "Unknown"    = FW_COLOURS$ink
 )
 
-# FW_METHOD_COLOURS AND FW_METHOD_LABEL_INK USED TO SIT HERE: a seven-step
-# categorical palette keyed by method_id, and the ink each fill could carry a
-# number in. They existed for one chart, the methods-by-waterbody stack, which
-# the client deleted on 23 Sept 2026 - it was the only figure in the app that
-# ever encoded method as colour. Every other chart segments by OUTCOME, and
-# FW_OUTCOME_COLOURS above is the palette for that.
-#
-# dev/check_palette.R lost its method sections with them. Two of those pairs
-# had never passed, and both faults were properties of that chart alone.
-#
-# Bring them back only with a chart that needs method-as-colour, and re-run
-# dev/check_palette.R against it before shipping.
-
 # ---- Constants ---------------------------------------------------------------
 
-# Coordinates are shown and stored at six decimal places, roughly 0.1m. More
-# precision than that is false confidence for a treated waterbody.
+# Coordinates are shown and stored to six decimal places (~0.1m).
 FW_COORD_DP = 6
 
 # ---- Behaviour ---------------------------------------------------------------
-# Numbers that shape what the reader sees but are neither design tokens (those
-# are in R/brand.R) nor data. Every consumer reads these; nothing restates them.
+# Numbers that shape what the reader sees. Every consumer reads these.
 
-# "The ten most common." Every chart and tile grid that names the top n and
-# gathers the rest into Other. The copy that says "ten" in words is filled from
-# this as well, so changing it here changes the sentence under the chart.
+# Top n named in charts and tile grids before the rest is "Other". The copy that
+# says "ten" is filled from this too.
 FW_TOP_N = 10L
 
-# The newsletter and feedback forms. Character limits per field (the email
-# limit is the RFC maximum), and how long one session waits between two pieces
-# of feedback, which stops a double press or an impatient resend writing the
-# same message twice. More than one piece of feedback per visit is fine.
+# Newsletter and feedback: character limits per field, and the pause between
+# two feedback sends in one session.
 FW_FORM_LIMITS = list(name = 100L, organisation = 200L, email = 254L,
                        message = 2000L)
 FW_FEEDBACK_COOLDOWN_S = 30
 
-# How stale the "records in review" count may get, in seconds. The inbox sheet
-# is read at most this often for the whole app, however many people have it
-# open; each open page asks again on the same beat. A submission made in this
-# app shows at once without waiting for it. See fw_review_count_live().
+# How often the "records in review" count re-reads the inbox sheet, app-wide.
+# See fw_review_count_live().
 FW_REVIEW_REFRESH_S = 300
 
-# The sections of the privacy page a link may jump to with ?section=. Each is
-# the anchor of one heading in content/privacy_and_data_terms.md, and
-# dev/plan_test.R checks every one of them exists there.
+# Privacy page anchors a ?section= link may jump to. dev/plan_test.R checks
+# each exists in content/privacy_and_data_terms.md.
 FW_PRIVACY_SECTIONS = c("newsletter", "feedback", "submissions", "contacts",
                          "usage", "data-terms")
 
-# ---- Logo files ---------------------------------------------------------------
-#
-# THE MARK IS FWISE-SIMPLE NOW, at the client's request, and it replaced both the
-# badge in the navbar and the full FWISE-LOGO-ALL-6 lockup everywhere else - the
-# lockup files are no longer in www/img. The report and the Word question list
-# both skip a logo that is not there rather than failing, so while they still
-# named the lockup they were quietly printing with no mark at all.
-#
-# DOWNSCALED COPIES, NEVER THE ORIGINALS. FWISE-SIMPLE.png and FWISE-BADGE.png
-# are 8334px client assets and are not to be edited or regenerated; the -600,
-# -1200 and -256 files are copies made beside them (sips -Z) so a page does not
-# pull a megabyte to draw a mark a few hundred pixels wide.
-#
-# `_web` paths are what the browser asks for (Shiny serves www/ at the root);
-# `_file` paths are read from disk by R, for the documents that embed the mark.
-# The badge is still in use - it is the loader and the busy spinner, where a
-# square mark turns on its own centre and a wordmark would not.
-#
-# EXCEPT THE NAVBAR AND THE FOOTER, which serve the full-resolution original
-# at the client's request (September 2026): the navbar mark is 5.5rem tall and
-# the client wants it drawn from the uncompressed file. The footer carried the
-# badge until the client asked for the long SIMPLE wordmark there too; the
-# full-size FWISE-BADGE.png stays in www/img but nothing serves it.
 # ---- The busy badge ----------------------------------------------------------
 
-# HOW LONG SOMETHING MUST TAKE BEFORE A SPINNER APPEARS, in milliseconds.
-#
-# ONE NUMBER, TWO CONSUMERS. bslib's busyIndicatorOptions() in app.R takes it
-# for every output on the site, and the map overlay in fw_client_script() takes
-# it for the two leaflet maps, which redraw through a proxy and so are outside
-# bslib's reach entirely. If the two ever disagreed a map would spin while the
-# charts beside it sat quiet, or the other way round.
-#
-# 150ms rather than the 400 it was (client, 24 Sept 2026): they asked for a
-# spinner wherever something takes a moment, and at 400 a redraw that took a
-# third of a second showed nothing at all. Still long enough that a redraw
-# finishing within a couple of frames never flashes a badge at anyone.
+# Delay before a spinner shows, in ms. Shared by bslib's busy indicator (app.R)
+# and the map overlay in fw_client_script(), so the two stay in step.
 FW_SPINNER_DELAY_MS = 150
 
-# The Welcome map reveal's opening sway (client, 30 Sept 2026): where the divide
-# starts and rests (% from the left), how far it swings either side, how long
-# one full swing takes, how many swings, and the pause before the first. See
-# fw_home_compare_script() in R/mod_home.R. The swing went from 30 to 40 (client,
-# 1 Oct 2026): the divide now reaches 10% and 90% of the map.
+# Welcome map reveal sway: start position and swing (% from the left), period,
+# number of swings and initial delay. See fw_home_compare_script().
 FW_HOME_COMPARE = list(start = 50L, swing = 40L, period_ms = 2600L,
                         cycles = 2L, delay_ms = 500L)
 
-# How often an open tab tells the server it is still there, so an idle
-# connection is not closed by the hosting proxy. See the keepalive in
-# fw_client_script(). Well under the minute most proxies allow a silent socket.
+# Keepalive interval so the hosting proxy doesn't close an idle socket. See
+# fw_client_script().
 FW_KEEPALIVE_MS = 30000
 
-# WHICH BUILD OF THE APP THIS IS, as a short hash of every file that shapes the
-# page: the R, the Sass, the client JS and the copy. Visitors were seeing old
-# styling after a deploy (Alex, 6 Oct 2026). The stylesheet is inlined into the
-# page, so it is never cached on its own - what goes stale is the page, either a
-# tab left open across the deploy or a copy held by the browser or the CDN. The
-# page carries this in <meta name="fw-build">, the server sends it again on
-# connect, and fw_client_script() reloads once when the two disagree. It is also
-# what to ask a visitor to read out of the page source when they report a look
-# you have already fixed. Computed once at start-up, so it costs a visitor
-# nothing.
+# Short hash of every file that shapes the page. Sent in <meta name="fw-build">
+# and again on connect; fw_client_script() reloads once if they differ, so a
+# tab left open across a deploy picks up the new build.
 FW_BUILD_ID = local({
   dirs  = file.path(FW_ROOT, c("R", "www/scss", "resources/js", "content"))
   files = sort(c(file.path(FW_ROOT, "app.R"),
@@ -326,39 +188,29 @@ FW_BUILD_ID = local({
   substr(digest::digest(unname(tools::md5sum(files))), 1, 10)
 })
 
-# THE SITE'S PUBLIC ADDRESS, with the trailing slash. Read by fw_head_meta() for
-# the canonical link, the Open Graph tags and the structured data, which all
-# need absolute URLs; www/robots.txt and www/sitemap.xml are static files and
-# carry it written out, so change them too if the domain ever moves.
+# Public address, with trailing slash, for canonical/Open Graph URLs.
+# www/robots.txt and www/sitemap.xml repeat it: update them if it moves.
 FW_SITE_URL = "https://fwise.org/"
 
-# How long the loader may cover the page if Shiny never reports idle, in
-# seconds. A real visitor's session is idle within a couple of seconds and the
-# loader leaves then, so this only ever applies to a page whose WebSocket never
-# connects - a URL-categorisation crawler rendering the page, or a network that
-# blocks WebSockets. Without it they would see the badge and nothing else
-# (Alex, 4 Oct 2026: firewalls were rating the site as "insufficient content").
+# Longest the loader may cover the page if Shiny never goes idle (no WebSocket,
+# e.g. a crawler or a firewall). Without it they see only the badge.
 FW_LOADER_TIMEOUT_S = 8
 
+# ---- Logo files --------------------------------------------------------------
+
+# `_web` paths are browser URLs (www/ is served at the root); `_file` paths are
+# read from disk for the PDF, .html and Word documents. The -NNN files are
+# downscaled copies (sips -Z) of the client originals. The navbar and footer
+# serve the full-resolution SIMPLE mark at the client's request. The badge is
+# the loader and busy spinner.
 FW_LOGO = list(
   mark_web   = "img/FWISE-SIMPLE.png",
   mark_file  = "www/img/FWISE-SIMPLE-1200.png",
   badge_web  = "img/FWISE-BADGE-256.png",
-  # THE EXPLICIT LOCKUP - the wordmark with "Freshwater Invasive Species
-  # Eradication Database" under it - for anything that travels away from the
-  # site: the PDF and .html report mastheads and the link-preview image
-  # (client, 14 Oct 2026). A sips -Z 2000 copy of FWISE-EXPLICIT.png, the
-  # 8334px client original beside it, which is not to be edited.
+  # Wordmark with the full name under it: report mastheads and link previews.
   explicit_file = "www/img/FWISE-EXPLICIT-2000.png",
-  # THE REST OF THE FOOTER'S LOGOS, as files, for the two documents a reader
-  # takes away (the PDF report and the attempts .html). The client asked for
-  # every logo the site carries to travel with the report, collaborators
-  # included. The -400 files are sips -Z copies of the originals beside them,
-  # which are not to be edited; the footer itself still serves the originals.
-  # Named, and in the footer's order, because the documents print them in it.
-  # UNIL-400 is cut from UNIL-TRIM, a copy of UNIL.png with the original's
-  # wide transparent margin cropped off (sips -c), which at a shared logo
-  # height drew the wordmark at half the size of its neighbours.
+  # The footer's other logos, in footer order, printed on the PDF and .html
+  # reports. UNIL-400 is cropped of the original's wide transparent margin.
   wfa_file   = "www/img/wfa-logo-rect-dark-320.png",
   collab_files = c(
     fwl     = "www/img/collab/FRESHWATER_LIFE-400.png",
@@ -370,27 +222,10 @@ FW_LOGO = list(
   )
 )
 
-# The Welcome page's pictures. WEB COPIES of the client's originals in
-# resources/, which are print-sized (3508px species plates, 12600px maps) and
-# not served. How the copies were made is at the top of R/mod_home.R. One
-# beneficiary picture per success story, keyed as FW_COPY$home$stories is (A-Z
-# by continent); NA is a picture the client has not supplied yet and draws as a
-# placeholder.
-#
-# BENEFICIARIES ONLY (client, Sept 2026): the story cards no longer show the
-# invasive species. Its greyscale plates are client artwork and are kept in
-# resources/success-pic/, but they are no longer served.
-#
-# TWO SETS, AND THE DIFFERENCE IS THE LETTERING. `stories` is the small
-# unlettered drawing in the tile strip; `stories_named` is the same beneficiary
-# with its common name and binomial hand-lettered in, which is what the pop-up
-# shows once a tile is clicked. Both are web copies - the -named ones are built
-# by dev/build_success_named.R, NOT the print originals they are named after,
-# which stay in resources/success-pic/.
-#
-# The two sets spell their filenames differently - underscores for the
-# thumbnails, hyphens for the lettered plates. That is how the client sent them
-# and how they already sit in www/; the build script preserves it on purpose.
+# Welcome page pictures: web copies of the client's print originals. One
+# beneficiary per success story, keyed like FW_COPY$home$stories. `stories` is
+# the plain tile drawing; `stories_named` has the names lettered in, for the
+# pop-up. The two sets use different filename separators, as supplied.
 FW_HOME_IMG = list(
   map_now  = "img/home/map-now.png",
   map_next = "img/home/map-next.png",
@@ -412,327 +247,157 @@ FW_HOME_IMG = list(
   )
 )
 
-# The order the pictures sit in on the Welcome page, set by the client: two
-# columns of three, filled DOWN the left column first. So Apache trout, Valcheta
-# frog, fiery redfin on the left; little grebe, golden galaxias, pearl mussel on
-# the right. The grid flows by column (.fw-home-species-grid), so this is also
-# the tab order.
+# Welcome picture order (client): two columns of three, filled down the left
+# column first. Also the tab order.
 FW_HOME_ORDER = c("north_america", "latin_america", "africa",
                    "asia", "oceania", "europe")
 
-# The species photo grids on the report builder, which show FEWER than FW_TOP_N.
-# A tile is a photograph the size of a playing card, so ten of them ran to two
-# full rows and pushed the rest of the report below the fold. It was five, and
-# the client has since cut it to three. Each role is now one full-width row and
-# the tiles split that width between them (see .fw-species-tiles), so this
-# number is also the number of columns - three is what keeps each photograph
-# large enough to recognise the animal without the row running on. The charts that rank into a top-n-plus-Other still
-# use FW_TOP_N - a bar costs a line, not a photograph.
-#
-# NOTHING IN THE COPY COUNTS THIS OUT IN WORDS ANY MORE. The notes under the two
-# grids used to be filled from it; they are gone, so this number can move again
-# without a sentence to keep in step with it.
+# Species photo tiles per role on the Plan report. Also the number of columns,
+# so photos stay large enough to recognise.
 FW_PLAN_SPECIES_N = 3L
 
-# The country table in the PDF report. Longer than FW_TOP_N because a printed
-# list is scanned rather than read off a bar.
+# Rows in the PDF's country table.
 FW_REPORT_COUNTRY_ROWS = 15L
 
-# THE PDF REPORT. Rendered by Quarto (Typst engine) on the server - see the
-# header of R/report_pdf.R.
-#
-# THE WARNING. The client asked for one when the PDF would be very large, and
-# measured, "large" here is mostly LONG: the whole database comes to about
-# 2 MB but 25 pages, 19 of them the contacts table. So the picker warns when
-# the estimate reaches `warn_pages` OR `warn_mb`, whichever comes first -
-# a size cap alone would never fire on this database.
-#
-# THE ESTIMATE is fw_pdf_size_estimate(), whose coefficients below were fitted
-# to real renders on 21 Sept 2026: the whole database (237 contacts, 911 map
-# dots, 5 photographs: 2.00 MB, 25 pages), Norway (2, 200, 6: 1.29 MB, 7) and
-# a single attempt (2, 1, 4: 0.78 MB, 6). dev/value_test.R re-renders those
-# three and fails if the estimate drifts more than 30% from either figure.
-#
-# `timeout_s` is how long a render may take before it is abandoned with an
-# error, rather than leaving the reader waiting on a download that will not
-# come. `image_timeout_s` is the same for each species photograph fetched from
-# Wikimedia; one that does not arrive in time prints as the page's placeholder.
+# The PDF report (see R/report_pdf.R). The picker warns at warn_pages or
+# warn_mb, whichever comes first: the whole database is long rather than big.
+# The est_* coefficients feed fw_pdf_size_estimate(); dev/value_test.R re-renders
+# three selections and fails if the estimate drifts more than 30%.
 FW_PDF = list(
   warn_mb = 5,
   warn_pages = 20,
+  # Render timeout, and per-photo fetch timeout (a miss prints a placeholder).
   timeout_s = 120,
   image_timeout_s = 8,
-  # bytes: the fixed part (fonts, logos, charts), then per species photograph,
-  # per map dot (the map's PNG grows with its dots, up to about 300 of them,
-  # after which they overlap and add nothing), and per contact row.
-  # 460000 until 29 Sept 2026, when the waterbody and methods charts started
-  # printing twice (number of attempts, then success rate): two more PNGs in
-  # every report. Re-measured on the three dev/value_test.R selections.
+  # Bytes: fixed part, per photo, per map dot (up to est_point_cap), per contact.
   est_base = 610000,
   est_per_image = 80000,
   est_per_point = 1750,
   est_point_cap = 300,
   est_per_contact = 2600,
-  # How many contacts the report prints. SIX, at the client's request (23 Sept
-  # 2026): the busiest handful to write to, not a directory - the whole
-  # directory is the Networking page, and the spreadsheet in the same download
-  # carries a contact on every row.
+  # Contacts printed (client): the busiest few, not a directory.
   contacts_n = 6,
-  # Pages. Fixed now that the contacts table is capped at contacts_n: it was
-  # the one block whose length ran with the selection, and a broad filter used
-  # to push the report past twenty pages on that table alone.
-  #
-  # SIX, DOWN FROM SEVEN (24 Sept 2026). The five caveat blocks came out of the
-  # closing section - the client is writing their own - and the methods
-  # statement that replaced them is a short one, so every report lost about a
-  # page. Measured across the three selections dev/value_test.R renders: 8, 6
-  # and 5 pages, which 6 covers and 7 no longer did. RE-MEASURE WHEN THE REAL
-  # CAVEATS ARRIVE; they will push it back up.
-  #
-  # SEVEN (29 Sept 2026): both versions of the waterbody and methods charts now
-  # print, one above the other. Measured at 9, 7 and 6 pages.
-  #
-  # EIGHT (6 Oct 2026): the client's six caveats arrived. Measured at 10, 8
-  # and 8 pages.
+  # Fixed pages. Re-measure with dev/value_test.R when the closing sections
+  # change length.
   est_pages_base = 8,
-  # A4, in mm. The width is what every figure is drawn to.
+  # A4, in mm. Figures are drawn to text_width_mm.
   page_margin_mm = 18,
   text_width_mm = 174
 )
 
-# Page sizes offered under paged tables. The first element is the default.
+# Page sizes for paged tables. The first is the default.
 #
-# THE CONTACTS DIRECTORY on the Networking page. That page IS the directory, so
-# a reader arrives there to browse a list and 25 rows is a list; ten would be a
-# pager with a table attached.
+# Connect with community: the page is the directory, so 25.
 FW_CONTACTS_PAGE_SIZES = c(25L, 50L, 100L)
 
-# THE CONTACTS BLOCK ON THE REPORT BUILDER, which is a different question and
-# now has its own sizes rather than borrowing the directory's. It is the eighth
-# block of a long report and the reader is still reading about their own
-# situation, so it opens at ten - a glance at who is worth writing to, with the
-# pager and the "see every contact" link below for anyone who wants the rest.
-# The client asked for ten specifically.
+# Contacts block on the Plan report (client): ten, a glance at who to write to.
 FW_PLAN_CONTACTS_PAGE_SIZES = c(10L, 25L, 50L, 100L)
 
-# THE RECORD SEARCH ON THE REPORT BUILDER (client, 1 Oct 2026): ten attempts
-# a page, and no choice of size. The Detailed report lists every record in
-# full; this is a table to find one in, short enough that the footer and its
-# links stay within reach below it.
+# Record search on the Plan report: ten a page, no size choice.
 FW_PLAN_RECORDS_PAGE_SIZE = 10L
-# How long the search box waits after the last keystroke before it filters.
+# Search box debounce.
 FW_PLAN_RECORDS_DEBOUNCE_MS = 300L
 
-# The years a contributor may enter. Nothing before FW_YEAR_MIN is plausible,
-# and an end year may run this many years past today for planned work.
+# Year bounds on the form; end year may run this far past today.
 FW_YEAR_MIN    = 1500L
 FW_YEAR_FUTURE = 20L
 
-# Above this many options a field's answer list is summarised in the question
-# list downloads rather than printed in full. The country dropdown alone runs
-# to about 200 entries and would bury the questions.
+# Above this many options, the question-list download summarises a field's
+# answers instead of listing them.
 FW_QUESTION_OPTION_CAP = 18L
 
 # Maps.
 FW_MAP = list(
-  # Where a map with nothing on it points: the whole world. Zoom 0 is a
-  # request for the zoom-out limit, whatever the map's width makes that (see
-  # min_zoom), and the pan limits centre the band in it.
+  # Empty map: the whole world (zoom 0 = the zoom-out limit).
   empty_view = list(lng = 0, lat = 20, zoom = 0),
-  # HOW FAR OUT A MAP MAY GO. The real limit is set per map by
-  # resources/js/fw_map_fit.js: the zoom at which one world is exactly as wide
-  # as the map, which is fractional and follows the map's width. This is only
-  # the floor under it, and it is 0 so that a narrow map (the Explore map is
-  # often under 1024 px, the width of the world at zoom 2) can still zoom out
-  # far enough to show the whole band below.
+  # Floor under the real zoom-out limit, which fw_map_fit.js sets per map so
+  # one world fills its width. 0 so narrow maps can still show the whole band.
   min_zoom = 0L,
-  # THE BAND OF THE WORLD A MAP SHOWS (client, 30 Sept 2026: "not all of the
-  # map is visible when opened"). Every map is drawn at the shape of this band
-  # in Mercator - see fw_map_aspect() - so at its zoom-out limit one world
-  # fills its width and the band fills its height, and the whole of it is on
-  # screen. Panning is held inside it and inside max_lng, so the map no longer
-  # wraps round the world: the tiles repeated and the markers did not (client,
-  # 29 Sept 2026). 80N to 60S holds every attempt (they run from 46S to 69N)
-  # and all the land but Antarctica and the far Arctic, at about 5:3. The old
-  # +/-85 would have needed a square map, taller than a laptop screen.
+  # The band every map shows (80N to 60S), drawn at its Mercator aspect (see
+  # fw_map_aspect()). Panning is held inside it and inside max_lng, so the
+  # world doesn't wrap.
   lat_north = 80,
   lat_south = -60,
   max_lng = 180,
-  # The tallest a map may be, as a share of the window. A map keeps the band's
-  # shape, so on a very wide screen it is held to this height and is narrower
-  # than its column, centred in it, rather than running off the bottom of the
-  # window. See .fw-map in _components.scss.
+  # Tallest a map may be, as a share of the window. See .fw-map.
   max_height_vh = 70L,
-  # The closest a fit to a selection may zoom. Below cluster$fine_zoom, so a
-  # single-site selection still opens with its stack as one counted group and
-  # with enough of the surrounding water to place it. See fw_fit_points().
+  # Closest a fit to a selection may zoom. Below cluster$fine_zoom so a
+  # single-site stack stays one counted group. See fw_fit_points().
   fit_max_zoom = 10L,
-  # How close the map zooms to an attempt when its full record is opened
-  # (client, 30 Sept 2026): enough to see the water it was in and the land
-  # around it. Below cluster$fine_zoom, so neighbours stay separate dots. A map
-  # already closer than this is left where it is. See zoomTo() in the card
-  # script (R/maps.R).
+  # Zoom used when a record opens (client). Maps already closer stay put.
   record_zoom = 8L,
   # Attempt markers. The stroke colour is FW_COLOURS$surface.
   marker = list(radius = 6, weight = 1.5, opacity = 1, fill_opacity = 0.75),
-  # The no-JavaScript fallback popup. Kept in step with .fw-map-card's width
-  # in _components.scss.
+  # No-JavaScript fallback popup. Keep in step with .fw-map-card's width.
   popup = list(max_width = 320, min_width = 260),
   legend_opacity = 0.85,
-  # STACKED MARKERS. 96 of 911 located attempts share their exact coordinates
-  # with another, and a dot drawn on top of a dot is the only one that can be
-  # reached. So markers are grouped - but only where they genuinely overlap.
-  # Below `fine_zoom` the cluster radius is 0, which Leaflet.markercluster
-  # reads as "identical coordinates only", so the coarse view keeps its
-  # coloured dots and a stack shows as one group. From `fine_zoom` up, markers
-  # within `fine_radius` px of each other group as well. A click on a group
-  # zooms to it, and fans it out once its members cannot be separated by
-  # zooming.
-  #
-  # ONE LOOK FOR A GROUP: a counted ring, `icon_size` px across, wide enough to
-  # carry its number at the 1rem floor. There used to be two - below `fine_zoom`
-  # a group was drawn as a plain indigo dot the size of a marker, on the
-  # reasoning that a counted ring at world zoom piled thirty of them over
-  # Norway. The client asked for the number everywhere: an unlabelled dot is
-  # indistinguishable from a single attempt, which is the one thing a group must
-  # not look like. If the world view ever does read as too busy, the answer is
-  # to draw the ring smaller at coarse zoom, not to take the number off it.
-  #
-  # THE WHOLE MAP IN ONE GROUP AT ITS ZOOM-OUT LIMIT (client, 30 Sept 2026)
-  # was not this rule. Leaflet.markercluster builds its tree once, down to the
-  # map's minZoom at that moment, and puts everything in one group at the zoom
-  # below. fw_map_fit.js moves minZoom with the map's width, so a map that got
-  # narrower after its markers went on could zoom out onto that one group.
-  # fw_map_fit.js now rebuilds the tree when that happens.
+  # Stacked markers. Below fine_zoom the cluster radius is 0 (identical
+  # coordinates only); from fine_zoom up, markers within fine_radius px group
+  # too. A group is always a counted ring, icon_size px across, so it never
+  # looks like a single attempt.
   cluster = list(fine_zoom = 13L, fine_radius = 12L, icon_size = 28L)
 )
 
 # Charts.
 FW_CHART = list(
-  # A chart's height grows with its number of rows, so eight methods are not
-  # crushed into the space two would use: max(min, per_row * rows + pad).
-  # `cumulative` is the one fixed-height chart.
+  # Bar charts grow with their rows: max(min, per_row * rows + pad).
+  # `cumulative` is fixed.
   height = list(
     cumulative       = 360,
-    # Fixed. A ring does not grow with its number of categories the way a bar
-    # chart does - it only gets more crowded, which is what the hover is for.
-    # 300 rather than the 360 it shared with the outcome donut: there is no
-    # second ring to sit level with any more, and with nothing printed on the
-    # slices it needs less room to stay legible.
-    donut            = 300,
     method           = c(min = 250, per_row = 46, pad = 110),
     duration         = c(min = 270, per_row = 54, pad = 124),
     category         = c(min = 240, per_row = 34, pad = 120)
   ),
-  # A count is printed inside a segment only when the segment holds at least
-  # this share of its bar, in percent; narrower than that and the hover carries
-  # it. The rem floor means a label cannot be shrunk to fit. THE STACKED BARS
-  # ONLY - the dashboard's donut used to honour this too and now prints nothing
-  # on the ring at all, at the client's request. See fw_chart_donut().
+  # Minimum share of its bar (%) for a segment to print its count. Narrower
+  # segments leave it to the hover, since labels can't shrink below 1rem.
   label_min_share = 9,
-  # The hole in the two proportion donuts, as a fraction of the radius. Big
-  # enough to carry the denominator in the middle, which is the whole reason
-  # these are donuts rather than pies: a percentage with no visible n behind it
-  # is the thing the rest of this file exists to avoid.
-  donut_hole = 0.55,
-  # WHERE THE RING STOPS AND ITS KEY STARTS, as fractions of the plot width.
-  # The donut carries its key beside it rather than above - a seven-entry method
-  # key stacked over a small circle takes more height than the chart does - and
-  # plotly does not reserve room for a legend placed inside the paper, so the
-  # pie's own domain has to be narrowed to make it. The gap between the two is
-  # the breathing room between the ring and the swatches.
-  #
-  # The ring takes a little more of the width than it used to (0.58/0.62), which
-  # it can afford now that nothing is printed on the slices: the key no longer
-  # competes with text inside the circle.
-  donut_domain_x = 0.62,
-  donut_legend_x = 0.66,
-  # The floor for the top margin a horizontal legend needs, in px. NOT the
-  # value - fw_legend_margin() computes that from how many lines the key will
-  # actually wrap onto. This was a flat 42, which is exactly one line at the
-  # 16px type floor with nothing to spare, so any chart whose key wrapped put
-  # its second line on top of the plot. See fw_plotly_style() in R/charts.R.
+  # Floor for a horizontal legend's top margin, px. fw_legend_margin()
+  # computes the real value from how many lines the key wraps onto.
   legend_min_top = 46,
-  # A legend line's height and the gap under the whole key, in px. Derived from
-  # the type floor rather than typed twice.
+  # Legend line height and the gap under the key, px.
   legend_line = 22,
   legend_pad  = 12,
-  # Roughly how many px a legend entry takes per character at the type floor,
-  # plus the swatch and the gap between entries. Used only to guess how many
-  # entries fit on a line; plotly does the real layout.
+  # Approximate px per legend character, and per entry for swatch and gap. Only
+  # used to guess line wrapping; plotly does the real layout.
   legend_char_px  = 8.2,
   legend_entry_px = 42,
-  # The rule between stacked segments, in px. 0 for the outcome charts: the
-  # four Wong colours separate on their own and the rule read as aggressive.
-  #
-  # separator_method WENT WITH THE METHODS-BY-WATERBODY CHART (client, 23 Sept
-  # 2026). It was the hairline between two adjacent method fills, and that was
-  # the only chart that ever stacked method against method.
+  # Rule between stacked outcome segments, px. 0: the colours separate alone.
   separator_outcome = 0,
-  # The weight of the vertical rules on the stacked bar charts, in px. A
-  # hairline: unlike the duration chart's dotted breaks below, these are solid,
-  # and they are drawn BEHIND the bars (fw_bar_rules() in charts.R, client 1
-  # Oct 2026), so they show in the gaps between rows and need no extra weight.
+  # Vertical rules on stacked bars, px. Drawn behind the bars (fw_bar_rules()).
   bar_grid = 1,
-  # How far apart the success-rate axis's ticks sit, in percentage points. Set
-  # rather than left to plotly, because the rules over the bars are drawn at
-  # these same values and a rule that missed its label would be worse than no
-  # rule at all. 20 is what plotly chose for 0-100 anyway.
+  # Success-rate axis tick spacing, in points. Fixed so the rules line up with
+  # their labels.
   share_dtick = 20,
-  # The FIXED named ticks on the duration chart's log axis, in days. The labels
-  # are fw_t("charts", "duration_ticks") and must stay the same length.
-  #
-  # NOT THE WHOLE SET ANY MORE: fw_duration_ticks() drops the ones past the
-  # selection's longest attempt and adds a seventh at that attempt, so the axis
-  # labels reach the last dot. These are the breaks below it.
+  # Named ticks on the duration chart's log axis, in days. Labels are
+  # fw_t("charts", "duration_ticks") and must stay the same length.
+  # fw_duration_ticks() drops ticks past the longest attempt and adds one there.
   duration_ticks = c(1, 7, 30, 365, 1825, 3650),
-  # How close a fixed tick may come to that terminal one before it gives way,
-  # in log10 days. 0.08 is about a fifth of the gap between two of the breaks
-  # above, which is enough room for two labels not to overprint.
+  # How close (log10 days) a fixed tick may sit to that last one before it's
+  # dropped, so labels don't overprint.
   duration_tick_gap = 0.08,
-  # The weight of the dotted unit-break gridlines on that axis, in px. See the
-  # xaxis comment in fw_chart_duration() for why a dotted line needs this much.
+  # Weight of the dotted unit-break gridlines on the duration axis, px.
   duration_grid = 2,
-  # duration_bands AND duration_band_alpha USED TO SIT HERE - the edges and the
-  # tint of the shaded magnitude bands behind the duration chart. The client
-  # replaced them with a dotted gridline on each unit break, which the axis
-  # draws from duration_ticks above, so neither has a reader any more.
-  # The breathing room either side of the duration chart's data, as a fraction
-  # of the span it covers, with a floor in log10 units for a selection that
-  # spans almost nothing. See fw_duration_range() - this axis sets its own
-  # bounds because plotly's autorange for a box trace on a log scale does not.
+  # Padding either side of the duration data, as a share of its span, with a
+  # floor in log10 units. Set by hand: plotly's log autorange for box traces is
+  # wrong. See fw_duration_range().
   duration_pad = 0.04,
   duration_pad_min = 0.05,
-  # The dots on the duration chart, and the box under them. The FILL is
-  # see-through (fill_alpha) and the OUTLINE is not: a lighter dot inside a
-  # darker brand-teal ring (client, 30 Sept 2026). Opacity on the whole marker
-  # would have faded the ring with it.
+  # Duration dots: see-through fill, solid outline.
   point    = list(size = 7, fill_alpha = 0.55, stroke = 1),
-  # The duration box's hover targets: invisible markers laid along each row
-  # from its shortest attempt to its longest, one every `step` (log10 days),
-  # each `size` px across - about the box's height - so the summary comes up
-  # anywhere on the box or its whiskers, not just at the quartiles.
+  # Invisible hover targets along each duration box, every `step` log10 days,
+  # `size` px across, so the summary shows anywhere on the box.
   duration_hover = list(step = 0.04, size = 22),
   box_line = 1.5,
   # The step line on the cumulative chart.
   line = 1,
-  # The gap between an axis and its tick labels, in px. Made by invisible
-  # outside ticks of this length - see fw_tick_gap(). The axis-line A/B test
-  # that used to sit here ended with the client choosing bare axes (Sept 2026).
-  # 8 until 1 Oct 2026, when the client asked for more room round the labels.
+  # Gap between an axis and its tick labels, px (invisible outside ticks, see
+  # fw_tick_gap()).
   tick_gap = 12,
-  # The gap between the tick labels and the axis title, in px - plotly's
-  # title standoff. See fw_axis_title(). Added 1 Oct 2026 for the same ask:
-  # "Year" sat tight under the years.
+  # Gap between tick labels and axis title, px. See fw_axis_title().
   title_gap = 14,
-  # The duration chart's dots are spread across their row rather than drawn on
-  # one line, so a pile of identical durations shows as a column you can count.
-  # `bin` is how close two durations have to be (in log10 days) to count as
-  # the same place; `step` is the vertical gap between neighbours and `spread`
-  # the furthest a dot may sit from its row's centre, both in rows.
+  # Beeswarm spread for duration dots: `bin` (log10 days) groups near-equal
+  # values; `step` and `spread` are in rows.
   duration_swarm = list(bin = 0.035, step = 0.07, spread = 0.38),
-  # PNG exports print at this density: plotly's scale is export px per screen
-  # px, and a screen px is 1/96 inch, so dpi / 96 is the scale. Raise it here
-  # if an export comes out soft.
+  # PNG export density. plotly's scale = dpi / 96.
   export_dpi = 300
 )

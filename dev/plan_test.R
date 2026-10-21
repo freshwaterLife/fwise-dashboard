@@ -1,18 +1,15 @@
 # plan_test.R
-# Checks the report builder: the deliberate build gate, the three result states,
-# any-of filter semantics, and that the export cannot disagree with itself.
+# Checks the Plan page (build gate, result states, filters, downloads), the
+# forms, the inbox sheet requests, tracking and the privacy page.
 #
 #     Rscript dev/plan_test.R
 #
-# Exits non-zero on any failure, so it is usable from CI or a pre-commit hook.
+# Exits non-zero on any failure.
 
 library(shiny)
 for (f in sort(list.files("R", full.names = TRUE), method = "radix")) source(f)
 
-# THE CLOCK IS PINNED. Download names carry the time to the second (client,
-# 30 Sept 2026), and the assertions below compare a name made after a download
-# - the PDF takes seconds - with the one the download was given. See
-# fw_file_stamp() in R/export.R.
+# Pin the clock: download names carry the time to the second.
 options(fw.now = as.POSIXct("2026-09-30 14:21:05", tz = "UTC"))
 d = fw_load_data(); m = fw_load_metadata(); ch = fw_filter_choices(d)
 
@@ -24,22 +21,17 @@ ok = function(lbl, got, want = TRUE) {
 }
 strip = function(x) gsub("[[:space:]]+", " ", gsub("<[^>]*>", " ", as.character(x$html %||% x)))
 
-# The report builder's own filter set: everything in FW_FILTERS except outcome
-# and method. Built from the registry rather than typed out, so this test
-# exercises the same id list the page does.
+# Plan's filter ids, from the registry.
 plan_ids = fw_plan_filter_ids()
 base = fw_filter_state(list(), plan_ids, ch = ch)
 base$year_from = ch$year_min
 base$year_to = ch$year_max
-# The two "include unrecorded" checkboxes as the browser paints them: ON. The
-# state reads isTRUE(input$...), which is FALSE before the control exists, and
-# these tests describe a panel the reader is looking at.
+# The "include unrecorded" boxes as rendered: on.
 base$include_no_year = TRUE
 base$include_no_size = TRUE
 
 cat("\n-- the copy deck --\n")
-# A sentence from the client's caveats (6 Oct 2026), and their headings, to
-# look for wherever the caveats should or should not travel.
+# A caveat sentence and the headings, to look for in outputs.
 CAVEAT_PHRASE = "We did not independently verify success."
 CAVEAT_HEADINGS = vapply(fw_t("export", "caveats"), `[[`, "", "heading")
 
@@ -49,10 +41,7 @@ ok("no section is defined in two copy files",
 cat("\n-- filters --\n")
 ok("no filters returns everything", nrow(fw_filter_apply(d, base)), nrow(d$attempt))
 
-# ANY-OF, not all-of, and no attempt counted twice. If the bridge join leaked
-# duplicates this would exceed the sum of the two individual counts. Exercised
-# on SPECIES rather than method, which this page no longer offers - the bridge
-# code is the same either way.
+# Any-of, with no attempt counted twice (tested on species).
 sp_a = ch$species[1]; sp_b = ch$species[2]
 f_a = modifyList(base, list(species = sp_a))
 f_b2 = modifyList(base, list(species = sp_b))
@@ -62,42 +51,35 @@ n_ab = nrow(fw_filter_apply(d, f_ab))
 ok("two species is a union, not an intersection", n_ab >= max(n_a, n_b))
 ok("and does not double-count",                   n_ab <= n_a + n_b)
 
-# The 53 undated attempts must never vanish without the user asking.
+# Undated attempts never vanish unless asked.
 ok("undated attempts kept by default",
    nrow(fw_filter_apply(d, base)) - nrow(fw_filter_apply(d, modifyList(base, list(include_no_year = FALSE)))),
    ch$n_no_year)
 
-# A missing slider value means "no bound", not "nothing matches". The filter
-# panel is a renderUI, so this is the state on first paint.
+# A missing slider value means no bound (first paint).
 ok("absent year bounds do not empty the result",
    nrow(fw_filter_apply(d, modifyList(base, list(year_from = NULL, year_to = NULL)))),
    nrow(d$attempt))
 
-# The two filters this page deliberately does not offer, and the reasoning for
-# each is at the top of mod_plan.R: outcome is an answer the reader must not be
-# able to pre-select, and method is the thing they came here to learn.
+# Plan doesn't offer outcome or method (FW_PLAN_DROP).
 ok("outcome is not a report-builder filter", "outcome" %in% plan_ids, FALSE)
 ok("method is not a report-builder filter",  "method" %in% plan_ids, FALSE)
-# The fish family pair came back on 24 Sept 2026 (client), shown only while
-# Fish is picked - see fw_filter_when_panel() in R/filters.R.
+# Fish family filters, shown only while Fish is picked.
 ok("and those two are all that is dropped",
    sort(setdiff(fw_filter_ids(), plan_ids)), sort(c("method", "outcome")))
 ok("the fish family pair is a report-builder filter",
    all(c("family", "family_beneficiary") %in% plan_ids), TRUE)
-# Outcome is now filterable NOWHERE. It used to be the dashboard's alone; the
-# client's decision is that it is an answer on both pages. It stays visible in
-# every chart, the map and the table - it is just never used to narrow.
+# Outcome is not a filter on either page.
 ok("the dashboard does not offer outcome either",
    "outcome" %in% FW_EXPLORE_FILTERS, FALSE)
-# Still vs flowing joined them on 21 Sept 2026 (client).
+# Still vs flowing.
 ok("the dashboard's filters are place, water regime, animal and fish family",
    sort(FW_EXPLORE_FILTERS),
    sort(c("continent", "country", "regime", "taxa", "taxa_beneficiary",
           "family", "family_beneficiary")))
 
 cat("\n-- the size filter --\n")
-# TWO UNITS THAT MUST NOT MIX. Hectares for still water, kilometres for flowing,
-# and an attempt is only ever compared against the slider for its own unit.
+# Each attempt is compared only against its own unit's slider.
 ha_full = fw_size_log_range(ch$size$ha)
 km_full = fw_size_log_range(ch$size$km)
 n_ha = sum(d$attempt$area_unit == "ha", na.rm = TRUE)
@@ -107,9 +89,7 @@ sized = modifyList(base, list(size_ha = ha_full, size_km = km_full))
 ok("sliders at full range change nothing",
    nrow(fw_filter_apply(d, sized)), nrow(d$attempt))
 
-# The unmeasured attempts are the checkbox's decision ALONE. This regressed once
-# already: the match was OR-ed in, which could only ever add rows back, so
-# unticking the box removed nothing.
+# Unmeasured attempts follow the checkbox alone (unticking removes them).
 ok("unticking 'include unrecorded size' drops exactly the unsized",
    nrow(fw_filter_apply(d, sized)) -
      nrow(fw_filter_apply(d, modifyList(sized, list(include_no_size = FALSE)))),
@@ -127,29 +107,20 @@ sel_km = fw_filter_apply(d, big_km)
 ok("narrowing kilometres leaves every hectare attempt alone",
    sum(sel_km$area_unit == "ha", na.rm = TRUE), n_ha)
 
-# An absent slider is "this unit is not being constrained", not "nothing
-# matches". The size cell is a renderUI, so this is the state on first paint.
+# An absent slider doesn't constrain (first paint).
 ok("absent size bounds do not empty the result",
    nrow(fw_filter_apply(d, modifyList(base, list(size_ha = NULL, size_km = NULL)))),
    nrow(d$attempt))
 
-# WHICH SLIDERS A REGIME OFFERS. Still water is an area, flowing water is a
-# length, so choosing one leaves the other unit's slider with nothing to say.
-# That is the client's rule and fw_size_units() is a straight map.
+# Which sliders each regime offers (fw_size_units()).
 ok("still water offers hectares alone", fw_size_units("Lentic"), "ha")
 ok("flowing water offers kilometres alone", fw_size_units("Lotic"), "km")
 ok("no regime offers both", fw_size_units(character(0)), FW_SIZE_UNITS)
 ok("both regimes offer both", fw_size_units(c("Lentic", "Lotic")), FW_SIZE_UNITS)
 
-# THE HIDDEN SLIDER MUST NOT GO ON FILTERING, and this is the assertion the
-# whole design rests on. Shiny KEEPS the value of an input whose UI has been
-# removed, so a slider dropped by a regime change goes on reporting the last
-# bounds the reader gave it. Without the matching drop in fw_filter_state() it
-# narrows the result invisibly - measured, not theorised: it silently dropped
-# six attempts.
-#
-# Note the mock input carries BOTH sliders, exactly as a live session does after
-# the reader has moved one and then changed the regime.
+# A hidden slider must not filter: Shiny keeps its last value, so
+# fw_filter_state() drops it. The mock input holds both sliders, as a live
+# session does after a regime change.
 mock = list(regime = "Lentic",
              size_ha = fw_size_log_range(ch$size$ha),
              size_km = c(fw_size_log(500), fw_size_log(715)),
@@ -162,19 +133,8 @@ ok("so a stale bound left on the hidden slider changes nothing",
    nrow(fw_filter_apply(d, state)),
    nrow(fw_filter_apply(d, modifyList(state, list(size_km = NULL)))))
 
-# THE COST OF THE FIXED MAP, ASSERTED SO IT IS ON THE RECORD rather than
-# discovered. 40 attempts carry a unit that disagrees with their regime:
-#
-#     regime    ha    km   (none)
-#     Lentic   497     6       81
-#     Lotic     34   203       87
-#
-# With still water chosen, those six kilometre-measured attempts have no slider
-# on the page and so are not size-filtered at all. That is the honest reading of
-# a hidden control - the alternative is judging them against bounds the reader
-# cannot see. It goes away on its own as the client's cleaning lands; until then
-# this test says how many rows it applies to, so a change in that number is
-# noticed. It went away in the 23 Sept 2026 export: none are left.
+# Attempts whose unit disagrees with their regime escape size filtering;
+# counted so a change is noticed (currently none).
 mismatch = sum(d$attempt$water_regime == "Lentic" &
                   d$attempt$area_unit == "km", na.rm = TRUE)
 ok("no still-water attempt is measured in kilometres", mismatch, 0L)
@@ -184,9 +144,7 @@ ok("a narrow hectare bound does not touch the mismatched kilometre rows",
          fw_filter_apply(d, tight)$water_regime == "Lentic", na.rm = TRUE),
    mismatch)
 
-# A slider left where it started is not a filter, and must not be recorded as a
-# bound the reader chose - the slider ends are widened to whole log steps and so
-# do not match the real minimum and maximum.
+# An untouched slider is recorded as "All", not its rounded ends.
 size_rows = function(f) {
   r = Filter(function(x) grepl(fw_filter_label("size"), x$setting, fixed = TRUE),
               fw_filter_summary(f))
@@ -197,12 +155,9 @@ ok("an untouched size slider records All",
 ok("and a moved one records real units, not logarithms",
    any(grepl("100", size_rows(big_ha), fixed = TRUE)), TRUE)
 
-# The registry drives the panel, the state, the hints and the workbook. If a
-# filter is offered on the page it must appear in the sheet that records what
-# the reader selected.
+# Every offered filter appears in the Filters sheet.
 sheet_settings = fw_filters_sheet(base, 10L, 914L)$Setting
-# grepl, not %in%: size contributes one row PER UNIT, each labelled
-# "<label> (<unit>)", so an exact match would miss it.
+# grepl: size rows are labelled "<label> (<unit>)".
 ok("every filter reaches the workbook sheet",
    all(vapply(setdiff(plan_ids, "years"), function(i) {
      any(grepl(fw_filter_label(i), sheet_settings, fixed = TRUE))
@@ -215,7 +170,7 @@ ok("and the two dropped filters do not",
    FALSE)
 
 cat("\n-- the export cannot disagree with itself --\n")
-# The filtered download and the future Zenodo release are the SAME function.
+# The filtered download and the Zenodo release are the same function.
 full = fw_export_frame(d)
 sub  = fw_export_frame(d, d$attempt$attempt_id[d$attempt$country == "Norway"])
 both = merge(full, sub, by = "attempt_id", suffixes = c(".a", ".b"))
@@ -257,9 +212,7 @@ ok("size: a record sitting on the top end is kept",
 ok("size: the bottom label is 0", fw_size_label(fw_size_unlog(0)), fw_fmt_num(0))
 
 cat("\n-- clear and the default state --\n")
-# Clear builds from fw_filter_defaults(), because the reset controls only
-# reach the browser after the flush. It has to be the state a freshly reset
-# page would report.
+# fw_filter_defaults() must match a freshly reset page's state.
 reset_input = list(years = c(ch$year_min, ch$year_max),
                     size_ha = ha_full, size_km = km_full,
                     include_no_size = TRUE, include_no_year = TRUE)
@@ -278,9 +231,7 @@ salm = fw_species_allowed(sp_lab, "Fish", "Salmonidae", ch$species)
 ok("Salmonidae offers salmonids only", length(salm) > 0 && identical(lab_family(salm), "Salmonidae"))
 ok("nothing chosen offers everything, in the same order",
    identical(fw_species_allowed(sp_lab, character(0), character(0), ch$species), ch$species))
-# THE PROTECTED SIDE FOLLOWS EVERYTHING ELSE (client, 30 Sept 2026): with
-# invasive Salmonidae chosen, the protected pickers list only what attempts
-# against salmonids protected - recomputed here from the bridge table.
+# Protected pickers follow the other filters (recomputed from the bridge).
 salm_f = modifyList(base, list(taxa = "Fish", family = "Salmonidae"))
 salm_ids = fw_filter_apply(d, salm_f)$attempt_id
 want_ben = unique(d$attempt_species$species_id[d$attempt_species$role == "beneficiary" &
@@ -309,13 +260,8 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
 })
 
 cat("\n-- the build gate and the three states --\n")
-# THE RESULTS ARE A STATIC SKELETON now, shown by a conditionalPanel that reads
-# output$state, with small HTML-only uiOutputs for what varies. The charts and
-# the map used to sit inside one renderUI rebuilt on every Build, and some of
-# them kept the previous selection's figures - see fw_plan_results_ui().
-#
-# THE EMPTY STATE IS EMPTY. The page's introduction lives in the page header,
-# so before a build nothing renders at all - not a prompt.
+# Results are a static skeleton shown by output$state. Before a build,
+# nothing renders.
 is_empty = function(x) is.null(x) || !nzchar(trimws(paste(strip(x), collapse = "")))
 skeleton = as.character(fw_plan_results_ui(NS("plan")))
 # What a reader sees in the results state: the skeleton plus what fills it.
@@ -327,7 +273,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("state 1: nothing asked yet", output$state, "none")
   ok("state 1: empty before any build", is_empty(output$zero), TRUE)
 
-  # THE GATE. Results must not appear just because a filter moved.
+  # The gate: no results until Build.
   session$setInputs(country = "Norway", years = c(1934, 2025), include_no_year = TRUE)
   ok("changing a filter does not render results", output$state, "none")
 
@@ -339,10 +285,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
      grepl("What the matching attempts show", h), TRUE)
   ok("all four outcomes stay visible",
      all(vapply(c("Successful", "Failed", "Ongoing", "Unknown"), grepl, logical(1), h)), TRUE)
-  # THE CAVEATS ARE NOT ON THIS PAGE ANY MORE. They moved to About, because they
-  # describe the whole database rather than the selection, and under a freshly
-  # built result they read as qualifications of that selection alone. They still
-  # travel inside every download - asserted further down.
+  # Caveats are on About, not here (they're in every download).
   ok("caveats do NOT sit beside the results", grepl(CAVEAT_PHRASE, h, fixed = TRUE), FALSE)
   ok("the contacts block does", grepl(fw_t("plan", "r_contacts"), h, fixed = TRUE), TRUE)
   ok("the cumulative chart has left this page",
@@ -350,9 +293,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("export matches the selection",
      nrow(report()$export), nrow(report()$sel))
 
-  # A REBUILD REDRAWS EVERY FIGURE. The reported bug: after changing country,
-  # some charts still showed the last country. Each figure's data is compared
-  # with the same figure computed independently for the new selection.
+  # A rebuild redraws every figure, compared with an independent recompute.
   chart_x = function(json) {
     j = jsonlite::fromJSON(json, simplifyVector = FALSE)
     as.character(unlist(lapply(j$x$data, function(t) t$x)))
@@ -363,8 +304,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   }
   for (cc in c("Italy", "Sweden", "Norway")) {
     session$setInputs(country = cc, build = input$build + 1)
-    # The selection recomputed from the recorded filters, not read back off
-    # report(), and it has to be this country and nothing else.
+    # Recomputed from the recorded filters: this country only.
     s = fw_filter_apply(d, report()$filters)
     ok(paste0(cc, ": the build is of ", cc),
        nrow(s) > 0 && all(s$country == cc) &&
@@ -391,23 +331,17 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
 
   # ---- The download -------------------------------------------------------
   #
-  # ONE HANDLER AND A PICKER. The methods-and-caveats text used to travel
-  # whatever else was ticked; it is gone (client, 24 Sept 2026) and each
-  # document carries the section itself, so one tick downloads one file.
+  # One handler and a picker.
   session$setInputs(taxa = character(0), build = input$build + 1)
   ok("back from zero to results", output$state, "results")
 
   # ---- Where the download lives now ---------------------------------------
   #
-  # AT THE TOP, AND IN AN OVERLAY. It used to be a block at the foot of the
-  # page, below two tables; the client's objection was that a reader could not
-  # tell any of this was exportable without scrolling past all of it.
+  # First in the results, opening a modal.
   head_html = skeleton
   ok("the download button is in the results head",
      grepl("fw-plan__download-open", head_html, fixed = TRUE))
-  # THE COUNTS ARE NOT IN THE RESULTS ANY MORE (client, 29 Sept 2026). They
-  # sit under Build and Clear with the applied-filter line, filters first,
-  # then what was built from them, then the counts, then the results.
+  # The counts sit under the buttons, after the applied-filter line.
   page_html = as.character(mod_plan_ui("plan"))
   ok("the counts left the results skeleton",
      grepl('id="plan-summary"', head_html, fixed = TRUE), FALSE)
@@ -427,8 +361,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("an untouched year slider is not listed as a filter",
      grepl(fw_filter_label("years"), strip(output$filters_summary), fixed = TRUE), FALSE)
 
-  # CLEAR RESETS AND REBUILDS (client, 29 Sept 2026). It used to empty the
-  # controls and leave the last report on screen.
+  # Clear resets and rebuilds.
   session$setInputs(country = "Norway", build = input$build + 1)
   ok("clear: a narrowed build first", nrow(report()$sel) < nrow(d$attempt))
   session$setInputs(clear = 1)
@@ -437,19 +370,15 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
      grepl(fw_t("filters", "all"), strip(output$filters_summary), fixed = TRUE))
   ok("clear: rebuilt from the defaults",
      identical(report()$filters, fw_filter_defaults(plan_ids, ch)))
-  # EXACTLY ONE PICKER EXISTS AT A TIME. Every input in this module shares one
-  # DOM id space, so a copy on the page AND a copy in the modal would put two
-  # controls called download_parts in the document and the handler would read
-  # whichever Shiny bound last. The page must carry none.
+  # Only the modal has a picker (two would share an id).
   ok("the picker is not on the page",
      grepl("download_parts", head_html, fixed = TRUE), FALSE)
-  # THE MATCHING-ATTEMPTS TABLE IS GONE and the contacts table is not.
+  # A contacts table, no attempts table.
   ok("the attempts table is gone from the page",
      grepl("table_body", head_html, fixed = TRUE), FALSE)
   ok("the contacts table is still there",
      grepl("contacts_body", head_html, fixed = TRUE))
-  # THE FIGURES ARE IN THE SKELETON, and nothing that renders HTML for the
-  # results carries an output of its own - that nesting was the bug.
+  # Figures are in the skeleton; no output is nested in a renderUI.
   ok("every figure is a static output",
      all(vapply(c("plan-map", "plan-methods", "plan-duration", "plan-chart_waterbody"),
                 function(id) grepl(sprintf('id="%s"', id), head_html, fixed = TRUE),
@@ -463,15 +392,10 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
                 logical(1))), FALSE)
   unzip_names = function(p) utils::unzip(p, list = TRUE)$Name
 
-  # WHAT A READER CAN TICK (client, 23 Sept 2026): the PDF report, the attempts
-  # file and the spreadsheet, in that order. The CSV went in the same round -
-  # it was the spreadsheet's rows a second time - and the interactive HTML
-  # report before it.
+  # The parts: PDF, Detailed report, spreadsheet, in that order.
   ok("the three parts, in order", FW_BUNDLE_PARTS, c("pdf", "records", "xlsx"))
-  # A RETIRED PART IS DROPPED AND THE SELECTION FALLS TO THE SPREADSHEET. It
-  # used to be dropped to nothing, which was safe while the methods text made
-  # every download non-empty; with that gone, an empty selection has no file to
-  # name, so fw_bundle_parts() has a floor - see the note there.
+  # An unknown part is dropped; an empty selection falls back to the
+  # spreadsheet.
   ok("the old html part is not recognised", fw_bundle_parts("html"), "xlsx")
   ok("and the csv is not recognised either", fw_bundle_parts("csv"), "xlsx")
   picker = as.character(fw_plan_download_ui(session$ns, pdf = TRUE))
@@ -487,7 +411,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
      seq_along(FW_BUNDLE_PARTS))
   ok("and ticks the spreadsheet and the PDF",
      lengths(regmatches(picker, gregexpr('checked="checked"', picker, fixed = TRUE))), 2L)
-  # NO PDF BOX WHERE NO PDF CAN BE MADE, and a sentence saying so instead.
+  # No PDF box without Quarto, and a note saying so.
   no_pdf = as.character(fw_plan_download_ui(session$ns, pdf = FALSE))
   ok("without Quarto the PDF box is not drawn",
      grepl('value="pdf"', no_pdf, fixed = TRUE), FALSE)
@@ -509,26 +433,18 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   inside = unzip_names(path)
   ok("it carries the spreadsheet", any(grepl("[.]xlsx$", inside)), TRUE)
   ok("and the attempts file",      fw_records_filename() %in% inside, TRUE)
-  # THE MANDATORY .txt IS GONE (client, 24 Sept 2026) and the zip holds exactly
-  # what was ticked. It used to carry a methods-and-caveats file whatever else
-  # was in there; each document closes on that section itself now.
+  # The zip holds exactly what was ticked.
   ok("and nothing else",
      sort(inside), sort(c(fw_export_filename(), fw_records_filename())))
 
-  # ONE TICK, ONE FILE, NOT A ZIP OF ONE. This is the change the client asked
-  # for: the travelling text file made every download a zip of two things, so
-  # ticking the report handed back an archive to unpack.
+  # One tick downloads one file, not a zip.
   session$setInputs(download_parts = "records")
   ok("one thing ticked downloads that one thing",
      fw_bundle_filename("records"), fw_records_filename())
   ok("and it is not a zip",
      grepl("^<!DOCTYPE html", readLines(output$download, n = 1)), TRUE)
 
-  # AN UNRECOGNISED PART IS DROPPED, NOT REFUSED. "csv" was a real part until
-  # 23 Sept 2026, so a stale bookmark or a re-sent form can still name it. With
-  # nothing left to write, fw_bundle_parts() falls to the spreadsheet rather
-  # than naming a file it cannot produce - the picker's own Download button is
-  # disabled long before a reader could get here (fw_download_guard()).
+  # An unrecognised part (e.g. an old "csv") is dropped, not refused.
   session$setInputs(download_parts = "csv")
   ok("a bundle asking for the retired csv falls back to the spreadsheet",
      fw_bundle_filename("csv"), fw_export_filename())
@@ -537,7 +453,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("and so does one asking for nothing at all",
      fw_bundle_filename(character(0)), fw_export_filename())
 
-  # DATE AND TIME IN EVERY NAME (client, 30 Sept 2026), in UTC.
+  # UTC date and time in every name.
   ok("download names carry the date and the time",
      fw_bundle_filename(c("xlsx", "records")), "fwise-report_20260930-142105.zip")
   ok("and so does each file on its own",
@@ -546,10 +462,8 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
        "fwise-detailed-report_20260930-142105.html",
        "fwise-report_20260930-142105.pdf"))
 
-  # THE PROGRESS BAR (client, 21 Sept 2026). Every step reports, the bar never
-  # goes backwards, it ends at 1, and every step has words from the copy deck.
-  # The zip step exists only where there is more than one file to pack, so a
-  # single-part bundle reports its own step and the finish and nothing else.
+  # Progress: every step reports with copy-deck words, never goes backwards,
+  # ends at 1. The zip step only with several files.
   for (parts in list("xlsx", c("xlsx", "records"))) {
     seen = list()
     fw_write_bundle(tempfile(), parts, d, report()$sel, report()$export,
@@ -566,13 +480,12 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   }
 
   # ---- The workbook -------------------------------------------------------
-  # Ticked on its own, so the download IS the .xlsx - no archive to open.
+  # Ticked alone, so the download is the .xlsx itself.
   session$setInputs(download_parts = "xlsx")
   path = tempfile(fileext = ".xlsx")
   file.copy(output$download, path, overwrite = TRUE)
   sheets = openxlsx::getSheetNames(path)
-  # METHODS AND CAVEATS IS THE LAST TAB (client, 24 Sept 2026), where the PDF
-  # and the records HTML also close. Still no contacts sheet.
+  # Methods and caveats is the last tab. No contacts sheet.
   ok("all four sheets present, in order, and no contacts sheet",
      sheets, c("Attempts", "Field definitions", "Filters applied",
                fw_t("export", "sheets")$caveats))
@@ -590,8 +503,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
      all(names(openxlsx::read.xlsx(path, "Attempts")) %in%
            openxlsx::read.xlsx(path, "Field definitions")$Field), TRUE)
 
-  # THE CONTROL, not the intention. An address belonging to a contact who asked
-  # not to be listed must not be anywhere in the workbook.
+  # No private contact's address anywhere in the workbook.
   private = d$contact$contact_email[!d$contact$contact_public]
   private = private[!is.na(private) & nzchar(private)]
   rows = openxlsx::read.xlsx(path, "Attempts")
@@ -601,12 +513,8 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
 
   # ---- The attempts file ---------------------------------------------------
   #
-  # EVERY ATTEMPT IN THE SELECTION, ONCE, IN THE SPREADSHEET'S ORDER, with every
-  # exported field labelled on every card. Read back out of the file the reader
-  # gets, not out of the function that wrote it.
-  # ONE PART DOWNLOADS AS ITSELF, more than one as a zip (client, 24 Sept
-  # 2026). fw_bundle_filename() draws that line and this follows it, so the
-  # assertions below read the same file the reader would get either way.
+  # Every attempt once, in spreadsheet order, every field labelled. Read from
+  # the downloaded file itself.
   unpack = function(parts, pattern) {
     session$setInputs(download_parts = parts)
     name = fw_bundle_filename(parts)
@@ -628,8 +536,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ids = sub('^.*id="', "", sub('"$', "", ids))
   ok("one card per attempt in the selection", length(ids), nrow(report()$sel))
   ok("in the export's order", ids, report()$export$attempt_id)
-  # STILL WATER / FLOWING WATER, never the stored Lentic / Lotic (client,
-  # 24 Sept 2026) - the words the filters and the form already use.
+  # Still/Flowing water, never Lentic/Lotic.
   ok("water regime reads in plain English",
      grepl("<dd>(Lentic|Lotic)</dd>", rec), FALSE)
   ok("and the plain words are there",
@@ -637,8 +544,8 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
                 logical(1))), TRUE)
   ok("the records close on the citation",
      grepl(fw_t("export", "citation_heading"), rec, fixed = TRUE), TRUE)
-  # THE EXPLICIT LOCKUP HEADS IT, the plain mark stays in the footer row, and
-  # the "Find an attempt" list is one column (client, 14 Oct 2026).
+  # Explicit lockup in the masthead, plain mark in the footer, one-column
+  # contents list.
   head_img = regmatches(rec, regexpr('<img class="fw-rec-head__mark" src="[^"]+"', rec))
   ok("records: the masthead is the explicit logo",
      isTRUE(grepl(fw_html_data_uri(FW_LOGO$explicit_file), head_img, fixed = TRUE)), TRUE)
@@ -657,22 +564,15 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("and every column but the id sits in one group",
      sort(grouped), sort(setdiff(FW_EXPORT_COLUMNS, "attempt_id")))
   n_dt = vapply(cards, function(x) lengths(regmatches(x, gregexpr("<dt>", x, fixed = TRUE))), 1L)
-  # EVERY GROUPED FIELD, MINUS THE CHEMICAL DETAIL WHERE THAT SECTION IS CUT
-  # (client, 23 Sept 2026). The expected count per card is recomputed from the
-  # export rows through the same predicate the writer uses, so the file and the
-  # rule cannot drift; what is asserted independently is that both kinds of card
-  # are in this file at all, and that the headings went with the fields.
+  # Every grouped field, minus the chemical section where it's cut. Both card
+  # kinds must be present, and headings go with their fields.
   chem = Filter(function(g) identical(g$id, "chemical"),
                  fw_t("export", "record_groups"))[[1]]
   exp_rows = report()$export
   cut = vapply(seq_len(nrow(exp_rows)),
                 function(i) fw_record_group_drop(chem, as.list(exp_rows[i, ])),
                 logical(1))
-  # AND MINUS A BLANK REGION (client, 24 Sept 2026). Region is recorded for a
-  # handful of countries only, so "Not noted" under an Australian site read as
-  # a missing Tasmania. It is the one field that vanishes rather than saying
-  # so - see FW_RECORD_OMIT_BLANK - and the expected count follows the same
-  # predicate the writer uses.
+  # And minus a blank region (FW_RECORD_OMIT_BLANK).
   no_region = vapply(exp_rows$region, fw_record_blank, logical(1))
   ok("every card draws every grouped field it keeps",
      all(unname(n_dt) ==
@@ -692,12 +592,8 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
      sum(vapply(cards, function(x)
        grepl(paste0("<h3>", chem$heading, "</h3>"), x, fixed = TRUE), logical(1))),
      sum(!cut))
-  # THE GUARD ON THE CUT: an attempt with no chemical method but a recorded
-  # concentration keeps the section, because the spreadsheet in the same
-  # download still carries that value and the two must not disagree. Asserted
-  # over the WHOLE database rather than this selection - there are only a
-  # handful of such attempts and a country filter can easily hold none, which
-  # would leave the guard passing without ever being exercised.
+  # A non-chemical attempt with chemical values keeps the section. Checked on
+  # the whole database, since a selection may hold none.
   all_rows = fw_export_frame(d)
   all_no_chem = !vapply(strsplit(as.character(all_rows$method_classes), FW_MULTI_SEP,
                                   fixed = TRUE),
@@ -733,16 +629,14 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   ok("its fonts are inlined, unwrapped",
      grepl("url(\"data:font/woff2;base64,", rec, fixed = TRUE) &&
        !grepl("data:[a-z/+.-]+;base64,[A-Za-z0-9+/=]*\\n", rec), TRUE)
-  # The FWISE mark twice - the masthead and, since 1 Oct 2026, first in the
-  # footer - then Weird Fishes and the collaborators.
+  # The FWISE mark in the masthead and footer, then the other logos.
   ok("every logo the footer carries is in it",
      lengths(regmatches(rec, gregexpr('src="data:image/png', rec, fixed = TRUE))),
      3L + length(FW_LOGO$collab_files))
 
   # ---- The PDF report -------------------------------------------------------
   #
-  # NEEDS QUARTO. Without it the assertions below cannot run, and they say so
-  # loudly rather than passing quietly: set QUARTO_PATH to a Quarto 1.4+ CLI.
+  # Needs Quarto 1.4+; without it these print SKIPPED rather than passing.
   if (!fw_pdf_available()) {
     cat("  *** PDF ASSERTIONS SKIPPED: quarto not found (set QUARTO_PATH) ***\n")
   } else {
@@ -752,16 +646,14 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     ok("and is a PDF", rawToChar(head_bytes), "%PDF-")
     ok("with more than one page", fw_pdf_page_count(pdf_path) > 1L, TRUE)
 
-    # WHAT THE DOCUMENT SAYS is read from its Typst source, which is the text
-    # the PDF was set from - the PDF's own text streams are compressed.
+    # Read the Typst source (PDF text streams are compressed).
     keep = tempfile()
     fw_write_pdf_report(tempfile(fileext = ".pdf"), d, report()$sel, filters = report()$filters,
                         meta = m, keep = keep)
     typ = paste(readLines(file.path(keep, "report.typ"), warn = FALSE), collapse = "\n")
     has = function(txt) grepl(txt, typ, fixed = TRUE)
     ok("the letterhead carries the title", has(fw_t("plan", "report_title")), TRUE)
-    # The explicit lockup on the letterhead, the plain mark in the footer row
-    # (client, 14 Oct 2026).
+    # Explicit lockup on the letterhead, plain mark in the footer.
     tokens = paste(readLines(file.path(keep, "fwise-tokens.typ"), warn = FALSE), collapse = "\n")
     ok("the letterhead uses the explicit logo",
        grepl('#let fw-logo-explicit = "logo-explicit.png"', tokens, fixed = TRUE) &&
@@ -773,8 +665,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
     ok("the caveats travel with the document", has(CAVEAT_PHRASE), TRUE)
     ok("and the methods statement with them",
        has(fw_t("export", "methods_heading")), TRUE)
-    # METHODS, CAVEATS, CITATION (client, 24 Sept 2026), each titled. The
-    # client's headed caveats (6 Oct 2026) sit under "Caveats", set smaller.
+    # Methods, caveats (blocks set smaller), citation.
     ok("Caveats is a title with no text of its own",
        has(paste0('("', fw_t("export", "caveats_title"), '", (), false)')), TRUE)
     ok("every caveat is set as a subheading",
@@ -794,8 +685,7 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
        has("Read the caveats above"), FALSE)
     ok("and so do the contacts", has(fw_t("plan", "r_contacts")), TRUE)
     ok("the map is drawn", file.exists(file.path(keep, "map.png")), TRUE)
-    # BOTH VERSIONS OF THE TOGGLED CHARTS, one above the other (client, 29
-    # Sept 2026), whatever the toggles on screen were set to.
+    # Both versions of each toggled chart.
     ok("every chart is drawn",
        all(file.exists(file.path(keep, c("methods-count.png", "methods-share.png",
                                          "duration.png", "waterbody-count.png",
@@ -805,21 +695,20 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
          pos('"waterbody-count.png"') < pos('"waterbody-share.png"'), TRUE)
     ok("and each is labelled",
        has(fw_t("plan", "r_method_share")) && has(fw_t("plan", "r_waterbody_count")), TRUE)
-    # AND THE DELETED ONE IS NOT (client, 23 Sept 2026).
+    # No methods-by-waterbody chart.
     ok("the methods-by-water chart is gone",
        file.exists(file.path(keep, "method-waterbody.png")), FALSE)
-    # WHAT THIS REPORT COVERS lists only the filters the reader actually set,
-    # and carries the note saying what the report is and is not for.
+    # "What this report covers": applied filters only, plus its note.
     ok("the filters table explains itself",
        has(fw_t("plan", "report_selection_note")), TRUE)
     ok("and is set below the print floor", has("size: fw-small"), TRUE)
     ok("no untouched filter is listed as All",
        grepl(paste0('"', fw_t("export", "filter_all"), '"'), typ, fixed = TRUE), FALSE)
-    # THE OUTCOME BARS LEAD, above the species plates.
+    # Outcome bars before the species.
     ok("the outcomes come before the species plates",
        regexpr("#fw-outcome-bars", typ, fixed = TRUE) <
          regexpr("#fw-species-tiles", typ, fixed = TRUE), TRUE)
-    # SIX CONTACTS AT MOST, however broad the selection.
+    # At most FW_PDF$contacts_n contacts.
     ok("at most six contacts are printed",
        nrow(fw_pdf_contacts_table(fw_plan_contacts(d, report()$sel))) <= FW_PDF$contacts_n,
        TRUE)
@@ -836,11 +725,9 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
   }
 })
 
-# ---- The still/flowing chart and the regime filter (client, 30 Sept 2026) ---
+# ---- The still/flowing chart and the regime filter ---------------------------
 #
-# One regime picked: the chart would be a single bar restating the filter, so
-# the PDF and the Detailed report both leave it out. Both picked, or neither:
-# it stays. fw_pdf_body() needs no Quarto, so this runs everywhere.
+# Hidden in the PDF and Detailed report when exactly one regime is picked.
 cat("\n-- the still/flowing chart follows the regime filter --\n")
 for (rg in list(character(0), "Lentic", c("Lentic", "Lotic"))) {
   fr = base; fr$regime = rg
@@ -872,12 +759,10 @@ ok("PDF: and keeps the protected tiles",
    grepl("Top [a-z]+ species protected", typ_s), TRUE)
 unlink(dir_s, recursive = TRUE)
 
-# ---- The record search (client, 1 Oct 2026) ----------------------------------
+# ---- The record search -------------------------------------------------------
 #
-# RECOMPUTED, NOT RE-READ: what each search should find is worked out here
-# from the export frame's own columns with base R, and the page's table is
-# checked against it - match counts, the ten-a-page cut, the last page, and
-# that every shown row carries its full card, hidden until opened.
+# Expected matches recomputed in base R from the export frame: counts, paging,
+# and a hidden full card per row.
 cat("\n-- record search --\n")
 ex_all = fw_export_frame(d, fw_filter_apply(d, base)$attempt_id)
 hay = fw_plan_records_haystack(ex_all)
@@ -941,16 +826,20 @@ testServer(mod_plan_server, args = list(data = d, meta = m), {
      grepl(fw_t("plan", "r_records_none"), output$records_body$html, fixed = TRUE), TRUE)
 })
 
-# The waterbody-type filter went on 1 Oct 2026 (client).
+# No waterbody-type filter.
 ok("filters: no waterbody-type filter", "waterbody" %in% fw_filter_ids(), FALSE)
 
 cat("\n-- email addresses (revealed on a click, 2 Oct 2026) --\n")
-# THE HARVESTER'S VIEW: anything shaped like an address, bare or in a mailto.
-# Every live-app surface must show none until a click; the downloaded report
-# must show every public one. The expected set is recomputed here from the
-# contacts table and the contact_public flag, not taken from the renderers.
+# Blocker to ensure no address leaks: live pages show no address before a
+# click; the downloaded report shows every public one. Expected set from the
+# contacts table.
 EMAIL_RX = "[[:alnum:]._%+-]+@[[:alnum:].-]+[.][[:alpha:]]{2,}"
 has_addr = function(html) grepl(EMAIL_RX, html) || grepl("mailto:", html, fixed = TRUE)
+fw_email_decode = function(x) {
+  s = rawToChar(jsonlite::base64_dec(x))
+  Encoding(s) = "UTF-8"
+  paste(rev(strsplit(s, "", fixed = TRUE)[[1]]), collapse = "")
+}
 decoded = function(html) {
   enc = regmatches(html, gregexpr('data-fw-email="[^"]+"', html))[[1]]
   vapply(sub('^data-fw-email="(.*)"$', "\\1", enc), fw_email_decode, "", USE.NAMES = FALSE)
@@ -1009,9 +898,7 @@ ok("email: the report builder's contacts table serves no address", has_addr(live
 ok("email: and reveals exactly the public addresses",
    identical(sort(unique(decoded(live_tbl))), want))
 saved_tbl = as.character(fw_plan_contacts_ui(people, per_page = nrow(people), reveal = FALSE))
-# Matched as written rather than by EMAIL_RX: two addresses in the source data
-# carry a stray space ("mark buktenica@...", "andrew.stump@ ky.gov"), which a
-# pattern would cut short, and the report shows what the data holds.
+# Matched as written: some source addresses contain stray spaces.
 ok("email: the downloaded report writes every public address out",
    all(vapply(want, function(e) grepl(paste0(">", htmltools::htmlEscape(e), "<"),
                                       saved_tbl, fixed = TRUE), logical(1))))
@@ -1026,12 +913,10 @@ ok("email: the map's record panel serves no address", has_addr(rec_html), FALSE)
 ok("email: and its button decodes to the record's contact",
    recs$primary_contact_email[with_pub[1]] %in% decoded(rec_html))
 
-# ---- Newsletter, feedback and the privacy page (2 Oct 2026) ------------------
+# ---- Newsletter, feedback and the privacy page --------------------------------
 #
-# No network and no Google key. The local store is pointed at a temporary
-# directory, and the sheet settings are cleared for the duration, so a
-# developer whose .Renviron holds the real key cannot write test rows into the
-# live sheet by running this.
+# Offline: the local store is a temp directory and sheet settings are cleared,
+# so a real key in .Renviron can't write test rows.
 cat("\n-- newsletter and feedback forms --\n")
 
 saved_sheet = FWISE_FORMS_SHEET_ID; saved_key = GS4_SA_KEY_B64; saved_dev = FW_DEV_DIR
@@ -1175,7 +1060,7 @@ ok("tracking: one part names its type", fw_track_download_detail("xlsx", 3)$type
 ok("tracking: two parts are a zip", fw_track_download_detail(c("xlsx", "records"), 3)$type, "zip")
 
 trow = fw_track_row("tok", "session_end")
-ok("tracking: a row has the sheet's five columns", length(trow), length(FW_TRACK_COLUMNS))
+ok("tracking: a row has the sheet's five columns", length(trow), 5L)
 ok("tracking: an empty detail is {}", trow[4], "{}")
 ok("tracking: UTC ISO 8601 timestamp", grepl("^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$", trow[1], perl = TRUE))
 ok("tracking: an unknown event is refused",
@@ -1218,7 +1103,7 @@ ok("tracking: GoatCounter script with a code",
 FWISE_FORMS_SHEET_ID = saved_sheet; GS4_SA_KEY_B64 = saved_key
 unlink(FW_DEV_DIR, recursive = TRUE); FW_DEV_DIR = saved_dev
 
-# ---- The submissions inbox sheet (Oct 2026) -----------------------------------
+# ---- The submissions inbox sheet ------------------------------------------------
 #
 # Request builders and the pure helpers only: no network, no key.
 cat("\n-- the submissions inbox --\n")

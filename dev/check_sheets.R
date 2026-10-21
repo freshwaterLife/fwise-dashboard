@@ -1,33 +1,19 @@
 # check_sheets.R
-# Is the Google Sheet set up the way the app writes to it?
+# Checks the Google Sheet tabs match what the app writes.
 #
-#     Rscript dev/check_sheets.R
+#     Rscript dev/check_sheets.R                  # read-only header check
+#     Rscript dev/check_sheets.R --write-headers  # fill row 1 of empty tabs
+#     Rscript dev/check_sheets.R --setup-inbox    # prepare the inbox tabs
 #
-# Needs FWISE_FORMS_SHEET_ID and GS4_SA_KEY_B64 (in .Renviron, or the shell). It
-# signs in as the service account, reads row 1 of each tab and compares it
-# with the columns the app writes - FW_NEWSLETTER_COLUMNS and
-# FW_FEEDBACK_COLUMNS in R/forms_store.R. It WRITES NOTHING: a test sign-up is
-# a separate, deliberate step (see the README).
+# Needs FWISE_FORMS_SHEET_ID and GS4_SA_KEY_B64. Compares row 1 of each tab
+# with FW_NEWSLETTER_COLUMNS, FW_FEEDBACK_COLUMNS and the inbox columns
+# (FWISE_INBOX_SHEET_ID, defaulting to the forms sheet). Extra columns on the
+# right are fine; anything else fails.
 #
-#     Rscript dev/check_sheets.R --write-headers
-#
-# also writes the headers into any tab whose row 1 is COMPLETELY empty - the
-# one write this script will make, and never over anything already there.
-#
-# Extra columns to the right of the app's are fine (staff notes, a status).
-# Anything else - a missing tab, a header out of order - is reported with what
-# to change, and the script exits non-zero.
-#
-# THE SUBMISSIONS INBOX (Oct 2026) is checked too: the `submissions` and
-# `new_species` tabs of FWISE_INBOX_SHEET_ID (the forms sheet unless set).
-#
-#     Rscript dev/check_sheets.R --setup-inbox
-#
-# makes those two tabs ready for review: creates them if missing, writes their
-# headers if row 1 is empty, freezes row 1, formats every cell as PLAIN TEXT
-# (so Sheets cannot turn "1-2" into a date or drop a leading zero when the
-# reviewer types), and puts dropdowns on qa_status, imported, status and
-# contact_public. It never changes a value already in the sheet.
+# --setup-inbox creates the `submissions` and `new_species` tabs if missing,
+# writes headers into an empty row 1, freezes it, sets every cell to plain
+# text (no date or number coercion) and adds dropdowns on qa_status, imported,
+# status and contact_public. It never changes existing values.
 
 if (!file.exists("app.R") || !dir.exists("R")) {
   stop("Run this from the fwise-dashboard folder:\n  cd fwise-dashboard\n  Rscript dev/check_sheets.R",
@@ -135,8 +121,7 @@ setup_tab = function(tab, columns, dropdowns) {
     ids = tab_ids()
   }
   sid = ids[[tab]]
-  # A new tab is 26 columns wide; the submissions tab needs more, and a
-  # dropdown on a column past the edge is refused. Widened first, never narrowed.
+  # Widen the tab first (new tabs are 26 columns), never narrow.
   width = max(attr(ids, "cols")[[tab]], length(columns))
   reqs = list(
     list(updateSheetProperties = list(

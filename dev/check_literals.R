@@ -9,8 +9,6 @@
 #   4. any fw_t("a", "b") call in R/ names a key the copy deck does not define
 #
 #     Rscript dev/check_literals.R
-#
-# Lives in dev/ because it is a build-time check, not part of the app.
 
 fails = character(0)
 fail = function(...) fails <<- c(fails, paste0(...))
@@ -42,9 +40,7 @@ for (f in list.files("www/scss", pattern = "[.]scss$", full.names = TRUE)) {
 }
 
 # ---- 2 and 3: the PDF report's Typst template --------------------------------
-# Every value the template draws with comes from fwise-tokens.typ, which
-# fw_pdf_tokens() writes from R/brand.R. A colour typed into the template
-# itself would be a second copy of the palette, so it is refused here.
+# Colours must come from fwise-tokens.typ, not the template.
 for (f in list.files("resources/report", pattern = "[.]typ$", full.names = TRUE)) {
   lines = sub("//.*$", "", readLines(f, warn = FALSE))
   hits = grep("#[0-9a-fA-F]{3,8}\\b|rgb\\(\"", lines)

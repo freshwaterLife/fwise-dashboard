@@ -1,14 +1,11 @@
 # qa.R
-# THE REVIEW AND IMPORT, ONE SECTION AT A TIME. Submissions from the contribute
-# form land as rows of the `submissions` tab of the inbox Google Sheet (and,
-# for a species the contributor typed in, the `new_species` tab). The reviewer
-# checks and corrects them THERE, and this script imports what they approve.
+# Review and import submissions, one section at a time. Submissions arrive in
+# the inbox sheet's `submissions` tab (typed-in species in `new_species`). Fix
+# rows in the sheet; this script imports what is approved.
 #
-# HOW TO RUN IT. In RStudio or VS Code, with R started in fwise/ or
-# fwise-dashboard/, run one section at a time: put the cursor in a section and
-# press Ctrl+Alt+T (Cmd+Option+T on a Mac), or select lines and press
-# Ctrl+Enter. Read what each section prints before running the next. Section 0
-# loads every function the rest needs - there is no need to run the app first.
+# Run in RStudio or VS Code from fwise/ or fwise-dashboard/, one section at a
+# time (Ctrl+Alt+T / Cmd+Option+T). Read each section's output before the
+# next. Section 0 loads everything; the app needn't be running.
 #
 #   0  Setup        load the app's code; say which sheet and data checkout
 #   1  Read and     the sheet, as `inbox` and `new_species`; problems into
@@ -23,23 +20,17 @@
 #                   then the sheet's `imported` column
 #   5  Publish      the git commands that put the import live
 #
-# NOTHING SHOULD BE IMPORTED TWICE. 
-# A row is taken only while `imported` is "no" and
-# its attempt_id is not already in attempts.csv, and section 4 checks again
-# straight before it writes. Running any section twice is safe.
+# Nothing imports twice: a row is taken only while `imported` is "no" and its
+# id isn't in attempts.csv; section 4 checks again. Rerunning is safe.
 #
-# What the reviewer needs on their machine: this repository and fwise-data
-# side by side in one folder (fwise/fwise-dashboard and fwise/fwise-data),
-# renv restored, and in fwise-dashboard/.Renviron GS4_SA_KEY_B64 and
-# FWISE_INBOX_SHEET_ID (or FWISE_FORMS_SHEET_ID), plus IUCN_API_TOKEN for
-# section 3. 
+# Needs: fwise-dashboard and fwise-data side by side, renv restored, and in
+# fwise-dashboard/.Renviron GS4_SA_KEY_B64 and FWISE_INBOX_SHEET_ID (or
+# FWISE_FORMS_SHEET_ID), plus IUCN_API_TOKEN for section 3.
 
 
 # ==== 0. Setup ================================================================
 
-# Find fwise-dashboard/ from wherever R was started (fwise/, fwise-dashboard/
-# or fwise-dashboard/dev/) and work from there: R/config.R takes its paths from
-# the working directory, and fwise-data is the sibling ../fwise-data.
+# Work from fwise-dashboard/, wherever R was started (config.R uses getwd()).
 local({
   root = Find(function(d) file.exists(file.path(d, "R", "config.R")) &&
                  file.exists(file.path(d, "dev", "qa.R")),
@@ -49,8 +40,7 @@ local({
   setwd(root)
 })
 message("Dashboard: ", getwd())
-# R reads .Renviron only from the folder it started in, so read this one now,
-# before R/config.R picks up the keys.
+# Read .Renviron now (R only reads the start folder's) before config.R.
 if (file.exists(".Renviron")) readRenviron(".Renviron")
 
 suppressPackageStartupMessages(library(shiny))
@@ -130,8 +120,7 @@ db          = fw_qa_read_db()
 
 sel = fw_inbox_ready(inbox, db, import_ids)
 
-# Checked again here, on exactly these rows: an earlier run of section 1 may
-# be out of date.
+# Checked again on exactly these rows, in case section 1 is stale.
 checks = fw_inbox_check(inbox, new_species, db)
 blocking = checks[checks$level == "error" &
                      (is.na(checks$attempt_id) | checks$attempt_id %in% inbox$attempt_id[sel$ready]), ]
@@ -158,10 +147,9 @@ if (nrow(resolved$contacts_add)) fw_qa_show(resolved$contacts_add, "contacts_add
 
 # ==== 3. Enrich the new species ===============================================
 #
-# Family (fish only) from GBIF, the IUCN Red List status, and a photograph with
-# its credit and licence. Fills blanks only; one request a second, so allow a
-# few seconds per species. Skip this section and section 4 writes the species
-# without them - dev/fetch_species_images.R can add photographs later.
+# Fish family (GBIF), IUCN status and a photo with credit and licence. Fills
+# blanks only, about one request a second. Optional: photos can be added later
+# with dev/fetch_species_images.R.
 
 if (!exists("resolved")) stop("Run section 1 first.", call. = FALSE)
 enriched = fw_enrich_species(resolved$species_add)
@@ -173,9 +161,8 @@ fw_qa_show(species_add, "species_add (enriched)")
 
 # ==== 4. WRITE ================================================================
 #
-# The data files first, then the sheet. If the sheet write fails, run this
-# section again: rows already in attempts.csv are marked imported and nothing
-# is added twice.
+# Data files first, then the sheet. If the sheet write fails, rerun this
+# section.
 
 if (!exists("resolved")) stop("Run section 2 (and 3) first.", call. = FALSE)
 
@@ -203,9 +190,8 @@ rm(resolved, species_add, qa_snapshot)
 
 # ==== 5. Publish ==============================================================
 #
-# The import is in your fwise-data checkout but not live yet. Commit and push
-# it, then restart the app (Connect Cloud: Republish) - the app reads the data
-# once, when it starts.
+# Commit and push fwise-data, then Republish on Connect Cloud (the app reads
+# data at start-up).
 
 message(paste(fw_qa_git("status", "--short"), collapse = "\n"))
 message("\nIn a terminal:\n",

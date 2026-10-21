@@ -1,19 +1,14 @@
 # species_enrich.R
-# What a NEW species needs before it joins species.csv, looked up from three
-# public sources. Sourced by dev/qa.R (section 4, the species an import adds)
-# and by dev/fetch_species_images.R (a full photograph run).
+# Lookups for new species. Sourced by dev/qa.R (section 3) and
+# dev/fetch_species_images.R.
 #
-#   family      GBIF's species-match API. No key.
-#   IUCN        the Red List API v4. Needs IUCN_API_TOKEN (free registration for
-#               non-commercial use at api.iucnredlist.org); without it the
-#               IUCN columns are left blank and listed.
-#   photograph  Wikipedia's lead image and its Commons credit and licence.
+#   family      GBIF species match. No key.
+#   IUCN        Red List API v4. Needs IUCN_API_TOKEN (free, non-commercial,
+#               api.iucnredlist.org); without it IUCN columns stay blank.
+#   photograph  Wikipedia's lead image, with Commons credit and licence.
 #
-# FILL BLANKS ONLY. A value the reviewer typed is never replaced. Anything not
-# found stays blank and is listed, never guessed: a guessed photograph of the
-# wrong fish, or a status for the wrong taxon, is worse than none.
-#
-# Network calls only. Nothing here reads or writes a file.
+# Fills blanks only; misses are listed, never guessed. Network calls only, no
+# file reads or writes.
 
 FW_UA = paste(
   "FWISE-dashboard/1.0 (https://www.freshwaterlife.org;",
@@ -29,7 +24,7 @@ fw_api = function(base, params) {
     httr2::req_url_query(!!!params) |>
     httr2::req_user_agent(FW_UA) |>
     httr2::req_timeout(20) |>
-    # A single flaky response should not abandon a 390-species run.
+    # One flaky response shouldn't abandon a long run.
     httr2::req_retry(max_tries = 3, backoff = ~ 2)
   out = try(httr2::req_perform(url), silent = TRUE)
   if (inherits(out, "try-error")) return(NULL)
@@ -38,8 +33,7 @@ fw_api = function(base, params) {
 
 #' The lead image filename for a Wikipedia article
 #'
-#' redirects=1 matters: most scientific names are redirects to the common-name
-#' article, and without it two thirds of the list misses.
+#' redirects=1: most scientific names redirect to the common-name article.
 fw_wiki_page_image = function(title) {
   j = fw_api("https://en.wikipedia.org/w/api.php", list(
     action = "query", format = "json", redirects = 1,
@@ -79,11 +73,7 @@ fw_commons_credit = function(file) {
     x = trimws(gsub("[[:space:]]+", " ", x))
     if (!nzchar(x)) NA_character_ else x
   }
-  # ATTRIBUTION FALLS BACK, IT DOES NOT FAIL. A good many Commons files carry a
-  # licence but no Artist field - Lota lota and Ameiurus nebulosus among them.
-  # Discarding those threw away properly licensed photographs of common species.
-  # Where no author is recorded, CC attribution is satisfied by crediting the
-  # source and linking the file page, which is what the popup does.
+  # No Artist: credit the source and link the file page (satisfies CC).
   list(
     credit      = fw_first_present(strip(meta$Artist$value),
                                    strip(meta$Credit$value),
@@ -96,11 +86,8 @@ fw_commons_credit = function(file) {
 
 #' The licence deed URL, or NA
 #'
-#' Commons hands this back as a bare URL rather than as markup, but not every
-#' file has one - public-domain tags mostly do not, and there is no deed to link
-#' to for those. A handful are protocol-relative or still on http, so they are
-#' normalised here rather than in the markup, which should only ever have to
-#' decide whether the value is present.
+#' Public-domain files usually have none. Protocol-relative and http URLs are
+#' normalised here.
 fw_licence_url = function(x) {
   if (is.null(x) || !length(x)) return(NA_character_)
   x = trimws(as.character(x)[1])
@@ -122,9 +109,7 @@ fw_first_present = function(...) {
 
 #' One species, both calls, or NULL
 #'
-#' Tries the scientific name first because it is the unambiguous key, then the
-#' common name. "Barbus sp." and similar will miss both, which is correct - a
-#' guessed photograph of the wrong fish is worse than no photograph.
+#' Scientific name first, then common name. "Barbus sp." misses, correctly.
 fw_resolve_species = function(scientific, common) {
   for (title in unique(na.omit(c(scientific, common)))) {
     if (!nzchar(title)) next
@@ -147,8 +132,7 @@ fw_resolve_species = function(scientific, common) {
 
 #' The "File:..." title inside a Commons file-page URL
 #'
-#' The URL is percent-encoded and the API wants the decoded title; httr2
-#' re-encodes it on the way out.
+#' Decoded; httr2 re-encodes it.
 fw_commons_title = function(page_url) {
   if (is.na(page_url) || !grepl("/wiki/", page_url, fixed = TRUE)) {
     return(NA_character_)
@@ -171,8 +155,7 @@ fw_backfill_licence_urls = function(species) {
   if (!length(need)) return(species)
 
   cat(sprintf("backfilling licence URLs for %d rows\n", length(need)))
-  # Matched on the title rather than on position: the API keys its response by
-  # page id, in no order we chose, and normalises spaces and underscores.
+  # Match by title: the API keys by page id and normalises spaces.
   norm = function(x) gsub(" ", "_", x, fixed = TRUE)
   found = 0L
   for (start in seq(1, length(need), by = 50)) {
@@ -209,9 +192,7 @@ fw_backfill_licence_urls = function(species) {
 
 #' GBIF's backbone match for a scientific name, or NULL
 #'
-#' Only an EXACT match is used. FUZZY and HIGHERRANK mean GBIF found something
-#' else - a misspelling's neighbour, or only the genus - and a family taken
-#' from that would be a guess.
+#' EXACT matches only (FUZZY and HIGHERRANK would be guesses).
 fw_gbif_match = function(scientific) {
   if (is.na(scientific) || !nzchar(scientific)) return(NULL)
   j = fw_api("https://api.gbif.org/v1/species/match",
@@ -233,9 +214,8 @@ FW_IUCN_CATEGORIES = c(
 
 #' The latest GLOBAL Red List assessment for a scientific name, or NULL
 #'
-#' The token goes in the Authorization header as it is, with no "Bearer". A
-#' trinomial is looked up as genus + species + infra_name; a regional-only
-#' assessment is not a global status and is not used.
+#' Token in Authorization with no "Bearer". Trinomials use infra_name.
+#' Regional-only assessments are ignored.
 fw_iucn_lookup = function(scientific, token = Sys.getenv("IUCN_API_TOKEN")) {
   if (!nzchar(token) || is.na(scientific)) return(NULL)
   parts = strsplit(trimws(scientific), "\\s+")[[1]]

@@ -1,20 +1,16 @@
 # mod_explore.R
+# The Explore page: live filters, a whole-database panel, the map and three
+# chart views.
 
 library(shiny)
 library(dplyr)
 
-# The filters this page offers, by registry id. Everything else in FW_FILTERS
-# is dropped here and kept on the report builder.
+# The filters this page offers, by FW_FILTERS id.
 FW_EXPLORE_FILTERS = c("continent", "country", "regime", "taxa", "family",
                         "taxa_beneficiary", "family_beneficiary")
 
 #' @param choices fw_filter_choices() of the loaded data. The filter bar is
-#'   built here rather than in a renderUI, and that is the fix for the page
-#'   loading twice: an input drawn by renderUI does not exist on the first
-#'   flush, so the selection was computed without it, the map and both charts
-#'   were drawn and sent, and then the input's first (empty) value arrived as a
-#'   change and all of it went again. An input in the static UI is in the set
-#'   the browser sends when it connects, so the selection is computed once.
+#'   static UI, not renderUI, so the page computes its selection once on load.
 mod_explore_ui = function(id, choices) {
   ns = NS(id)
   ids = fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
@@ -29,22 +25,12 @@ mod_explore_ui = function(id, choices) {
           fw_explore_filter_bar(ns, choices, ids),
           uiOutput(ns("summary")),
 
-          # A TITLED BLOCK LIKE EVERY OTHER. The map's note is visible text
-          # above the map again (client, 29 Sept 2026): it tells the reader how
-          # to use the map, which they need before they touch it, not behind
-          # an (i). The Mercator note stays a visible line under the map.
-          #
-          # A THIRD LINE, ALWAYS ITS OWN (client, 14 Oct 2026), inviting a
-          # contribution. It is Explore's alone, so it is not part of
-          # maps$note, which Plan and the report share; the note is drawn here
-          # instead of by fw_block() so the two sit in one paragraph, a <br>
-          # apart, rather than a paragraph gap apart.
+          # The map note is visible above the map, plus Explore's own
+          # contribute line, a <br> apart in one paragraph.
           div(
             class = "fw-explore-block",
             fw_block(fw_t("maps", "title"), NULL,
-                     # .noWS: the note is white-space: pre-line, so the
-                     # newlines htmltools writes around the <br> would show
-                     # as blank lines.
+                     # .noWS: the note is pre-line, so stray newlines show.
                      tagList(p(class = "fw-plan__note", .noWS = "inside",
                                fw_t("maps", "note"), tags$br(.noWS = "outside"),
                                fw_home_links(fw_t("explore", "map_contribute"))),
@@ -52,21 +38,10 @@ mod_explore_ui = function(id, choices) {
                      note_as = "text", figure = TRUE)
           ),
 
-          # ONE BLOCK, THREE QUESTIONS (client, 30 Sept 2026). The heading asks
-          # them; "Show" picks which one the charts below answer. Number of
-          # attempts leads: how much has been done, over time and by method.
-          # Duration is the planning chart, successful eradications only, full
-          # width.
-          #
-          # SUCCESS RATE CHANGES ONLY THE METHODS CHART (client, 1 Oct 2026).
-          # The attempts-over-time chart stays as it is in both views, and the
-          # rolling success rate that used to replace it is gone. So the pair
-          # is one grid, shown for either view, whose right-hand cell swaps.
-          #
-          # conditionalPanel, not a renderUI: every chart is in the page from
-          # the start and a hidden one is suspended by Shiny until its view
-          # is picked, so switching back costs nothing and the filters stay
-          # live in all three.
+          # One block, three views picked by "Show": number of attempts
+          # (cumulative + methods), success rate (only the methods chart
+          # changes), and duration. conditionalPanel, so hidden charts are
+          # suspended rather than rebuilt.
           tags$section(
             class = "fw-explore-block fw-explore-views",
             h2(fw_t("explore", "views_title")),
@@ -81,11 +56,8 @@ mod_explore_ui = function(id, choices) {
                 selected = "count", inline = TRUE
               )
             ),
-            # THE BLOCKS ARE SUBGRIDS of the pair's three rows - title, chart,
-            # caption - so the two plots start on the same line whatever the
-            # length of their titles. See .fw-explore-charts. The two method
-            # panels are display: contents there, so the block inside the
-            # shown one is still a direct grid item.
+            # Blocks are subgrids (title, chart, caption) so both plots align.
+            # See .fw-explore-charts.
             conditionalPanel(
               "input.view != 'duration'", ns = ns,
               div(
@@ -118,8 +90,7 @@ mod_explore_ui = function(id, choices) {
             )
           ),
 
-          # THE WAY ON to the report builder, last on the page (client, 29
-          # Sept 2026). The same card as the Plan page's own callout.
+          # Link on to Plan, styled like Plan's callout.
           div(class = "fw-callout fw-callout--next",
               p(fw_home_links(fw_t("explore", "to_plan"))))
         )
@@ -140,19 +111,15 @@ mod_explore_server = function(id, data, in_review = 0L) {
 
     fw_link_geo_filters(input, session, data, choices)
 
-    # The fish family pair empties itself when Fish is deselected. Shared with
-    # the report builder - see R/filters.R.
+    # Fish family empties when Fish is deselected. See R/filters.R.
     fw_filter_when_observers(input, session, ids)
 
-    # Invasive family follows the kind of animal; the protected pickers offer
-    # only what the attempts matching the other filters protected. See
-    # fw_link_species_filters() in R/filters.R.
+    # See fw_link_species_filters().
     fw_link_species_filters(input, session, data, choices, ids)
 
 
-    # A number, or a reactive that app.R keeps current (14 Oct 2026). The
-    # database's own counts never change in a session, so they are worked out
-    # once rather than on every refresh of the in-review count.
+    # A number, or a reactive kept current by app.R. The database counts are
+    # computed once.
     stats = fw_headline_stats(data)
     output$kpis = renderUI(fw_explore_db_panel(
       stats, if (is.function(in_review)) in_review() else in_review
@@ -167,21 +134,14 @@ mod_explore_server = function(id, data, in_review = 0L) {
 
     # ---- The map: drawn once, markers swapped ------------------------------
     #
-    # THE WIDGET DOES NOT DEPEND ON THE SELECTION. It used to, so every filter
-    # change rebuilt the whole map - tiles, legend, card script and 911 cards,
-    # 2.5 MB - and the reader watched it blank and reload. Now the tiles, the
-    # legend, the card script and the photograph dictionary are sent once, and
-    # a filter change sends only the markers, through a proxy.
-    #
-    # THE DICTIONARY IS THE WHOLE DATABASE'S, so any selection the proxy draws
-    # later is already covered by it. See fw_map_card_render().
+    # Tiles, legend, card script and the whole database's photo dictionary are
+    # sent once; filter changes send only markers, through a proxy.
     all_pts = fw_map_points(data, data$attempt)
     output$map = leaflet::renderLeaflet({
       m = fw_leaflet() |>
         fw_add_basemaps() |>
         fw_add_outcome_legend()
-      # Opened on the whole database's extent, which is what the first
-      # selection is, so the markers arrive without the view jumping.
+      # Opens on the whole database's extent, so the view doesn't jump.
       m = if (nrow(all_pts)) fw_fit_points(m, all_pts) else {
         v = FW_MAP$empty_view
         leaflet::setView(m, v$lng, v$lat, zoom = v$zoom)
@@ -189,26 +149,20 @@ mod_explore_server = function(id, data, in_review = 0L) {
       fw_map_card_render(m, ns("map_detail"), fw_map_thumbs_all(data))
     })
 
-    # WAITS FOR THE MAP TO EXIST. A proxy call sent before the widget has been
-    # drawn is dropped by the browser, and the widget is only drawn once the
-    # tab is shown. input$map_bounds is the widget announcing itself; it is
-    # copied into a reactiveVal so that panning, which sends it again with a
-    # new value, does not rerun the observer below.
+    # Wait for the widget (proxy calls before it exists are dropped).
+    # input$map_bounds signals it; copied to a reactiveVal so panning doesn't
+    # rerun the observer.
     map_ready = reactiveVal(FALSE)
     observeEvent(input$map_bounds, map_ready(TRUE))
 
-    # WHAT IS ON THE MAP NOW, as the ids drawn. Not reactive: it is only there
-    # so a rerun that would draw the same thing - the tab being shown again -
-    # sends nothing.
+    # Ids currently drawn, so redrawing the same selection sends nothing.
     drawn = NULL
-    # fw_safely(): a failed redraw leaves the old markers up and says so,
-    # rather than ending the session. See R/ui_helpers.R.
+    # fw_safely(): a failed redraw keeps the old markers and says so.
     observe(fw_safely(session, {
       req(map_ready())
       s = sel()
-      # NOT WHILE THE TAB IS HIDDEN. Leaflet fits bounds against a hidden
-      # map's zero size. Reading this also reruns the observer when the tab is
-      # shown, which is when the deferred draw happens.
+      # Not while the tab is hidden (fitting a zero-size map breaks). Reading
+      # it also reruns the draw when the tab is shown.
       if (isTRUE(session$clientData[[paste0("output_", ns("map"), "_hidden")]])) return()
       key = s$attempt_id
       if (identical(key, drawn)) return()
@@ -222,18 +176,13 @@ mod_explore_server = function(id, data, in_review = 0L) {
         leaflet::setView(proxy, v$lng, v$lat, zoom = v$zoom)
         return()
       }
-      # The card script wires the new cluster group itself: it listens for
-      # layers added to the map, not only for the ones there when it ran.
+      # The card script wires the new markers via layeradd.
       fw_add_marker_layer(proxy, data, pts, detail = "lazy",
                           thumbs = fw_map_thumbs_all(data))
     }))
     fw_map_detail_server(input, session, "map_detail", data, sel)
 
-    # LIVE, like everything else on this page. These are cheap - a few
-    # aggregations over at most a thousand rows - and watching them move under
-    # the filters is the whole reason they are here rather than on Plan. Only
-    # the picked view's are drawn: the others are hidden, and Shiny suspends a
-    # hidden output until it is shown.
+    # Live charts. Only the picked view's are drawn; hidden ones are suspended.
     output$cumulative = plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_cumulative(sel())))
     output$method_count = plotly::renderPlotly(
@@ -261,10 +210,7 @@ mod_explore_server = function(id, data, in_review = 0L) {
 
 #' The whole-database panel
 #'
-#' Equal tiles and no sentence: the "Attempts recorded from ... to ..." line
-#' came out at the client's request (24 Sept 2026). Nothing here is a rate,
-#' and nothing is bigger than the rest: the client's steer is to show the shape
-#' of the record rather than push one number.
+#' Equal tiles, counts only, no rate (client).
 fw_explore_db_panel = function(s, in_review = 0L) {
   tags$section(
     class = "fw-explore-db",
@@ -273,23 +219,11 @@ fw_explore_db_panel = function(s, in_review = 0L) {
       fw_kpi_stat(fw_fmt_num(s$attempts), fw_t("explore", "db_attempts")),
       fw_kpi_stat(fw_fmt_num(s$countries), fw_t("explore", "db_countries")),
       fw_kpi_stat(fw_fmt_num(s$species), fw_t("explore", "db_invasive")),
-      # SUCCESSFUL ATTEMPTS ONLY (client, 23 Sept 2026). s$protected is the
-      # count of beneficiary species on attempts that succeeded; s$beneficiaries
-      # counts them on every attempt, successful or not, and a species whose
-      # eradication failed has not been protected by it. The Welcome page has
-      # always used s$protected - this is the rest of the app catching up.
-      # THE ">" IS ON THE FIGURE (client, 24 Sept 2026): beneficiaries are
-      # under-recorded, so the count is a floor. Home and Plan build theirs the
-      # same way.
+      # Species protected by successful attempts only, with ">" since
+      # beneficiaries are under-recorded. Same as Home and Plan.
       fw_kpi_stat(paste0(">", fw_fmt_num(s$protected)), fw_t("explore", "db_beneficiary"),
                   tooltip = fw_t("explore", "db_beneficiary_tip")),
-      # THE SUCCESS COUNT USED TO SIT HERE and is gone at the client's request.
-      # It was the one figure in the strip that was an OUTCOME rather than a
-      # size: four counts saying how much is in the database, and a fifth
-      # inviting the reader to divide it by the first. That ratio is the
-      # headline this app deliberately does not publish - the reasoning is at
-      # the top of charts.R - and the outcome donut below the filters gives the
-      # whole breakdown without handing anyone a numerator on its own.
+      # No success count: it invites a headline success rate (see charts.R).
       fw_kpi_stat(fw_fmt_num(in_review), fw_t("explore", "in_review"),
                   tooltip = fw_t("explore", "in_review_tip"))
     )
@@ -298,8 +232,7 @@ fw_explore_db_panel = function(s, in_review = 0L) {
 
 #' The filter bar: the page's filters in one wrapping row
 #'
-#' Tooltips come from FW_FILTERS$<id>$tip, the same registry the report builder
-#' reads, so the two pages explain a filter in the same words.
+#' Tooltips come from FW_FILTERS, shared with Plan.
 fw_explore_filter_bar = function(ns, ch, ids) {
   multi = function(id) {
     fw_field(
@@ -312,8 +245,7 @@ fw_explore_filter_bar = function(ns, ch, ids) {
       input_id = ns(id)
     )
   }
-  # A filter with a `when` (the fish family pair) is drawn only while its
-  # kind-of-animal filter includes that value. See fw_filter_when_panel().
+  # `when` filters (fish family) show only while Fish is picked.
   control = function(id) fw_filter_when_panel(ns, id, multi(id))
   drop = setdiff(names(FW_FILTERS), ids)
 

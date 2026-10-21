@@ -1,36 +1,21 @@
 # github.R
-# The GitHub API client. THE ONLY FILE THAT KNOWS HOW TO TALK TO GITHUB.
-#
-# It exists because the data repository is private. A raw.githubusercontent.com
-# URL cannot carry a credential - the raw host answers with a redirect chain that
-# drops the Authorization header. So reads go through the contents endpoint on
-# api.github.com, which means one host, one credential and one place to look
-# when something 404s.
-#
-# READ ONLY since Oct 2026: submissions go to the inbox sheet (forms_store.R),
-# so nothing here writes to the repository any more.
-#
-# ONE SECRET. FWISE_DATA_TOKEN is the only thing the deployment sets. The
-# repository and the branch are constants in config.R because neither is secret
-# and neither varies. Leave the token unset and nothing in this file is ever
-# called - see fw_data_mode() in data_load.R.
+# Read-only GitHub API client for the private data repo, via the contents
+# endpoint (raw.githubusercontent.com drops the auth header on redirect).
+# Only used when FWISE_DATA_TOKEN is set (see fw_data_mode()).
 
 FW_GH_API = "https://api.github.com"
 
 #' The contents endpoint for one path inside the data repository
 #'
-#' Paths here are always code-generated - a table name - so there is nothing
-#' user-supplied to escape.
+#' Paths are code-generated, so nothing to escape.
 fw_gh_url = function(path) {
   sprintf("%s/repos/%s/contents/%s", FW_GH_API, FW_DATA_REPO, path)
 }
 
 #' A request carrying the token
 #'
-#' req_error() is disabled throughout. Every caller in this file inspects the
-#' status itself, because a 404 means "not there" in some places and "the token
-#' cannot see the repository" in others, and httr2's default error would collapse
-#' that distinction into one unhelpful abort.
+#' req_error() is off: callers read the status themselves, since a 404 can
+#' mean "missing" or "token can't see the repo".
 fw_gh_request = function(path, accept = "application/vnd.github+json") {
   httr2::request(fw_gh_url(path)) |>
     httr2::req_headers(
@@ -40,10 +25,8 @@ fw_gh_request = function(path, accept = "application/vnd.github+json") {
     ) |>
     httr2::req_user_agent("fwise-dashboard") |>
     httr2::req_error(is_error = function(resp) FALSE) |>
-    # A TIMEOUT AND ONE RETRY. These run on the session's own thread, so a
-    # GitHub call that hangs holds up every reader on the same process until
-    # the proxy gives up on them - and they see "Disconnected from the server"
-    # (client, 29 Sept 2026). Only transient failures are retried.
+    # Timeout and one retry on transient failures: a hung call blocks every
+    # session on the process.
     httr2::req_timeout(FW_GH_TIMEOUT_S) |>
     httr2::req_retry(max_tries = 2)
 }
@@ -53,10 +36,8 @@ FW_GH_TIMEOUT_S = 15
 
 #' What a failed call actually means, in words someone can act on
 #'
-#' These messages end up in the Connect Cloud log, which is the only diagnostic
-#' anyone deploying this will have. The 404 case earns its length: GitHub returns
-#' 404 rather than 403 for a private repository a token cannot see, so the
-#' obvious reading of it is the wrong one.
+#' For the Connect Cloud log. GitHub returns 404, not 403, for a private repo
+#' the token can't see.
 fw_gh_message = function(verb, path, status) {
   hint = switch(
     as.character(status),
@@ -76,10 +57,7 @@ fw_gh_message = function(verb, path, status) {
 
 #' Fetch one file, returning a local path, or NULL if it is not there
 #'
-#' The body is streamed straight to a temporary file rather than through memory,
-#' and the temporary path is what callers hand to read_csv() or fromJSON(). That
-#' keeps every reader in data_load.R identical across local and remote reads -
-#' they all open a path.
+#' Streamed to a temp file, so every reader just opens a path.
 fw_gh_download = function(path, ref = FW_DATA_REF) {
   dest = tempfile(fileext = paste0(".", tools::file_ext(path)))
   resp = fw_gh_request(path, accept = "application/vnd.github.raw") |>

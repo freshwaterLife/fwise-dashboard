@@ -1,21 +1,9 @@
 # mod_networking.R
-# BUILT. The Networking page.
+# The "Connect with community" page: a filtered, paged contact directory with a
+# summary strip.
 #
-# THE NAME IS THE POINT. This was "Contacts", which described a static address
-# book. The page exists to make people reach out to each other - networking is
-# one of the client's stated year-one success measures - so it is named for the
-# thing it is meant to cause rather than for the table it happens to contain.
-#
-# LAYOUT DECISION. Filters plus a summary count strip, rather than a collapsible
-# table grouped by continent and country. With 237 contacts spread over 29
-# countries, a nested grouping produces roughly 29 groups of which most hold one
-# to three people, and the visitor spends the visit expanding things. Filters let
-# someone jump straight to their region, and the strip keeps the roll-up visible.
-#
-# EMAIL REDACTION. This module reads ONLY from fw_contacts_summary(), which
-# removes the address of any contact flagged not-public before the data reaches
-# the session. There is no code path here that can see a redacted address, so
-# none can reach the browser.
+# Blocker to ensure no privacy leaks: reads only fw_contacts_summary(), which
+# drops private contacts before any session sees them.
 
 library(shiny)
 library(dplyr)
@@ -31,8 +19,7 @@ mod_networking_ui = function(id) {
         fw_container(
           div(
             class = "fw-filters fw-filters--networking",
-            # The role scope only means something once a species is picked, so
-            # it waits underneath the species box until then, in the same cell.
+            # The role scope appears under the species box once one is picked.
             div(
               class = "fw-filters__stack",
               fw_networking_picker(ns, "species"),
@@ -58,9 +45,7 @@ mod_networking_ui = function(id) {
                                placeholder = fw_t("networking", "search_placeholder")),
                      label = fw_t("networking", "filter_search"),
                      input_id = ns("search")),
-            # Not btn-sm: its smaller type made the button 3px shorter than
-            # the inputs beside it. At full size it has their 1rem type and,
-            # through .btn, their 0.5rem padding, so the two are one height.
+            # Full size, not btn-sm, so it matches the inputs' height.
             div(
               class = "fw-filters__clear",
               actionButton(ns("clear"), fw_t("common", "clear_filters"),
@@ -71,10 +56,7 @@ mod_networking_ui = function(id) {
           uiOutput(ns("summary")),
           uiOutput(ns("coverage")),
 
-          # The page-size control lives in the static UI, NOT inside the pager's
-          # uiOutput. A select rebuilt by renderUI comes back at its default, so
-          # the reader's choice of 100 would be thrown away every time they
-          # changed a filter.
+          # Page size is static UI so renderUI doesn't reset it.
           div(
             class = "fw-table-toolbar",
             div(
@@ -91,19 +73,13 @@ mod_networking_ui = function(id) {
           div(class = "fw-table-scroll", uiOutput(ns("table"))),
           uiOutput(ns("pager")),
 
-          # A GREEN CALLOUT, the same box as the "way on" links on Explore and
-          # the report builder (client, 1 Oct 2026). It asks for corrections to
-          # the directory rather than offering a general contact button.
+          # Callout asking for corrections to the directory.
           div(
             class = "fw-callout fw-callout--next",
             p(
               fw_t("networking", "outro_text"), " ",
-              # Revealed in place, like every other address on the site. See
-              # fw_email_reveal(). It was once served whole in an onclick here
-              # (23 Sept 2026) - the one address the site most wants to protect
-              # was the one in the markup. Do not put it back together here.
-              # NO FULL STOP AFTER IT: once revealed, the sentence ends in the
-              # Copy button, and a stop stranded after a button reads as a stray.
+              # Revealed in place (fw_email_reveal()); never write it into
+              # the markup. No full stop: the sentence ends in the Copy button.
               fw_email_reveal(fw_t("footer", "contact_email"),
                               label = fw_t("networking", "outro_action"))
             )
@@ -130,11 +106,8 @@ fw_networking_picker = function(ns, id) {
 
 #' The contacts that match the Networking page's filters
 #'
-#' MATCHED ON ATTEMPTS, then lifted to people. Place and species are properties
-#' of an attempt, so a contact is kept when ONE of their attempts satisfies all
-#' of them together - "someone who removed a fish in Chile", not "someone who
-#' worked in Chile and, separately, on some fish somewhere". Organisation and
-#' the name search are properties of the person and are applied to the contact.
+#' Place and species match per attempt (one attempt must satisfy them all);
+#' organisation and name search match the person.
 #'
 #' @param contacts fw_contacts_summary(data)
 #' @param f list(continent, country, species, category, organisation, search);
@@ -178,9 +151,8 @@ fw_networking_filter = function(data, contacts, f) {
 
 #' The choice lists for the Networking page's pickers
 #'
-#' From the attempts that HAVE a contact on this page only, so every option
-#' finds somebody. Species are listed most-recorded first, as elsewhere, and
-#' per role (the page offers the "either" list; the category scopes the match).
+#' From attempts with a listed contact only, so every option finds someone.
+#' Species most-recorded first, per role.
 fw_networking_choices = function(data, contacts) {
   ids = unique(unlist(contacts$attempt_ids))
   att = data$attempt[data$attempt$attempt_id %in% ids, ]
@@ -206,33 +178,25 @@ mod_networking_server = function(id, data) {
   moduleServer(id, function(input, output, session) {
     ns = session$ns
 
-    # The ONLY source of contact data on this page. Redaction has already
-    # happened inside this function.
+    # The only contact source here; already redacted.
     contacts = fw_contacts_summary(data)
 
-    # Options come from the attempts a contact is attached to, so every one
-    # finds somebody. See fw_networking_choices().
     ch = fw_networking_choices(data, contacts)
     for (id in c("continent", "country", "organisation")) {
       updateSelectizeInput(session, id, choices = ch[[id]], selected = character(0),
                            server = FALSE)
     }
 
-    # Every species, whatever its role. The category box only appears once a
-    # species is picked, so it scopes the match rather than narrowing this list:
-    # narrowing would drop the pick and hide the box it had just revealed.
+    # All species: the category scopes the match, not this list.
     updateSelectizeInput(session, "species", choices = ch$species$either,
                          selected = character(0), server = TRUE)
 
-    # Clearing the species hides the category box, and a scope the reader can
-    # no longer see should not come back set when the box reappears.
+    # Reset the hidden category when species is cleared.
     observeEvent(input$species, {
       if (!length(input$species)) updateSelectInput(session, "category", selected = "either")
     }, ignoreNULL = FALSE, ignoreInit = TRUE)
 
-    # Continent and country narrow each other, as on every other page - over
-    # the contacted attempts only, so a narrowed list never offers a country
-    # nobody here worked in.
+    # Continent and country narrow each other, over contacted attempts only.
     fw_link_geo_filters(input, session, list(attempt = ch$attempt), ch)
 
     observeEvent(input$clear, {
@@ -251,15 +215,7 @@ mod_networking_server = function(id, data) {
       ))
     })
 
-    # WHAT THIS PAGE DOES NOT COVER, stated on the page itself.
-    #
-    # The directory is contact-grained, so an attempt with nobody attached is
-    # invisible here rather than shown as a gap - which reads as full coverage
-    # unless the page says otherwise. Two thirds of attempts are reachable and a
-    # fifth have no contact at all, so "otherwise" matters.
-    #
-    # Computed from the loaded data rather than written into the copy, so it
-    # cannot drift when the client's contact cleaning lands.
+    # Coverage line: what the directory doesn't reach, computed from the data.
     output$coverage = renderUI({
       contact_ids = contacts$contact_id[!is.na(contacts$contact_email)]
       reachable = sum(
@@ -300,9 +256,7 @@ mod_networking_server = function(id, data) {
       )
     })
 
-    # 237 contacts in one table is a 17,000 pixel scroll, which defeats the point
-    # of a page meant to help someone find one person. Paged instead, with the
-    # reader choosing how many they want at a time.
+    # Paged, with a reader-chosen page size.
     page = reactiveVal(1L)
 
     page_size = reactive({
@@ -310,9 +264,7 @@ mod_networking_server = function(id, data) {
       if (length(n) != 1 || is.na(n) || n <= 0) FW_CONTACTS_PAGE_SIZES[1] else n
     })
 
-    # Any filter change, or a change of page size, puts the reader back on the
-    # first page. Otherwise they can be left on page 8 of a two-page result and
-    # see nothing.
+    # Back to page 1 on any filter or page-size change.
     observeEvent(list(input$continent, input$country, input$species,
                       input$category, input$organisation, input$search,
                       input$page_size), {
@@ -329,9 +281,7 @@ mod_networking_server = function(id, data) {
       if (nrow(f) == 0) f else f[from:to, ]
     })
 
-    # One input for every page button, rather than one observer per button. A
-    # numbered pager rebuilt on every filter change would otherwise accumulate a
-    # dead observer per page number per render.
+    # One input for all page buttons, so observers don't pile up.
     observeEvent(input$goto_page, {
       n = suppressWarnings(as.integer(input$goto_page))
       if (length(n) == 1 && !is.na(n)) page(max(1L, min(n, n_pages())))
@@ -365,10 +315,7 @@ mod_networking_server = function(id, data) {
         tags$tr(
           tags$td(r$contact_name %|na|% ""),
           tags$td(r$organisation %|na|% fw_t("networking", "no_organisation")),
-          # Continent as well as country. Someone looking for "anyone in
-          # Africa" should not have to know which 29 countries are in the
-          # database to find out there are two. Both are derived from the
-          # attempts a contact is attached to - see fw_contacts_summary().
+          # Continent and country, from the contact's attempts.
           tags$td(r$continent_label),
           tags$td(r$country_label),
           tags$td(class = "fw-col-num", fw_fmt_num(r$attempt_count)),
@@ -400,19 +347,11 @@ mod_networking_server = function(id, data) {
 
 #' A contact's address, in a directory row
 #'
-#' In the live app it is fw_email_reveal() - see the note there for what that
-#' does and does not protect against. In a downloaded report (reveal = FALSE) it
-#' is the address written out as a mailto link: an export is a file a person
-#' chose to take away, not a page a crawler fetches, and a saved file should not
-#' need a script to show what it contains (Alex, 2 Oct 2026).
-#'
-#' The real control is the contact_public flag either way: an address flagged
-#' not-public never reaches this function, because fw_contacts_summary() has
-#' already replaced it with NA.
+#' fw_email_reveal() in the app; a plain mailto link in downloads
+#' (reveal = FALSE). Private contacts never get here (fw_contacts_summary()).
 fw_contact_action = function(email, name, reveal = TRUE, contact_id = NULL) {
   if (is.na(email) || !nzchar(email)) {
-    # An empty cell, not a "hidden" badge. A badge advertises that there is
-    # something to go looking for.
+    # An empty cell, not a "hidden" badge.
     return(tags$span(
       tags$span(class = "fw-visually-hidden", fw_t("networking", "email_none_label"))
     ))
@@ -421,9 +360,7 @@ fw_contact_action = function(email, name, reveal = TRUE, contact_id = NULL) {
   fw_email_reveal(
     email,
     label = fw_t("networking", "email_action"),
-    # NOT WHEN THE "NAME" IS THE ADDRESS. fw_contact_who() falls back to it for
-    # a contact with neither a name nor an organisation, and an aria-label is
-    # served markup like any other.
+    # Not when the "name" is the address itself (fw_contact_who() fallback).
     aria = if (!identical(name, email)) fw_fill(fw_t("a11y", "email_name"), name = name),
     contact_id = contact_id
   )

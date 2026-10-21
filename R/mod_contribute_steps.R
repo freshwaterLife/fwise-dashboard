@@ -1,22 +1,14 @@
 # mod_contribute_steps.R
-# Step UI builders for the contribute form, kept out of the main module so
-# neither file grows unreadable.
-#
-# Field labels, prompts and tooltips come from the FWISE Upload Form field
-# specification and live in R/copy_contribute.R. Where that document was
-# ambiguous there is a TODO(alex) next to the field naming the ambiguity, and
-# the simplest reading is implemented.
+# Section builders for the Add a record form. Copy is in R/copy_contribute.R;
+# spec ambiguities are marked TODO(alex), simplest reading implemented.
 
 library(shiny)
 library(bslib)
 
-# The step registry. Order here is the order of the wizard, and `id` is what the
-# validator and the progress indicator key on. `conditional` marks a step that is
-# skipped unless its predicate returns TRUE.
+# The sections, in page order. `id` keys the validators and progress rail;
+# `conditional` sections show only when their predicate holds.
 FW_STEPS = list(
-  # WHO IS SENDING IT COMES FIRST (client, 29 Sept 2026): name and email, and
-  # the two consent boxes with them, before a single question about the
-  # attempt. It was second to last, with the consent at the foot.
+  # Contributor and consent first (client).
   list(id = "contributor", title_key = "contributor"),
   list(id = "site",        title_key = "site"),
   list(id = "waterbody",   title_key = "waterbody"),
@@ -24,7 +16,7 @@ FW_STEPS = list(
   list(id = "timeline",    title_key = "timeline"),
   list(id = "benefit",     title_key = "benefit"),
   list(id = "methods",     title_key = "methods"),
-  # Shown only when a chemical method has been selected. See fw_step_visible().
+  # Shown only when a chemical method is selected.
   list(id = "chemical",    title_key = "chemical", conditional = TRUE),
   list(id = "outcome",     title_key = "outcome"),
   list(id = "other",       title_key = "other"),
@@ -32,8 +24,7 @@ FW_STEPS = list(
 )
 
 # ---- Copy ------------------------------------------------------------------
-# Every label, help line, placeholder and tooltip on the form lives in
-# R/copy_contribute.R. These four are the short spellings the builders use.
+# Short helpers into R/copy_contribute.R.
 
 fw_lab  = function(key) fw_t("contribute", "fields", key)
 fw_help = function(key) fw_t("contribute", "help", key)
@@ -46,9 +37,7 @@ fw_step_intro = function(key) {
   p(class = "fw-lead", fw_t("contribute", "blurb", key))
 }
 
-# A numeric input without its own label, so fw_field() owns the labelling. Shiny
-# always renders a label element, so it is hidden from view but left in the
-# accessibility tree pointing at the same text.
+# A numeric input labelled by fw_field(); Shiny's own label is visually hidden.
 fw_num_input = function(id, value = NA, min = NA, max = NA, step = NA,
                          placeholder = NULL) {
   div(
@@ -69,10 +58,7 @@ fw_area_input = function(id, rows = 3, placeholder = NULL) {
 
 #' A dropdown that starts genuinely empty
 #'
-#' A selectize with choices and no blank first entry auto-selects the first one,
-#' which would silently default every submission's country to Argentina. The
-#' blank option plus an explicit empty selection is what makes "not answered"
-#' distinguishable from "answered with the first item".
+#' Gotcha: selectize auto-selects the first choice without a leading blank.
 fw_select = function(id, choices, multiple = FALSE, selected = NULL) {
   if (!multiple) {
     choices = c(stats::setNames("", fw_ph("select")), choices)
@@ -83,8 +69,7 @@ fw_select = function(id, choices, multiple = FALSE, selected = NULL) {
                  options = list(placeholder = fw_ph("select")))
 }
 
-# An "Other (specify)" free-text box, revealed by conditionalPanel because the
-# condition is a plain input value and needs no server round trip.
+# An "Other (specify)" box, shown by conditionalPanel.
 fw_other_panel = function(ns, watch_id, target_id, label, multiple = FALSE) {
   condition = if (multiple) {
     sprintf("input['%s'] && input['%s'].indexOf('%s') > -1",
@@ -92,11 +77,7 @@ fw_other_panel = function(ns, watch_id, target_id, label, multiple = FALSE) {
   } else {
     sprintf("input['%s'] === '%s'", ns(watch_id), FW_OTHER)
   }
-  # NOTE: conditionalPanel() calls ns("") internally to write its
-  # data-ns-prefix, so `ns = NULL` is not "no namespace" - it throws
-  # 'could not find function "ns"' the moment the panel renders. The condition
-  # above is already namespaced by hand, so the prefix must be empty, and
-  # NS(NULL) is the function that produces an empty one.
+  # Gotcha: conditionalPanel() calls ns(""), so pass NS(NULL), not NULL.
   conditionalPanel(
     condition = condition,
     ns = shiny::NS(NULL),
@@ -111,18 +92,13 @@ fw_step_site_ui = function(ns, choices) {
     fw_step_intro("site"),
     fw_field(fw_text_input(ns("site_name")), fw_lab("site_name"), required = TRUE,
              tooltip = fw_tip("site_name"), input_id = ns("site_name")),
-    # THE TWO-LEVEL ISO PICKER the specification asked for. Country is the full
-    # ISO 3166-1 list with the countries FWISE already holds records for at the
-    # top; region is that country's ISO 3166-2 subdivisions, filled in by the
-    # server once a country is chosen. Both lists are built offline by
-    # dev/build_iso_lookups.R and read from disk - see fw_load_iso().
+    # Country: full ISO 3166-1 list, recorded countries first. Region: that
+    # country's ISO 3166-2 subdivisions. See fw_load_iso().
     fw_field(fw_select(ns("country"), choices$country), fw_lab("country"), required = TRUE,
              tooltip = fw_tip("country"), input_id = ns("country")),
     fw_other_panel(ns, "country", "country_other",
                    fw_lab("country_other")),
-    # Starts empty and is populated from the chosen country. A country with no
-    # subdivisions in the standard, or one typed in by hand, leaves this as free
-    # text - see the observer in mod_contribute.R.
+    # Filled from the chosen country; free text otherwise.
     fw_field(fw_select(ns("region"), character(0)), fw_lab("region"),
              help = fw_help("region"),
              input_id = ns("region")),
@@ -135,8 +111,7 @@ fw_step_site_ui = function(ns, choices) {
                      tags$span(class = "fw-visually-hidden", fw_t("a11y", "required"))),
           fw_info(fw_tip("location"), tolower(fw_lab("location")))),
       div(class = "fw-field__help", fw_help("location")),
-      # The same shape as every other map, so the whole world is in view when
-      # the contributor starts looking for their water (client, 30 Sept 2026).
+      # Same shape as every map, so the whole world shows.
       fw_map_output(ns("picker"), class = "fw-map-picker"),
       div(
         class = "fw-coord-row",
@@ -153,10 +128,7 @@ fw_step_waterbody_ui = function(ns, choices) {
   tagList(
     fw_step_intro("waterbody"),
 
-    # Regime comes FIRST, and the type list below narrows to match it. Asking
-    # for the type first offered a Lentic contributor "River" and a Lotic one
-    # "Lake", which is the sort of thing that makes a form feel like it is not
-    # listening. The narrowing happens in the server, on water_regime.
+    # Regime first; the type list narrows to it (server side).
     fw_field(radioButtons(ns("water_regime"), label = NULL,
                           choices = choices$water_regime, selected = character(0),
                           inline = TRUE),
@@ -175,8 +147,7 @@ fw_step_waterbody_ui = function(ns, choices) {
       fw_field(fw_num_input(ns("area_treated"), min = 0),
                fw_lab("area_treated"), tooltip = fw_tip("area"),
                input_id = ns("area_treated")),
-      # The unit becomes required once a value is entered. Enforced in the
-      # validator rather than here, so the message appears next to the field.
+      # Required once a value is entered (in the validator).
       fw_field(fw_select(ns("area_unit"), choices$area_unit), fw_lab("area_unit"),
                help = fw_help("area_unit"),
                input_id = ns("area_unit"))
@@ -195,10 +166,7 @@ fw_step_waterbody_ui = function(ns, choices) {
     fw_field(fw_area_input(ns("volume_notes"), rows = 2), fw_lab("volume_notes"),
              input_id = ns("volume_notes")),
 
-    # Flow is a property of flowing water. Asking a contributor for the maximum
-    # flow of a pond is asking them to leave a field blank and wonder whether
-    # they have missed something. conditionalPanel rather than a server-side
-    # toggle, so it costs no round trip.
+    # Flow only for flowing water.
     conditionalPanel(
       condition = sprintf("input['%s'] === 'Lotic'", ns("water_regime")),
       ns = shiny::NS(NULL),
@@ -216,15 +184,9 @@ fw_step_waterbody_ui = function(ns, choices) {
 fw_step_invasive_ui = function(ns, choices) {
   tagList(
     fw_step_intro("invasive"),
-    # ONE TARGET AT A TIME. This used to ask for every animal group up front and
-    # then, separately, for a list of species, which left a contributor who had
-    # answered "Fish, Crayfish" with an unlabelled species box and no way to say
-    # which was which. A target pairs the group with its species, and "Add
-    # another target" repeats the pair. The fish family question is gone
-    # entirely: it is filled in from the species on the way to the sheet.
-    # Row 1 is rendered HERE rather than inserted by the server. insertUI on a
-    # container that the page has not painted yet was why this section could
-    # arrive empty, or with two copies of row 1 in it.
+    # Each target pairs an animal group with its species; "Add another target"
+    # repeats it. Family is never asked. Row 1 is rendered here: insertUI into
+    # an unpainted container left this empty or doubled.
     div(id = ns("target_rows"), fw_target_row(ns, 1L, choices)),
     actionButton(ns("add_target"), fw_t("contribute", "add_target"),
                  class = "btn btn-outline-primary btn-sm")
@@ -258,14 +220,7 @@ fw_step_timeline_ui = function(ns, choices) {
 fw_step_benefit_ui = function(ns, choices) {
   tagList(
     fw_step_intro("benefit"),
-    # ONE BENEFICIARY AT A TIME, pairing the group with its species, exactly as
-    # the invasive step does. The section-wide group multi-select that used to
-    # sit here left a contributor who answered "Fish, Invertebrate" with
-    # unlabelled species boxes and no way to say which was which.
-    #
-    # Row 1 is rendered HERE rather than inserted by the server: insertUI on a
-    # container the page has not painted yet is what used to make a section
-    # arrive empty or doubled.
+    # Same group/species pairs as the targets, row 1 rendered here.
     div(id = ns("benefit_rows"), fw_beneficiary_row(ns, 1L, choices)),
     actionButton(ns("add_beneficiary"), fw_t("contribute", "add_beneficiary"),
                  class = "btn btn-outline-primary btn-sm")
@@ -285,10 +240,8 @@ fw_step_methods_ui = function(ns, choices) {
     fw_field(fw_area_input(ns("method_description"), rows = 4),
              fw_lab("method_description"),
              tooltip = fw_tip("method_desc"), input_id = ns("method_description")),
-    # TODO(alex): the specification asks for a numeric box "with a free-text
-    # fallback for ranges". The simplest reading is implemented: one text box,
-    # validated as a number only when it parses as one, so "20 to 30" is accepted
-    # and passed through to QA.
+    # TODO(alex): spec asks for a number "with a free-text fallback for
+    # ranges". Implemented as one text box, so "20 to 30" passes to QA.
     fw_field(fw_text_input(ns("labour_person_days")),
              fw_lab("labour"), tooltip = fw_tip("labour"),
              input_id = ns("labour_person_days")),
@@ -304,10 +257,7 @@ fw_step_methods_ui = function(ns, choices) {
 fw_step_chemical_ui = function(ns, choices) {
   tagList(
     fw_step_intro("chemical"),
-    # THE BASIS COMES FIRST because the concentration means nothing without it:
-    # a figure for the commercial product is the active-ingredient figure
-    # divided by the product's strength, so the two are not comparable. Every
-    # one of the 325 chemical records in the database carries this answer.
+    # Basis first: a concentration is meaningless without it.
     fw_field(radioButtons(ns("target_ingredient_basis"), label = NULL,
                           choices = c("Active", "Product"), selected = character(0),
                           inline = TRUE),
@@ -318,8 +268,7 @@ fw_step_chemical_ui = function(ns, choices) {
              tooltip = fw_tip("toxin_conc"), input_id = ns("toxin_conc_target")),
     fw_field(fw_area_input(ns("conc_target_notes"), rows = 3),
              fw_lab("conc_target_notes"), input_id = ns("conc_target_notes")),
-    # The measured value is a field in the database (86 records hold one), so
-    # the form asks for it beside the notes the specification listed.
+    # Measured value plus notes.
     fw_field(fw_text_input(ns("toxin_conc_measured")),
              fw_lab("toxin_conc_measured"),
              tooltip = fw_tip("toxin_conc_measured"),
@@ -342,8 +291,7 @@ fw_step_outcome_ui = function(ns, choices) {
     fw_step_intro("outcome"),
     fw_field(fw_select(ns("outcome"), choices$outcome), fw_lab("outcome"),
              required = TRUE, tooltip = fw_tip("outcome"), input_id = ns("outcome")),
-    # The specification is explicit that verification stays as one box on the
-    # form and is split downstream if needed.
+    # One box, per the spec; split downstream if needed.
     fw_field(fw_area_input(ns("verification"), rows = 4),
              fw_lab("verification"),
              tooltip = fw_tip("verification"), input_id = ns("verification")),
@@ -360,10 +308,7 @@ fw_step_outcome_ui = function(ns, choices) {
 fw_step_contributor_ui = function(ns, choices) {
   tagList(
     fw_step_intro("contributor"),
-    # ONE CONTACT (Sept 2026 user testing). The secondary contact is gone from
-    # the form - submissions write it as NA. Existing records keep their
-    # secondary contacts. The permission to show these details is asked just
-    # below, with the other consent.
+    # One contact; submissions write the secondary as NA.
     tags$h3(fw_lab("contact_heading")),
     fw_field(fw_text_input(ns("primary_contact_name")), fw_lab("contact_name"), required = TRUE,
              tooltip = fw_tip("contact"), input_id = ns("primary_contact_name")),
@@ -372,32 +317,18 @@ fw_step_contributor_ui = function(ns, choices) {
     fw_field(fw_text_input(ns("primary_contact_org")), fw_lab("contact_org"),
              input_id = ns("primary_contact_org")),
 
-    # ---- Consent: two boxes, two jobs (24 Sept 2026) -------------------------
-    # WITH THE CONTACT DETAILS, at the top of the form (client, 29 Sept 2026).
-    # They sat at the foot, directly above Send, from 24 Sept; before that
-    # they were split - one gating Start on the intro screen, whose statement
-    # also claimed permission to display contact details, and one in the
-    # Contributor step - and the two contradicted each other.
-    #
-    # THE FIRST IS REQUIRED: storing and using the record is what a submission
-    # is. all_valid() and fw_check() refuse Send without it.
-    #
-    # THE SECOND IS NOT, and must not become so. Showing someone's name,
-    # organisation and email in the app is consent to publication, which has
-    # to be freely given - a condition of contributing would not be. Unticked,
-    # the contact is stored "private" and every page redacts all three (see
-    # the contact_public gate in data_load.R, maps.R and export.R).
-    #
-    # Both in fw_field() like every other question, so the printable question
-    # lists (R/questions_text.R) ask them too.
+    # ---- Consent: two boxes ----------------------------------------------------
+    # Data use is required (all_valid() and fw_check()). Display is opt-in and
+    # must never be required: publication consent has to be free. Unticked, the
+    # contact is stored private and redacted everywhere. Both are fw_field()s
+    # so the question lists include them.
     tags$h3(fw_t("contribute", "consent", "heading")),
     p(fw_t("contribute", "consent", "statement")),
     fw_field(checkboxInput(ns("consent_data_use"),
                            fw_t("contribute", "consent", "agree_yes"), value = FALSE),
              fw_t("contribute", "consent", "agree_label"), required = TRUE,
              input_id = ns("consent_data_use")),
-    # The terms open in a new tab, so a contributor part way through the
-    # form does not lose it. See fw_new_tab_link().
+    # Terms open in a new tab, so the form isn't lost.
     p(fw_new_tab_link(fw_privacy_href("submissions"),
                       fw_t("contribute", "consent", "terms_link_label"))),
     fw_field(checkboxInput(ns("contact_public"), fw_lab("contact_public_yes"), value = FALSE),
@@ -417,10 +348,7 @@ fw_step_other_ui = function(ns, choices) {
 fw_step_review_ui = function(ns, choices) {
   tagList(
     fw_step_intro("review"),
-    # ON DEMAND, not live. Rebuilding this table on every keystroke means a
-    # server render per character typed anywhere on the page, which is exactly
-    # the lag a single scrolling form is meant to avoid. Everything it shows is
-    # visible further up the page anyway; this is a last read-through.
+    # Rendered on demand, not per keystroke.
     actionButton(ns("check_answers"), fw_t("contribute", "check_action"),
                  class = "btn btn-outline-primary"),
     uiOutput(ns("review_summary"))
@@ -446,24 +374,12 @@ FW_STEP_UI = list(
 
 #' The species picker used by targets and by beneficiaries
 #'
-#' CLIENT-SIDE, deliberately. It used to be a server-side selectize on the
-#' grounds that 390 species was too many to ship to the browser. 390 labels is
-#' about 15KB - less than one of the fonts - and the server-side version was the
-#' reason search did not work at all: updateSelectizeInput(server = TRUE) silently
-#' does nothing when the element it names is not in the DOM yet, which is exactly
-#' what happened while the form re-rendered each step. Searching in the browser is
-#' instant and cannot get out of step with the DOM. Revisit only if the species
-#' list reaches several thousand.
-#'
-#' `create = TRUE` is what lets a contributor add a species we do not hold.
+#' Client-side (the list is ~15KB). Revisit if it reaches thousands.
+#' `create = TRUE` lets a contributor add a new species.
 fw_species_picker = function(input_id, species) {
   selectizeInput(
     input_id, label = NULL,
-    # The LEADING BLANK IS LOAD-BEARING. A selectize handed choices with no
-    # empty first entry selects the first one, so every submission that never
-    # touched this field would arrive naming whichever species happens to sort
-    # first. With the blank, "not answered" stays distinguishable from
-    # "answered with the first item". Same reasoning as fw_select().
+    # Leading blank, or selectize auto-picks the first species. As fw_select().
     choices = c("", species), selected = "",
     width = "100%",
     options = list(
@@ -478,23 +394,11 @@ fw_species_picker = function(input_id, species) {
 
 # ---- Repeatable rows ---------------------------------------------------------
 
-#' ONE row builder for both roles: a group of animal, and the species in it
+#' One row: an animal group and its species. Used for targets and
+#' beneficiaries
 #'
-#' Invasive targets and beneficiaries are the SAME question asked about two
-#' sides of the same eradication, so they are the same code. They used to differ:
-#' a target paired its group with its species, while beneficiaries had one
-#' group multi-select for the whole section and separate unlabelled species
-#' boxes. That left a contributor who answered "Fish, Invertebrate" with two
-#' species boxes and no way to say which was which - exactly the problem that
-#' had already been fixed on the invasive side.
-#'
-#' Each row's inputs are namespaced with the row index, so removing row 2 does
-#' not disturb rows 1 and 3. The species list is narrowed to the group by the
-#' server; the fish family is never asked for, it is derived on submission.
-#'
-#' The only real difference is that a target is REQUIRED and a beneficiary is
-#' not. Every eradication has something it was aimed at; plenty of real records
-#' never recorded what it was meant to help.
+#' Inputs carry the row index, so removing one row leaves the rest. A target is
+#' required; a beneficiary isn't.
 FW_ROW_KINDS = list(
   target = list(
     heading      = "target_heading",
@@ -542,9 +446,7 @@ fw_pair_row = function(ns, index, choices, kind = "target") {
     div(
       class = "fw-repeat-row__remove",
       if (!first) {
-        # "Remove" is the LABEL. With label = NULL and the word passed
-        # positionally it landed in actionButton's `width`, which threw
-        # '"Remove" is not a valid CSS unit' the moment a second row rendered.
+        # Pass "Remove" as `label`; positionally it lands in `width`.
         actionButton(ns(paste0("remove_", kind, "_", index)),
                      label = fw_lab("remove"),
                      class = "btn btn-outline-primary btn-sm",
@@ -554,8 +456,7 @@ fw_pair_row = function(ns, index, choices, kind = "target") {
   )
 }
 
-# Kept as thin names because the step builders and questions_text.R read better
-# saying what they are building than passing a string.
+# Thin wrappers, for readability at the call sites.
 fw_target_row      = function(ns, index, choices) fw_pair_row(ns, index, choices, "target")
 fw_beneficiary_row = function(ns, index, choices) fw_pair_row(ns, index, choices, "benefit")
 
@@ -580,8 +481,7 @@ fw_method_row = function(ns, index, choices) {
     div(
       class = "fw-repeat-row__remove",
       if (!first) {
-        # See the note in fw_pair_row(): the word is the label, not a
-        # positional argument that falls through to `icon`.
+        # `label =`, as in fw_pair_row().
         actionButton(ns(paste0("remove_method_", index)), label = fw_lab("remove"),
                      class = "btn btn-outline-primary btn-sm",
                      `aria-label` = paste(fw_t("contribute", "remove_row"), index))

@@ -1,41 +1,20 @@
-// fw_map_fit.js - one world, filling the map's width, and never a second copy.
+// fw_map_fit.js
+// Sets each map's zoom-out limit to the fractional zoom at which one world
+// fills its width (on load and resize), so the whole band shows and the world
+// never repeats (tiles don't wrap; see fw_leaflet()).
 //
-// The client panned left and right to "the full world view" and saw a world
-// with no eradications on it: the tiles repeated round the globe and the
-// markers did not (client, 29 Sept 2026). The tiles no longer wrap and the
-// pan is held inside +/-180 (see fw_leaflet() in R/maps.R). So every map sets
-// its own zoom-out limit to the zoom at which one world is exactly as wide as
-// the map, on load and on every resize.
+// Leaflet snaps zooms to whole steps before clamping to minZoom, so
+// _limitZoom returns the limit itself at or below it; other zooms still snap.
 //
-// A FRACTIONAL ZOOM, NOT THE NEXT WHOLE ONE (client, 30 Sept 2026: "not all
-// of the map is visible when opened"). Rounding up left the world up to twice
-// the map's width, and so twice its height too, with the top and bottom of it
-// off screen. The map is now the shape of the band it shows (fw_map_aspect()
-// in R/maps.R), so at exactly one world's width the band fills it both ways.
-//
-// WHOLE STEPS EVERYWHERE BUT THE LIMIT. Leaflet rounds every zoom to a whole
-// step (zoomSnap 1) BEFORE clamping it to minZoom, so a fit or a zoom-out to
-// a limit of 1.87 rounded to 2 and cut the edges of the band off again. Each
-// map's _limitZoom therefore returns the limit itself for any request at or
-// below it, and snaps as before above it: the + and - buttons, the wheel and
-// every fit still land on whole zooms, except the last step out.
-//
-// A Leaflet init hook rather than an htmlwidgets onRender, so the card script
-// stays each widget's only render hook, and so the same file serves the app
-// and the saved report without a Shiny session behind it.
+// A Leaflet init hook, not onRender, so the card script stays the only render
+// hook and saved reports work without Shiny.
 (function () {
   if (!window.L || !L.Map || L.Map.fwFitWidth) return;
   L.Map.fwFitWidth = true;
 
-  // THE WHOLE MAP IN ONE GROUP (client, 30 Sept 2026). Leaflet.markercluster
-  // builds its tree once, down to Math.floor(map.getMinZoom()) at the time,
-  // and parks every marker in one top-level group at the zoom below that. It
-  // never hears that minZoom moved. So a map that got narrower after its
-  // markers went on - a window resized, a scrollbar appearing - could zoom out
-  // onto that top group and show all 900 attempts as a single ring. Clearing
-  // and re-adding the markers rebuilds the tree from the current minZoom. The
-  // card script's wiring is keyed on the marker (fwWired), so it is not
-  // doubled by the re-add.
+  // Rebuild cluster groups when minZoom drops: markercluster builds its tree
+  // once from the old minZoom and would show every marker as one ring. The
+  // card script's wiring (fwWired) isn't doubled by the re-add.
   function reclusterBelow(map) {
     if (!L.MarkerClusterGroup) return;
     var floor = Math.floor(map.getMinZoom());
@@ -48,16 +27,9 @@
     });
   }
 
-  // A FRACTIONAL LIMIT NEEDS ONE FIX IN THE CLUSTER PLUGIN. Leaflet.markercluster
-  // floors map.getMinZoom() nearly everywhere, but three of its walks down the
-  // tree start from the raw value - _recursivelyAddChildrenToMap from
-  // getMinZoom() - 1 - and at a limit of 2.04 that starts at 1.04, above the
-  // top level at zoom 1, which is where every marker that never groups lives.
-  // Every single dot vanished and only the counted rings were drawn. Flooring
-  // the start of the walk makes those three agree with the rest of the plugin;
-  // for a whole-number limit it changes nothing. Patched on the way into
-  // addLayer, not here or at map creation: on a Shiny page the map is created
-  // when the page binds, and the plugin only arrives later with the markers.
+  // Gotcha: markercluster's _recursively walks start from the raw fractional
+  // minZoom, so ungrouped markers vanish. Floor the start. Patched lazily in
+  // addLayer, since on a Shiny page the plugin loads after the map exists.
   function patchCluster() {
     if (!L.MarkerCluster || L.MarkerCluster.fwFloored) return;
     L.MarkerCluster.fwFloored = true;
@@ -83,13 +55,11 @@
     };
     function fit() {
       var w = map.getSize().x;
-      // A map in a hidden tab has no width yet; it is fitted on the resize
-      // that showing it fires.
+      // A hidden map has no width; it fits on the resize when shown.
       if (!w) return;
       var z = Math.max(floor, Math.log(w / 256) / Math.LN2);
       var was = map.getMinZoom();
-      // A map at its limit stays at it when the limit moves, so the whole band
-      // stays in view through a resize; one zoomed in is left where it is.
+      // A map at its limit follows the limit; a zoomed-in map stays put.
       var follow = map.getZoom() <= was + 1e-6 || map.getZoom() < z;
       if (was !== z) {
         map.setMinZoom(z);

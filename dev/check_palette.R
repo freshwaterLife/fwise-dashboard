@@ -1,34 +1,13 @@
 # check_palette.R
-# Verifies the DATA palettes - the ones that encode a value in a chart. The
-# interface palette is a different question and lives in dev/check_contrast.R.
+# Checks the data (chart) palettes; interface colours are check_contrast.R.
 #
 #     Rscript dev/check_palette.R
 #
-# It computes, rather than eyeballs, four things about a categorical palette:
-# that every colour sits in a usable lightness band, that none of them is so
-# desaturated it reads as grey, that neighbouring colours stay apart under
-# simulated colour-vision deficiency AND under normal vision, and that each one
-# is visible against the surface it is drawn on.
-#
-# WHY IT EXISTS. The method palette was a single-hue ramp until the client said
-# the segments were not distinguishable. They were right, and this script is how
-# that was established rather than argued about: the old ramp scored dE 9.0 on
-# its worst adjacent pair against a floor of 15. Run it before changing any
-# colour in FW_METHOD_COLOURS or FW_PALETTE.
-#
-# PAIRLISTS. A stacked bar only ever butts a segment against its NEIGHBOURS, so
-# "adjacent" is the pairlist it is judged on, and the order of FW_METHOD_COLOURS
-# is part of the result. "all" is the harder test used for scatter plots and
-# maps, where any two marks can end up side by side; seven categories cannot
-# pass it, which is a property of seven categories and not of these seven
-# colours.
-#
-# Method and thresholds are from Claude's data-visualisation skill; this is an R
-# port of its validate_palette.js (checks 2-5), same Machado-Oliveira-Fernandes
-# (2009) severity-1.0 simulation, verified to reproduce that script's published
-# figures for its own reference palette.
-#
-# Lives in dev/ because it is a build-time check, not part of the app.
+# For each palette: lightness band, chroma floor, separation of pairs under
+# simulated colour-vision deficiency (Machado-Oliveira-Fernandes 2009) and
+# normal vision (OKLab dE), and contrast against its surface. Stacked bars are
+# judged on adjacent pairs; maps and scatter on all pairs. Run before changing
+# FW_PALETTE.
 
 BAND = list(light = c(0.43, 0.77), dark = c(0.48, 0.67))
 CHROMA_FLOOR = 0.10
@@ -127,15 +106,7 @@ cat("\n================ OUTCOME palette (Wong 2011) ================\n")
 cat("Fixed by the associated paper. Checked, not tuned.\n\n")
 validate(unname(FW_OUTCOME_COLOURS), "light", FW_COLOURS$surface)
 
-# THE METHOD PALETTE USED TO BE CHECKED HERE. It coloured one chart, the
-# methods-by-waterbody stack, which the client deleted on 23 Sept 2026 - it was
-# the only figure in the app that ever encoded method as colour. Two of its
-# seven fills had never passed the all-pairs test, and both faults were
-# properties of that chart alone, so they went with it.
-#
-# FW_METHOD_COLOURS and FW_METHOD_LABEL_INK are gone from R/config.R; see the
-# note where they were. Bring this section back with any chart that needs
-# method-as-colour.
+# No chart encodes method as colour. Add a check here if one ever does.
 
 cat("\n================ In-segment label ink ================\n")
 cat("The count drawn inside each segment, against that segment's own fill.\n")

@@ -1,26 +1,17 @@
 # forms.R
-# What the newsletter and feedback forms share: the rules, the records, the
-# honeypot and the buttons that open them. The modules are mod_newsletter.R
-# and mod_feedback.R; where the rows go is forms_store.R.
+# Shared by the newsletter and feedback forms (mod_newsletter.R,
+# mod_feedback.R): rules, records, honeypot and open buttons. Storage is in
+# forms_store.R.
 #
-# ONE SET OF RULES PER FORM, USED TWICE. fw_newsletter_problems() and
-# fw_feedback_problems() return what is wrong, field by field. The modules hang
-# a shinyvalidate rule on each field that reads its own entry, and gate the
-# submit button on the list being empty - so the message under a field and the
-# state of the button cannot disagree. (The contribute form keeps the two apart
-# for a reason of its own; see the note at all_valid in mod_contribute.R.)
+# fw_*_problems() return problems per field. Both the field messages and the
+# submit gate read them, so they can't disagree.
 
 # ---- Small shared pieces -----------------------------------------------------
 
 #' Is this an email address?
 #'
-#' Deliberately loose: something, an @, something with a dot in it. A stricter
-#' pattern rejects real addresses; the only proof an address works is mail
-#' arriving at it. Shared by the contribute form and both forms here.
-#'
-#' POSIX [:space:] rather than \\s. R's default regex engine does NOT read \\s
-#' as a whitespace shorthand inside a character class, so [^@\\s] excludes the
-#' LETTER s and quietly rejects any address containing one.
+#' Deliberately loose (x@y.z). Gotcha: use [:space:], not \\s, inside a
+#' bracket: R's default engine reads [^@\\s] as excluding the letter s.
 fw_is_email = function(x) {
   grepl("^[^[:space:]@]+@[^[:space:]@]+\\.[^[:space:]@]+$", x %||% "")
 }
@@ -36,9 +27,7 @@ fw_form_value = function(x) {
 
 #' The address of one section of the privacy page
 #'
-#' A query string on the app's own address, so it works as a link from
-#' anywhere - a new tab, an email, a PDF - and the server opens the page and
-#' scrolls to the section. See the deep-link observer in app.R.
+#' A ?page=privacy&section= URL, so it works from anywhere. See app.R.
 fw_privacy_href = function(section = NULL) {
   if (is.null(section)) return("?page=privacy")
   stopifnot(section %in% FW_PRIVACY_SECTIONS)
@@ -47,9 +36,7 @@ fw_privacy_href = function(section = NULL) {
 
 #' A link that opens in a new tab and says so
 #'
-#' For links out of a form: the visitor reads the terms without losing what
-#' they have typed. The words "opens in a new tab" are for screen readers;
-#' a sighted reader sees the browser do it.
+#' So a visitor can read the terms without losing their form.
 fw_new_tab_link = function(href, label) {
   tags$a(href = href, target = "_blank", rel = "noopener", label,
          tags$span(class = "fw-visually-hidden", fw_t("forms", "new_tab")))
@@ -67,15 +54,12 @@ fw_form_data_line = function(text, section) {
 #'   phone; Shiny binds both the same way.
 #' @param autocomplete the browser autofill token: "name", "email",
 #'   "organization", or "off"
-#' @param required announced as required (aria-required). Not the HTML
-#'   `required` attribute: shinyvalidate owns the messages, and the browser's
-#'   own bubbles would be a second, differently worded set.
+#' @param required sets aria-required, not HTML `required` (shinyvalidate owns
+#'   the messages)
 fw_form_text = function(id, type = "text", autocomplete = NULL, required = FALSE) {
   tq = htmltools::tagQuery(textInput(id, label = NULL, width = "100%"))
-  # REMOVE, THEN ADD. addAttrs() appends to an attribute that is already there,
-  # and textInput() writes type="text": adding "email" gives type="text email",
-  # which Shiny's text binding does not recognise, and the field is never sent
-  # to the server at all.
+  # Remove then add: addAttrs() appends, and type="text email" breaks Shiny's
+  # binding.
   tq$find("input")$removeAttrs("type")$addAttrs(
     type = type, autocomplete = autocomplete,
     `aria-required` = if (required) "true")
@@ -84,15 +68,9 @@ fw_form_text = function(id, type = "text", autocomplete = NULL, required = FALSE
 
 #' The honeypot: a field no person sees and a form-filling bot does
 #'
-#' OFF-SCREEN, NOT display:none. Many bots skip fields that are display:none,
-#' because that is the cheap way to hide one; a field positioned off the page is
-#' still "visible" to them, so they fill it. A person never reaches it: it is
-#' out of the tab order (tabindex -1), hidden from screen readers (aria-hidden
-#' on the wrapper) and closed to autofill (autocomplete off), so a password
-#' manager does not fill it on someone's behalf either.
-#'
-#' A filled honeypot gets the normal success screen and nothing is written.
-#' Telling the bot it failed would only teach it to stop filling the field.
+#' Off-screen rather than display:none (bots skip those), out of the tab
+#' order, aria-hidden and autocomplete off. If filled, the bot sees success and
+#' nothing is written.
 fw_honeypot = function(id) {
   tq = htmltools::tagQuery(textInput(id, label = fw_t("forms", "honeypot")))
   tq$find("input")$addAttrs(tabindex = "-1", autocomplete = "off")
@@ -101,11 +79,8 @@ fw_honeypot = function(id) {
 
 #' A button that opens one of the forms, from anywhere on the page
 #'
-#' NOT AN actionButton. The entry points sit in places that are drawn once with
-#' no module around them (the footer) as well as inside modules, and a delegated
-#' click listener in fw_client_script() turns any of them into
-#' input$fw_open_form = {form, source}. app.R hands that to the module. Adding
-#' an entry point is therefore one call here and nothing on the server.
+#' Not an actionButton: a delegated listener sets input$fw_open_form =
+#' {form, source} from anywhere, including the footer. No server code needed.
 #'
 #' @param form   "newsletter" or "feedback"
 #' @param source where the button is, e.g. "footer" or "about". Stored with a
@@ -120,8 +95,7 @@ fw_form_open = function(form, label, source, class = "btn btn-primary") {
 
 #' Where a sign-up came from, as stored: letters, digits, - and _ only
 #'
-#' The value arrives from a data attribute in the browser, so it is cleaned
-#' rather than trusted - it ends up in a spreadsheet.
+#' From the browser, so cleaned before it reaches the sheet.
 fw_entry_point = function(x) {
   x = gsub("[^a-z0-9_-]", "", tolower(fw_form_value(x)))
   if (nzchar(x)) substr(x, 1, 30) else "unknown"
@@ -164,8 +138,7 @@ fw_newsletter_problems = function(v) {
 
 #' One sign-up, as stored
 #'
-#' consent_wording is the sentence the person ticked, word for word, so the
-#' record shows what they agreed to even after the copy changes.
+#' consent_wording stores the exact sentence ticked.
 fw_newsletter_record = function(v, entry_point, now = Sys.time()) {
   list(
     submitted_at = format(now, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
@@ -183,9 +156,8 @@ fw_newsletter_record = function(v, entry_point, now = Sys.time()) {
 
 #' The feedback form's page choices: label = value
 #'
-#' The six navbar pages under their navbar names, then General and Other. The
-#' values are the navbar's own values, so the form can pre-select the page the
-#' reader is on from input$fw_nav.
+#' Navbar pages (navbar values, so input$fw_nav can pre-select), then General
+#' and Other.
 fw_feedback_pages = function() {
   pages = c("home", "explore", "plan", "contribute", "networking", "about")
   labels = vapply(pages, function(p) fw_t("nav", p), character(1))
@@ -208,8 +180,7 @@ fw_feedback_values = function(page, message, email) {
 
 #' What is wrong with a piece of feedback, field by field. Email is optional.
 #'
-#' The page is checked against the list as well as for presence: a select's
-#' value comes from the browser and can be anything.
+#' The page is checked against the list: browser values can be anything.
 fw_feedback_problems = function(v) {
   lim = FW_FORM_LIMITS
   msg = function(key, n = NULL) {
@@ -242,9 +213,7 @@ fw_feedback_record = function(v, now = Sys.time()) {
 
 #' The dialog both forms open in
 #'
-#' The body is one uiOutput the module draws - the form, or the thank-you once
-#' it has been sent - so the success state can replace the form inside the
-#' same dialog. Close sits in the footer in both states.
+#' One uiOutput body: the form, or the thank-you in its place.
 fw_form_modal = function(title, body) {
   modalDialog(
     body,
@@ -272,14 +241,12 @@ fw_form_status = function(text) {
 
 #' Delegated listeners for both forms, and for every button that opens one
 #'
-#' DELEGATED FROM THE DOCUMENT, so they work for a form drawn into a dialog
-#' after the page loaded - the same reason as the download picker's script in
-#' fw_client_script().
+#' Delegated from the document, so they work for forms drawn later.
 fw_forms_script = function() {
   tags$script(HTML("
     $(function () {
-      // Any fw_form_open() button: tell the server which form, and from where.
-      // The time makes a second press of the same button a new value.
+      // fw_form_open() buttons: send the form and source (the time makes each
+      // press a new value).
       document.addEventListener('click', function (e) {
         if (!e.target.closest) return;
         var btn = e.target.closest('[data-fw-open]');
@@ -291,16 +258,13 @@ fw_forms_script = function() {
           }, { priority: 'event' });
           return;
         }
-        // A submit button goes dead the instant it is pressed. Shiny's own
-        // click handler, on the button, has already sent the press by the
-        // time this runs on the document. The server gives the button back
-        // if the write fails.
+        // Disable submit on press (Shiny has already sent it); the server
+        // re-enables it if the write fails.
         var busy = e.target.closest('button[data-fw-busy]');
         if (busy && !busy.disabled) busy.disabled = true;
       });
 
-      // A field the reader has left starts showing its message. The honeypot
-      // is out of the tab order and never reports.
+      // A field shows its message once left.
       document.addEventListener('focusout', function (e) {
         var t = e.target;
         if (!t.closest || !t.id || t.closest('.fw-hp')) return;
@@ -321,10 +285,8 @@ fw_forms_script = function() {
           .replace('{max}', fmt(out.getAttribute('data-max')));
       });
 
-      // shinyvalidate draws its message beside the control but does not tie
-      // the two together, so a screen reader on the field hears nothing. This
-      // marks the control aria-invalid and points aria-describedby at the
-      // message while there is one, and undoes both when it goes.
+      // Tie shinyvalidate messages to their controls (aria-invalid,
+      // aria-describedby) so screen readers hear them.
       var sync = function () {
         document.querySelectorAll('.fw-modal-form .shiny-input-container').forEach(function (box) {
           var ctl = box.querySelector('input:not([type=hidden]), textarea, select');

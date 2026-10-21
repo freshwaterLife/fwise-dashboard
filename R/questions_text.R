@@ -26,9 +26,7 @@ fw_tag_has_class = function(x, cls) cls %in% fw_tag_classes(x)
 
 #' Every text node under a tag, joined
 #'
-#' Anything marked visually hidden is dropped: it exists to be announced by a
-#' screen reader and would read as noise here. So is the decorative asterisk,
-#' which is replaced by the word "required" further down.
+#' Drops visually hidden text and the decorative asterisk.
 fw_tag_text = function(x, drop_hidden = TRUE) {
   if (is.null(x)) return("")
   if (is.character(x)) return(paste(x, collapse = " "))
@@ -81,19 +79,12 @@ fw_tag_find = function(x, pred) {
 
 #' The answer options offered by a field, where it offers a fixed set
 #'
-#' Covers the two shapes the form uses: a select (every dropdown) and a group of
-#' radios or checkboxes. Server-side selectizes carry no options in the markup -
-#' the species pickers are the only ones - and correctly come back empty.
-#'
-#' Radios are read through .shiny-options-group and the labels inside it rather
-#' than through a .radio class, because the wrapper markup differs between
-#' Bootstrap versions and the labels do not.
+#' Selects and radio/checkbox groups. Radios are read via
+#' .shiny-options-group labels, which are stable across Bootstrap versions.
 fw_field_options = function(node) {
   selects = fw_tag_find(node, function(n) identical(n$name, "select"))
   if (length(selects)) {
-    # A select's options are NOT tags. shiny's selectOptions() hands back one
-    # pre-rendered HTML string, so walking the children finds nothing and the
-    # markup has to be read back out.
+    # A select's options are one pre-rendered HTML string, so parse it.
     html = as.character(selects[[1]])
     m = regmatches(html, gregexpr("<option[^>]*>[^<]*</option>", html))[[1]]
     labels = fw_squish_each(sub("^<option[^>]*>", "", sub("</option>$", "", m)))
@@ -125,10 +116,8 @@ fw_options_line = function(opts) {
 
 #' Turn one step's rendered UI into a list of text items
 #'
-#' Items come out in document order. A label row and its help text are handled
-#' as units and everything else is recursed into, which is what lets a field
-#' nested inside another field - latitude and longitude inside the location
-#' block - come through in the right place.
+#' In document order; label rows and help text are units, everything else
+#' recursed (so nested fields come out in place).
 fw_step_items = function(ui, ns, choices, conditional = FALSE) {
   items = list()
   add = function(...) items[[length(items) + 1L]] <<- list(...)
@@ -144,16 +133,14 @@ fw_step_items = function(ui, ns, choices, conditional = FALSE) {
 
     nm = node$name
 
-    # A repeatable block: an empty container the server fills in. Render row 1
-    # so its questions are not silently missing from the list.
+    # A repeatable block: render row 1 so its questions are listed.
     id = node$attribs$id
     if (!is.null(id)) {
       key = sub("^.*-", "", as.character(id))
       builder = FW_QUESTION_ROWS[[key]]
       if (!is.null(builder)) {
         add(kind = "note", text = fw_t("questions", "repeat_note"))
-        # A repeatable row carries its own "Target 1" heading in the app; in
-        # print the numbered question below already says which one it is.
+        # Drop the row heading; the numbered question says it.
         walk(builder(ns, choices), cond)
         return(invisible(NULL))
       }
@@ -188,8 +175,7 @@ fw_step_items = function(ui, ns, choices, conditional = FALSE) {
       })) > 0
       add(
         kind = "question",
-        # EVERY label, joined: fw_with_info() splits a label's last word into a
-        # second <label> for the same control, so it stays beside its (i).
+        # Join every label: fw_with_info() splits the last word into its own.
         text = if (length(label)) {
           fw_squish(paste(vapply(label, fw_tag_text, character(1)), collapse = " "))
         } else "",
@@ -272,8 +258,7 @@ fw_questions_text = function(choices, width = 78) {
                            conditional = isTRUE(step$conditional))
 
     questions = Filter(function(i) identical(i$kind, "question"), items)
-    # The review step only plays back what you have already entered, so it has
-    # nothing to prepare for and is left out.
+    # Skip the review step.
     if (!length(questions)) next
 
     out = c(out, "", rule,
@@ -285,17 +270,11 @@ fw_questions_text = function(choices, width = 78) {
 
     q_no = 0L
     hang = strrep(" ", 5)
-    # The answer rule is held back until everything belonging to the question
-    # has been printed. fw_field() renders its help text AFTER the control, so
-    # emitting the rule as soon as the label appears put the ruled line above
-    # the sentence explaining what to write on it.
+    # Print the answer line after the help text (which follows the control).
     pending = FALSE
     flush = function() {
       if (pending) {
-        # A BLANK LINE EITHER SIDE OF THE RULE. Without the trailing one the
-        # next question butts straight up against the line you just wrote your
-        # answer on, and a printed copy reads as a wall. This is the whole file
-        # someone fills in away from the screen, so the spacing is the design.
+        # A blank line either side of the answer line.
         out <<- c(out, "", paste0(hang, q$answer, strrep("_", 50)), "")
         pending <<- FALSE
       }
