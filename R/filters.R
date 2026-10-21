@@ -60,7 +60,7 @@ library(dplyr)
 # ORDER MATTERS TWICE: it is the order the controls are drawn in, and the order
 # fw_filter_zero_hints() suggests relaxing them - narrowest choice first, since
 # that is the one that most often emptied the result.
-FW_FILTERS <- list(
+FW_FILTERS = list(
   species = list(
     copy = "species", kind = "multi", tip = "tip_species",
     bridge = "species", role = "invasive", match = "label"
@@ -126,12 +126,12 @@ FW_FILTERS <- list(
 #' {min} and {n} are the two the copy uses. Substituted here rather than at each
 #' call site so the report builder and the dashboard cannot fill them in
 #' differently - or one of them forget to.
-fw_filter_tip <- function(id, ch = NULL) {
-  spec <- FW_FILTERS[[id]]
+fw_filter_tip = function(id, ch = NULL) {
+  spec = FW_FILTERS[[id]]
   if (is.null(spec$tip)) return(NULL)
-  txt <- fw_t("filters", spec$tip)
+  txt = fw_t("filters", spec$tip)
   if (!is.null(ch)) {
-    txt <- fw_fill(txt, min = ch$year_min, n = ch$n_no_year)
+    txt = fw_fill(txt, min = ch$year_min, n = ch$n_no_year)
   }
   txt
 }
@@ -140,7 +140,7 @@ fw_filter_tip <- function(id, ch = NULL) {
 #'
 #' @param drop ids this page does not offer. The report builder passes
 #'   "outcome"; see mod_plan.R for why.
-fw_filter_ids <- function(drop = character(0)) {
+fw_filter_ids = function(drop = character(0)) {
   setdiff(names(FW_FILTERS), drop)
 }
 
@@ -148,7 +148,7 @@ fw_filter_ids <- function(drop = character(0)) {
 # zero-hints want, so the UI walks this instead of names(FW_FILTERS). The
 # protected side runs kind, family, species - the same way round as the invasive
 # side, so the two read as a pair (client, Sept 2026 user testing).
-FW_FILTER_ORDER <- c("continent", "country", "regime",
+FW_FILTER_ORDER = c("continent", "country", "regime",
                      "taxa", "family", "species", "method",
                      "taxa_beneficiary", "family_beneficiary", "beneficiary",
                      "outcome", "size", "years")
@@ -165,24 +165,24 @@ FW_FILTER_ORDER <- c("continent", "country", "regime",
 #'
 #' The order is only ever about drawing. The matching, the summary and the sheet
 #' all read FW_FILTER_ORDER directly and are untouched by this.
-fw_filter_draw_order <- function(drop = character(0)) {
-  ids <- intersect(FW_FILTER_ORDER, fw_filter_ids(drop))
-  is_range <- vapply(ids, function(id) FW_FILTERS[[id]]$kind %in% c("range", "size"),
+fw_filter_draw_order = function(drop = character(0)) {
+  ids = intersect(FW_FILTER_ORDER, fw_filter_ids(drop))
+  is_range = vapply(ids, function(id) FW_FILTERS[[id]]$kind %in% c("range", "size"),
                      logical(1))
   c(ids[!is_range], ids[is_range])
 }
 
-fw_filter_label <- function(id) fw_t("filters", FW_FILTERS[[id]]$copy)
+fw_filter_label = function(id) fw_t("filters", FW_FILTERS[[id]]$copy)
 
 # ---- Size, the one filter with two units -------------------------------------
 
 # The stored unit codes, and the order the sliders are drawn in. Labels are copy.
-FW_SIZE_UNITS <- c("ha", "km")
+FW_SIZE_UNITS = c("ha", "km")
 
 # Which unit each stored regime is measured in. "Lentic" and "Lotic" are the
 # STORED vocabulary, not labels - see FW_REGIME_LABELS in data_load.R, which is
 # the only place they are turned into words a reader sees.
-FW_REGIME_UNITS <- list(Lentic = "ha", Lotic = "km")
+FW_REGIME_UNITS = list(Lentic = "ha", Lotic = "km")
 
 #' The units worth offering for a regime selection
 #'
@@ -214,9 +214,9 @@ FW_REGIME_UNITS <- list(Lentic = "ha", Lotic = "km")
 #' them and no code changes.
 #'
 #' @param regime the reader's `regime` selection, possibly empty
-fw_size_units <- function(regime = character(0)) {
+fw_size_units = function(regime = character(0)) {
   if (!length(regime)) return(FW_SIZE_UNITS)
-  out <- intersect(FW_SIZE_UNITS,
+  out = intersect(FW_SIZE_UNITS,
                    unlist(FW_REGIME_UNITS[regime], use.names = FALSE))
   # A regime with no unit of its own must not hide both sliders, which would
   # read as "size cannot be filtered here" rather than as an answer.
@@ -227,16 +227,16 @@ fw_size_units <- function(regime = character(0)) {
 #'
 #' Bounds come from the data rather than a typed constant, so the client's
 #' ongoing cleaning flows through without a code change.
-fw_size_bounds <- function(a) {
-  one <- function(unit) {
-    v <- a$area_treated[!is.na(a$area_treated) & a$area_treated > 0 &
+fw_size_bounds = function(a) {
+  one = function(unit) {
+    v = a$area_treated[!is.na(a$area_treated) & a$area_treated > 0 &
                           !is.na(a$area_unit) & a$area_unit == unit]
     if (!length(v)) return(NULL)
     range(v)
   }
-  out <- lapply(FW_SIZE_UNITS, one)
-  names(out) <- FW_SIZE_UNITS
-  out$n_no_size <- sum(is.na(a$area_treated))
+  out = lapply(FW_SIZE_UNITS, one)
+  names(out) = FW_SIZE_UNITS
+  out$n_no_size = sum(is.na(a$area_treated))
   out
 }
 
@@ -248,23 +248,23 @@ fw_size_bounds <- function(a) {
 # Sept 2026): a plain logarithm has no zero, and its left end sat on whatever
 # the smallest recorded area happened to be. Above about 10 the two scales are
 # indistinguishable, so the spread that made a log scale necessary is kept.
-fw_size_log <- function(x) log10(1 + x)
-fw_size_unlog <- function(x) 10^x - 1
+fw_size_log = function(x) log10(1 + x)
+fw_size_unlog = function(x) 10^x - 1
 
 # HOW MANY POSITIONS a size slider has, end to end. The step is the range
 # divided by this, so the handles move continuously rather than jumping between
 # values that happen to be in the data (client, 29 Sept 2026), and both ends
 # land exactly on the step grid - a max that fell between steps would be
 # unreachable, and a slider at its ends would not read as untouched.
-FW_SIZE_POSITIONS <- 1000
+FW_SIZE_POSITIONS = 1000
 
 #' The next round number at or above x: 1, 2 or 5 times a power of ten
 #'
 #' The top of each size slider (client, 29 Sept 2026: "a rounded number above
 #' the max"), so its right end reads 500,000 ha rather than 237,500.
-fw_nice_ceiling <- function(x) {
+fw_nice_ceiling = function(x) {
   if (!length(x) || is.na(x) || x <= 0) return(1)
-  k <- 10^floor(log10(x))
+  k = 10^floor(log10(x))
   for (m in c(1, 2, 5, 10)) if (m * k >= x * (1 - 1e-9)) return(m * k)
 }
 
@@ -272,13 +272,13 @@ fw_nice_ceiling <- function(x) {
 #'
 #' From the whole database, never the current selection, so the scale a reader
 #' sees does not shrink to what they last filtered for.
-fw_size_log_range <- function(bounds) {
+fw_size_log_range = function(bounds) {
   if (is.null(bounds)) return(NULL)
   c(0, fw_size_log(fw_nice_ceiling(bounds[2])))
 }
 
 #' The step a size slider moves in. See FW_SIZE_POSITIONS.
-fw_size_log_step <- function(r) diff(r) / FW_SIZE_POSITIONS
+fw_size_log_step = function(r) diff(r) / FW_SIZE_POSITIONS
 
 #' A size printed for a human, at a sensible number of digits
 #'
@@ -287,11 +287,11 @@ fw_size_log_step <- function(r) diff(r) / FW_SIZE_POSITIONS
 #' repeat. Small sizes keep their decimals because 0.0014 ha rounded to a whole
 #' number is 0; large ones lose them because 237,500 ha is not measured to the
 #' hectare.
-fw_size_label <- function(x) {
+fw_size_label = function(x) {
   if (!length(x) || is.na(x)) return(fw_t("common", "empty_value"))
   # The slider's left end, which floating point brings back as 1e-16 or so.
   if (abs(x) < 1e-9) return(fw_fmt_num(0))
-  digits <- if (x >= 100) 0 else if (x >= 10) 1 else if (x >= 1) 2 else 4
+  digits = if (x >= 100) 0 else if (x >= 10) 1 else if (x >= 1) 2 else 4
   fw_fmt_num(round(x, digits))
 }
 
@@ -303,18 +303,18 @@ fw_size_label <- function(x) {
 #' being shown must not silently narrow the result.
 #'
 #' @return a logical vector along `a`
-fw_size_match <- function(a, f) {
-  keep <- rep(TRUE, nrow(a))
+fw_size_match = function(a, f) {
+  keep = rep(TRUE, nrow(a))
   for (unit in FW_SIZE_UNITS) {
-    b <- f[[paste0("size_", unit)]]
+    b = f[[paste0("size_", unit)]]
     if (length(b) != 2 || anyNA(b)) next
     # A hair of slack each way: 10^log10(1 + x) - 1 comes back a few ulps off
     # x, and a record sitting exactly on the slider's round-number end must not
     # fall outside it.
-    lo <- fw_size_unlog(b[1]) * (1 - 1e-9) - 1e-12
-    hi <- fw_size_unlog(b[2]) * (1 + 1e-9) + 1e-12
-    is_unit <- !is.na(a$area_unit) & a$area_unit == unit & !is.na(a$area_treated)
-    keep[is_unit] <- a$area_treated[is_unit] >= lo & a$area_treated[is_unit] <= hi
+    lo = fw_size_unlog(b[1]) * (1 - 1e-9) - 1e-12
+    hi = fw_size_unlog(b[2]) * (1 + 1e-9) + 1e-12
+    is_unit = !is.na(a$area_unit) & a$area_unit == unit & !is.na(a$area_treated)
+    keep[is_unit] = a$area_treated[is_unit] >= lo & a$area_treated[is_unit] <= hi
   }
   # An attempt with no size recorded is not out of range, it is UNMEASURED, and
   # whether it travels is the checkbox's decision alone.
@@ -322,7 +322,7 @@ fw_size_match <- function(a, f) {
   # ASSIGNMENT, NOT `keep | ...`. An OR can only ever add rows back: `keep`
   # starts all-TRUE, so the unmeasured rows were already TRUE and unticking the
   # box removed nothing at all.
-  keep[is.na(a$area_treated)] <- isTRUE(f$include_no_size)
+  keep[is.na(a$area_treated)] = isTRUE(f$include_no_size)
   keep
 }
 
@@ -333,26 +333,26 @@ fw_size_match <- function(a, f) {
 #' Multi-value lists are ordered by how often each value actually appears, so
 #' the answers a user is likely to want sit near the top rather than buried
 #' alphabetically in a 390-entry list.
-fw_filter_choices <- function(data) {
-  species <- fw_species_label(data$species)
-  sp_labels <- setNames(species$label, species$species_id)
+fw_filter_choices = function(data) {
+  species = fw_species_label(data$species)
+  sp_labels = setNames(species$label, species$species_id)
 
-  by_freq <- function(ids, labels) {
-    tab <- sort(table(ids), decreasing = TRUE)
+  by_freq = function(ids, labels) {
+    tab = sort(table(ids), decreasing = TRUE)
     unname(labels[match(names(tab), names(labels))])
   }
 
-  role_ids <- function(role_name) {
+  role_ids = function(role_name) {
     filter(data$attempt_species, role == role_name)
   }
-  inv <- role_ids("invasive")
-  ben <- role_ids("beneficiary")
+  inv = role_ids("invasive")
+  ben = role_ids("beneficiary")
 
-  taxa_for <- function(bridge) {
+  taxa_for = function(bridge) {
     sort(unique(species$taxa[species$species_id %in% bridge$species_id &
                                !is.na(species$taxa)]))
   }
-  family_for <- function(bridge) {
+  family_for = function(bridge) {
     sort(unique(species$family[species$species_id %in% bridge$species_id &
                                  !is.na(species$family)]))
   }
@@ -397,17 +397,17 @@ fw_filter_choices <- function(data) {
 #'   records each slider's FULL range alongside the reader's setting, so the
 #'   summary can tell "they widened it to everything" from "they never touched
 #'   it" and print "All" rather than a pair of bounds nobody chose.
-fw_filter_state <- function(input, ids = fw_filter_ids(), ch = NULL) {
-  g <- function(nm) {
-    v <- input[[nm]]
+fw_filter_state = function(input, ids = fw_filter_ids(), ch = NULL) {
+  g = function(nm) {
+    v = input[[nm]]
     if (is.null(v)) character(0) else v[nzchar(v)]
   }
-  out <- list()
+  out = list()
   for (id in ids) {
     if (FW_FILTERS[[id]]$kind %in% c("range", "size")) next
-    out[[id]] <- g(id)
-    when <- FW_FILTERS[[id]]$when
-    if (!is.null(when) && !when$value %in% g(when$input)) out[[id]] <- character(0)
+    out[[id]] = g(id)
+    when = FW_FILTERS[[id]]$when
+    if (!is.null(when) && !when$value %in% g(when$input)) out[[id]] = character(0)
   }
   if ("size" %in% ids) {
     # ONLY THE UNITS THE READER CAN CURRENTLY SEE, and this is the control that
@@ -421,34 +421,34 @@ fw_filter_state <- function(input, ids = fw_filter_ids(), ch = NULL) {
     #
     # NULL for a unit that is not offered, which is a real state rather than a
     # missing value: fw_size_match() reads it as "this unit is not constrained".
-    offered <- fw_size_units(input$regime %||% character(0))
+    offered = fw_size_units(input$regime %||% character(0))
     for (unit in FW_SIZE_UNITS) {
       if (!unit %in% offered) next
-      out[[paste0("size_", unit)]] <- input[[paste0("size_", unit)]]
+      out[[paste0("size_", unit)]] = input[[paste0("size_", unit)]]
       if (!is.null(ch)) {
-        out[[paste0("size_full_", unit)]] <- fw_size_log_range(ch$size[[unit]])
+        out[[paste0("size_full_", unit)]] = fw_size_log_range(ch$size[[unit]])
       }
     }
-    out$include_no_size <- isTRUE(input$include_no_size)
+    out$include_no_size = isTRUE(input$include_no_size)
   }
   if ("years" %in% ids) {
-    out$year_from <- input$years[1]
-    out$year_to <- input$years[2]
-    out$include_no_year <- isTRUE(input$include_no_year)
+    out$year_from = input$years[1]
+    out$year_to = input$years[2]
+    out$include_no_year = isTRUE(input$include_no_year)
     # THE SLIDER'S OWN ENDS, carried alongside the reader's, so anything
     # summarising this selection can tell "1934 to 2025 because I chose it"
     # from "1934 to 2025 because I did not touch the slider". The size filter
     # has kept its equivalent (size_full_*) for the same reason since it had
     # one; the years row had no way to make that distinction until the PDF's
     # filters table started hiding untouched filters (client, 23 Sept 2026).
-    if (!is.null(ch)) out$year_full <- c(ch$year_min, ch$year_max)
+    if (!is.null(ch)) out$year_full = c(ch$year_min, ch$year_max)
   }
-  out$.ids <- ids
+  out$.ids = ids
   out
 }
 
 #' Reset every control this page offers
-fw_filter_clear <- function(session, ids, ch) {
+fw_filter_clear = function(session, ids, ch) {
   for (id in ids) {
     if (identical(FW_FILTERS[[id]]$kind, "multi")) {
       updateSelectizeInput(session, id, selected = character(0))
@@ -456,7 +456,7 @@ fw_filter_clear <- function(session, ids, ch) {
   }
   if ("size" %in% ids) {
     for (unit in FW_SIZE_UNITS) {
-      r <- fw_size_log_range(ch$size[[unit]])
+      r = fw_size_log_range(ch$size[[unit]])
       if (!is.null(r)) updateSliderInput(session, paste0("size_", unit), value = r)
     }
     updateCheckboxInput(session, "include_no_size", value = TRUE)
@@ -472,14 +472,14 @@ fw_filter_clear <- function(session, ids, ch) {
 #' The same shape fw_filter_state() reads off the inputs, built without them,
 #' so Clear can build the default report in the same flush that resets the
 #' controls. dev/plan_test.R asserts the two agree.
-fw_filter_defaults <- function(ids, ch) {
-  input <- list(include_no_size = TRUE, include_no_year = TRUE)
+fw_filter_defaults = function(ids, ch) {
+  input = list(include_no_size = TRUE, include_no_year = TRUE)
   if ("size" %in% ids) {
     for (unit in FW_SIZE_UNITS) {
-      input[[paste0("size_", unit)]] <- fw_size_log_range(ch$size[[unit]])
+      input[[paste0("size_", unit)]] = fw_size_log_range(ch$size[[unit]])
     }
   }
-  if ("years" %in% ids) input$years <- c(ch$year_min, ch$year_max)
+  if ("years" %in% ids) input$years = c(ch$year_min, ch$year_max)
   fw_filter_state(input, ids, ch = ch)
 }
 
@@ -495,16 +495,16 @@ fw_filter_defaults <- function(ids, ch) {
 #' @param sp species labels with their taxa and family, from fw_species_label()
 #' @param taxa,family what the reader chose, possibly empty
 #' @param all the picker's full list of labels
-fw_species_allowed <- function(sp, taxa, family, all) {
-  keep <- rep(TRUE, nrow(sp))
-  if (length(taxa)) keep <- keep & sp$taxa %in% taxa
-  if (length(family)) keep <- keep & sp$family %in% family
+fw_species_allowed = function(sp, taxa, family, all) {
+  keep = rep(TRUE, nrow(sp))
+  if (length(taxa)) keep = keep & sp$taxa %in% taxa
+  if (length(family)) keep = keep & sp$family %in% family
   all[all %in% sp$label[keep]]
 }
 
 # The protected side's three pickers, and the filters they are narrowed BY
 # rather than narrowing. See fw_protected_allowed().
-FW_PROTECTED_FILTERS <- c("taxa_beneficiary", "family_beneficiary", "beneficiary")
+FW_PROTECTED_FILTERS = c("taxa_beneficiary", "family_beneficiary", "beneficiary")
 
 #' What the protected pickers may offer, given every other filter
 #'
@@ -524,11 +524,11 @@ FW_PROTECTED_FILTERS <- c("taxa_beneficiary", "family_beneficiary", "beneficiary
 #' @param taxa,family the reader's protected kind of animal and family
 #' @param ch fw_filter_choices(data), whose order each list keeps
 #' @return list(taxa_beneficiary, family_beneficiary, beneficiary)
-fw_protected_allowed <- function(data, sp, attempt_ids, taxa, family, ch) {
-  ben_ids <- unique(data$attempt_species$species_id[
+fw_protected_allowed = function(data, sp, attempt_ids, taxa, family, ch) {
+  ben_ids = unique(data$attempt_species$species_id[
     data$attempt_species$role == "beneficiary" &
       data$attempt_species$attempt_id %in% attempt_ids])
-  here <- sp[sp$species_id %in% ben_ids, ]
+  here = sp[sp$species_id %in% ben_ids, ]
   list(
     taxa_beneficiary   = ch$taxa_beneficiary[ch$taxa_beneficiary %in% here$taxa],
     family_beneficiary = ch$family_beneficiary[ch$family_beneficiary %in% here$family],
@@ -559,18 +559,18 @@ fw_protected_allowed <- function(data, sp, attempt_ids, taxa, family, ch) {
 #' behind by deselecting Fish must not keep narrowing the list either.
 #'
 #' @param ids the filter ids the page draws
-fw_link_species_filters <- function(input, session, data, choices, ids) {
-  sp <- fw_species_label(data$species)
-  picked <- function(x) if (length(x)) as.character(x) else character(0)
-  shown <- function(id) {
+fw_link_species_filters = function(input, session, data, choices, ids) {
+  sp = fw_species_label(data$species)
+  picked = function(x) if (length(x)) as.character(x) else character(0)
+  shown = function(id) {
     if (!id %in% ids) return(character(0))
-    when <- FW_FILTERS[[id]]$when
+    when = FW_FILTERS[[id]]$when
     if (!is.null(when) && !when$value %in% picked(input[[when$input]])) {
       return(character(0))
     }
     picked(input[[id]])
   }
-  update <- function(id, allowed) {
+  update = function(id, allowed) {
     shiny::updateSelectizeInput(session, id, choices = allowed,
                                 selected = intersect(picked(input[[id]]), allowed))
   }
@@ -578,7 +578,7 @@ fw_link_species_filters <- function(input, session, data, choices, ids) {
   # ---- Invasive: within its own side ----
   if ("family" %in% ids) {
     shiny::observeEvent(picked(input$taxa), {
-      fam <- sp$family[!is.na(sp$family) &
+      fam = sp$family[!is.na(sp$family) &
                          (!length(picked(input$taxa)) | sp$taxa %in% picked(input$taxa))]
       update("family", choices$family[choices$family %in% fam])
     }, ignoreNULL = FALSE, ignoreInit = TRUE)
@@ -591,17 +591,17 @@ fw_link_species_filters <- function(input, session, data, choices, ids) {
   }
 
   # ---- Protected: by everything else ----
-  others <- setdiff(ids, FW_PROTECTED_FILTERS)
+  others = setdiff(ids, FW_PROTECTED_FILTERS)
   if (!length(intersect(ids, FW_PROTECTED_FILTERS))) return(invisible(NULL))
   # DEBOUNCED, because the size and year sliders send a value per pixel of a
   # drag, and each one would otherwise re-filter the database.
-  relevant <- shiny::debounce(shiny::reactive({
-    f <- fw_filter_state(input, others, ch = choices)
+  relevant = shiny::debounce(shiny::reactive({
+    f = fw_filter_state(input, others, ch = choices)
     fw_filter_apply(data, f)$attempt_id
   }), 300)
   shiny::observeEvent(list(relevant(), shown("taxa_beneficiary"),
                            shown("family_beneficiary")), {
-    allowed <- fw_protected_allowed(data, sp, relevant(),
+    allowed = fw_protected_allowed(data, sp, relevant(),
                                     shown("taxa_beneficiary"),
                                     shown("family_beneficiary"), choices)
     for (id in intersect(FW_PROTECTED_FILTERS, ids)) update(id, allowed[[id]])
@@ -631,7 +631,7 @@ fw_link_species_filters <- function(input, session, data, choices, ids) {
 #' @param keep what they chose, or empty for "no choice"
 #' @param all what `to` offers when nothing is chosen
 #' @return the allowed values of `to`, sorted
-fw_geo_allowed <- function(geo, from, to, keep, all) {
+fw_geo_allowed = function(geo, from, to, keep, all) {
   # NO CHOICE MEANS NO NARROWING, not "nothing matches". An empty selection is
   # the reader clearing the box, and it has to restore the full list rather than
   # leave the other picker holding whatever the last choice left behind.
@@ -669,25 +669,25 @@ fw_geo_allowed <- function(geo, from, to, keep, all) {
 #' @param choices fw_filter_choices(data), for the full list each picker
 #'   returns to when the other is cleared
 #' @return invisibly, the two observers
-fw_link_geo_filters <- function(input, session, data, choices) {
-  geo <- unique(data$attempt[, c("continent", "country")])
-  geo <- geo[!is.na(geo$continent) & !is.na(geo$country), ]
+fw_link_geo_filters = function(input, session, data, choices) {
+  geo = unique(data$attempt[, c("continent", "country")])
+  geo = geo[!is.na(geo$continent) & !is.na(geo$country), ]
 
   # Both selections come back as NULL when the reader empties the box and as
   # character(0) from fw_filter_clear(), and those must not read as different
   # states or the two observers would trade writes forever.
-  picked <- function(x) if (length(x)) as.character(x) else character(0)
+  picked = function(x) if (length(x)) as.character(x) else character(0)
 
-  a <- shiny::observeEvent(picked(input$continent), {
-    allowed <- fw_geo_allowed(geo, "continent", "country",
+  a = shiny::observeEvent(picked(input$continent), {
+    allowed = fw_geo_allowed(geo, "continent", "country",
                               picked(input$continent), choices$country)
     shiny::updateSelectizeInput(session, "country", choices = allowed,
                                 selected = intersect(picked(input$country),
                                                      allowed))
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
 
-  b <- shiny::observeEvent(picked(input$country), {
-    allowed <- fw_geo_allowed(geo, "country", "continent",
+  b = shiny::observeEvent(picked(input$country), {
+    allowed = fw_geo_allowed(geo, "country", "continent",
                               picked(input$country), choices$continent)
     shiny::updateSelectizeInput(session, "continent", choices = allowed,
                                 selected = intersect(picked(input$continent),
@@ -708,8 +708,8 @@ fw_link_geo_filters <- function(input, session, data, choices) {
 #' @param ns the calling module's namespace function
 #' @param id the filter id in FW_FILTERS
 #' @param control the already-built control for that filter
-fw_filter_when_panel <- function(ns, id, control) {
-  when <- FW_FILTERS[[id]]$when
+fw_filter_when_panel = function(ns, id, control) {
+  when = FW_FILTERS[[id]]$when
   if (is.null(when)) return(control)
   shiny::conditionalPanel(
     sprintf("(input['%s'] || []).indexOf('%s') > -1", ns(when$input), when$value),
@@ -726,11 +726,11 @@ fw_filter_when_panel <- function(ns, id, control) {
 #'
 #' @param input,session the calling module's own input and session
 #' @param ids the filter ids the page draws
-fw_filter_when_observers <- function(input, session, ids) {
+fw_filter_when_observers = function(input, session, ids) {
   for (fid in intersect(ids, names(Filter(function(x) !is.null(x$when), FW_FILTERS)))) {
     local({
-      id <- fid
-      when <- FW_FILTERS[[id]]$when
+      id = fid
+      when = FW_FILTERS[[id]]$when
       shiny::observeEvent(input[[when$input]], ignoreNULL = FALSE, {
         if (!when$value %in% (input[[when$input]] %||% character(0)) && length(input[[id]])) {
           shiny::updateSelectizeInput(session, id, selected = character(0))
@@ -744,43 +744,43 @@ fw_filter_when_observers <- function(input, session, ids) {
 # ---- Applying ----------------------------------------------------------------
 
 #' Apply the filters, returning the matching attempt rows
-fw_filter_apply <- function(data, f) {
-  a <- data$attempt
-  ids <- f$.ids %||% fw_filter_ids()
+fw_filter_apply = function(data, f) {
+  a = data$attempt
+  ids = f$.ids %||% fw_filter_ids()
 
-  species <- NULL  # built once, only if a species-side filter is in play
+  species = NULL  # built once, only if a species-side filter is in play
 
   for (id in ids) {
-    spec <- FW_FILTERS[[id]]
-    vals <- f[[id]]
+    spec = FW_FILTERS[[id]]
+    vals = f[[id]]
     if (spec$kind %in% c("range", "size") || !length(vals)) next
 
     if (!is.null(spec$column)) {
-      a <- a[a[[spec$column]] %in% vals, ]
+      a = a[a[[spec$column]] %in% vals, ]
       next
     }
 
     # ANY-OF over a bridge table.
     if (identical(spec$bridge, "species")) {
-      if (is.null(species)) species <- fw_species_label(data$species)
+      if (is.null(species)) species = fw_species_label(data$species)
       # Role is part of the question, not a detail: filtering on an invasive
       # species means "attempts against this species", never "attempts that
       # happened to benefit it".
-      hit <- data$attempt_species |>
+      hit = data$attempt_species |>
         filter(role == spec$role) |>
         left_join(select(species, species_id, label, taxa, family), by = "species_id") |>
         filter(.data[[spec$match]] %in% vals)
     } else {
-      hit <- data$attempt_method |>
+      hit = data$attempt_method |>
         left_join(select(data$method, method_id, method_name), by = "method_id") |>
         filter(.data[[spec$match]] %in% vals)
     }
-    a <- a[a$attempt_id %in% unique(hit$attempt_id), ]
+    a = a[a$attempt_id %in% unique(hit$attempt_id), ]
   }
 
   # Size, before the year range, because both are bounds rather than choices and
   # the year block below returns.
-  if ("size" %in% ids) a <- a[fw_size_match(a, f), ]
+  if ("size" %in% ids) a = a[fw_size_match(a, f), ]
 
   if (!"years" %in% ids) return(a)
 
@@ -790,9 +790,9 @@ fw_filter_apply <- function(data, f) {
   # a renderUI, so its value is NULL until the browser paints it, and a NULL
   # silently collapsing the comparison to logical(0) would empty the whole
   # selection rather than leave it alone.
-  from <- if (length(f$year_from)) f$year_from else -Inf
-  to   <- if (length(f$year_to))   f$year_to   else  Inf
-  in_range <- !is.na(a$start_year) & a$start_year >= from & a$start_year <= to
+  from = if (length(f$year_from)) f$year_from else -Inf
+  to   = if (length(f$year_to))   f$year_to   else  Inf
+  in_range = !is.na(a$start_year) & a$start_year >= from & a$start_year <= to
   a[in_range | (is.na(a$start_year) & isTRUE(f$include_no_year)), ]
 }
 
@@ -800,17 +800,17 @@ fw_filter_apply <- function(data, f) {
 #'
 #' Reported in FW_FILTERS order, which is narrowest choice first. Naming the
 #' filter is the difference between a dead end and a next step.
-fw_filter_zero_hints <- function(data, f) {
-  ids <- f$.ids %||% fw_filter_ids()
-  hints <- character(0)
+fw_filter_zero_hints = function(data, f) {
+  ids = f$.ids %||% fw_filter_ids()
+  hints = character(0)
 
   # Drop one filter at a time and see which one alone unblocks the result.
   for (id in ids) {
     if (FW_FILTERS[[id]]$kind %in% c("range", "size") || !length(f[[id]])) next
-    relaxed <- f
-    relaxed[[id]] <- character(0)
+    relaxed = f
+    relaxed[[id]] = character(0)
     if (nrow(fw_filter_apply(data, relaxed)) > 0) {
-      hints <- c(hints, fw_filter_label(id))
+      hints = c(hints, fw_filter_label(id))
     }
   }
 
@@ -820,20 +820,20 @@ fw_filter_zero_hints <- function(data, f) {
   # actually helps, and they are checked one at a time so the hint names the one
   # that is in the way rather than both.
   if (!length(hints) && "size" %in% ids) {
-    relaxed <- f
-    for (unit in FW_SIZE_UNITS) relaxed[[paste0("size_", unit)]] <- NULL
-    relaxed$include_no_size <- TRUE
+    relaxed = f
+    for (unit in FW_SIZE_UNITS) relaxed[[paste0("size_", unit)]] = NULL
+    relaxed$include_no_size = TRUE
     if (nrow(fw_filter_apply(data, relaxed)) > 0) {
-      hints <- fw_filter_label("size")
+      hints = fw_filter_label("size")
     }
   }
   if (!length(hints) && "years" %in% ids) {
-    relaxed <- f
-    relaxed$year_from <- -Inf
-    relaxed$year_to <- Inf
-    relaxed$include_no_year <- TRUE
+    relaxed = f
+    relaxed$year_from = -Inf
+    relaxed$year_to = Inf
+    relaxed$include_no_year = TRUE
     if (nrow(fw_filter_apply(data, relaxed)) > 0) {
-      hints <- fw_filter_label("years")
+      hints = fw_filter_label("years")
     }
   }
   hints
@@ -846,15 +846,15 @@ fw_filter_zero_hints <- function(data, f) {
 #' Driven from the same registry as everything else, so a filter cannot be
 #' offered on the page and then be missing from the spreadsheet that is supposed
 #' to record what the reader selected.
-fw_filter_summary <- function(f) {
-  ids <- f$.ids %||% fw_filter_ids()
-  rows <- list()
+fw_filter_summary = function(f) {
+  ids = f$.ids %||% fw_filter_ids()
+  rows = list()
   for (id in ids) {
     if (FW_FILTERS[[id]]$kind %in% c("range", "size")) next
-    vals <- f[[id]]
-    lab <- FW_FILTERS[[id]]$labels
-    if (!is.null(lab) && length(vals)) vals <- match.fun(lab)(vals)
-    rows[[length(rows) + 1L]] <- list(
+    vals = f[[id]]
+    lab = FW_FILTERS[[id]]$labels
+    if (!is.null(lab) && length(vals)) vals = match.fun(lab)(vals)
+    rows[[length(rows) + 1L]] = list(
       setting = fw_filter_label(id),
       value = if (length(vals)) paste(vals, collapse = FW_MULTI_SEP)
               else fw_t("export", "filter_all")
@@ -864,14 +864,14 @@ fw_filter_summary <- function(f) {
     # Recorded in REAL units, not in the log10 the slider works in. A sheet
     # saying "2.2 to 4.6" six months later is worse than no row at all.
     for (unit in FW_SIZE_UNITS) {
-      b <- f[[paste0("size_", unit)]]
-      full <- f[[paste0("size_full_", unit)]]
+      b = f[[paste0("size_", unit)]]
+      full = f[[paste0("size_full_", unit)]]
       # A slider left where it started is not a filter. It reads as one on the
       # sheet, though - and worse, it reads as a bound the reader chose, because
       # the slider's ends are widened out to whole log steps and so do not match
       # the real minimum and maximum in the data.
-      untouched <- !length(b) || (length(full) == 2 && isTRUE(all.equal(b, full)))
-      rows[[length(rows) + 1L]] <- list(
+      untouched = !length(b) || (length(full) == 2 && isTRUE(all.equal(b, full)))
+      rows[[length(rows) + 1L]] = list(
         setting = paste0(fw_filter_label("size"), " (", fw_t("filters", paste0("unit_", unit)), ")"),
         value = if (!untouched && length(b) == 2 && !anyNA(b)) {
           paste0(fw_size_label(fw_size_unlog(b[1])), fw_t("export", "range_sep"),
@@ -879,14 +879,14 @@ fw_filter_summary <- function(f) {
         } else fw_t("export", "filter_all")
       )
     }
-    rows[[length(rows) + 1L]] <- list(
+    rows[[length(rows) + 1L]] = list(
       setting = fw_t("filters", "no_size"),
       value = if (isTRUE(f$include_no_size)) fw_t("export", "filter_yes")
               else fw_t("export", "filter_no")
     )
   }
   if ("years" %in% ids) {
-    rows[[length(rows) + 1L]] <- list(
+    rows[[length(rows) + 1L]] = list(
       setting = fw_filter_label("years"),
       # A slider left at its ends is not a filter - see the size block above.
       # NA rather than FALSE when year_full is absent, so a caller that cannot
@@ -897,7 +897,7 @@ fw_filter_summary <- function(f) {
                      fw_t("export", "range_sep"),
                      f$year_to %||% fw_t("export", "range_missing"))
     )
-    rows[[length(rows) + 1L]] <- list(
+    rows[[length(rows) + 1L]] = list(
       setting = fw_t("filters", "no_year"),
       value = if (isTRUE(f$include_no_year)) fw_t("export", "filter_yes")
               else fw_t("export", "filter_no")

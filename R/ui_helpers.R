@@ -26,7 +26,7 @@ library(bslib)
 #' compiles to the previously cached CSS and appears to have done nothing.
 #'
 #' @param entry path to the Sass entry file
-fw_compile_css <- function(entry = "www/scss/main.scss") {
+fw_compile_css = function(entry = "www/scss/main.scss") {
   as.character(sass::sass(
     list(fw_sass_variables(), sass::sass_file(entry)),
     options = sass::sass_options(output_style = "compressed"),
@@ -35,22 +35,22 @@ fw_compile_css <- function(entry = "www/scss/main.scss") {
 }
 
 #' A digest of every Sass source file in a directory
-fw_scss_digest <- function(dir = "www/scss") {
-  files <- sort(list.files(dir, pattern = "[.]scss$", full.names = TRUE))
+fw_scss_digest = function(dir = "www/scss") {
+  files = sort(list.files(dir, pattern = "[.]scss$", full.names = TRUE))
   paste(tools::md5sum(files), collapse = "-")
 }
 
 # ---- Layout ------------------------------------------------------------------
 
 #' The standard content column
-fw_container <- function(...) div(class = "fw-container", ...)
+fw_container = function(...) div(class = "fw-container", ...)
 
 
-fw_section <- function(..., variant = c("default", "paper", "shoal",
+fw_section = function(..., variant = c("default", "paper", "shoal",
                                         "lagoon", "indigo"),
                        tight = FALSE, bleed = FALSE, flush = NULL, id = NULL) {
-  variant <- match.arg(variant)
-  classes <- c(
+  variant = match.arg(variant)
+  classes = c(
     "fw-section",
     if (variant != "default") paste0("fw-section--", variant),
     if (tight) "fw-section--tight",
@@ -61,8 +61,8 @@ fw_section <- function(..., variant = c("default", "paper", "shoal",
 }
 
 
-fw_emphasis <- function(text) {
-  parts <- strsplit(text, "**", fixed = TRUE)[[1]]
+fw_emphasis = function(text) {
+  parts = strsplit(text, "**", fixed = TRUE)[[1]]
   if (length(parts) < 2) return(text)
   do.call(tagList, lapply(seq_along(parts), function(i) {
     # No whitespace around the tag, or the tagList's newlines collapse to a
@@ -86,7 +86,7 @@ fw_emphasis <- function(text) {
 #' @param show_title FALSE keeps the h1 for screen readers only. The client
 #'   asked for the visible title on The solution page alone; every page still
 #'   needs one heading at the top of its outline.
-fw_page_header <- function(title, description = NULL, format = fw_emphasis,
+fw_page_header = function(title, description = NULL, format = fw_emphasis,
                            modifier = NULL, show_title = TRUE) {
   tags$header(
     class = paste(c("fw-page-header", if (!is.null(modifier)) paste0("fw-page-header--", modifier)),
@@ -123,7 +123,7 @@ fw_page_header <- function(title, description = NULL, format = fw_emphasis,
 #' @param value   the figure, already formatted
 #' @param label   a plain sentence-case description
 #' @param tooltip optional clarification, shown through a keyboard-reachable icon
-fw_kpi_stat <- function(value, label, tooltip = NULL) {
+fw_kpi_stat = function(value, label, tooltip = NULL) {
   div(
     class = "fw-kpi",
     tags$span(class = "fw-kpi__value", value),
@@ -137,10 +137,10 @@ fw_kpi_stat <- function(value, label, tooltip = NULL) {
   )
 }
 
-fw_kpi_strip <- function(...) div(class = "fw-kpi-strip", ...)
+fw_kpi_strip = function(...) div(class = "fw-kpi-strip", ...)
 
 #' Thousands separators, for figures shown to the reader
-fw_fmt_num <- function(x) {
+fw_fmt_num = function(x) {
   if (is.null(x) || length(x) == 0 || is.na(x)) return(fw_t("common", "empty_value"))
   format(x, big.mark = ",", trim = TRUE, scientific = FALSE)
 }
@@ -158,16 +158,16 @@ fw_fmt_num <- function(x) {
 #'
 #' @param n the figure the label sits under
 #' @param one,many the two forms, both from the copy deck
-fw_plural <- function(n, one, many) {
+fw_plural = function(n, one, many) {
   if (is.null(n) || length(n) == 0 || is.na(n)) return(many)
   if (n == 1) one else many
 }
 
 #' 1st, 2nd, 3rd, 4th. Used in the submission confirmation.
-fw_ordinal <- function(n) {
+fw_ordinal = function(n) {
   if (is.na(n)) return("")
-  last_two <- n %% 100
-  suffix <- if (last_two %in% 11:13) "th" else {
+  last_two = n %% 100
+  suffix = if (last_two %in% 11:13) "th" else {
     switch(as.character(n %% 10), "1" = "st", "2" = "nd", "3" = "rd", "th")
   }
   paste0(format(n, big.mark = ",", trim = TRUE), suffix)
@@ -183,8 +183,8 @@ fw_ordinal <- function(n) {
 #'
 #' @param text  the tooltip content
 #' @param label what the icon relates to, for the accessible name
-fw_info <- function(text, label = NULL) {
-  aria <- if (is.null(label)) {
+fw_info = function(text, label = NULL) {
+  aria = if (is.null(label)) {
     fw_t("common", "info_icon_label")
   } else {
     fw_fill(fw_t("a11y", "more_about"), label = label)
@@ -217,13 +217,13 @@ fw_info <- function(text, label = NULL) {
 #'   valid HTML, and a screen reader joins them into one name)
 #' @param tail  anything that belongs after the last word, inside the wrap
 #'   (the required marker)
-fw_with_info <- function(text, info, wrap = identity, tail = NULL) {
+fw_with_info = function(text, info, wrap = identity, tail = NULL) {
   if (is.null(info)) return(wrap(tagList(text, tail)))
   if (!is.character(text) || length(text) != 1) return(tagList(wrap(tagList(text, tail)), info))
-  words <- trimws(text)
-  cut <- regexpr("[[:space:]][^[:space:]]+$", words)
-  head <- if (cut > 0) paste0(substr(words, 1, cut), "") else ""
-  last <- if (cut > 0) substr(words, cut + 1, nchar(words)) else words
+  words = trimws(text)
+  cut = regexpr("[[:space:]][^[:space:]]+$", words)
+  head = if (cut > 0) paste0(substr(words, 1, cut), "") else ""
+  last = if (cut > 0) substr(words, cut + 1, nchar(words)) else words
   tagList(
     if (nzchar(head)) wrap(head),
     tags$span(class = "fw-nowrap", wrap(tagList(last, tail)), info)
@@ -233,7 +233,7 @@ fw_with_info <- function(text, info, wrap = identity, tail = NULL) {
 # Bootstrap popovers are opt-in and have to be initialised. bslib loads the
 # Bootstrap bundle, so this only needs to find the triggers, including any added
 # later by insertUI.
-fw_popover_script <- function() {
+fw_popover_script = function() {
   tags$script(HTML("
     (function () {
       function initPopovers(root) {
@@ -269,7 +269,7 @@ fw_popover_script <- function() {
 #' @param required marks the field and appends a screen-reader-only "required"
 #' @param tooltip  optional text for the information icon
 #' @param help     optional help text shown under the control
-fw_field <- function(input, label, required = FALSE, tooltip = NULL,
+fw_field = function(input, label, required = FALSE, tooltip = NULL,
                      help = NULL, input_id = NULL) {
   div(
     class = "fw-field",
@@ -314,15 +314,15 @@ fw_field <- function(input, label, required = FALSE, tooltip = NULL,
 #' @param current  the page being shown
 #' @param total    how many pages there are
 #' @param window   how many pages to show either side of the current one
-fw_page_numbers <- function(input_id, current, total, window = 2L) {
+fw_page_numbers = function(input_id, current, total, window = 2L) {
   if (total <= 1L) return(NULL)
 
-  wanted <- unique(c(1L, seq(max(1L, current - window),
+  wanted = unique(c(1L, seq(max(1L, current - window),
                              min(total, current + window)), total))
-  wanted <- sort(wanted)
+  wanted = sort(wanted)
 
-  btn <- function(n) {
-    is_current <- n == current
+  btn = function(n) {
+    is_current = n == current
     tags$button(
       type = "button",
       class = paste("fw-pager__page", if (is_current) "is-current"),
@@ -335,16 +335,16 @@ fw_page_numbers <- function(input_id, current, total, window = 2L) {
     )
   }
 
-  items <- list()
-  previous <- 0L
+  items = list()
+  previous = 0L
   for (n in wanted) {
     if (n - previous > 1L) {
-      items[[length(items) + 1L]] <- tags$span(
+      items[[length(items) + 1L]] = tags$span(
         class = "fw-pager__gap", `aria-hidden` = "true", "\u2026"
       )
     }
-    items[[length(items) + 1L]] <- btn(n)
-    previous <- n
+    items[[length(items) + 1L]] = btn(n)
+    previous = n
   }
 
   tags$nav(class = "fw-pager__pages", `aria-label` = fw_t("a11y", "pagination"), items)
@@ -357,7 +357,7 @@ fw_page_numbers <- function(input_id, current, total, window = 2L) {
 #' Validation errors and step changes are written here so they are announced,
 #' not only shown. Without this, a screen-reader user gets no feedback when the
 #' Next button refuses to advance.
-fw_live_region <- function(id) {
+fw_live_region = function(id) {
   div(
     id = id,
     class = "fw-visually-hidden",
@@ -367,7 +367,7 @@ fw_live_region <- function(id) {
   )
 }
 
-fw_skip_link <- function(target = "#fw-main") {
+fw_skip_link = function(target = "#fw-main") {
   tags$a(class = "fw-skip-link", href = target, fw_t("a11y", "skip_link"))
 }
 
@@ -386,17 +386,17 @@ fw_skip_link <- function(target = "#fw-main") {
 #' tags for link previews, and schema.org structured data (a WebSite and a
 #' Dataset, which also makes FWISE eligible for Google Dataset Search). Every
 #' address is absolute, from FW_SITE_URL.
-fw_head_meta <- function() {
-  title <- fw_t("app", "full_title")
-  desc  <- fw_t("app", "meta_description")
-  ld_desc <- fw_t("app", "dataset_description")
+fw_head_meta = function() {
+  title = fw_t("app", "full_title")
+  desc  = fw_t("app", "meta_description")
+  ld_desc = fw_t("app", "dataset_description")
   # THE EXPLICIT LOCKUP (14 Oct 2026), so a shared link's picture spells out
   # the name. Its 2000px copy rather than the 8334px original: a link preview
   # has no use for the extra megabytes.
-  image <- paste0(FW_SITE_URL, sub("^www/", "", FW_LOGO$explicit_file))
-  fwl   <- list(`@type` = "Organization", name = fw_t("footer", "logo_alt_fwl"),
+  image = paste0(FW_SITE_URL, sub("^www/", "", FW_LOGO$explicit_file))
+  fwl   = list(`@type` = "Organization", name = fw_t("footer", "logo_alt_fwl"),
                 url = fw_t("footer", "fwl_url"))
-  ld <- list(
+  ld = list(
     `@context` = "https://schema.org",
     `@graph` = list(
       list(`@type` = "WebSite", name = fw_t("app", "title"),
@@ -432,14 +432,14 @@ fw_head_meta <- function() {
 #' one for the body is a few sentences on what FWISE is and who runs it, with
 #' plain links that work without the app. No contact address: the address is
 #' only ever written into the page encoded (see fw_email_reveal()).
-fw_noscript_head <- function() {
+fw_noscript_head = function() {
   # BY ID, NOT CLASS: the compiled stylesheet comes later in <head>, and its
   # .fw-loader { display: flex } would win a tie on specificity.
   tags$noscript(tags$style(HTML("#fw-loader{display:none;}")))
 }
 
-fw_noscript <- function() {
-  link <- function(href, label) tags$a(href = href, label)
+fw_noscript = function() {
+  link = function(href, label) tags$a(href = href, label)
   tags$noscript(
     fw_container(
       class = "fw-noscript",
@@ -465,7 +465,7 @@ fw_noscript <- function() {
 #' - which the badge alone did not carry - at a size that can still be read.
 #' The badge moved to the loader and the busy spinner. See FW_LOGO in config.R
 #' for the files and why they are copies.
-fw_brand <- function() {
+fw_brand = function() {
   tags$a(
     class = "navbar-brand",
     href = "#",
@@ -527,7 +527,7 @@ fw_brand <- function() {
 #'   revealed mailto link or Copy is logged as contact_click with this id and
 #'   nothing else (see R/tracking.R). The reveal itself is not logged.
 #'   NULL for the FWISE address, which is not logged.
-fw_email_reveal <- function(email, label, aria = NULL, class = NULL,
+fw_email_reveal = function(email, label, aria = NULL, class = NULL,
                             btn_class = NULL, contact_id = NULL) {
   tags$span(
     class = paste(c("fw-email", class), collapse = " "),
@@ -546,15 +546,15 @@ fw_email_reveal <- function(email, label, aria = NULL, class = NULL,
 #'
 #' Reversed by character, not by byte, and encoded as UTF-8, so the script's
 #' TextDecoder and Array.from() undo it exactly for a non-ASCII address too.
-fw_email_encode <- function(email) {
-  rev_chr <- paste(rev(strsplit(enc2utf8(email), "", fixed = TRUE)[[1]]), collapse = "")
+fw_email_encode = function(email) {
+  rev_chr = paste(rev(strsplit(enc2utf8(email), "", fixed = TRUE)[[1]]), collapse = "")
   jsonlite::base64_enc(charToRaw(rev_chr))
 }
 
 #' The inverse, which the page never needs - it is here for the tests
-fw_email_decode <- function(x) {
-  s <- rawToChar(jsonlite::base64_dec(x))
-  Encoding(s) <- "UTF-8"
+fw_email_decode = function(x) {
+  s = rawToChar(jsonlite::base64_dec(x))
+  Encoding(s) = "UTF-8"
   paste(rev(strsplit(s, "", fixed = TRUE)[[1]]), collapse = "")
 }
 
@@ -562,7 +562,7 @@ fw_email_decode <- function(x) {
 #'
 #' fw_email_reveal() in the indigo strip, which restyles it - see
 #' .fw-footer__contact in _components.scss.
-fw_footer_contact <- function() {
+fw_footer_contact = function() {
   fw_email_reveal(
     fw_t("footer", "contact_email"),
     label = fw_t("footer", "contact_label"),
@@ -571,7 +571,7 @@ fw_footer_contact <- function() {
   )
 }
 
-fw_footer_review_label <- function(n) {
+fw_footer_review_label = function(n) {
   if (isTRUE(n == 1)) fw_t("footer", "in_review_one") else fw_t("footer", "in_review_many")
 }
 
@@ -580,7 +580,7 @@ fw_footer_review_label <- function(n) {
 #' ALWAYS IN THE PAGE, hidden at zero, so the server can fill and show it when
 #' the count moves (the fw-in-review message in fw_client_script()). The
 #' startup count is written into it for the first paint and for crawlers.
-fw_footer_review <- function(in_review = 0L) {
+fw_footer_review = function(in_review = 0L) {
   tags$span(
     id = "fw-footer-review", class = "fw-footer__review",
     hidden = if (!isTRUE(in_review > 0)) NA,
@@ -590,14 +590,14 @@ fw_footer_review <- function(in_review = 0L) {
 }
 
 #' Send the footer a new in-review count
-fw_send_review_count <- function(session, n) {
+fw_send_review_count = function(session, n) {
   session$sendCustomMessage("fw-in-review", list(
     n = fw_fmt_num(n), label = fw_footer_review_label(n), show = isTRUE(n > 0)
   ))
 }
 
-fw_footer <- function(last_updated, in_review = 0L) {
-  logo <- function(href, src, alt) {
+fw_footer = function(last_updated, in_review = 0L) {
+  logo = function(href, src, alt) {
     tags$a(
       href = href, target = "_blank", rel = "noopener noreferrer",
       tags$img(src = src, alt = alt)
@@ -710,18 +710,18 @@ fw_footer <- function(last_updated, in_review = 0L) {
 #'
 #' The card is drawn once, by the footer (fw_doi_soon()), which is on every
 #' page; a native popover can be opened from anywhere in the document.
-fw_doi_link <- function(label) {
-  url <- fw_t("footer", "doi_url")
+fw_doi_link = function(label) {
+  url = fw_t("footer", "doi_url")
   if (!identical(url, "#") && nzchar(url)) return(tags$a(href = url, label))
   tags$button(type = "button", class = "fw-link-button",
               popovertarget = FW_DOI_SOON_ID, label)
 }
 
-FW_DOI_SOON_ID <- "fw-doi-soon"
+FW_DOI_SOON_ID = "fw-doi-soon"
 
 #' The "coming soon" card behind fw_doi_link(). NULL once there is a DOI.
-fw_doi_soon <- function() {
-  url <- fw_t("footer", "doi_url")
+fw_doi_soon = function() {
+  url = fw_t("footer", "doi_url")
   if (!identical(url, "#") && nzchar(url)) return(NULL)
   div(
     id = FW_DOI_SOON_ID, popover = "auto", class = "fw-soon-card",
@@ -747,18 +747,18 @@ fw_doi_soon <- function() {
 #' @param unit the stored unit code ("ha" or "km"); its short label is printed
 #'   after every figure on the handles and the ends, so a reader dragging the
 #'   slider sees "0.03 ha" rather than a bare number (Sept 2026 user testing).
-fw_slider_prettify <- function(tag, unit) {
-  mark <- function(x) {
+fw_slider_prettify = function(tag, unit) {
+  mark = function(x) {
     if (!inherits(x, "shiny.tag")) {
       if (is.list(x)) return(lapply(x, mark))
       return(x)
     }
     if (identical(x$name, "input")) {
-      x$attribs$`data-fw-prettify` <- "size"
-      x$attribs$`data-fw-unit` <- fw_t("filters", paste0("unit_short_", unit))
+      x$attribs$`data-fw-prettify` = "size"
+      x$attribs$`data-fw-unit` = fw_t("filters", paste0("unit_short_", unit))
       return(x)
     }
-    x$children <- lapply(x$children, mark)
+    x$children = lapply(x$children, mark)
     x
   }
   mark(tag)
@@ -774,7 +774,7 @@ fw_slider_prettify <- function(tag, unit) {
 #' Shiny's own silent conditions (req(), validate()) pass straight through.
 #'
 #' @return the value of `expr`, or NULL if it failed
-fw_safely <- function(session, expr) {
+fw_safely = function(session, expr) {
   tryCatch(expr, error = function(e) {
     if (inherits(e, "shiny.silent.error")) stop(e)
     message("[fw_safely] ", conditionMessage(e))
@@ -814,7 +814,7 @@ fw_safely <- function(session, expr) {
 #' The badge's URL goes in as a custom property from here, so the stylesheet's
 #' busy spinner (see the .recalculating rule in _components.scss) draws the
 #' same file FW_LOGO names rather than a second copy of the path.
-fw_loader <- function() {
+fw_loader = function() {
   tagList(
     # The timeout feeds the loader's give-up animation in _components.scss.
     # See FW_LOADER_TIMEOUT_S.
@@ -846,7 +846,7 @@ fw_loader <- function() {
 #' Two messages: one writes into the polite live region so validation and step
 #' changes are announced, the other moves the navbar from the server, which is
 #' how the stub actions and the contacts page change page.
-fw_client_script <- function() {
+fw_client_script = function() {
   # A TOKEN AND sub(), NOT sprintf(). sprintf() caps a format string at 8192
   # characters and this script is longer than that, so threading a value
   # through it fails at load with a message about format length.
@@ -854,15 +854,15 @@ fw_client_script <- function() {
   # THE EMAIL BUTTONS' WORDS COME IN THE SAME WAY, as JSON string literals, so
   # the copy deck stays the one place they are written. gsub() because Copy
   # appears twice.
-  js_str <- function(x) as.character(jsonlite::toJSON(x, auto_unbox = TRUE))
-  words <- c(
+  js_str = function(x) as.character(jsonlite::toJSON(x, auto_unbox = TRUE))
+  words = c(
     "{{EMAIL_COPY}}"       = js_str(fw_t("common", "email_copy")),
     "{{EMAIL_COPY_ARIA}}"  = js_str(fw_t("common", "email_copy_aria")),
     "{{EMAIL_COPIED}}"     = js_str(fw_t("common", "email_copied")),
     "{{EMAIL_COPIED_SAY}}" = js_str(fw_t("common", "email_copied_say"))
   )
-  fill_words <- function(js) {
-    for (k in names(words)) js <- gsub(k, words[[k]], js, fixed = TRUE)
+  fill_words = function(js) {
+    for (k in names(words)) js = gsub(k, words[[k]], js, fixed = TRUE)
     js
   }
   tags$script(HTML(fill_words(sub("{{KEEPALIVE_MS}}", FW_KEEPALIVE_MS, fixed = TRUE, sub("__FW_SPINNER_DELAY__", FW_SPINNER_DELAY_MS, "
@@ -1220,11 +1220,11 @@ fw_client_script <- function() {
 #'   under the title on a narrow screen (the contacts table's page size)
 #' @param figure TRUE for a block holding a chart or map, which sits on a card
 #'   (client, 1 Oct 2026); tables and tiles are left as they are
-fw_block <- function(title, note, content, note_as = c("info", "text"),
+fw_block = function(title, note, content, note_as = c("info", "text"),
                      tools = NULL, figure = FALSE) {
-  note_as <- match.arg(note_as)
-  info <- !is.null(note) && note_as == "info"
-  heading <- h3(class = if (info) "fw-block__title",
+  note_as = match.arg(note_as)
+  info = !is.null(note) && note_as == "info"
+  heading = h3(class = if (info) "fw-block__title",
                 fw_with_info(title, if (info) fw_info(note, title)))
   div(
     class = paste(c("fw-plan__block", if (figure) "fw-plan__block--figure"),
@@ -1253,7 +1253,7 @@ fw_block <- function(title, note, content, note_as = c("info", "text"),
 #' @param ... the panel body
 #' @param note one line under the title saying what is inside
 #' @param open whether it starts expanded
-fw_disclosure <- function(title, ..., note = NULL, id = NULL, open = FALSE) {
+fw_disclosure = function(title, ..., note = NULL, id = NULL, open = FALSE) {
   tags$details(
     class = "fw-disclosure", id = id,
     # NA is how htmltools writes a bare boolean attribute. FALSE would write
@@ -1293,10 +1293,10 @@ fw_disclosure <- function(title, ..., note = NULL, id = NULL, open = FALSE) {
 #'
 #' @param heading whether to draw the panel's own heading. FALSE where the
 #'   caller has already placed one, as the About page has.
-fw_caveats_ui <- function(data, heading = TRUE) {
+fw_caveats_ui = function(data, heading = TRUE) {
   # Parsed by fw_caveat_blocks() next to fw_caveats(), so the panel never has to
   # know how many blocks there are. Add or remove one there and this reflows.
-  blocks <- fw_caveat_blocks(data)
+  blocks = fw_caveat_blocks(data)
 
   div(
     class = "fw-caveats",
@@ -1304,7 +1304,7 @@ fw_caveats_ui <- function(data, heading = TRUE) {
     # One column, a bold title then its paragraphs (client, 6 Oct 2026), as
     # the Methods glossary reads. See .fw-caveats__block.
     lapply(blocks, function(b) {
-      title <- fw_caveat_title(b$heading)
+      title = fw_caveat_title(b$heading)
       div(
         class = "fw-caveats__block",
         # A BLOCK MAY HAVE NO HEADING and then gets no h3, rather than an
@@ -1324,7 +1324,7 @@ fw_caveats_ui <- function(data, heading = TRUE) {
 # heading in the copy deck was already a sentence - and then turned "How FWISE
 # was compiled" into "How fwise was compiled" the moment a heading carried an
 # acronym. A heading that is already cased is left exactly as it was written.
-fw_caveat_title <- function(x) {
+fw_caveat_title = function(x) {
   if (!length(x) || is.na(x) || !nzchar(x)) return("")
   if (!identical(x, toupper(x))) return(x)
   paste0(substr(x, 1, 1), tolower(substr(x, 2, nchar(x))))

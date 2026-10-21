@@ -8,26 +8,26 @@
 # rest of dev/ is gitignored but this file is re-included, so it travels with
 # the code; it is kept out of R/ so the deployment never loads it.
 
-relative_luminance <- function(hex) {
-  rgb <- col2rgb(hex)[, 1] / 255
-  lin <- ifelse(rgb <= 0.03928, rgb / 12.92, ((rgb + 0.055) / 1.055)^2.4)
+relative_luminance = function(hex) {
+  rgb = col2rgb(hex)[, 1] / 255
+  lin = ifelse(rgb <= 0.03928, rgb / 12.92, ((rgb + 0.055) / 1.055)^2.4)
   sum(c(0.2126, 0.7152, 0.0722) * lin)
 }
 
-contrast_ratio <- function(a, b) {
-  la <- relative_luminance(a); lb <- relative_luminance(b)
+contrast_ratio = function(a, b) {
+  la = relative_luminance(a); lb = relative_luminance(b)
   (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
 }
 
 # THE APP'S OWN PALETTE, not a copy of it. R/brand.R has no dependencies, so
 # it can be sourced here on its own.
 source("R/brand.R")
-pal <- unlist(FW_COLOURS)
+pal = unlist(FW_COLOURS)
 
 # Pairs the interface actually uses. Add a row when you introduce a new one.
 # 4.5 is the AA floor for text; 3.0 is the floor for a non-text element that
 # carries meaning (a focus ring, an input edge, an active marker).
-pairs <- list(
+pairs = list(
   list("Body text on page",         "ink",        "page",         4.5),
   list("Body text on surface",      "ink",        "surface",      4.5),
   list("Body text on sunken",       "ink",        "sunken",       4.5),
@@ -69,11 +69,11 @@ cat(sprintf("%-26s %-10s %-10s %7s %6s  %s\n",
             "Pair", "Fore", "Back", "Ratio", "Need", "Result"))
 cat(strrep("-", 78), "\n")
 
-fails <- 0
+fails = 0
 for (p in pairs) {
-  ratio <- contrast_ratio(pal[[p[[2]]]], pal[[p[[3]]]])
-  pass <- ratio >= p[[4]]
-  if (!pass) fails <- fails + 1
+  ratio = contrast_ratio(pal[[p[[2]]]], pal[[p[[3]]]])
+  pass = ratio >= p[[4]]
+  if (!pass) fails = fails + 1
   cat(sprintf("%-26s %-10s %-10s %6.2f:1 %5.1f  %s\n",
               p[[1]], p[[2]], p[[3]], ratio, p[[4]],
               if (pass) "pass" else "FAIL"))

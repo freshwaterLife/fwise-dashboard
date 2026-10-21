@@ -5,7 +5,7 @@ library(dplyr)
 
 # The filters this page offers, by registry id. Everything else in FW_FILTERS
 # is dropped here and kept on the report builder.
-FW_EXPLORE_FILTERS <- c("continent", "country", "regime", "taxa", "family",
+FW_EXPLORE_FILTERS = c("continent", "country", "regime", "taxa", "family",
                         "taxa_beneficiary", "family_beneficiary")
 
 #' @param choices fw_filter_choices() of the loaded data. The filter bar is
@@ -15,9 +15,9 @@ FW_EXPLORE_FILTERS <- c("continent", "country", "regime", "taxa", "family",
 #'   were drawn and sent, and then the input's first (empty) value arrived as a
 #'   change and all of it went again. An input in the static UI is in the set
 #'   the browser sends when it connects, so the selection is computed once.
-mod_explore_ui <- function(id, choices) {
-  ns <- NS(id)
-  ids <- fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
+mod_explore_ui = function(id, choices) {
+  ns = NS(id)
+  ids = fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
   tagList(
     fw_page_header(fw_t("explore", "title"), fw_t("explore", "description"),
                    show_title = FALSE),
@@ -129,12 +129,12 @@ mod_explore_ui <- function(id, choices) {
 }
 
 
-mod_explore_server <- function(id, data, in_review = 0L) {
+mod_explore_server = function(id, data, in_review = 0L) {
   moduleServer(id, function(input, output, session) {
-    ns <- session$ns
+    ns = session$ns
 
-    choices <- fw_filter_choices(data)
-    ids <- fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
+    choices = fw_filter_choices(data)
+    ids = fw_filter_ids(drop = setdiff(names(FW_FILTERS), FW_EXPLORE_FILTERS))
 
     observeEvent(input$clear, fw_filter_clear(session, ids, choices))
 
@@ -153,17 +153,17 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     # A number, or a reactive that app.R keeps current (14 Oct 2026). The
     # database's own counts never change in a session, so they are worked out
     # once rather than on every refresh of the in-review count.
-    stats <- fw_headline_stats(data)
-    output$kpis <- renderUI(fw_explore_db_panel(
+    stats = fw_headline_stats(data)
+    output$kpis = renderUI(fw_explore_db_panel(
       stats, if (is.function(in_review)) in_review() else in_review
     ))
 
 
-    sel <- reactive(fw_filter_apply(data, fw_filter_state(input, ids)))
+    sel = reactive(fw_filter_apply(data, fw_filter_state(input, ids)))
 
     # ---- The strip and the map ----------------------------------------------
 
-    output$summary <- renderUI(fw_plan_summary_ui(fw_plan_summary(data, sel())))
+    output$summary = renderUI(fw_plan_summary_ui(fw_plan_summary(data, sel())))
 
     # ---- The map: drawn once, markers swapped ------------------------------
     #
@@ -175,15 +175,15 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     #
     # THE DICTIONARY IS THE WHOLE DATABASE'S, so any selection the proxy draws
     # later is already covered by it. See fw_map_card_render().
-    all_pts <- fw_map_points(data, data$attempt)
-    output$map <- leaflet::renderLeaflet({
-      m <- fw_leaflet() |>
+    all_pts = fw_map_points(data, data$attempt)
+    output$map = leaflet::renderLeaflet({
+      m = fw_leaflet() |>
         fw_add_basemaps() |>
         fw_add_outcome_legend()
       # Opened on the whole database's extent, which is what the first
       # selection is, so the markers arrive without the view jumping.
-      m <- if (nrow(all_pts)) fw_fit_points(m, all_pts) else {
-        v <- FW_MAP$empty_view
+      m = if (nrow(all_pts)) fw_fit_points(m, all_pts) else {
+        v = FW_MAP$empty_view
         leaflet::setView(m, v$lng, v$lat, zoom = v$zoom)
       }
       fw_map_card_render(m, ns("map_detail"), fw_map_thumbs_all(data))
@@ -194,31 +194,31 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     # tab is shown. input$map_bounds is the widget announcing itself; it is
     # copied into a reactiveVal so that panning, which sends it again with a
     # new value, does not rerun the observer below.
-    map_ready <- reactiveVal(FALSE)
+    map_ready = reactiveVal(FALSE)
     observeEvent(input$map_bounds, map_ready(TRUE))
 
     # WHAT IS ON THE MAP NOW, as the ids drawn. Not reactive: it is only there
     # so a rerun that would draw the same thing - the tab being shown again -
     # sends nothing.
-    drawn <- NULL
+    drawn = NULL
     # fw_safely(): a failed redraw leaves the old markers up and says so,
     # rather than ending the session. See R/ui_helpers.R.
     observe(fw_safely(session, {
       req(map_ready())
-      s <- sel()
+      s = sel()
       # NOT WHILE THE TAB IS HIDDEN. Leaflet fits bounds against a hidden
       # map's zero size. Reading this also reruns the observer when the tab is
       # shown, which is when the deferred draw happens.
       if (isTRUE(session$clientData[[paste0("output_", ns("map"), "_hidden")]])) return()
-      key <- s$attempt_id
+      key = s$attempt_id
       if (identical(key, drawn)) return()
       drawn <<- key
 
-      pts <- fw_map_points(data, s)
-      proxy <- leaflet::leafletProxy("map", session = session) |>
+      pts = fw_map_points(data, s)
+      proxy = leaflet::leafletProxy("map", session = session) |>
         leaflet::clearMarkerClusters()
       if (!nrow(pts)) {
-        v <- FW_MAP$empty_view
+        v = FW_MAP$empty_view
         leaflet::setView(proxy, v$lng, v$lat, zoom = v$zoom)
         return()
       }
@@ -234,23 +234,23 @@ mod_explore_server <- function(id, data, in_review = 0L) {
     # the filters is the whole reason they are here rather than on Plan. Only
     # the picked view's are drawn: the others are hidden, and Shiny suspends a
     # hidden output until it is shown.
-    output$cumulative <- plotly::renderPlotly(
+    output$cumulative = plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_cumulative(sel())))
-    output$method_count <- plotly::renderPlotly(
+    output$method_count = plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_method(data, sel(), mode = "count")))
-    output$method_rate <- plotly::renderPlotly(
+    output$method_rate = plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_method(data, sel(), mode = "share")))
-    output$duration <- plotly::renderPlotly(
+    output$duration = plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_duration(data, sel())))
 
-    multi <- function() {
-      n <- fw_n_multi_method(data, sel())
+    multi = function() {
+      n = fw_n_multi_method(data, sel())
       if (n > 0) p(class = "fw-caption",
                    fw_fill(fw_t("plan", "r_method_multi"), n = fw_fmt_num(n)))
     }
-    output$method_multi_count <- renderUI(multi())
-    output$method_multi_rate <- renderUI(multi())
-    output$duration_caption <- renderUI(p(
+    output$method_multi_count = renderUI(multi())
+    output$method_multi_rate = renderUI(multi())
+    output$duration_caption = renderUI(p(
       class = "fw-caption",
       fw_fill(fw_t("plan", "r_duration_missing"),
               n = fw_fmt_num(nrow(fw_duration_sel(data, sel()))))))
@@ -265,7 +265,7 @@ mod_explore_server <- function(id, data, in_review = 0L) {
 #' came out at the client's request (24 Sept 2026). Nothing here is a rate,
 #' and nothing is bigger than the rest: the client's steer is to show the shape
 #' of the record rather than push one number.
-fw_explore_db_panel <- function(s, in_review = 0L) {
+fw_explore_db_panel = function(s, in_review = 0L) {
   tags$section(
     class = "fw-explore-db",
     h2(class = "fw-visually-hidden", fw_t("explore", "db_heading")),
@@ -300,8 +300,8 @@ fw_explore_db_panel <- function(s, in_review = 0L) {
 #'
 #' Tooltips come from FW_FILTERS$<id>$tip, the same registry the report builder
 #' reads, so the two pages explain a filter in the same words.
-fw_explore_filter_bar <- function(ns, ch, ids) {
-  multi <- function(id) {
+fw_explore_filter_bar = function(ns, ch, ids) {
+  multi = function(id) {
     fw_field(
       selectizeInput(ns(id), label = NULL, choices = ch[[id]], selected = NULL,
                      multiple = TRUE, width = "100%",
@@ -314,8 +314,8 @@ fw_explore_filter_bar <- function(ns, ch, ids) {
   }
   # A filter with a `when` (the fish family pair) is drawn only while its
   # kind-of-animal filter includes that value. See fw_filter_when_panel().
-  control <- function(id) fw_filter_when_panel(ns, id, multi(id))
-  drop <- setdiff(names(FW_FILTERS), ids)
+  control = function(id) fw_filter_when_panel(ns, id, multi(id))
+  drop = setdiff(names(FW_FILTERS), ids)
 
   tags$section(
     class = "fw-explore-filters",

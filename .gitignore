@@ -31,7 +31,6 @@ dev/*
 !dev/check_sheets.R
 !dev/value_test.R
 !dev/qa.R
-!dev/qa_test.R
 !dev/species_enrich.R
 !dev/fetch_species_images.R
 !dev/reconcile_source.R

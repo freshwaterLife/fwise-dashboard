@@ -4,7 +4,9 @@ What is built, what is not, every placeholder awaiting client copy, every
 `TODO(alex)`, and every decision made that the brief did not cover.
 
 Read alongside [README.md](README.md), which covers running, deploying and the
-data layer.
+data layer. Running the service - accounts, renewals, the review routine,
+publishing - is in the operations handover shared with FWISE staff, which is
+kept outside this repository.
 
 ---
 
@@ -28,49 +30,42 @@ data layer.
 
 ## 2. Blocking on the client
 
-These need someone else before the page can be finished.
+These need someone else before the page can be finished. Updated 21 Oct 2026:
+only the open items are listed.
 
 | Item | Needed for | Where |
 |---|---|---|
-| Final headline and supporting copy | Landing page hero | `R/copy.R` `home$title`, `home$lead` |
 | Per-country invasive fish species file | The landing map's whole point | `fw_country_burden()` in `R/data_load.R` |
-| Case study content, before and after | Landing page | `R/mod_home.R` |
-| Zenodo DOI | Footer, About | `R/copy.R` `footer$doi_url` |
-| Public GitHub repository URL | Footer | `R/copy.R` `footer$github_url` |
-| FWISE team email address | Networking page | `R/copy.R` `networking$outro_email` |
-| Terms of data use | Contribute consent | `R/copy.R` `contribute$consent$terms_url` |
-| Review turnaround time | Confirmation screen | `R/copy.R` `contribute$confirm$followup` |
+| Zenodo DOI | Footer, About (links open a "coming soon" card until then) | `R/copy.R` `footer$doi_url` |
+| An example or two for "Other chemical/mechanical methods" | About glossary | `R/copy.R` `about$glossary_items` |
+| The real confirmation image (the frog stands in) | Contribute thank-you | `fw_confirm_mark()` area of `R/mod_contribute_ui.R` |
 | Reversed (light) logo artwork | Navbar | would allow an indigo navbar, see 5.6 |
-| Weird Fishes Advisory website URL | Footer logo link | `R/copy.R` `footer$wfa_url` |
-| Deployment credentials and domain | Going live | see README |
+
+Resolved since the first draft: landing copy and stories, the GitHub URL, the
+FWISE address (`footer$contact_email`), the terms of data use (now the privacy
+page), the follow-up wording, the WFA URL, the caveats, the methods text, the
+citation, and going live.
 
 ---
 
 ## 3. Every `[PLACEHOLDER]`
 
-All in `R/copy.R` unless stated. Search the file for `[PLACEHOLDER]` to find them.
+Updated 21 Oct 2026. Search `R/` for `[PLACEHOLDER]` to find them; three are
+left.
 
 | Location | What it is |
 |---|---|
-| `home$title` | Landing headline. Final wording belongs to the client |
-| `home$lead` | Supporting sentence under the headline |
-| `footer$doi_url` | Zenodo DOI, currently `#` |
-| `footer$github_url` | Public repository URL |
-| `footer$wfa_url` | Weird Fishes Advisory website, currently a guess |
-| `networking$intro` | Framing line at the top of the networking page |
-| `networking$outro` | Closing note offering a route to the FWISE team |
-| `footer$contact_email` | The one copy of the FWISE address. The footer, the About feedback band and the Networking outro all show it, revealed on a click by `fw_email_reveal()` |
-| `about$method2` | The search strategy and review protocol |
-| `about$method_paper` | The FWISE paper's methods section, in full. A character vector - the panel renders one paragraph per element |
-| `about$citation_db` | The database citation, literal (client, 6 Oct 2026). The year and "Version 1" are edited by hand at a new release |
-| `about$signup_url` | The mailing list the "Sign up for updates" button links out to, currently `#` |
-| `about$stories` / `stories_action` | Success stories panel. The stories themselves belong on the landing page (see the case studies section of the spec in `R/mod_home.R`); when they exist, point `stories_action` at them rather than at the top of Home |
-| `about$related` / `about$related_items` | Related databases. Each item is a `name`, a `url` and a `note` - the note is the point of the panel, since a list of names does not tell anyone which one to follow |
-| `contribute$consent$terms_link_label` / `terms_url` | Full terms of data use |
-| `contribute$confirm$followup` | "within X working days" |
-| `R/data_load.R` `fw_country_burden()` | Placeholder choropleth source |
-| `R/copy_export.R` `export$methods` | How FWISE was compiled - the account of how records were gathered, screened and entered. Prints in the workbook's last sheet, the PDF's last section and the records HTML's last section |
-| `R/copy_export.R` `export$caveats` | The caveats, which Anabell is writing. One headingless block now; add more as `list(heading =, body =)` and all four surfaces reflow |
+| `R/copy.R` `about$glossary_items` | "Other chemical methods" and "Other mechanical methods" await an example or two from the client |
+| `R/data_load.R` `fw_country_burden()` | Placeholder choropleth source (section 2) |
+| `R/mod_contribute_ui.R` `fw_confirm_mark()` | The frog on the thank-you screen, until the client picks the real image |
+
+Filled since the first draft and kept here as a reference for what changes
+by hand: `about$citation_db` (the year and "Version 1" are edited by hand at a
+new release); `export$methods` and `export$caveats` (six blocks; add more as
+`list(heading =, body =)` and every surface reflows); `footer$contact_email` (the
+one copy of the FWISE address, revealed on a click by `fw_email_reveal()`).
+`footer$doi_url` stays `#` until Zenodo, by design: DOI links open a "coming
+soon" card meanwhile.
 
 The question list is no longer a file anyone maintains. `R/questions_text.R`
 walks the same section builders the form renders and writes the download as plain
@@ -726,11 +721,9 @@ change there.
 
 1. Get the per-country invasive fish file. The landing page's central argument
    depends on it and everything else there is ready.
-2. Set up the inbox sheet (`Rscript dev/check_sheets.R --setup-inbox`), deploy,
-   and take the first live submission through `dev/qa.R` once, into a branch of
-   fwise-data. The loop is tested end to end locally (`dev/qa_test.R`) but not
-   yet against the real sheet. Then run section 7 to move anything the old app
-   left in `fwise-data/inbox/` into the sheet, and delete `inbox/`.
+2. **Done (Oct 2026):** the inbox sheet is set up, the app is deployed, the old
+   `fwise-data/inbox/` files were moved into the sheet, and live submissions
+   have been taken through `dev/qa.R`.
    **Bulk import and edits to existing records are not built**: a bulk load can
    meanwhile be pasted into the plain-text `submissions` tab and goes through the
    same check and import; an edit is a hand edit of the CSV row.

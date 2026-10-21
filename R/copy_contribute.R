@@ -17,7 +17,7 @@
 # specification. Where the specification was ambiguous a TODO(alex) comment
 # sits next to the field in mod_contribute_steps.R.
 
-FW_COPY_CONTRIBUTE <- list(
+FW_COPY_CONTRIBUTE = list(
 
   contribute = list(
     title = "Contribute data",

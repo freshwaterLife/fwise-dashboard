@@ -36,20 +36,20 @@
 #'
 #' QUARTO_PATH first, which is Quarto's own convention for pointing at a copy
 #' that is not on the PATH, then the PATH.
-fw_quarto_path <- function() {
-  p <- Sys.getenv("QUARTO_PATH", unset = "")
+fw_quarto_path = function() {
+  p = Sys.getenv("QUARTO_PATH", unset = "")
   if (nzchar(p) && file.exists(p)) return(p)
   unname(Sys.which("quarto"))
 }
 
 #' Can this process write a PDF at all?
-fw_pdf_available <- function() nzchar(fw_quarto_path())
+fw_pdf_available = function() nzchar(fw_quarto_path())
 
 #' The Quarto CLI's version, for the startup log, or NA
-fw_quarto_version <- function() {
-  q <- fw_quarto_path()
+fw_quarto_version = function() {
+  q = fw_quarto_path()
   if (!nzchar(q)) return(NA_character_)
-  v <- tryCatch(system2(q, "--version", stdout = TRUE, stderr = TRUE, timeout = 20),
+  v = tryCatch(system2(q, "--version", stdout = TRUE, stderr = TRUE, timeout = 20),
                 error = function(e) NA_character_, warning = function(w) NA_character_)
   if (!length(v)) NA_character_ else v[1]
 }
@@ -63,35 +63,35 @@ fw_quarto_version <- function() {
 #' report prints goes through here, so no species name, site name or free-text
 #' note can become markup. NA prints as the empty-value placeholder, the same as
 #' the page's tables.
-fw_typ_str <- function(x, na = fw_t("common", "empty_value")) {
-  x <- as.character(x)
-  x[is.na(x) | !nzchar(trimws(x))] <- na
-  x <- gsub("\\", "\\\\", x, fixed = TRUE)
-  x <- gsub("\"", "\\\"", x, fixed = TRUE)
+fw_typ_str = function(x, na = fw_t("common", "empty_value")) {
+  x = as.character(x)
+  x[is.na(x) | !nzchar(trimws(x))] = na
+  x = gsub("\\", "\\\\", x, fixed = TRUE)
+  x = gsub("\"", "\\\"", x, fixed = TRUE)
   # "\\\\n" so the Typst source gets a backslash-n: a bare "\\n" in a gsub()
   # replacement is just "n", which printed paragraph breaks as "nn".
-  x <- gsub("\r?\n", "\\\\n", x)
+  x = gsub("\r?\n", "\\\\n", x)
   paste0("\"", x, "\"")
 }
 
 #' A Typst array from R values already written as Typst
-fw_typ_array <- function(items) {
+fw_typ_array = function(items) {
   if (!length(items)) return("()")
   # A one-element array needs its trailing comma, or it is a parenthesised value.
   paste0("(", paste(items, collapse = ", "), if (length(items) == 1) "," else "", ")")
 }
 
 #' A Typst dictionary from named values already written as Typst
-fw_typ_dict <- function(...) {
-  x <- list(...)
+fw_typ_dict = function(...) {
+  x = list(...)
   paste0("(", paste(names(x), unlist(x), sep = ": ", collapse = ", "), ")")
 }
 
 #' A length in mm, as Typst writes it
-fw_typ_mm <- function(x) sprintf("%.1fmm", x)
+fw_typ_mm = function(x) sprintf("%.1fmm", x)
 
 #' A URL as a Typst string, or none when there is no usable one
-fw_typ_url <- function(x) {
+fw_typ_url = function(x) {
   if (!fw_has_str(x) || !grepl("^https?://", x)) return("none")
   fw_typ_str(x)
 }
@@ -102,12 +102,12 @@ fw_typ_url <- function(x) {
 #' template imports this and holds no values of its own.
 #'
 #' @param logos named file paths, relative to the render directory
-fw_pdf_tokens <- function(logos) {
-  col <- function(name, hex) sprintf('#let %s = rgb("%s")', name, hex)
-  pt <- function(name, v) sprintf("#let %s = %spt", name, format(v))
+fw_pdf_tokens = function(logos) {
+  col = function(name, hex) sprintf('#let %s = rgb("%s")', name, hex)
+  pt = function(name, v) sprintf("#let %s = %spt", name, format(v))
   # A missing explicit lockup falls back to the plain mark, as a missing logo
   # is skipped rather than failing the download.
-  masthead <- if ("explicit" %in% names(logos)) logos[["explicit"]] else logos[["mark"]]
+  masthead = if ("explicit" %in% names(logos)) logos[["explicit"]] else logos[["mark"]]
   c(
     "// Written by fw_pdf_tokens() in R/report_pdf.R. Do not edit.",
     col("fw-ink", FW_COLOURS$ink),
@@ -172,23 +172,23 @@ fw_pdf_tokens <- function(logos) {
 #' A reader with the report on paper asking "where has this been tried" wants
 #' a list as well as a picture. Sorted by count and capped, with the tail
 #' gathered rather than dropped, so the total still adds up.
-fw_report_country_table <- function(sel, limit = FW_REPORT_COUNTRY_ROWS) {
+fw_report_country_table = function(sel, limit = FW_REPORT_COUNTRY_ROWS) {
   if (!nrow(sel)) return(NULL)
-  counts <- sort(table(sel$country), decreasing = TRUE)
-  keep <- utils::head(counts, limit)
-  out <- data.frame(country = names(keep), attempts = as.integer(keep),
+  counts = sort(table(sel$country), decreasing = TRUE)
+  keep = utils::head(counts, limit)
+  out = data.frame(country = names(keep), attempts = as.integer(keep),
                     stringsAsFactors = FALSE)
-  rest <- sum(counts) - sum(as.integer(keep))
+  rest = sum(counts) - sum(as.integer(keep))
   if (rest > 0) {
-    out <- rbind(out, data.frame(
+    out = rbind(out, data.frame(
       country = fw_fill(fw_t("export", "other_countries"),
                         n = length(counts) - length(keep)),
       attempts = rest, stringsAsFactors = FALSE
     ))
   }
-  out$attempts <- format(out$attempts, big.mark = ",", trim = TRUE)
+  out$attempts = format(out$attempts, big.mark = ",", trim = TRUE)
   # The headings the reader sees come from the copy deck.
-  names(out) <- c(fw_t("export", "col_country"), fw_t("export", "col_attempts"))
+  names(out) = c(fw_t("export", "col_country"), fw_t("export", "col_attempts"))
   out
 }
 
@@ -201,12 +201,12 @@ fw_report_country_table <- function(sel, limit = FW_REPORT_COUNTRY_ROWS) {
 #'   "What this report covers" table (client, 23 Sept 2026) - see fw-small in
 #'   fw_pdf_tokens(). It is the one table a reader scans rather than reads, and
 #'   the only text in the document set below the print floor.
-fw_typ_table <- function(df, num = character(0), widths = NULL, size = NULL) {
+fw_typ_table = function(df, num = character(0), widths = NULL, size = NULL) {
   if (is.null(df) || !nrow(df)) return(NULL)
-  rows <- vapply(seq_len(nrow(df)), function(i) {
+  rows = vapply(seq_len(nrow(df)), function(i) {
     fw_typ_array(fw_typ_str(vapply(df[i, , drop = FALSE], as.character, "")))
   }, character(1))
-  num_idx <- which(names(df) %in% num) - 1L
+  num_idx = which(names(df) %in% num) - 1L
   paste0(
     "#fw-table(", fw_typ_array(fw_typ_str(names(df))), ", ",
     fw_typ_array(rows),
@@ -218,17 +218,17 @@ fw_typ_table <- function(df, num = character(0), widths = NULL, size = NULL) {
 }
 
 #' A titled block
-fw_typ_block <- function(title, note = NULL, body = "[]") {
+fw_typ_block = function(title, note = NULL, body = "[]") {
   paste0("#fw-block(title: ", fw_typ_str(title),
          if (!is.null(note)) paste0(", note: ", fw_typ_str(note)) else "",
          ")[\n", paste(body, collapse = "\n"), "\n]")
 }
 
 #' A caption line under a figure
-fw_typ_caption <- function(txt) paste0("#fw-caption(", fw_typ_str(txt), ")")
+fw_typ_caption = function(txt) paste0("#fw-caption(", fw_typ_str(txt), ")")
 
 #' A small bold label over one of a pair of figures ("Number of attempts")
-fw_typ_subhead <- function(txt) {
+fw_typ_subhead = function(txt) {
   paste0("#v(2mm)\n#text(weight: \"bold\")[#", fw_typ_str(txt), "]\n#v(1mm)")
 }
 
@@ -236,19 +236,19 @@ fw_typ_subhead <- function(txt) {
 #'
 #' @return the Typst call, or NULL when the chart had nothing to draw - and the
 #'   caller drops its block, heading and all, rather than stand it over nothing
-fw_typ_figure <- function(plot, dir, name, height_mm) {
+fw_typ_figure = function(plot, dir, name, height_mm) {
   if (is.null(plot)) return(NULL)
   fw_gg_png(plot, file.path(dir, name), height_mm = height_mm)
   sprintf('#fw-figure("%s", %s)', name, fw_typ_mm(height_mm))
 }
 
 #' The summary strip
-fw_typ_stats <- function(s) {
-  item <- function(value, label) fw_typ_array(fw_typ_str(c(value, label)))
+fw_typ_stats = function(s) {
+  item = function(value, label) fw_typ_array(fw_typ_str(c(value, label)))
   # THE SAME INFLECTION THE PAGE APPLIES (client, 23 Sept 2026: one country was
   # labelled "countries"). This strip and fw_plan_summary_ui() print the same
   # five figures, so they take their labels the same way.
-  lab <- function(n, key) fw_plural(n, fw_t("plan", paste0(key, "_one")),
+  lab = function(n, key) fw_plural(n, fw_t("plan", paste0(key, "_one")),
                                     fw_t("plan", key))
   paste0("#fw-stats(", fw_typ_array(c(
     item(fw_fmt_num(s$attempts),  lab(s$attempts, "r_attempts")),
@@ -261,11 +261,11 @@ fw_typ_stats <- function(s) {
 }
 
 #' The four outcome bars, with the page's numbers
-fw_typ_outcome_bars <- function(sel) {
-  o <- fw_outcome_counts(sel)
-  total <- sum(o$n)
-  rows <- vapply(seq_len(nrow(o)), function(i) {
-    pc <- if (total > 0) 100 * o$n[i] / total else 0
+fw_typ_outcome_bars = function(sel) {
+  o = fw_outcome_counts(sel)
+  total = sum(o$n)
+  rows = vapply(seq_len(nrow(o)), function(i) {
+    pc = if (total > 0) 100 * o$n[i] / total else 0
     fw_typ_array(c(
       fw_typ_str(o$outcome[i]),
       fw_typ_str(paste0(fw_fmt_num(o$n[i]), " ", sprintf("(%.0f%%)", pc))),
@@ -288,24 +288,24 @@ fw_typ_outcome_bars <- function(sel) {
 #'   not overwrite each other in the one render directory
 #' @return a named character vector, species_id -> local file, NA where no
 #'   picture arrived
-fw_pdf_fetch_images <- function(urls, dir, prefix = "sp") {
-  urls <- urls[!is.na(urls) & grepl("^https?://", urls)]
+fw_pdf_fetch_images = function(urls, dir, prefix = "sp") {
+  urls = urls[!is.na(urls) & grepl("^https?://", urls)]
   if (!length(urls)) return(character(0))
-  dest <- file.path(dir, paste0(prefix, "-", seq_along(urls)))
-  res <- tryCatch(
+  dest = file.path(dir, paste0(prefix, "-", seq_along(urls)))
+  res = tryCatch(
     curl::multi_download(urls, dest, timeout = FW_PDF$image_timeout_s,
                          progress = FALSE, useragent = FW_SPECIES_UA),
     error = function(e) NULL
   )
-  out <- stats::setNames(rep(NA_character_, length(urls)), names(urls))
+  out = stats::setNames(rep(NA_character_, length(urls)), names(urls))
   if (is.null(res)) return(out)
   for (i in seq_along(urls)) {
     if (!isTRUE(res$success[i]) || !identical(as.integer(res$status_code[i]), 200L)) next
-    ext <- fw_image_ext(dest[i])
+    ext = fw_image_ext(dest[i])
     if (is.na(ext)) next
-    final <- paste0(dest[i], ".", ext)
+    final = paste0(dest[i], ".", ext)
     file.rename(dest[i], final)
-    out[i] <- basename(final)
+    out[i] = basename(final)
   }
   out
 }
@@ -314,9 +314,9 @@ fw_pdf_fetch_images <- function(urls, dir, prefix = "sp") {
 #'
 #' From the bytes and not the URL, because a Wikimedia thumbnail's name keeps
 #' the original's extension even where the thumbnail is a different format.
-fw_image_ext <- function(path) {
+fw_image_ext = function(path) {
   if (!file.exists(path) || file.size(path) < 16) return(NA_character_)
-  b <- readBin(path, "raw", 12)
+  b = readBin(path, "raw", 12)
   if (identical(b[1:3], as.raw(c(0xff, 0xd8, 0xff)))) return("jpg")
   if (identical(b[1:4], as.raw(c(0x89, 0x50, 0x4e, 0x47)))) return("png")
   if (identical(rawToChar(b[1:3]), "GIF")) return("gif")
@@ -328,26 +328,26 @@ fw_image_ext <- function(path) {
 #'
 #' @return the Typst call, or NULL when the selection has none of that role -
 #'   and the caller drops the block with it, as the page does
-fw_typ_species <- function(data, sel, role_name, dir, f = NULL) {
+fw_typ_species = function(data, sel, role_name, dir, f = NULL) {
   if (!fw_species_row_shown(role_name, f)) return(NULL)
-  top <- fw_species_top_n(data, sel, role_name, FW_PLAN_SPECIES_N, f)
+  top = fw_species_top_n(data, sel, role_name, FW_PLAN_SPECIES_N, f)
   if (!nrow(top)) return(NULL)
-  imgs <- lapply(top$species_id, function(id) fw_species_image_cached(data$species, id))
-  urls <- vapply(imgs, function(x) if (is.null(x)) NA_character_ else x$url, "")
-  names(urls) <- top$species_id
-  files <- fw_pdf_fetch_images(urls, dir, prefix = role_name)
+  imgs = lapply(top$species_id, function(id) fw_species_image_cached(data$species, id))
+  urls = vapply(imgs, function(x) if (is.null(x)) NA_character_ else x$url, "")
+  names(urls) = top$species_id
+  files = fw_pdf_fetch_images(urls, dir, prefix = role_name)
 
-  tiles <- vapply(seq_len(nrow(top)), function(i) {
-    row <- top[i, ]
-    img <- imgs[[i]]
-    file <- files[row$species_id]
+  tiles = vapply(seq_len(nrow(top)), function(i) {
+    row = top[i, ]
+    img = imgs[[i]]
+    file = files[row$species_id]
     # Successful against Failed, as on the page - see fw_tile_rate().
-    counts <- fw_tile_rate(row)
-    segs <- vapply(names(counts)[counts > 0], function(o) {
+    counts = fw_tile_rate(row)
+    segs = vapply(names(counts)[counts > 0], function(o) {
       fw_typ_array(c(sprintf("%.2f", 100 * counts[[o]] / sum(counts)),
                      fw_typ_str(FW_OUTCOME_COLOURS[[o]])))
     }, "")
-    has_img <- length(file) == 1 && !is.na(file)
+    has_img = length(file) == 1 && !is.na(file)
     fw_typ_dict(
       image = if (has_img) fw_typ_str(file) else "none",
       # The credit and licence travel only with a photograph that is printed.
@@ -371,13 +371,13 @@ fw_typ_species <- function(data, sel, role_name, dir, f = NULL) {
 #' address of anyone who asked not to be listed. The address is printed plainly
 #' here - there is no click to assemble it at - which is the same thing the
 #' spreadsheet in the same download does.
-fw_pdf_contacts_table <- function(people, limit = FW_PDF$contacts_n) {
+fw_pdf_contacts_table = function(people, limit = FW_PDF$contacts_n) {
   # THE SIX BUSIEST, not everybody (client, 23 Sept 2026). people arrives
   # ordered by attempt_count descending from fw_plan_contacts(), so this is
   # the top of that list. It also makes the document a predictable length -
   # the contacts table was what turned a six-page report into a twenty-page
   # one, and fw_pdf_size_estimate() no longer has to guess at it.
-  people <- utils::head(people, limit)
+  people = utils::head(people, limit)
   data.frame(
     a = ifelse(is.na(people$contact_name), "", people$contact_name),
     b = ifelse(is.na(people$organisation), fw_t("networking", "no_organisation"),
@@ -401,23 +401,23 @@ fw_pdf_contacts_table <- function(people, limit = FW_PDF$contacts_n) {
 #' this text and these files.
 #'
 #' @return the Typst body as one string
-fw_pdf_body <- function(dir, data, sel, filters, meta = NULL) {
-  s <- fw_plan_summary(data, sel)
-  n_no_coords <- sum(is.na(sel$latitude) | is.na(sel$longitude))
-  method_caption <- fw_method_caption_text(data, sel)
-  n_duration <- nrow(fw_duration_sel(data, sel))
-  generated <- format(Sys.time(), "%d %B %Y", tz = "UTC")
+fw_pdf_body = function(dir, data, sel, filters, meta = NULL) {
+  s = fw_plan_summary(data, sel)
+  n_no_coords = sum(is.na(sel$latitude) | is.na(sel$longitude))
+  method_caption = fw_method_caption_text(data, sel)
+  n_duration = nrow(fw_duration_sel(data, sel))
+  generated = format(Sys.time(), "%d %B %Y", tz = "UTC")
 
-  species_block <- function(role_name) {
-    tiles <- fw_typ_species(data, sel, role_name, dir, filters)
+  species_block = function(role_name) {
+    tiles = fw_typ_species(data, sel, role_name, dir, filters)
     if (is.null(tiles)) return(NULL)
     fw_typ_block(fw_species_top_title(data, sel, role_name, f = filters), NULL, tiles)
   }
 
-  map <- fw_gg_map(data, sel)
-  map_fig <- if (!is.null(map)) fw_typ_figure(map$plot, dir, "map.png", map$height_mm)
+  map = fw_gg_map(data, sel)
+  map_fig = if (!is.null(map)) fw_typ_figure(map$plot, dir, "map.png", map$height_mm)
 
-  n_rows <- function(order_lv) length(order_lv)
+  n_rows = function(order_lv) length(order_lv)
   # BOTH VERSIONS OF THE TWO TOGGLED CHARTS, ONE ABOVE THE OTHER (client, 29
   # Sept 2026): the number of attempts, then the success rate. The document
   # used to print whichever the reader's toggle was on, so a reader who never
@@ -425,43 +425,43 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL) {
   # toggle's own words, so the pair reads the same as the screen.
   #
   # NULL for a chart with nothing to draw; its block is dropped, heading and all.
-  both_modes <- function(stem, rows_for, gg_for, kind, labels) {
-    figs <- lapply(c("count", "share"), function(mode) {
-      rows <- rows_for(mode)
+  both_modes = function(stem, rows_for, gg_for, kind, labels) {
+    figs = lapply(c("count", "share"), function(mode) {
+      rows = rows_for(mode)
       if (is.null(rows)) return(NULL)
-      fig <- fw_typ_figure(gg_for(mode), dir, paste0(stem, "-", mode, ".png"),
+      fig = fw_typ_figure(gg_for(mode), dir, paste0(stem, "-", mode, ".png"),
                            fw_gg_height(kind, n_rows(rows)))
       # ONE UNBREAKABLE BLOCK, so the label never ends a page with its chart
       # starting the next.
       paste0("#block(breakable: false)[\n", fw_typ_subhead(labels[[mode]]), "\n",
              fig, "\n]")
     })
-    figs <- Filter(Negate(is.null), figs)
+    figs = Filter(Negate(is.null), figs)
     if (length(figs)) unlist(figs)
   }
-  method_fig <- both_modes(
+  method_fig = both_modes(
     "methods",
     function(mode) fw_method_data(data, sel, mode)$order_lv,
     function(mode) fw_gg_method(data, sel, mode), "method",
     list(count = fw_t("plan", "r_method_count"), share = fw_t("plan", "r_method_share")))
-  duration_fig <- local({
-    dd <- fw_duration_data(data, sel)
+  duration_fig = local({
+    dd = fw_duration_data(data, sel)
     if (!is.null(dd)) fw_typ_figure(fw_gg_duration(data, sel), dir, "duration.png",
                                     fw_gg_height("duration", n_rows(dd$order_lv)))
   })
   # Not printed when the reader filtered to one regime - fw_show_waterbody().
-  waterbody_fig <- if (fw_show_waterbody(filters)) both_modes(
+  waterbody_fig = if (fw_show_waterbody(filters)) both_modes(
     "waterbody",
     function(mode) fw_category_data(fw_waterbody_rows(sel), mode = mode)$order_lv,
     function(mode) fw_gg_waterbody(sel, mode), "category",
     list(count = fw_t("plan", "r_waterbody_count"), share = fw_t("plan", "r_waterbody_share")))
 
-  people <- fw_plan_contacts(data, sel)
+  people = fw_plan_contacts(data, sel)
   # Methods then caveats, the same closing section the workbook's last tab and
   # the records HTML carry. See fw_closing_blocks() in R/export.R.
-  caveats <- fw_closing_blocks(data, meta)
+  caveats = fw_closing_blocks(data, meta)
 
-  parts <- list(
+  parts = list(
     paste0("#fw-letterhead(title: ", fw_typ_str(fw_t("plan", "report_title")),
            ", subtitle: ", fw_typ_str(fw_fill(fw_t("plan", "report_subtitle"), date = generated)), ")"),
 
@@ -569,38 +569,38 @@ fw_pdf_body <- function(dir, data, sel, filters, meta = NULL) {
 #' @param progress called as progress(fraction, detail) as the report is built,
 #'   fraction running 0 to 1 across this report alone. fw_write_bundle() maps
 #'   it onto its own bar; the default does nothing, so tests need no Shiny.
-fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = NULL,
+fw_write_pdf_report = function(path, data, sel, export = NULL, filters, meta = NULL,
                                 keep = NULL,
                                 progress = function(fraction, detail) NULL) {
-  quarto <- fw_quarto_path()
+  quarto = fw_quarto_path()
   if (!nzchar(quarto)) {
     stop("The PDF report needs the Quarto CLI, which is not installed here.",
          call. = FALSE)
   }
 
-  dir <- tempfile("fw-pdf-"); dir.create(dir)
+  dir = tempfile("fw-pdf-"); dir.create(dir)
   on.exit(unlink(dir, recursive = TRUE), add = TRUE)
 
   # The template, the fonts and the logos, beside the document that uses them.
-  res <- file.path("resources", "report")
+  res = file.path("resources", "report")
   file.copy(file.path(res, c("typst-template.typ", "typst-show.typ", "page.typ")), dir)
   dir.create(file.path(dir, "fonts"))
   file.copy(list.files(file.path(res, "fonts"), pattern = "[.]ttf$", full.names = TRUE),
             file.path(dir, "fonts"))
-  logo_src <- c(mark = FW_LOGO$mark_file, explicit = FW_LOGO$explicit_file,
+  logo_src = c(mark = FW_LOGO$mark_file, explicit = FW_LOGO$explicit_file,
                 wfa = FW_LOGO$wfa_file, FW_LOGO$collab_files)
   # A logo that is missing is skipped, as the old report did, rather than
   # failing the download - but only if it is missing; dev/plan_test.R checks
   # every one is there.
-  logo_src <- logo_src[file.exists(logo_src)]
-  logos <- stats::setNames(paste0("logo-", names(logo_src), ".png"), names(logo_src))
+  logo_src = logo_src[file.exists(logo_src)]
+  logos = stats::setNames(paste0("logo-", names(logo_src), ".png"), names(logo_src))
   file.copy(logo_src, file.path(dir, logos))
   writeLines(fw_pdf_tokens(logos), file.path(dir, "fwise-tokens.typ"), useBytes = TRUE)
 
   progress(0, fw_t("plan", "progress_charts"))
-  body <- fw_pdf_body(dir, data, sel, filters, meta)
+  body = fw_pdf_body(dir, data, sel, filters, meta)
 
-  qmd <- c(
+  qmd = c(
     "---",
     "format:",
     "  typst:",
@@ -623,12 +623,12 @@ fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = 
 
   # The charts and the map take about a third of the time; Quarto the rest.
   progress(0.35, fw_t("plan", "progress_pdf"))
-  log <- suppressWarnings(system2(
+  log = suppressWarnings(system2(
     quarto, c("render", shQuote(file.path(dir, "report.qmd")), "--quiet"),
     stdout = TRUE, stderr = TRUE, timeout = FW_PDF$timeout_s
   ))
-  status <- attr(log, "status") %||% 0L
-  out <- file.path(dir, "report.pdf")
+  status = attr(log, "status") %||% 0L
+  out = file.path(dir, "report.pdf")
 
   if (!is.null(keep)) {
     dir.create(keep, showWarnings = FALSE, recursive = TRUE)
@@ -645,10 +645,10 @@ fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = 
 
   # A large one is logged beside its estimate, so the calibration in FW_PDF can
   # be checked against what readers actually download.
-  mb <- file.size(path) / 1e6
-  pages <- fw_pdf_page_count(path)
+  mb = file.size(path) / 1e6
+  pages = fw_pdf_page_count(path)
   if (mb >= FW_PDF$warn_mb || isTRUE(pages >= FW_PDF$warn_pages)) {
-    est <- fw_pdf_size_estimate(data, sel, filters)
+    est = fw_pdf_size_estimate(data, sel, filters)
     message(sprintf("FWISE PDF report: %.1f MB, %d pages for %d attempts (estimated %.1f MB, %d pages)",
                     mb, pages, nrow(sel), est$mb, est$pages))
   }
@@ -663,16 +663,16 @@ fw_write_pdf_report <- function(path, data, sel, export = NULL, filters, meta = 
 #' and the species photographs. Coefficients in FW_PDF, fitted to real renders.
 #'
 #' @return list(mb, pages)
-fw_pdf_size_estimate <- function(data, sel, filters = NULL) {
+fw_pdf_size_estimate = function(data, sel, filters = NULL) {
   # Capped the same way the table is - see fw_pdf_contacts_table().
-  n_contacts <- min(nrow(fw_plan_contacts(data, sel)), FW_PDF$contacts_n)
-  n_images <- sum(vapply(c("invasive", "beneficiary"), function(r) {
-    top <- fw_species_top_n(data, sel, r, FW_PLAN_SPECIES_N, filters)
+  n_contacts = min(nrow(fw_plan_contacts(data, sel)), FW_PDF$contacts_n)
+  n_images = sum(vapply(c("invasive", "beneficiary"), function(r) {
+    top = fw_species_top_n(data, sel, r, FW_PLAN_SPECIES_N, filters)
     sum(vapply(top$species_id, function(id)
       !is.null(fw_species_image_cached(data$species, id)), logical(1)))
   }, numeric(1)))
-  n_points <- sum(!is.na(sel$latitude) & !is.na(sel$longitude))
-  bytes <- FW_PDF$est_base + n_images * FW_PDF$est_per_image +
+  n_points = sum(!is.na(sel$latitude) & !is.na(sel$longitude))
+  bytes = FW_PDF$est_base + n_images * FW_PDF$est_per_image +
     min(n_points, FW_PDF$est_point_cap) * FW_PDF$est_per_point +
     n_contacts * FW_PDF$est_per_contact
   list(mb = bytes / 1e6, pages = as.integer(FW_PDF$est_pages_base))
@@ -683,14 +683,14 @@ fw_pdf_size_estimate <- function(data, sel, filters = NULL) {
 #' The page tree's /Count is the one page figure Typst writes uncompressed, so
 #' this needs no PDF library. The largest /Count is the root's - an outline
 #' carries a /Count of its own. For the tests and the size calibration.
-fw_pdf_page_count <- function(path) {
-  bytes <- readBin(path, "raw", file.size(path))
-  hits <- grepRaw("/Count [0-9]+", bytes, value = TRUE, all = TRUE)
+fw_pdf_page_count = function(path) {
+  bytes = readBin(path, "raw", file.size(path))
+  hits = grepRaw("/Count [0-9]+", bytes, value = TRUE, all = TRUE)
   if (!length(hits)) return(NA_integer_)
   max(as.integer(sub("/Count ", "", vapply(hits, rawToChar, ""))))
 }
 
 #' Filename for the PDF report
-fw_pdf_filename <- function(stamp = fw_file_stamp()) {
+fw_pdf_filename = function(stamp = fw_file_stamp()) {
   paste0("fwise-report_", stamp, ".pdf")
 }

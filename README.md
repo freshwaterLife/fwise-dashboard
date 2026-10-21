@@ -85,7 +85,6 @@ says why. The startup log's second line names the Quarto it found.
 
 ```bash
 Rscript dev/smoke_test.R      # form gating, validation and the write path
-Rscript dev/qa_test.R         # the review and import, end to end, on a copy
 Rscript dev/plan_test.R       # report builder: gate, states, filters, export
 Rscript dev/value_test.R      # every number on screen, every chart bar, every
                               # export row, recomputed independently and compared
@@ -701,13 +700,14 @@ Ctrl+Alt+T), not with `Rscript`. The rules it applies are functions in
 | § | |
 |---|---|
 | 0 Setup | Loads the app's code, names the data checkout's branch, warns if it has uncommitted changes or is behind, says which inbox it reads and whether IUCN lookups are on. |
-| 1 Read | `inbox` and `new_species` from the sheet. |
-| 2 Check | `checks` - one row per problem, `error` or `warning` - plus `contact_matches` and `species_matches`. The reviewer fixes things **in the sheet** and runs 1 and 2 again; when a row is right, sets `qa_status` to `done` and `status` to `approved` or `rejected`. |
-| 3 Resolve | Takes rows with QA done and `imported` = `no` (or only `import_ids`), checks them again, and shows `to_add`, `species_add`, `contacts_add`. Stops on any error. |
-| 4 Enrich | For new species, fills blanks only: family (fish) from GBIF, the IUCN Red List status (needs `IUCN_API_TOKEN`), a photograph with credit and licence from Wikipedia/Commons. Misses are listed in `enrich_log`. |
-| 5 Write | The only section that changes anything. Asks for `yes`, refuses if fwise-data is dirty or behind, or if the sheet changed since §3. Appends to the three CSVs (untouched rows stay byte for byte), rewrites `metadata.json`, then sets `imported` in the sheet. |
-| 6 Publish | Prints the `git add/commit/push` for fwise-data. The app shows the import once restarted. |
-| 7 Cutover | One-off: moves files left in the old `fwise-data/inbox/` into the sheet. |
+| 1 Read and check | `inbox` and `new_species` from the sheet, then `checks` - one row per problem, `error` or `warning` - plus `contact_matches` and `species_matches`. The reviewer fixes things **in the sheet** and runs 1 again; when a row is right, sets `qa_status` to `done` and `status` to `approved` or `rejected`. |
+| 2 Resolve | Takes rows with QA done and `imported` = `no` (or only `import_ids`), checks them again, and shows `to_add`, `species_add`, `contacts_add`. Stops on any error. |
+| 3 Enrich | For new species, fills blanks only: family (fish) from GBIF, the IUCN Red List status (needs `IUCN_API_TOKEN`), a photograph with credit and licence from Wikipedia/Commons. Misses are listed in `enrich_log`. |
+| 4 Write | The only section that changes anything. Asks for `yes`, refuses if fwise-data is dirty or behind, or if the sheet changed since §2. Appends to the three CSVs (untouched rows stay byte for byte), rewrites `metadata.json`, then sets `imported` in the sheet. |
+| 5 Publish | Prints the `git add/commit/push` for fwise-data. The app shows the import once restarted. |
+
+The reviewer's step-by-step guide, with the species-naming rules, is in the
+operations handover shared with FWISE staff, not in this repository.
 
 **Errors stop a row; warnings do not.** Errors: a malformed `qa_status`,
 `imported` or `status`; QA done with status still `pending`; no data-use consent;
@@ -734,13 +734,10 @@ species is compared with held common and scientific names the same way; the
 reviewer swaps in the held label in the sheet.
 
 **Nothing is imported twice.** A row is taken only while `imported` is `no` and
-its id is not in `attempts.csv`; §5 skips any attempt, species or contact
-already written. If the sheet write in §5 fails, run §3 and §5 again: every
+its id is not in `attempts.csv`; §4 skips any attempt, species or contact
+already written. If the sheet write in §4 fails, run §2 and §4 again: every
 open row whose id is already in `attempts.csv` is marked imported. Rejected rows
 are never written to `attempts.csv`; the sheet is their record.
-
-`Rscript dev/qa_test.R` runs the whole loop on a temporary copy of fwise-data
-with a local inbox and stubbed lookups, and recomputes every value that lands.
 
 ---
 
@@ -793,10 +790,9 @@ dated list under "Changes to this notice" says which terms applied, so **every
 version change needs a dated line there**. `dev/plan_test.R` checks the
 current version has one.
 
-**Analytics.** Both forms call `track_event()` (`R/analytics.R`) on success. It
-does nothing until a tool is wired in, and its signature takes an event name
-from a fixed list and a page name, nothing else, so personal data cannot be
-passed to it by accident.
+**Analytics.** A successful sign-up, feedback or submission is logged as a
+`form_submit` event by `R/tracking.R`, with the form's name and nothing else, so
+personal data cannot reach the log. See [TRACKING.md](TRACKING.md).
 
 ---
 
@@ -1100,8 +1096,8 @@ gitignored files that Connect Cloud cannot find, and the deploy fails.
    PDF report is unavailable (the other downloads still work) and `QUARTO_PATH`
    is the setting to point at one.
 
-Deployment credentials are held by the client and were not available when this
-was written, so the steps above have not been executed.
+The app is live at https://fwise.org on Connect Cloud. Its credentials are held
+by the client; the operations handover says where.
 
 ## Pointing the custom domain at it
 
@@ -1123,9 +1119,6 @@ The domain is registered with Namecheap and is held by the client.
 
 ## Known limitations
 
-- **There is no remote submission backend.** Submissions land in a local file
-  only. The GitHub write path needs a token that does not exist yet. See
-  [Submissions](#submissions).
 - **`fw_country_burden()` returns a placeholder.** The landing page map is meant
   to contrast the *burden* (invasive fish species per country) against the
   *response* (recorded eradication attempts), and the mismatch between them is
@@ -1140,12 +1133,9 @@ The domain is registered with Namecheap and is held by the client.
 - **The FWISE lockup's wordmark is indigo**, so the navbar and the footer's
   upper tier stay on a light ground and the indigo sits in the page-title band
   and the footer's lower tier. Reversed artwork would open up an indigo navbar.
-- **Carto now watermarks its keyless tiles.** Every map in the app is currently
-  drawn over "API KEY REQUIRED" repeated across the basemap. `fw_carto_url()`
-  already appends `FWISE_CARTO_KEY` if it is set, so a Carto account fixes it
-  without a code change; the alternative is changing the default ground in
-  `fw_add_basemaps()`. See HANDOVER.md section 5.5, which records a September
-  2026 check that no longer holds.
+- **Carto watermarks keyless tiles**, so the maps carry a Carto Basemaps key,
+  `FW_CARTO_KEY` in `R/maps.R`. It is public by design (it travels in every
+  tile request) and scoped by domain at Carto. `FWISE_CARTO_KEY` overrides it.
 - **The PDF's species photographs need the network at download time.** They
   are Wikimedia's, fetched when the PDF is built; one that does not arrive
   prints as the placeholder, and the rest of the report is unaffected.

@@ -21,27 +21,27 @@ library(htmltools)
 
 # Loaded once for the life of the process, not once per session. The tables are
 # read-only and identical for every visitor.
-FW_DATA <- fw_load_data()
+FW_DATA = fw_load_data()
 
 # The release metadata that travels with the data. Read once, alongside it.
-FW_META <- fw_load_metadata()
+FW_META = fw_load_metadata()
 
 # Dropdown choices come from the data, so the client's ongoing cleaning flows
 # through without a code change.
-FW_CHOICES <- fw_startup_choices(FW_DATA)
+FW_CHOICES = fw_startup_choices(FW_DATA)
 
 # The Explore page's filter bar is drawn in its static UI, so its choices are
 # needed before any session exists. See mod_explore_ui().
-FW_FILTER_CHOICES <- fw_filter_choices(FW_DATA)
+FW_FILTER_CHOICES = fw_filter_choices(FW_DATA)
 
-FW_LAST_UPDATED <- fw_last_updated(FW_DATA, FW_META)
+FW_LAST_UPDATED = fw_last_updated(FW_DATA, FW_META)
 
 # Records waiting on review: pending rows carried into the schema, plus every
 # row of the inbox sheet not yet imported or rejected. This is the startup
 # count, written into the page for its first paint; each session then keeps it
 # current through fw_review_count_live() (14 Oct 2026). Reading it here also
 # fills that cache, so the first visitor does not read the sheet twice.
-FW_IN_REVIEW <- fw_review_count_live(FW_DATA)
+FW_IN_REVIEW = fw_review_count_live(FW_DATA)
 
 # Naming the mode is the first thing to check when a deployment misbehaves: it
 # says in one word whether the token was picked up.
@@ -70,7 +70,7 @@ message("FWISE startup: quarto ",
 
 # ---- UI ----------------------------------------------------------------------
 
-ui <- page_navbar(
+ui = page_navbar(
   id = "fw_nav",
   title = fw_brand(),
   window_title = fw_t("app", "full_title"),
@@ -131,7 +131,7 @@ ui <- page_navbar(
 
 # ---- Server ------------------------------------------------------------------
 
-server <- function(input, output, session) {
+server = function(input, output, session) {
 
   # "DISCONNECTED FROM THE SERVER" OFTEN (client, 29 Sept 2026). A dropped
   # websocket - a network blip, a proxy recycling the connection, a laptop
@@ -153,7 +153,7 @@ server <- function(input, output, session) {
   # A contributor's address revealed, anywhere in the app. The id is checked
   # against the contacts table, so nothing else can be logged through it.
   observeEvent(input$fw_contact_click, {
-    id <- input$fw_contact_click
+    id = input$fw_contact_click
     if (is.character(id) && length(id) == 1 && id %in% FW_DATA$contact$contact_id) {
       fw_track(session, "contact_click", list(contact_id = id))
     }
@@ -163,8 +163,8 @@ server <- function(input, output, session) {
   # (the process-wide cache decides whether that reads the sheet), and at once
   # after a submission from this page. The footer is static UI, so it is
   # updated by message; the Explore panel re-renders.
-  review_tick <- reactiveVal(0L)
-  in_review <- reactive({
+  review_tick = reactiveVal(0L)
+  in_review = reactive({
     review_tick()
     invalidateLater(FW_REVIEW_REFRESH_S * 1000)
     fw_review_count_live(FW_DATA)
@@ -189,7 +189,7 @@ server <- function(input, output, session) {
   #
   # One of each for the whole app. Every fw_form_open() button sets
   # fw_open_form; each module opens only for its own name. See R/forms.R.
-  open_form <- reactive(input$fw_open_form)
+  open_form = reactive(input$fw_open_form)
   mod_newsletter_server("newsletter", open = open_form)
   mod_feedback_server("feedback", open = open_form, nav = reactive(input$fw_nav))
 
@@ -201,16 +201,16 @@ server <- function(input, output, session) {
   # form's "Add another attempt" reloads to (14 Oct 2026); it is read and
   # cleared at once, so it never outlives the reload. If another page ever
   # wants the URL, this is the code to make room in.
-  url_is_privacy <- reactiveVal(FALSE)
+  url_is_privacy = reactiveVal(FALSE)
   # The last ordinary page shown, and - copied from it when the reader goes
   # to the privacy page from inside the app - where Back takes them from
   # there. Copied only then: arriving at the privacy page by Back or Forward
   # must not overwrite it, or Back twice lands on the page they left FOR the
   # privacy page rather than the one they came from.
-  last_page      <- reactiveVal("home")
-  before_privacy <- reactiveVal("home")
+  last_page      = reactiveVal("home")
+  before_privacy = reactiveVal("home")
 
-  show_privacy <- function() {
+  show_privacy = function() {
     nav_select("fw_nav", "privacy", session = session)
     session$sendCustomMessage("fw-scroll-top", TRUE)
   }
@@ -221,7 +221,7 @@ server <- function(input, output, session) {
   # page, and &section= (one of FW_PRIVACY_SECTIONS, nothing else) scrolls to
   # that heading once the page is showing.
   observe({
-    q <- parseQueryString(session$clientData$url_search %||% "")
+    q = parseQueryString(session$clientData$url_search %||% "")
     # Replaced, not pushed as fw-url-clear does, so Back does not return to
     # an address that would reopen the form.
     if (identical(q$page, "contribute")) {
@@ -263,7 +263,7 @@ server <- function(input, output, session) {
   # Back or Forward moved the address: move the page to match. The address is
   # already right, so url_is_privacy is set to agree rather than written again.
   observeEvent(input$fw_popstate, {
-    q <- parseQueryString(input$fw_popstate %||% "")
+    q = parseQueryString(input$fw_popstate %||% "")
     if (identical(q$page, "privacy")) {
       url_is_privacy(TRUE)
       nav_select("fw_nav", "privacy", session = session)

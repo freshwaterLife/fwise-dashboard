@@ -12,7 +12,7 @@
 # (consent_wording), so changing it changes what new sign-ups agreed to: bump
 # privacy$version when it changes.
 
-FW_COPY_FORMS <- list(
+FW_COPY_FORMS = list(
 
   newsletter = list(
     open_label = "Get FWISE updates",

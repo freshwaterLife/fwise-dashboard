@@ -1,86 +1,9 @@
-# .Renviron.example
-# Copy this to .Renviron and fill in the values you need. .Renviron is
-# gitignored and must never be committed.
-#
-# The app runs with NONE of these set: it falls back to the sibling checkout at
-# ../fwise-data/ and writes submissions and form rows to dev/forms/.
+# Local development configuration. GITIGNORED - never commit this file.
+# Copy from .Renviron.example.
 
-# ---- The data repository -----------------------------------------------------
-# THE VARIABLE THE DATA NEEDS. The newsletter and feedback forms need two more;
-# see the last section.
-#
-# fwise-data is private, so an unauthenticated raw.githubusercontent.com URL
-# returns 404. Set this to a fine-grained GitHub PAT - resource owner
-# freshwaterLife, scoped to fwise-data, Contents: Read - and the app reads the
-# data over the GitHub API. (It no longer writes there: submissions go to the
-# inbox sheet below.)
-#
-# Leave it unset locally. The app then reads ../fwise-data/.
-#
-# The repository and branch are constants in R/config.R, not variables. Neither
-# is a secret and neither varies.
-# FWISE_DATA_TOKEN=github_pat_...
-
-# ---- Override, not normally needed -------------------------------------------
-# Wins over the token. Use it to point a test deploy at a fork, a branch or a
-# local path without a code change:
-#
-#   /some/path   read that directory
-#   https://...  read that base URL over plain HTTPS with NO credential.
-#
-# Point it at the directory holding attempts.csv and metadata.json. A trailing
-# slash is tolerated.
-#
-# Setting it explicitly, as below, means the app still finds the data when run
-# from a different working directory.
-# FWISE_DATA_SOURCE=/absolute/path/to/fwise-data
-
-# ---- Submissions -------------------------------------------------------------
-# The contribute form appends to the `submissions` and `new_species` tabs of a
-# Google Sheet, which the reviewer QAs and dev/qa.R imports from. It uses the
-# forms' GS4_SA_KEY_B64 below and, unless this names another, the forms sheet.
-# With no sheet or no key, submissions go to dev/forms/submissions.csv.
-# `Rscript dev/check_sheets.R --setup-inbox` makes the two tabs.
-#
-# CAREFUL LOCALLY: with the key and a sheet id here, trying the form by hand
-# writes a row to the live sheet. The tests clear the setting for themselves.
-# FWISE_INBOX_SHEET_ID=1AbC...
-
-# ---- For the reviewer running dev/qa.R ---------------------------------------
-# Section 4 looks up the IUCN Red List status of each new species. Free for
-# non-commercial use: register at https://api.iucnredlist.org. Without it the
-# IUCN columns of a new species are left blank and listed.
-# IUCN_API_TOKEN=...
-
-# ---- Newsletter sign-ups and feedback ----------------------------------------
-# Both forms write to one private Google Sheet, a tab each ("newsletter" and
-# "feedback"), through a Google Cloud service account. BOTH variables must be
-# set; with either missing the forms write to dev/forms/<tab>.csv on this
-# machine instead, which is what you want locally.
-#
-# The sheet must be shared with the key's client_email as an Editor, and the
-# Google Sheets API must be enabled in the key's Cloud project. Row 1 of each
-# tab holds the column headers - see FW_NEWSLETTER_COLUMNS and
-# FW_FEEDBACK_COLUMNS in R/forms_store.R - and `Rscript dev/check_sheets.R`
-# checks them.
-#
-# The key may be the JSON itself or base64 of it. Base64 (`base64 -i key.json`)
-# is one line with no quotes or newlines, so it survives a deployment console.
-# FWISE_FORMS_SHEET_ID=1AbC...the id between /d/ and /edit in the sheet's URL
-# GS4_SA_KEY_B64=eyJ0eXBlIjoic2VydmljZV9hY2NvdW50Ii...
-
-# ---- Usage tracking ----------------------------------------------------------
-# The in-app event log (see TRACKING.md and R/tracking.R). OFF unless
-# FWISE_LOG_MODE says otherwise, so a local run never writes to the live sheet.
-#
-#   sheet    one row per event, appended to the `events` tab when a session
-#            ends, in the forms sheet (FWISE_FORMS_SHEET_ID) unless
-#            FWISE_LOG_SHEET_ID names another. Uses the forms' GS4_SA_KEY_B64.
-#   console  the rows are printed to this R console instead. For testing.
-#   off      nothing is recorded.
-#
-# Share the sheet with the key's client_email as an Editor. Row 1 of `events`
-# holds: timestamp, session_id, event, detail, app_version.
-# FWISE_LOG_MODE=console
-# Only for a separate spreadsheet:
-# FWISE_LOG_SHEET_ID=1AbC...the id between /d/ and /edit in the sheet's URL
+# The sibling checkout. Set explicitly rather than left to the default so that
+# running the app from a different working directory still finds the data.
+FWISE_DATA_SOURCE=path/to/data/git/repo
+GS4_SA_KEY_B64=in/handover/docs
+FWISE_FORMS_SHEET_ID=in/handover/docs
+IUCN_API_TOKEN=in/handover/docs

@@ -5,8 +5,8 @@
 
 # ---- Stage UI ----------------------------------------------------------------
 
-fw_intro_panel <- function(ns) {
-  block <- function(heading, body) {
+fw_intro_panel = function(ns) {
+  block = function(heading, body) {
     tagList(tags$h3(heading), p(body))
   }
   tagList(
@@ -66,7 +66,7 @@ fw_intro_panel <- function(ns) {
 #' reading about, and the audience that has to APPLY the definition is the one
 #' filling in this form. The helper is still shared rather than inlined, so if
 #' the definition is ever wanted in a second place there is one copy of it.
-fw_preamble <- function() {
+fw_preamble = function() {
   div(
     class = "fw-preamble",
     tags$h2(class = "fw-visually-hidden", fw_t("contribute", "preamble", "heading")),
@@ -109,13 +109,13 @@ fw_preamble <- function() {
 #'
 #' The progress rail is driven entirely in the browser - see fw_form_script() -
 #' so scrolling and typing never touch the server.
-fw_form_shell <- function(ns, choices) {
-  sections <- Filter(function(s) !is.null(FW_STEP_UI[[s$id]]), FW_STEPS)
+fw_form_shell = function(ns, choices) {
+  sections = Filter(function(s) !is.null(FW_STEP_UI[[s$id]]), FW_STEPS)
 
-  body <- lapply(seq_along(sections), function(i) {
-    sec <- sections[[i]]
-    title <- fw_t("contribute", "steps", sec$title_key)
-    inner <- tags$section(
+  body = lapply(seq_along(sections), function(i) {
+    sec = sections[[i]]
+    title = fw_t("contribute", "steps", sec$title_key)
+    inner = tags$section(
       class = "fw-form-section",
       id = ns(paste0("section_", sec$id)),
       `data-fw-section` = title,
@@ -186,7 +186,7 @@ fw_form_shell <- function(ns, choices) {
 #' server on every keystroke is the difference between a form that feels instant
 #' and one that stutters on a long page, and neither number is worth a round
 #' trip: the bar is a hint, not a value anything depends on.
-fw_form_script <- function(ns) {
+fw_form_script = function(ns) {
   # The element ids travel as a JSON object in their own tag. The behaviour
   # below is then a plain string: it used to be built with sprintf(), where a
   # single unescaped per-cent sign anywhere in the JavaScript was read as a
@@ -358,10 +358,10 @@ fw_form_script <- function(ns) {
   )
 }
 
-fw_confirmation <- function(ns, res) {
+fw_confirmation = function(ns, res) {
   if (is.null(res)) return(NULL)
 
-  body <- fw_fill(fw_t("contribute", "confirm", "body_template"),
+  body = fw_fill(fw_t("contribute", "confirm", "body_template"),
                   nth = fw_ordinal(res$total_attempts),
                   nth_country = fw_ordinal(res$country_attempts),
                   country = res$country)
@@ -394,7 +394,7 @@ fw_confirmation <- function(ns, res) {
 #' the sizing, the centring and the reduced-motion rule all hang off
 #' .fw-confirm__mark, and the label is what a screen reader announces in place
 #' of an image that says nothing on its own.
-fw_confirm_mark <- function() {
+fw_confirm_mark = function() {
   tags$span(
     class = "fw-confirm__mark",
     role = "img", `aria-label` = fw_t("contribute", "announce", "submission_received"),

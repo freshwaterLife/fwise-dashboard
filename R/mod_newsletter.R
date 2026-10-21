@@ -12,25 +12,25 @@
 # in R/copy_forms.R.
 
 #' @param open a reactive holding input$fw_open_form: list(form, source)
-mod_newsletter_server <- function(id, open) {
+mod_newsletter_server = function(id, open) {
   moduleServer(id, function(input, output, session) {
-    ns <- session$ns
+    ns = session$ns
 
-    done   <- reactiveVal(FALSE)
-    opened <- reactiveVal(0L)
-    entry  <- reactiveVal("unknown")
-    status <- reactiveVal(NULL)
+    done   = reactiveVal(FALSE)
+    opened = reactiveVal(0L)
+    entry  = reactiveVal("unknown")
+    status = reactiveVal(NULL)
 
-    vals <- reactive(fw_newsletter_values(input$name, input$email,
+    vals = reactive(fw_newsletter_values(input$name, input$email,
                                           input$organisation, input$consent))
-    problems <- reactive(fw_newsletter_problems(vals()))
+    problems = reactive(fw_newsletter_problems(vals()))
 
     # ONE VALIDATOR PER FIELD, so each can start showing its message on its
     # own, when the reader leaves that field. A single validator would light up
     # every empty field the moment it was switched on.
-    fields <- c("name", "email", "organisation", "consent")
-    validators <- lapply(stats::setNames(fields, fields), function(f) {
-      iv <- shinyvalidate::InputValidator$new()
+    fields = c("name", "email", "organisation", "consent")
+    validators = lapply(stats::setNames(fields, fields), function(f) {
+      iv = shinyvalidate::InputValidator$new()
       iv$add_rule(f, function(value) problems()[[f]])
       iv
     })
@@ -46,18 +46,18 @@ mod_newsletter_server <- function(id, open) {
 
     # A field has been left (see the focusout listener in fw_client_script()).
     observeEvent(input$touched, {
-      f <- sub(ns(""), "", input$touched, fixed = TRUE)
+      f = sub(ns(""), "", input$touched, fixed = TRUE)
       if (f %in% fields) validators[[f]]$enable()
     })
 
     # A FRESH FORM ON EVERY OPEN, and NOT redrawn on a failed send: the failure
     # message goes into its own slot, so what the reader typed stays put.
-    output$body <- renderUI({
+    output$body = renderUI({
       opened()
       if (done()) return(fw_form_success(fw_t("newsletter", "success")))
       isolate(fw_newsletter_form(ns))
     })
-    output$status <- renderUI(fw_form_status(status()))
+    output$status = renderUI(fw_form_status(status()))
 
     observe({
       opened()
@@ -81,7 +81,7 @@ mod_newsletter_server <- function(id, open) {
         return()
       }
 
-      res <- store_newsletter_signup(fw_newsletter_record(vals(), entry()))
+      res = store_newsletter_signup(fw_newsletter_record(vals(), entry()))
       if (isTRUE(res$success)) {
         status(NULL)
         done(TRUE)
@@ -96,8 +96,8 @@ mod_newsletter_server <- function(id, open) {
 }
 
 #' The sign-up form
-fw_newsletter_form <- function(ns) {
-  t <- function(key) fw_t("newsletter", key)
+fw_newsletter_form = function(ns) {
+  t = function(key) fw_t("newsletter", key)
   div(
     class = "fw-modal-form",
     # Where the focusout listener reports a field the reader has left.

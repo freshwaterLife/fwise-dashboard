@@ -20,8 +20,8 @@
 library(shiny)
 library(dplyr)
 
-mod_networking_ui <- function(id) {
-  ns <- NS(id)
+mod_networking_ui = function(id) {
+  ns = NS(id)
   tagList(
     fw_page_header(fw_t("networking", "title"), fw_t("networking", "description"),
                    show_title = FALSE),
@@ -115,9 +115,9 @@ mod_networking_ui <- function(id) {
 }
 
 # Species filter scope: either role, the invasive species, or the protected one.
-FW_NETWORKING_CATEGORIES <- c("either", "invasive", "beneficiary")
+FW_NETWORKING_CATEGORIES = c("either", "invasive", "beneficiary")
 
-fw_networking_picker <- function(ns, id) {
+fw_networking_picker = function(ns, id) {
   fw_field(
     selectizeInput(ns(id), label = NULL, choices = NULL, multiple = TRUE,
                    width = "100%",
@@ -140,38 +140,38 @@ fw_networking_picker <- function(ns, id) {
 #' @param f list(continent, country, species, category, organisation, search);
 #'   an empty or NULL entry is no filter. `species` holds labels as the picker
 #'   shows them; `category` scopes them to a role ("either" by default).
-fw_networking_filter <- function(data, contacts, f) {
-  picked <- function(x) if (length(x)) as.character(x[nzchar(x)]) else character(0)
-  cont <- picked(f$continent); ctry <- picked(f$country); sp <- picked(f$species)
-  out <- contacts
+fw_networking_filter = function(data, contacts, f) {
+  picked = function(x) if (length(x)) as.character(x[nzchar(x)]) else character(0)
+  cont = picked(f$continent); ctry = picked(f$country); sp = picked(f$species)
+  out = contacts
 
   if (length(cont) || length(ctry) || length(sp)) {
-    keep_ids <- data$attempt$attempt_id
+    keep_ids = data$attempt$attempt_id
     if (length(cont) || length(ctry)) {
-      keep_ids <- fw_filter_apply(
+      keep_ids = fw_filter_apply(
         data, list(continent = cont, country = ctry, .ids = c("continent", "country"))
       )$attempt_id
     }
     if (length(sp)) {
-      roles <- switch(f$category %||% "either",
+      roles = switch(f$category %||% "either",
                       invasive = "invasive", beneficiary = "beneficiary",
                       c("invasive", "beneficiary"))
-      lab <- fw_species_label(data$species)
-      asp <- data$attempt_species
-      hit <- asp$attempt_id[asp$role %in% roles &
+      lab = fw_species_label(data$species)
+      asp = data$attempt_species
+      hit = asp$attempt_id[asp$role %in% roles &
                               asp$species_id %in% lab$species_id[lab$label %in% sp]]
-      keep_ids <- intersect(keep_ids, hit)
+      keep_ids = intersect(keep_ids, hit)
     }
-    out <- out[vapply(out$attempt_ids, function(x) any(x %in% keep_ids), logical(1)), ]
+    out = out[vapply(out$attempt_ids, function(x) any(x %in% keep_ids), logical(1)), ]
   }
 
-  org <- picked(f$organisation)
-  if (length(org)) out <- out[!is.na(out$organisation) & out$organisation %in% org, ]
+  org = picked(f$organisation)
+  if (length(org)) out = out[!is.na(out$organisation) & out$organisation %in% org, ]
 
-  term <- trimws(f$search %||% "")
+  term = trimws(f$search %||% "")
   if (nzchar(term)) {
-    hay <- paste(coalesce(out$contact_name, ""), coalesce(out$organisation, ""))
-    out <- out[grepl(term, hay, ignore.case = TRUE, fixed = FALSE), ]
+    hay = paste(coalesce(out$contact_name, ""), coalesce(out$organisation, ""))
+    out = out[grepl(term, hay, ignore.case = TRUE, fixed = FALSE), ]
   }
   out
 }
@@ -181,17 +181,17 @@ fw_networking_filter <- function(data, contacts, f) {
 #' From the attempts that HAVE a contact on this page only, so every option
 #' finds somebody. Species are listed most-recorded first, as elsewhere, and
 #' per role (the page offers the "either" list; the category scopes the match).
-fw_networking_choices <- function(data, contacts) {
-  ids <- unique(unlist(contacts$attempt_ids))
-  att <- data$attempt[data$attempt$attempt_id %in% ids, ]
-  lab <- fw_species_label(data$species)
-  asp <- data$attempt_species[data$attempt_species$attempt_id %in% ids, ]
-  by_freq <- function(sid) {
-    tab <- sort(table(sid), decreasing = TRUE)
+fw_networking_choices = function(data, contacts) {
+  ids = unique(unlist(contacts$attempt_ids))
+  att = data$attempt[data$attempt$attempt_id %in% ids, ]
+  lab = fw_species_label(data$species)
+  asp = data$attempt_species[data$attempt_species$attempt_id %in% ids, ]
+  by_freq = function(sid) {
+    tab = sort(table(sid), decreasing = TRUE)
     lab$label[match(names(tab), lab$species_id)]
   }
-  inv <- by_freq(asp$species_id[asp$role == "invasive"])
-  ben <- by_freq(asp$species_id[asp$role == "beneficiary"])
+  inv = by_freq(asp$species_id[asp$role == "invasive"])
+  ben = by_freq(asp$species_id[asp$role == "beneficiary"])
   list(
     attempt = att,
     continent = sort(unique(stats::na.omit(att$continent))),
@@ -202,17 +202,17 @@ fw_networking_choices <- function(data, contacts) {
   )
 }
 
-mod_networking_server <- function(id, data) {
+mod_networking_server = function(id, data) {
   moduleServer(id, function(input, output, session) {
-    ns <- session$ns
+    ns = session$ns
 
     # The ONLY source of contact data on this page. Redaction has already
     # happened inside this function.
-    contacts <- fw_contacts_summary(data)
+    contacts = fw_contacts_summary(data)
 
     # Options come from the attempts a contact is attached to, so every one
     # finds somebody. See fw_networking_choices().
-    ch <- fw_networking_choices(data, contacts)
+    ch = fw_networking_choices(data, contacts)
     for (id in c("continent", "country", "organisation")) {
       updateSelectizeInput(session, id, choices = ch[[id]], selected = character(0),
                            server = FALSE)
@@ -243,7 +243,7 @@ mod_networking_server <- function(id, data) {
       updateTextInput(session, "search", value = "")
     })
 
-    filtered <- reactive({
+    filtered = reactive({
       fw_networking_filter(data, contacts, list(
         continent = input$continent, country = input$country,
         species = input$species, category = input$category,
@@ -260,16 +260,16 @@ mod_networking_server <- function(id, data) {
     #
     # Computed from the loaded data rather than written into the copy, so it
     # cannot drift when the client's contact cleaning lands.
-    output$coverage <- renderUI({
-      contact_ids <- contacts$contact_id[!is.na(contacts$contact_email)]
-      reachable <- sum(
+    output$coverage = renderUI({
+      contact_ids = contacts$contact_id[!is.na(contacts$contact_email)]
+      reachable = sum(
         data$attempt$primary_contact_id   %in% contact_ids |
         data$attempt$secondary_contact_id %in% contact_ids
       )
-      no_contact <- sum(is.na(data$attempt$primary_contact_id) &
+      no_contact = sum(is.na(data$attempt$primary_contact_id) &
                         is.na(data$attempt$secondary_contact_id))
 
-      text <- fw_fill(
+      text = fw_fill(
         fw_t("networking", "coverage"),
         reachable  = fw_fmt_num(reachable),
         total      = fw_fmt_num(nrow(data$attempt)),
@@ -281,8 +281,8 @@ mod_networking_server <- function(id, data) {
       p(class = "fw-caption fw-coverage-note", text)
     })
 
-    output$summary <- renderUI({
-      f <- filtered()
+    output$summary = renderUI({
+      f = filtered()
       div(
         class = "fw-summary-strip",
         role = "status",
@@ -303,10 +303,10 @@ mod_networking_server <- function(id, data) {
     # 237 contacts in one table is a 17,000 pixel scroll, which defeats the point
     # of a page meant to help someone find one person. Paged instead, with the
     # reader choosing how many they want at a time.
-    page <- reactiveVal(1L)
+    page = reactiveVal(1L)
 
-    page_size <- reactive({
-      n <- suppressWarnings(as.integer(input$page_size))
+    page_size = reactive({
+      n = suppressWarnings(as.integer(input$page_size))
       if (length(n) != 1 || is.na(n) || n <= 0) FW_CONTACTS_PAGE_SIZES[1] else n
     })
 
@@ -319,13 +319,13 @@ mod_networking_server <- function(id, data) {
       page(1L)
     }, ignoreInit = TRUE)
 
-    n_pages <- reactive(max(1L, ceiling(nrow(filtered()) / page_size())))
+    n_pages = reactive(max(1L, ceiling(nrow(filtered()) / page_size())))
 
-    paged <- reactive({
-      f <- filtered()
-      p <- min(page(), n_pages())
-      from <- (p - 1L) * page_size() + 1L
-      to <- min(nrow(f), p * page_size())
+    paged = reactive({
+      f = filtered()
+      p = min(page(), n_pages())
+      from = (p - 1L) * page_size() + 1L
+      to = min(nrow(f), p * page_size())
       if (nrow(f) == 0) f else f[from:to, ]
     })
 
@@ -333,15 +333,15 @@ mod_networking_server <- function(id, data) {
     # numbered pager rebuilt on every filter change would otherwise accumulate a
     # dead observer per page number per render.
     observeEvent(input$goto_page, {
-      n <- suppressWarnings(as.integer(input$goto_page))
+      n = suppressWarnings(as.integer(input$goto_page))
       if (length(n) == 1 && !is.na(n)) page(max(1L, min(n, n_pages())))
     })
 
-    output$pager <- renderUI({
+    output$pager = renderUI({
       if (nrow(filtered()) == 0) return(NULL)
-      p <- min(page(), n_pages())
-      from <- (p - 1L) * page_size() + 1L
-      to <- min(nrow(filtered()), p * page_size())
+      p = min(page(), n_pages())
+      from = (p - 1L) * page_size() + 1L
+      to = min(nrow(filtered()), p * page_size())
 
       div(
         class = "fw-pager",
@@ -356,12 +356,12 @@ mod_networking_server <- function(id, data) {
       )
     })
 
-    output$table <- renderUI({
-      f <- paged()
+    output$table = renderUI({
+      f = paged()
       if (nrow(f) == 0) return(p(fw_t("common", "no_results")))
 
-      rows <- lapply(seq_len(nrow(f)), function(i) {
-        r <- f[i, ]
+      rows = lapply(seq_len(nrow(f)), function(i) {
+        r = f[i, ]
         tags$tr(
           tags$td(r$contact_name %|na|% ""),
           tags$td(r$organisation %|na|% fw_t("networking", "no_organisation")),
@@ -409,7 +409,7 @@ mod_networking_server <- function(id, data) {
 #' The real control is the contact_public flag either way: an address flagged
 #' not-public never reaches this function, because fw_contacts_summary() has
 #' already replaced it with NA.
-fw_contact_action <- function(email, name, reveal = TRUE, contact_id = NULL) {
+fw_contact_action = function(email, name, reveal = TRUE, contact_id = NULL) {
   if (is.na(email) || !nzchar(email)) {
     # An empty cell, not a "hidden" badge. A badge advertises that there is
     # something to go looking for.
@@ -430,7 +430,7 @@ fw_contact_action <- function(email, name, reveal = TRUE, contact_id = NULL) {
 }
 
 #' What to call a contact: the person, or the organisation when no one is named
-fw_contact_who <- function(r) (r$contact_name %|na|% r$organisation) %|na|% r$contact_email
+fw_contact_who = function(r) (r$contact_name %|na|% r$organisation) %|na|% r$contact_email
 
-`%||%` <- function(x, y) if (is.null(x) || length(x) == 0) y else x
-`%|na|%` <- function(x, y) if (is.na(x) || !nzchar(x)) y else x
+`%||%` = function(x, y) if (is.null(x) || length(x) == 0) y else x
+`%|na|%` = function(x, y) if (is.na(x) || !nzchar(x)) y else x

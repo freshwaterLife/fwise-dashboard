@@ -13,7 +13,7 @@
 
 library(bslib)
 
-fw_theme <- function() {
+fw_theme = function() {
   bs_theme(
     version = 5,
 

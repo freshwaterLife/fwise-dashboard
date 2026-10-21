@@ -21,15 +21,15 @@
 #' POSIX [:space:] rather than \\s. R's default regex engine does NOT read \\s
 #' as a whitespace shorthand inside a character class, so [^@\\s] excludes the
 #' LETTER s and quietly rejects any address containing one.
-fw_is_email <- function(x) {
+fw_is_email = function(x) {
   grepl("^[^[:space:]@]+@[^[:space:]@]+\\.[^[:space:]@]+$", x %||% "")
 }
 
 #' The version of the privacy and data terms in force, for a stored row
-fw_terms_version <- function() fw_t("privacy", "version")
+fw_terms_version = function() fw_t("privacy", "version")
 
 #' One value from a form, as a trimmed string ("" for nothing)
-fw_form_value <- function(x) {
+fw_form_value = function(x) {
   if (is.null(x) || length(x) == 0 || is.na(x[1])) return("")
   trimws(as.character(x[1]))
 }
@@ -39,7 +39,7 @@ fw_form_value <- function(x) {
 #' A query string on the app's own address, so it works as a link from
 #' anywhere - a new tab, an email, a PDF - and the server opens the page and
 #' scrolls to the section. See the deep-link observer in app.R.
-fw_privacy_href <- function(section = NULL) {
+fw_privacy_href = function(section = NULL) {
   if (is.null(section)) return("?page=privacy")
   stopifnot(section %in% FW_PRIVACY_SECTIONS)
   paste0("?page=privacy&section=", section)
@@ -50,13 +50,13 @@ fw_privacy_href <- function(section = NULL) {
 #' For links out of a form: the visitor reads the terms without losing what
 #' they have typed. The words "opens in a new tab" are for screen readers;
 #' a sighted reader sees the browser do it.
-fw_new_tab_link <- function(href, label) {
+fw_new_tab_link = function(href, label) {
   tags$a(href = href, target = "_blank", rel = "noopener", label,
          tags$span(class = "fw-visually-hidden", fw_t("forms", "new_tab")))
 }
 
 #' The line under a form's personal fields: what it is for, and the terms link
-fw_form_data_line <- function(text, section) {
+fw_form_data_line = function(text, section) {
   p(class = "fw-modal-form__data-line", text, " ",
     fw_new_tab_link(fw_privacy_href(section), fw_t("forms", "data_link")))
 }
@@ -70,8 +70,8 @@ fw_form_data_line <- function(text, section) {
 #' @param required announced as required (aria-required). Not the HTML
 #'   `required` attribute: shinyvalidate owns the messages, and the browser's
 #'   own bubbles would be a second, differently worded set.
-fw_form_text <- function(id, type = "text", autocomplete = NULL, required = FALSE) {
-  tq <- htmltools::tagQuery(textInput(id, label = NULL, width = "100%"))
+fw_form_text = function(id, type = "text", autocomplete = NULL, required = FALSE) {
+  tq = htmltools::tagQuery(textInput(id, label = NULL, width = "100%"))
   # REMOVE, THEN ADD. addAttrs() appends to an attribute that is already there,
   # and textInput() writes type="text": adding "email" gives type="text email",
   # which Shiny's text binding does not recognise, and the field is never sent
@@ -93,8 +93,8 @@ fw_form_text <- function(id, type = "text", autocomplete = NULL, required = FALS
 #'
 #' A filled honeypot gets the normal success screen and nothing is written.
 #' Telling the bot it failed would only teach it to stop filling the field.
-fw_honeypot <- function(id) {
-  tq <- htmltools::tagQuery(textInput(id, label = fw_t("forms", "honeypot")))
+fw_honeypot = function(id) {
+  tq = htmltools::tagQuery(textInput(id, label = fw_t("forms", "honeypot")))
   tq$find("input")$addAttrs(tabindex = "-1", autocomplete = "off")
   div(class = "fw-hp", `aria-hidden` = "true", tq$allTags())
 }
@@ -112,7 +112,7 @@ fw_honeypot <- function(id) {
 #'   sign-up as entry_point, so the client can see which spot works.
 #' @param class  the button's look: "btn btn-primary", or "fw-link-button" for
 #'   one that reads as a link
-fw_form_open <- function(form, label, source, class = "btn btn-primary") {
+fw_form_open = function(form, label, source, class = "btn btn-primary") {
   stopifnot(form %in% c("newsletter", "feedback"))
   tags$button(type = "button", class = class, `data-fw-open` = form,
               `data-fw-source` = source, `aria-haspopup` = "dialog", label)
@@ -122,15 +122,15 @@ fw_form_open <- function(form, label, source, class = "btn btn-primary") {
 #'
 #' The value arrives from a data attribute in the browser, so it is cleaned
 #' rather than trusted - it ends up in a spreadsheet.
-fw_entry_point <- function(x) {
-  x <- gsub("[^a-z0-9_-]", "", tolower(fw_form_value(x)))
+fw_entry_point = function(x) {
+  x = gsub("[^a-z0-9_-]", "", tolower(fw_form_value(x)))
   if (nzchar(x)) substr(x, 1, 30) else "unknown"
 }
 
 # ---- Newsletter --------------------------------------------------------------
 
 #' The newsletter form's values, cleaned: trimmed, the email lowercased
-fw_newsletter_values <- function(name, email, organisation, consent) {
+fw_newsletter_values = function(name, email, organisation, consent) {
   list(name = fw_form_value(name),
        email = tolower(fw_form_value(email)),
        organisation = fw_form_value(organisation),
@@ -142,23 +142,23 @@ fw_newsletter_values <- function(name, email, organisation, consent) {
 #' @param v from fw_newsletter_values()
 #' @return a named list of messages, one per field that has a problem; empty
 #'   when the sign-up can be sent
-fw_newsletter_problems <- function(v) {
-  lim <- FW_FORM_LIMITS
-  msg <- function(key, n = NULL) {
-    out <- fw_t("newsletter", "validate", key)
+fw_newsletter_problems = function(v) {
+  lim = FW_FORM_LIMITS
+  msg = function(key, n = NULL) {
+    out = fw_t("newsletter", "validate", key)
     if (is.null(n)) out else fw_fill(out, n = n)
   }
-  out <- list()
-  if (!nzchar(v$name)) out$name <- msg("name_required")
-  else if (nchar(v$name) > lim$name) out$name <- msg("name_long", lim$name)
+  out = list()
+  if (!nzchar(v$name)) out$name = msg("name_required")
+  else if (nchar(v$name) > lim$name) out$name = msg("name_long", lim$name)
 
-  if (nchar(v$email) > lim$email) out$email <- msg("email_long", lim$email)
-  else if (!fw_is_email(v$email)) out$email <- msg("email")
+  if (nchar(v$email) > lim$email) out$email = msg("email_long", lim$email)
+  else if (!fw_is_email(v$email)) out$email = msg("email")
 
   if (nchar(v$organisation) > lim$organisation) {
-    out$organisation <- msg("org_long", lim$organisation)
+    out$organisation = msg("org_long", lim$organisation)
   }
-  if (!isTRUE(v$consent)) out$consent <- msg("consent")
+  if (!isTRUE(v$consent)) out$consent = msg("consent")
   out
 }
 
@@ -166,7 +166,7 @@ fw_newsletter_problems <- function(v) {
 #'
 #' consent_wording is the sentence the person ticked, word for word, so the
 #' record shows what they agreed to even after the copy changes.
-fw_newsletter_record <- function(v, entry_point, now = Sys.time()) {
+fw_newsletter_record = function(v, entry_point, now = Sys.time()) {
   list(
     submitted_at = format(now, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
     name = v$name,
@@ -186,21 +186,21 @@ fw_newsletter_record <- function(v, entry_point, now = Sys.time()) {
 #' The six navbar pages under their navbar names, then General and Other. The
 #' values are the navbar's own values, so the form can pre-select the page the
 #' reader is on from input$fw_nav.
-fw_feedback_pages <- function() {
-  pages <- c("home", "explore", "plan", "contribute", "networking", "about")
-  labels <- vapply(pages, function(p) fw_t("nav", p), character(1))
+fw_feedback_pages = function() {
+  pages = c("home", "explore", "plan", "contribute", "networking", "about")
+  labels = vapply(pages, function(p) fw_t("nav", p), character(1))
   c(stats::setNames(pages, labels),
     stats::setNames(c("general", "other"),
                     c(fw_t("feedback", "page_general"), fw_t("feedback", "page_other"))))
 }
 
 #' Which page to pre-select: the one the reader is on, or General
-fw_feedback_default_page <- function(nav) {
-  nav <- fw_form_value(nav)
+fw_feedback_default_page = function(nav) {
+  nav = fw_form_value(nav)
   if (nav %in% fw_feedback_pages()) nav else "general"
 }
 
-fw_feedback_values <- function(page, message, email) {
+fw_feedback_values = function(page, message, email) {
   list(page = fw_form_value(page),
        message = fw_form_value(message),
        email = tolower(fw_form_value(email)))
@@ -210,25 +210,25 @@ fw_feedback_values <- function(page, message, email) {
 #'
 #' The page is checked against the list as well as for presence: a select's
 #' value comes from the browser and can be anything.
-fw_feedback_problems <- function(v) {
-  lim <- FW_FORM_LIMITS
-  msg <- function(key, n = NULL) {
-    out <- fw_t("feedback", "validate", key)
+fw_feedback_problems = function(v) {
+  lim = FW_FORM_LIMITS
+  msg = function(key, n = NULL) {
+    out = fw_t("feedback", "validate", key)
     if (is.null(n)) out else fw_fill(out, n = n)
   }
-  out <- list()
-  if (!v$page %in% fw_feedback_pages()) out$page <- msg("page")
-  if (!nzchar(v$message)) out$message <- msg("issue_required")
-  else if (nchar(v$message) > lim$message) out$message <- msg("issue_long", lim$message)
+  out = list()
+  if (!v$page %in% fw_feedback_pages()) out$page = msg("page")
+  if (!nzchar(v$message)) out$message = msg("issue_required")
+  else if (nchar(v$message) > lim$message) out$message = msg("issue_long", lim$message)
   if (nzchar(v$email)) {
-    if (nchar(v$email) > lim$email) out$email <- msg("email_long", lim$email)
-    else if (!fw_is_email(v$email)) out$email <- msg("email")
+    if (nchar(v$email) > lim$email) out$email = msg("email_long", lim$email)
+    else if (!fw_is_email(v$email)) out$email = msg("email")
   }
   out
 }
 
 #' One piece of feedback, as stored
-fw_feedback_record <- function(v, now = Sys.time()) {
+fw_feedback_record = function(v, now = Sys.time()) {
   list(
     submitted_at = format(now, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
     page = v$page,
@@ -245,7 +245,7 @@ fw_feedback_record <- function(v, now = Sys.time()) {
 #' The body is one uiOutput the module draws - the form, or the thank-you once
 #' it has been sent - so the success state can replace the form inside the
 #' same dialog. Close sits in the footer in both states.
-fw_form_modal <- function(title, body) {
+fw_form_modal = function(title, body) {
   modalDialog(
     body,
     title = title,
@@ -257,13 +257,13 @@ fw_form_modal <- function(title, body) {
 }
 
 #' The success state: a message announced on arrival, and optional actions
-fw_form_success <- function(text, ...) {
+fw_form_success = function(text, ...) {
   div(class = "fw-modal-form__done", role = "status",
       p(class = "fw-modal-form__done-text", text), ...)
 }
 
 #' The status slot under a form's button: failure and cooldown messages
-fw_form_status <- function(text) {
+fw_form_status = function(text) {
   if (is.null(text)) return(NULL)
   div(class = "fw-modal-form__status", role = "alert", text)
 }
@@ -275,7 +275,7 @@ fw_form_status <- function(text) {
 #' DELEGATED FROM THE DOCUMENT, so they work for a form drawn into a dialog
 #' after the page loaded - the same reason as the download picker's script in
 #' fw_client_script().
-fw_forms_script <- function() {
+fw_forms_script = function() {
   tags$script(HTML("
     $(function () {
       // Any fw_form_open() button: tell the server which form, and from where.

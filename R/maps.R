@@ -41,7 +41,7 @@ library(shiny)
 # serves a map and treating it as a secret would buy nothing. Carto scopes it by
 # domain instead. FWISE_CARTO_KEY still overrides it, so a redeploy can move to a
 # new key without a code change.
-FW_CARTO_KEY <- fw_env("FWISE_CARTO_KEY",
+FW_CARTO_KEY = fw_env("FWISE_CARTO_KEY",
                        default = "cb1_3fo4_1_c9fdd55287ad4682f074548a")
 
 #' A Carto raster tile URL for one basemap style
@@ -49,8 +49,8 @@ FW_CARTO_KEY <- fw_env("FWISE_CARTO_KEY",
 #' The parameter is `key`. Carto's raster service ignores `api_key` without
 #' erroring and serves watermarked tiles instead, which is the failure this
 #' function exists to make un-repeatable.
-fw_carto_url <- function(style) {
-  base <- paste0("https://{s}.basemaps.cartocdn.com/rastertiles/", style,
+fw_carto_url = function(style) {
+  base = paste0("https://{s}.basemaps.cartocdn.com/rastertiles/", style,
                  "/{z}/{x}/{y}{r}.png")
   if (is.null(FW_CARTO_KEY) || !nzchar(FW_CARTO_KEY)) {
     return(base)
@@ -58,7 +58,7 @@ fw_carto_url <- function(style) {
   paste0(base, "?key=", FW_CARTO_KEY)
 }
 
-FW_CARTO_ATTRIB <- paste(
+FW_CARTO_ATTRIB = paste(
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   'contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
 )
@@ -80,8 +80,8 @@ FW_CARTO_ATTRIB <- paste(
 #' tiles no longer wrap (fw_add_basemaps()), the pan is held inside +/-180,
 #' and fw_map_fit.js sets the zoom-out limit to the zoom at which one world
 #' fills the map's width.
-fw_leaflet <- function() {
-  map <- leaflet::leaflet(options = leaflet::leafletOptions(
+fw_leaflet = function() {
+  map = leaflet::leaflet(options = leaflet::leafletOptions(
     minZoom = FW_MAP$min_zoom,
     maxBoundsViscosity = 1
   )) |>
@@ -89,7 +89,7 @@ fw_leaflet <- function() {
                           FW_MAP$max_lng, FW_MAP$lat_north)
   # A widget dependency, so it loads after leaflet.js itself and is inlined
   # into the saved report with the rest.
-  map$dependencies <- c(map$dependencies, list(fw_map_fit_dependency()))
+  map$dependencies = c(map$dependencies, list(fw_map_fit_dependency()))
   map
 }
 
@@ -100,9 +100,9 @@ fw_leaflet <- function() {
 #' hand-numbered version left unbumped after an edit meant visitors ran the old
 #' script. The last component is the file's own hash as a number, so an edit
 #' changes the URL by itself. 1.1.4 is where the hand numbering stopped.
-fw_map_fit_dependency <- function() {
-  src <- normalizePath("resources/js", mustWork = TRUE)
-  hash <- strtoi(substr(tools::md5sum(file.path(src, "fw_map_fit.js")), 1, 7), 16L)
+fw_map_fit_dependency = function() {
+  src = normalizePath("resources/js", mustWork = TRUE)
+  hash = strtoi(substr(tools::md5sum(file.path(src, "fw_map_fit.js")), 1, 7), 16L)
   htmltools::htmlDependency(
     name = "fw-map-fit", version = paste0("1.1.4.", hash),
     src = c(file = src),
@@ -118,11 +118,11 @@ fw_map_fit_dependency <- function() {
 #' biggest predictor of whether an eradication holds.
 #'
 #' @param overlays names of overlay groups to list in the control, if any
-fw_add_basemaps <- function(map, overlays = NULL) {
-  plain     <- fw_t("maps", "basemap_plain")
-  water     <- fw_t("maps", "basemap_water")
-  terrain   <- fw_t("maps", "basemap_terrain")
-  satellite <- fw_t("maps", "basemap_satellite")
+fw_add_basemaps = function(map, overlays = NULL) {
+  plain     = fw_t("maps", "basemap_plain")
+  water     = fw_t("maps", "basemap_water")
+  terrain   = fw_t("maps", "basemap_terrain")
+  satellite = fw_t("maps", "basemap_satellite")
   map |>
     leaflet::addTiles(
       urlTemplate = fw_carto_url("voyager_nolabels"),
@@ -160,8 +160,8 @@ fw_add_basemaps <- function(map, overlays = NULL) {
 #' ln(tan(pi/4 + lat/2)) up it, so a map of this shape at the zoom where one
 #' world fills its width shows the band FW_MAP$lat_north to $lat_south top to
 #' bottom and nothing more. About 1.67 for 80N to 60S.
-fw_map_aspect <- function() {
-  merc <- function(lat) log(tan(pi / 4 + lat * pi / 360))
+fw_map_aspect = function() {
+  merc = function(lat) log(tan(pi / 4 + lat * pi / 360))
   2 * pi / (merc(FW_MAP$lat_north) - merc(FW_MAP$lat_south))
 }
 
@@ -169,7 +169,7 @@ fw_map_aspect <- function() {
 #'
 #' The numbers live in R/config.R, so they reach the stylesheet as custom
 #' properties rather than being written into it twice. See .fw-map.
-fw_map_shape_style <- function() {
+fw_map_shape_style = function() {
   sprintf("--fw-map-aspect: %.4f; --fw-map-max-h: %dvh;",
           fw_map_aspect(), FW_MAP$max_height_vh)
 }
@@ -187,7 +187,7 @@ fw_map_shape_style <- function() {
 #' runs its height through htmltools::validateCssUnit(), which rejects
 #' aspect-ratio, min() and calc() outright. So the wrapper carries the size and
 #' the widget fills it.
-fw_map_output <- function(output_id, class = NULL) {
+fw_map_output = function(output_id, class = NULL) {
   div(
     class = paste(c("fw-map", class), collapse = " "),
     style = fw_map_shape_style(),
@@ -199,7 +199,7 @@ fw_map_output <- function(output_id, class = NULL) {
 #'
 #' See PROJECTION at the top of this file. Worded by the client; drawn under
 #' the Explore and Plan maps, which are the two Leaflet maps a reader sees.
-fw_map_note <- function() {
+fw_map_note = function() {
   p(class = "fw-caption fw-map-note", fw_t("maps", "mercator_note"))
 }
 
@@ -209,7 +209,7 @@ fw_map_note <- function() {
 # these are data frame columns and a list column cannot survive the row-at-a-time
 # indexing in fw_add_attempt_markers(). A pipe, because it appears in no species
 # name, method name or note in the data.
-FW_POPUP_SEP <- "|"
+FW_POPUP_SEP = "|"
 
 #' Everything a record needs, joined once for the whole selection
 #'
@@ -223,23 +223,23 @@ FW_POPUP_SEP <- "|"
 #' panel all read from this frame, so a record cannot say
 #' one thing in one place and another elsewhere. The three attempts with no
 #' coordinates are here too; fw_map_points() is the located subset.
-fw_attempt_records <- function(data, sel) {
-  pts <- sel
+fw_attempt_records = function(data, sel) {
+  pts = sel
   # RETURNS A NARROWER FRAME WHEN EMPTY: none of the joins below have run, so
   # the popup columns are absent rather than present-and-empty. Every caller has
   # to test nrow() before touching a popup column.
   if (!nrow(pts)) return(pts)
 
   # A PROTECTED SPECIES CARRIES ITS RED LIST CODE - see fw_species_shown().
-  species <- fw_species_shown(fw_species_label(data$species))
+  species = fw_species_shown(fw_species_label(data$species))
 
   # Species for one role, gathered per attempt. EVERY id is kept, not just the
   # first: the detail panel shows the photographs of all of them behind a pair
   # of arrows, so the popup can no longer be built from a single lead species.
   # The ids travel as one delimited string because this is a data frame column,
   # and are split again in fw_map_detail_html().
-  role_cols <- function(role_name, prefix) {
-    out <- data$attempt_species |>
+  role_cols = function(role_name, prefix) {
+    out = data$attempt_species |>
       dplyr::filter(role == role_name, attempt_id %in% pts$attempt_id) |>
       dplyr::distinct(attempt_id, species_id) |>
       dplyr::left_join(dplyr::select(species, species_id, label, shown),
@@ -255,7 +255,7 @@ fw_attempt_records <- function(data, sel) {
       )
     # Renamed afterwards rather than with tidy-eval in summarise(), so this file
     # needs nothing attached beyond dplyr:: itself.
-    names(out)[-1] <- paste0(prefix, "_", names(out)[-1])
+    names(out)[-1] = paste0(prefix, "_", names(out)[-1])
     out
   }
 
@@ -263,7 +263,7 @@ fw_attempt_records <- function(data, sel) {
   # data never has more). The notes used to ride along ("Rotenone - Betamax
   # vet.") and the client removed them from the map (21 Sept 2026): the card
   # and the record list what was used, and the detail is in the download.
-  methods <- data$attempt_method |>
+  methods = data$attempt_method |>
     dplyr::filter(attempt_id %in% pts$attempt_id) |>
     dplyr::left_join(dplyr::select(data$method, method_id, method_name),
                      by = "method_id") |>
@@ -281,7 +281,7 @@ fw_attempt_records <- function(data, sel) {
   # address is shown here at all. A private contact leaves the record's
   # Contacts row empty, which draws as "Not noted" - the attempt is still
   # there in full, there is simply nobody named to write to about it.
-  contacts <- data$contact |>
+  contacts = data$contact |>
     dplyr::transmute(
       contact_id,
       contact_name  = dplyr::if_else(contact_public, contact_name, NA_character_),
@@ -290,7 +290,7 @@ fw_attempt_records <- function(data, sel) {
       organisation  = dplyr::if_else(contact_public, organisation, NA_character_)
     )
 
-  out <- pts |>
+  out = pts |>
     dplyr::left_join(role_cols("invasive", "inv"), by = "attempt_id") |>
     dplyr::left_join(role_cols("beneficiary", "ben"), by = "attempt_id") |>
     dplyr::left_join(methods, by = "attempt_id") |>
@@ -317,7 +317,7 @@ fw_attempt_records <- function(data, sel) {
 #' fw_attempt_records() for the rows that have coordinates. Same narrower-frame
 #' rule when empty; fw_add_attempt_markers() tests nrow() before touching a
 #' popup column and returns a bare map at that point.
-fw_map_points <- function(data, sel) {
+fw_map_points = function(data, sel) {
   fw_attempt_records(data, sel[!is.na(sel$latitude) & !is.na(sel$longitude), ])
 }
 
@@ -337,7 +337,7 @@ fw_map_points <- function(data, sel) {
 # parses it back out of the stored string when a marker is clicked.
 
 # A pipe-delimited popup field back into its parts. Empty and NA both mean none.
-fw_popup_parts <- function(x) {
+fw_popup_parts = function(x) {
   if (length(x) != 1 || is.na(x) || !nzchar(as.character(x))) return(character(0))
   strsplit(as.character(x), FW_POPUP_SEP, fixed = TRUE)[[1]]
 }
@@ -348,9 +348,9 @@ fw_popup_parts <- function(x) {
 # - missing, blank or NA - says "Not noted" rather than vanishing, on the hover
 # card and in the record alike, so every record has the same rows in the same
 # places and a gap reads as a gap in the data rather than a layout fault.
-fw_popup_row <- function(label, value, html = FALSE,
+fw_popup_row = function(label, value, html = FALSE,
                          fallback = fw_t("species", "p_not_noted")) {
-  esc <- htmltools::htmlEscape
+  esc = htmltools::htmlEscape
   if (length(value) != 1 || is.na(value) || !nzchar(as.character(value))) {
     return(paste0('<div class="fw-popup__row"><span class="fw-popup__key">',
                   esc(label),
@@ -365,18 +365,18 @@ fw_popup_row <- function(label, value, html = FALSE,
 
 # A pipe-delimited field as a bulleted list, at most `max` items. NA for none,
 # so fw_popup_row() says "Not noted". Items are escaped unless `html`.
-fw_popup_list <- function(x, max = 3L, html = FALSE) {
-  items <- if (length(x) > 1) x else fw_popup_parts(x)
-  items <- utils::head(items[!is.na(items) & nzchar(items)], max)
+fw_popup_list = function(x, max = 3L, html = FALSE) {
+  items = if (length(x) > 1) x else fw_popup_parts(x)
+  items = utils::head(items[!is.na(items) & nzchar(items)], max)
   if (!length(items)) return(NA_character_)
-  if (!html) items <- htmltools::htmlEscape(items)
+  if (!html) items = htmltools::htmlEscape(items)
   paste0('<ul class="fw-popup__list"><li>',
          paste(items, collapse = "</li><li>"), "</li></ul>")
 }
 
 # The unlabelled country line under the title, "Not noted" when absent.
-fw_popup_place <- function(country) {
-  none <- is.na(country) || !nzchar(country)
+fw_popup_place = function(country) {
+  none = is.na(country) || !nzchar(country)
   paste0('<p class="fw-popup__place', if (none) " fw-popup__val--none", '">',
          htmltools::htmlEscape(if (none) fw_t("species", "p_not_noted") else country),
          "</p>")
@@ -389,7 +389,7 @@ fw_popup_place <- function(country) {
 #' nowhere would read as missing data. How long it lasted is its own field now
 #' (fw_popup_duration()), from the recorded duration rather than year
 #' arithmetic, so this no longer carries a bracket.
-fw_popup_years <- function(start, end) {
+fw_popup_years = function(start, end) {
   if (is.na(start)) return(NA_character_)
   # An end year that is the same as the start, or earlier than it, is not a
   # range. "2000-2000" reads as a fault in the data rather than as a campaign
@@ -408,14 +408,14 @@ fw_popup_years <- function(start, end) {
 #' years prints as one - "15 years", not "15.0 years" - and exactly one year is
 #' "1 year". Every duration in the app comes through here: the map cards, the
 #' record cards, the duration chart's hover and its last tick.
-fw_popup_duration <- function(days) {
+fw_popup_duration = function(days) {
   if (length(days) != 1 || is.na(days)) return(NA_character_)
   if (days < 365) {
-    d <- round(days)
+    d = round(days)
     return(paste(d, fw_t("maps", if (d == 1) "day_one" else "day_many")))
   }
-  y <- round(days / 365, 1)
-  whole <- y == round(y)
+  y = round(days / 365, 1)
+  whole = y == round(y)
   paste(formatC(y, format = "f", digits = if (whole) 0 else 1),
         fw_t("maps", if (y == 1) "year_one" else "year_many"))
 }
@@ -430,7 +430,7 @@ fw_popup_duration <- function(days) {
 #'
 #' NA when nothing is recorded, which fw_popup_row() shows as "Not noted" and
 #' which fw_popup_waterbody() treats as "no size to add".
-fw_popup_area <- function(row) {
+fw_popup_area = function(row) {
   if (length(row$area_treated) != 1 || is.na(row$area_treated)) {
     return(NA_character_)
   }
@@ -444,9 +444,9 @@ fw_popup_area <- function(row) {
 #' 2026). One row rather than two: the size is a property of the water body
 #' being described, and on a hover card meant to be read at a glance it earns
 #' its place beside it rather than on a line of its own.
-fw_popup_waterbody <- function(row) {
-  kind <- row$waterbody_type
-  area <- fw_popup_area(row)
+fw_popup_waterbody = function(row) {
+  kind = row$waterbody_type
+  area = fw_popup_area(row)
   if (is.na(area)) return(kind)
   if (length(kind) != 1 || is.na(kind) || !nzchar(kind)) return(area)
   paste0(kind, " (", area, ")")
@@ -489,8 +489,8 @@ fw_popup_waterbody <- function(row) {
 #'   NULL for no photograph at all
 #' @param thumb_ref carry the photographs by species id rather than inline; see
 #'   fw_popup_thumb()
-fw_map_hover_html <- function(row, thumbs = NULL, thumb_ref = FALSE) {
-  esc <- htmltools::htmlEscape
+fw_map_hover_html = function(row, thumbs = NULL, thumb_ref = FALSE) {
+  esc = htmltools::htmlEscape
 
   paste0(
     # The id is how a click asks the server for the rest of the record when
@@ -570,10 +570,10 @@ fw_map_hover_html <- function(row, thumbs = NULL, thumb_ref = FALSE) {
 #' redraw. The saved report keeps them inline, because the file has nothing
 #' to be handed a dictionary by except its own markers - and it is the same
 #' markup either way, so one stylesheet rule still covers both.
-fw_popup_thumb <- function(row, thumbs, ref = FALSE) {
+fw_popup_thumb = function(row, thumbs, ref = FALSE) {
   if (ref) {
-    first <- function(x) {
-      ids <- fw_popup_parts(x)
+    first = function(x) {
+      ids = fw_popup_parts(x)
       if (length(ids)) ids[1] else ""
     }
     return(paste0('<div class="fw-popup__figure" data-fw-figures="2" data-fw-thumbs="',
@@ -582,12 +582,12 @@ fw_popup_thumb <- function(row, thumbs, ref = FALSE) {
                   htmltools::htmlEscape(first(row$ben_ids), attribute = TRUE),
                   '"></div>'))
   }
-  one <- function(ids_col, role_key) {
-    ids <- fw_popup_parts(ids_col)
+  one = function(ids_col, role_key) {
+    ids = fw_popup_parts(ids_col)
     # NO SPECIES IN THE ROLE says so in the text rows' words; a species with no
     # cached photograph keeps the blank tile's own.
-    fig <- if (length(ids)) thumbs[[ids[1]]] else fw_popup_thumb_unrecorded()
-    if (is.null(fig) || !nzchar(fig)) fig <- fw_popup_thumb_none()
+    fig = if (length(ids)) thumbs[[ids[1]]] else fw_popup_thumb_unrecorded()
+    if (is.null(fig) || !nzchar(fig)) fig = fw_popup_thumb_none()
     paste0('<div class="fw-popup__figure-item">',
            '<p class="fw-popup-fig__role">',
            htmltools::htmlEscape(fw_t("species", role_key)), "</p>",
@@ -607,7 +607,7 @@ fw_popup_thumb <- function(row, thumbs, ref = FALSE) {
 #' noted" here, which read as "no protected species" beside a card naming one
 #' (client, 29 Sept 2026): a recorded species with no picture now says "No
 #' photograph available", in the hover card and the full record alike.
-fw_popup_thumb_none <- function(text = fw_t("species", "no_image")) {
+fw_popup_thumb_none = function(text = fw_t("species", "no_image")) {
   as.character(htmltools::tags$div(
     class = "fw-species-figure fw-species-figure--none",
     htmltools::tags$span(class = "fw-species-figure__placeholder", text)
@@ -619,7 +619,7 @@ fw_popup_thumb_none <- function(text = fw_t("species", "no_image")) {
 #' "None noted" (client, 29 Sept 2026): nothing was targeted or protected on
 #' record, which is a different answer from a species with no picture. Used by
 #' the hover card and the detail panel alike.
-fw_popup_thumb_unrecorded <- function() {
+fw_popup_thumb_unrecorded = function() {
   fw_popup_thumb_none(fw_t("species", "fig_none"))
 }
 
@@ -642,7 +642,7 @@ fw_popup_thumb_unrecorded <- function() {
 #' @param figure_cache an optional named character vector of ready-made figure
 #'   HTML keyed by species_id, from fw_map_figure_cache(). A species found
 #'   there is not rendered again; anything else is built as before.
-fw_map_detail_html <- function(row, species_tbl, live = FALSE, figure_cache = NULL) {
+fw_map_detail_html = function(row, species_tbl, live = FALSE, figure_cache = NULL) {
   # A <template>, NOT a hidden div, and this is not a style preference.
   # display:none does not stop a browser fetching an <img src>: a hidden div
   # here meant every hover card quietly pulled up to eight Wikimedia
@@ -669,29 +669,29 @@ fw_map_detail_html <- function(row, species_tbl, live = FALSE, figure_cache = NU
 #' not a journey any of them were making. The panel is closed and the next
 #' marker is clicked instead, which is the same two actions with the map still
 #' in front of the reader. fw_record_neighbour() went with the buttons.
-fw_record_detail_html <- function(row, species_tbl, live = FALSE,
+fw_record_detail_html = function(row, species_tbl, live = FALSE,
                                   figure_cache = NULL) {
-  esc <- htmltools::htmlEscape
-  labels <- fw_species_label(species_tbl)
+  esc = htmltools::htmlEscape
+  labels = fw_species_label(species_tbl)
 
   # A labelled column of photographs for one role. Several species become
   # several slides behind a pair of arrows; the label under each says which
   # animal is which, so the pictures are never carrying the identification on
   # their own.
-  figures <- function(ids, names, role_label) {
-    ids <- fw_popup_parts(ids)
-    names <- fw_popup_parts(names)
-    slides <- if (!length(ids)) {
+  figures = function(ids, names, role_label) {
+    ids = fw_popup_parts(ids)
+    names = fw_popup_parts(names)
+    slides = if (!length(ids)) {
       paste0('<div class="fw-popup-fig__slide" data-fw-slide="0">',
              fw_popup_thumb_unrecorded(), "</div>")
     } else {
       paste0(vapply(seq_along(ids), function(i) {
-        fig <- figure_cache[ids[i]]
+        fig = figure_cache[ids[i]]
         if (is.null(figure_cache) || is.na(fig)) {
           # The photograph's alt text is the bare species label, as in
           # fw_map_figure_cache(): the caption under it may carry the IUCN code.
-          plain <- labels$label[match(ids[i], labels$species_id)]
-          fig <- fw_species_figure_for(species_tbl, ids[i], plain, live = live)
+          plain = labels$label[match(ids[i], labels$species_id)]
+          fig = fw_species_figure_for(species_tbl, ids[i], plain, live = live)
         }
         paste0('<div class="fw-popup-fig__slide" data-fw-slide="', i - 1L, '"',
                if (i > 1L) " hidden" else "", ">",
@@ -727,12 +727,12 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
   # mail is in a browser and showed no address to copy (Alex, 2 Oct 2026). It
   # also served every public address in the widget's data. The button is
   # delegated from the document, so this innerHTML needs no Shiny binding.
-  person <- function(name, email, org, id) {
+  person = function(name, email, org, id) {
     # An organisation with no named person is the contact itself.
-    if (is.na(name) || !nzchar(name)) { name <- org; org <- NA_character_ }
+    if (is.na(name) || !nzchar(name)) { name = org; org = NA_character_ }
     if (is.na(name) || !nzchar(name)) return(NA_character_)
-    who <- esc(name)
-    if (!is.na(org) && nzchar(org)) who <- paste0(who, ", ", esc(org))
+    who = esc(name)
+    if (!is.na(org) && nzchar(org)) who = paste0(who, ", ", esc(org))
     if (is.na(email) || !nzchar(email)) return(who)
     paste0(who, " ", as.character(fw_email_reveal(
       email,
@@ -742,17 +742,17 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
     )))
   }
 
-  area <- fw_popup_area(row)
+  area = fw_popup_area(row)
 
   # CONTACTS AS A LIST, primary then secondary, replacing the separate
   # "Recorded by" and "Also recorded by" rows.
-  contacts <- c(
+  contacts = c(
     person(row$primary_contact_name, row$primary_contact_email,
            row$primary_contact_org, row$primary_contact_id),
     person(row$secondary_contact_name, row$secondary_contact_email,
            row$secondary_contact_org, row$secondary_contact_id)
   )
-  has_link <- !is.na(row$reference_link) && nzchar(row$reference_link)
+  has_link = !is.na(row$reference_link) && nzchar(row$reference_link)
 
   # THE FIELDS, IN THE CLIENT'S ORDER (21 Sept 2026), and EVERY ONE ALWAYS
   # DRAWN: a field with nothing in it says "Not noted" (fw_popup_row()). The
@@ -809,11 +809,11 @@ fw_record_detail_html <- function(row, species_tbl, live = FALSE,
 #'
 #' @param detail "embed" puts the whole record in the string, "lazy" sends the
 #'   hover card alone and leaves the record to fw_map_detail_server().
-fw_map_popup <- function(row, species_tbl, live = FALSE,
+fw_map_popup = function(row, species_tbl, live = FALSE,
                          detail = c("embed", "lazy"), figure_cache = NULL,
                          thumbs = NULL, thumb_ref = FALSE) {
-  detail <- match.arg(detail)
-  hover <- fw_map_hover_html(row, thumbs, thumb_ref = thumb_ref)
+  detail = match.arg(detail)
+  hover = fw_map_hover_html(row, thumbs, thumb_ref = thumb_ref)
   if (detail == "lazy") return(hover)
   paste0(hover, fw_map_detail_html(row, species_tbl, live, figure_cache = figure_cache))
 }
@@ -827,10 +827,10 @@ fw_map_popup <- function(row, species_tbl, live = FALSE,
 #'
 #' live = FALSE, always. A build renders these all at once and not one of them
 #' may reach Wikimedia while it does.
-fw_map_thumb_cache <- function(data, pts) {
-  first_of <- function(col) {
+fw_map_thumb_cache = function(data, pts) {
+  first_of = function(col) {
     vapply(col, function(x) {
-      ids <- fw_popup_parts(x)
+      ids = fw_popup_parts(x)
       if (length(ids)) ids[1] else NA_character_
     }, character(1), USE.NAMES = FALSE)
   }
@@ -839,11 +839,11 @@ fw_map_thumb_cache <- function(data, pts) {
   # more, which is what keeps this set far smaller than fw_map_figure_cache()'s.
   # A species that appears in both roles is rendered once - the cache is keyed
   # by species_id, not by role.
-  first <- c(first_of(pts$inv_ids), first_of(pts$ben_ids))
-  ids <- unique(first[!is.na(first)])
+  first = c(first_of(pts$inv_ids), first_of(pts$ben_ids))
+  ids = unique(first[!is.na(first)])
   if (!length(ids)) return(character(0))
-  labels <- fw_species_label(data$species)
-  names_for <- labels$label[match(ids, labels$species_id)]
+  labels = fw_species_label(data$species)
+  names_for = labels$label[match(ids, labels$species_id)]
   stats::setNames(
     vapply(seq_along(ids), function(i) {
       # AN EMPTY STRING FOR A SPECIES WITH NO CACHED IMAGE, and the decision
@@ -851,7 +851,7 @@ fw_map_thumb_cache <- function(data, pts) {
       # function's - it renders the blank "None noted" tile, because the client
       # wants the slot held open whether or not there is a photograph in it.
       # This one only answers whether an image exists.
-      img <- fw_species_image_cached(data$species, ids[i])
+      img = fw_species_image_cached(data$species, ids[i])
       if (is.null(img)) return("")
       fw_species_figure(img, names_for[i])
     }, character(1)),
@@ -868,11 +868,11 @@ fw_map_thumb_cache <- function(data, pts) {
 #'
 #' The caption is the species label, which is the same string the popup
 #' carries for that id, so a cached figure is identical to a fresh one.
-fw_map_figure_cache <- function(data, pts) {
-  ids <- unique(unlist(lapply(c(pts$inv_ids, pts$ben_ids), fw_popup_parts)))
+fw_map_figure_cache = function(data, pts) {
+  ids = unique(unlist(lapply(c(pts$inv_ids, pts$ben_ids), fw_popup_parts)))
   if (!length(ids)) return(character(0))
-  labels <- fw_species_label(data$species)
-  names_for <- labels$label[match(ids, labels$species_id)]
+  labels = fw_species_label(data$species)
+  names_for = labels$label[match(ids, labels$species_id)]
   stats::setNames(
     vapply(seq_along(ids), function(i) {
       fw_species_figure_for(data$species, ids[i], names_for[i], live = FALSE)
@@ -907,7 +907,7 @@ fw_map_figure_cache <- function(data, pts) {
 # request, no layout of 914 anything. The only network cost is the photograph,
 # and a 120ms hover intent keeps a pointer crossing the map from asking for a
 # dozen of them. Tapping still works, for touch, where there is no hover at all.
-FW_MAP_CARD_JS <- "
+FW_MAP_CARD_JS = "
 function (el, x, data) {
   var map = this;
   // The hover cards' photographs, sent ONCE with the map rather than inside
@@ -1366,21 +1366,21 @@ function (el, x, data) {
 #' rules between copy.R and here.
 #' @param detail_input the namespaced Shiny input a click writes an attempt id
 #'   into, or NULL when every record is embedded in its marker
-fw_map_card_js <- function(detail_input = NULL) {
+fw_map_card_js = function(detail_input = NULL) {
   # The labels land inside a single-quoted JavaScript string, so both a
   # backslash and an apostrophe in the copy would break the script.
-  lit <- function(x) {
-    x <- gsub("\\", "\\\\", x, fixed = TRUE)
+  lit = function(x) {
+    x = gsub("\\", "\\\\", x, fixed = TRUE)
     gsub("'", "\\'", x, fixed = TRUE)
   }
-  js <- gsub("{{CLOSE}}", lit(fw_t("species", "card_close")), FW_MAP_CARD_JS,
+  js = gsub("{{CLOSE}}", lit(fw_t("species", "card_close")), FW_MAP_CARD_JS,
              fixed = TRUE)
-  js <- gsub("{{LABEL}}", lit(fw_t("species", "card_label")), js, fixed = TRUE)
-  js <- gsub("{{DETAIL}}", lit(fw_t("species", "detail_label")), js, fixed = TRUE)
+  js = gsub("{{LABEL}}", lit(fw_t("species", "card_label")), js, fixed = TRUE)
+  js = gsub("{{DETAIL}}", lit(fw_t("species", "detail_label")), js, fixed = TRUE)
   # The breakpoint goes in as a bare number, from the same FW_BREAKPOINTS entry
   # the stylesheet uses, so the script and .fw-map-card cannot drift apart.
-  js <- gsub("{{STACKBP}}", sub("px$", "", FW_BREAKPOINTS$sm), js, fixed = TRUE)
-  js <- gsub("{{RECORDZOOM}}", as.integer(FW_MAP$record_zoom), js, fixed = TRUE)
+  js = gsub("{{STACKBP}}", sub("px$", "", FW_BREAKPOINTS$sm), js, fixed = TRUE)
+  js = gsub("{{RECORDZOOM}}", as.integer(FW_MAP$record_zoom), js, fixed = TRUE)
   gsub("{{INPUT}}", lit(detail_input %||% ""), js, fixed = TRUE)
 }
 
@@ -1399,13 +1399,13 @@ fw_map_card_js <- function(detail_input = NULL) {
 #' @param sel a reactive returning the current selection, in display order. An
 #'   id outside it is ignored rather than answered, so a stale click after a
 #'   rebuild cannot show a record the reader did not select.
-fw_map_detail_server <- function(input, session, input_name, data, sel) {
-  send <- function(id) {
+fw_map_detail_server = function(input, session, input_name, data, sel) {
+  send = function(id) {
     if (!is.character(id) || length(id) != 1 || is.na(id)) return()
-    s <- sel()
-    row <- s[!is.na(s$attempt_id) & s$attempt_id == id, ]
+    s = sel()
+    row = s[!is.na(s$attempt_id) & s$attempt_id == id, ]
     if (!nrow(row)) return()
-    rec <- fw_attempt_records(data, row)
+    rec = fw_attempt_records(data, row)
     if (!nrow(rec)) return()
     session$sendCustomMessage(
       "fw-map-detail",
@@ -1431,10 +1431,10 @@ fw_map_detail_server <- function(input, session, input_name, data, sel) {
 #' The title is still set even though the count is now drawn: it is what says
 #' what the number means, to a screen reader and on hover. The legs of a
 #' fanned-out group are the muted ink so they read as chrome rather than data.
-fw_cluster_options <- function() {
-  cl <- FW_MAP$cluster
+fw_cluster_options = function() {
+  cl = FW_MAP$cluster
   # The copy lands inside a single-quoted JavaScript string.
-  title <- gsub("'", "\\'", fw_fill(fw_t("maps", "stack_title"), n = "{n}"), fixed = TRUE)
+  title = gsub("'", "\\'", fw_fill(fw_t("maps", "stack_title"), n = "{n}"), fixed = TRUE)
   leaflet::markerClusterOptions(
     showCoverageOnHover = FALSE,
     zoomToBoundsOnClick = TRUE,
@@ -1481,10 +1481,10 @@ fw_cluster_options <- function() {
 #' @param detail_input the namespaced input id the lazy mode reports clicks
 #'   to. Required for "lazy"; the calling module pairs it with
 #'   fw_map_detail_server().
-fw_add_attempt_markers <- function(map, data, sel, live = FALSE,
+fw_add_attempt_markers = function(map, data, sel, live = FALSE,
                                    detail = c("embed", "lazy", "anchor"),
                                    detail_input = NULL) {
-  detail <- match.arg(detail)
+  detail = match.arg(detail)
   if (detail == "lazy" && is.null(detail_input)) {
     stop("detail = \"lazy\" needs detail_input, the input the map reports clicks to.",
          call. = FALSE)
@@ -1494,19 +1494,19 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE,
   # click scrolls there. Embedding the records as well made that file 8 MB of
   # map for the whole database. "#" is the card script's sentinel for it.
   if (detail == "anchor") {
-    detail <- "lazy"
-    detail_input <- "#"
+    detail = "lazy"
+    detail_input = "#"
   }
-  pts <- fw_map_points(data, sel)
-  lazy <- detail == "lazy"
+  pts = fw_map_points(data, sel)
+  lazy = detail == "lazy"
   # Built in BOTH modes, unlike the figure cache: the hover card carries its
   # thumbnail whether or not the record behind it is embedded. A lazy map hands
   # the set to the card script once; an embedded one writes it into each card.
-  thumbs <- if (nrow(pts)) fw_map_thumb_cache(data, pts) else character(0)
+  thumbs = if (nrow(pts)) fw_map_thumb_cache(data, pts) else character(0)
   if (!nrow(pts)) {
     # STILL WIRE THE CARD SCRIPT, so an empty map behaves like any other: it
     # is what creates the record panel on <body>.
-    v <- FW_MAP$empty_view
+    v = FW_MAP$empty_view
     return(
       map |>
         leaflet::setView(v$lng, v$lat, zoom = v$zoom) |>
@@ -1532,12 +1532,12 @@ fw_add_attempt_markers <- function(map, data, sel, live = FALSE,
 #' @param thumbs fw_map_thumb_cache() output covering `pts`. For "lazy" the
 #'   cards only name their species, and whatever dictionary the map was
 #'   rendered with has to cover them - see fw_map_card_render().
-fw_add_marker_layer <- function(map, data, pts, live = FALSE,
+fw_add_marker_layer = function(map, data, pts, live = FALSE,
                                 detail = c("embed", "lazy"), thumbs = NULL) {
-  detail <- match.arg(detail)
-  outcome <- ifelse(is.na(pts$outcome), "Unknown", pts$outcome)
-  figure_cache <- if (detail == "embed") fw_map_figure_cache(data, pts) else NULL
-  popups <- vapply(seq_len(nrow(pts)), function(i) {
+  detail = match.arg(detail)
+  outcome = ifelse(is.na(pts$outcome), "Unknown", pts$outcome)
+  figure_cache = if (detail == "embed") fw_map_figure_cache(data, pts) else NULL
+  popups = vapply(seq_len(nrow(pts)), function(i) {
     fw_map_popup(pts[i, ], data$species, live = live, detail = detail,
                  figure_cache = figure_cache, thumbs = thumbs,
                  thumb_ref = detail == "lazy")
@@ -1574,14 +1574,14 @@ fw_add_marker_layer <- function(map, data, pts, live = FALSE,
 #' and Leaflet fits that at an infinite zoom: no tiles load and the map is
 #' grey. The cap is also what stops two neighbouring sites opening at street
 #' level.
-fw_fit_points <- function(map, pts) {
+fw_fit_points = function(map, pts) {
   leaflet::fitBounds(map, min(pts$longitude), min(pts$latitude),
                      max(pts$longitude), max(pts$latitude),
                      options = list(maxZoom = FW_MAP$fit_max_zoom))
 }
 
 #' The outcome legend
-fw_add_outcome_legend <- function(map) {
+fw_add_outcome_legend = function(map) {
   leaflet::addLegend(
     map, position = "bottomright", colors = unname(FW_OUTCOME_COLOURS),
     labels = names(FW_OUTCOME_COLOURS), opacity = FW_MAP$legend_opacity,
@@ -1600,10 +1600,10 @@ fw_add_outcome_legend <- function(map) {
 #' @param detail_input as for fw_map_card_js()
 #' @param thumbs fw_map_thumb_cache() output, or NULL for cards with their
 #'   figures inline
-fw_map_card_render <- function(map, detail_input = NULL, thumbs = NULL) {
-  js <- fw_map_card_js(detail_input)
+fw_map_card_render = function(map, detail_input = NULL, thumbs = NULL) {
+  js = fw_map_card_js(detail_input)
   if (is.null(thumbs)) return(htmlwidgets::onRender(map, js))
-  esc <- htmltools::htmlEscape
+  esc = htmltools::htmlEscape
   htmlwidgets::onRender(map, js, data = list(
     # A list, not a named vector, so it arrives as an object even when empty
     # or of length one.
@@ -1621,8 +1621,8 @@ fw_map_card_render <- function(map, detail_input = NULL, thumbs = NULL) {
 #' draws later is already covered. Cached against the data it was built from;
 #' `identical()` on the same object is a pointer comparison, so the check
 #' costs nothing on the app's one shared FW_DATA.
-fw_map_thumbs_all <- local({
-  cache <- NULL
+fw_map_thumbs_all = local({
+  cache = NULL
   function(data) {
     if (is.null(cache) || !identical(cache$data, data)) {
       cache <<- list(data = data,

@@ -18,12 +18,12 @@
 # THE TEXT IS A MARKDOWN FILE, content/privacy_and_data_terms.md, read once
 # when the UI is built. Its header comment says how to edit it.
 
-FW_PRIVACY_FILE <- file.path("content", "privacy_and_data_terms.md")
+FW_PRIVACY_FILE = file.path("content", "privacy_and_data_terms.md")
 
-mod_privacy_ui <- function(id) {
-  ns <- NS(id)
-  doc <- fw_privacy_html()
-  updated <- as.Date(fw_t("privacy", "last_updated"))
+mod_privacy_ui = function(id) {
+  ns = NS(id)
+  doc = fw_privacy_html()
+  updated = as.Date(fw_t("privacy", "last_updated"))
 
   tagList(
     fw_page_header(fw_t("privacy", "title")),
@@ -52,34 +52,34 @@ mod_privacy_ui <- function(id) {
 }
 
 
-fw_privacy_html <- function(path = FW_PRIVACY_FILE) {
-  text <- paste(readLines(path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
-  text <- gsub("(?s)<!--.*?-->", "", text, perl = TRUE)
-  html <- as.character(shiny::markdown(text))
+fw_privacy_html = function(path = FW_PRIVACY_FILE) {
+  text = paste(readLines(path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+  text = gsub("(?s)<!--.*?-->", "", text, perl = TRUE)
+  html = as.character(shiny::markdown(text))
 
-  head_re <- "<h([23])>(.*?) \\{#([a-z0-9-]+)\\}</h\\1>"
-  found <- regmatches(html, gregexpr(head_re, html, perl = TRUE))[[1]]
-  toc <- data.frame(
+  head_re = "<h([23])>(.*?) \\{#([a-z0-9-]+)\\}</h\\1>"
+  found = regmatches(html, gregexpr(head_re, html, perl = TRUE))[[1]]
+  toc = data.frame(
     level = as.integer(sub(head_re, "\\1", found, perl = TRUE)),
     id    = sub(head_re, "\\3", found, perl = TRUE),
     title = gsub("<[^>]+>", "", sub(head_re, "\\2", found, perl = TRUE)),
     stringsAsFactors = FALSE
   )
-  html <- gsub(head_re, '<h\\1 id="\\3" tabindex="-1">\\2</h\\1>', html, perl = TRUE)
+  html = gsub(head_re, '<h\\1 id="\\3" tabindex="-1">\\2</h\\1>', html, perl = TRUE)
 
-  html <- gsub("\\[TO CONFIRM:([^]]*)\\]",
+  html = gsub("\\[TO CONFIRM:([^]]*)\\]",
                '<mark class="fw-placeholder">[TO CONFIRM:\\1]</mark>', html, perl = TRUE)
 
-  reveal <- as.character(fw_email_reveal(fw_t("footer", "contact_email"),
+  reveal = as.character(fw_email_reveal(fw_t("footer", "contact_email"),
                                          label = fw_t("footer", "contact_label"),
                                          aria = fw_t("footer", "contact_aria")))
-  html <- gsub("{contact_email}", reveal, html, fixed = TRUE)
+  html = gsub("{contact_email}", reveal, html, fixed = TRUE)
 
   # Everything before the first part heading is the page's opening, shown
   # above the contents list.
-  cut <- regexpr("<h2 ", html, fixed = TRUE)
-  intro <- if (cut > 0) substr(html, 1, cut - 1) else ""
-  body <- if (cut > 0) substring(html, cut) else html
+  cut = regexpr("<h2 ", html, fixed = TRUE)
+  intro = if (cut > 0) substr(html, 1, cut - 1) else ""
+  body = if (cut > 0) substring(html, cut) else html
 
   list(html = HTML(body), intro = HTML(intro), toc = toc)
 }
@@ -88,17 +88,17 @@ fw_privacy_html <- function(path = FW_PRIVACY_FILE) {
 #'
 #' Built from the headings fw_privacy_html() found, so it cannot list a
 #' section the text no longer has.
-fw_privacy_contents <- function(ns, toc) {
-  item <- function(i) tags$a(href = paste0("#", toc$id[i]), HTML(toc$title[i]))
-  parts <- which(toc$level == 2)
-  ends <- c(parts[-1] - 1L, nrow(toc))
+fw_privacy_contents = function(ns, toc) {
+  item = function(i) tags$a(href = paste0("#", toc$id[i]), HTML(toc$title[i]))
+  parts = which(toc$level == 2)
+  ends = c(parts[-1] - 1L, nrow(toc))
   tags$nav(
     class = "fw-privacy__contents",
     `aria-labelledby` = ns("contents"),
     tags$h2(id = ns("contents"), class = "fw-privacy__contents-title",
             fw_t("privacy", "contents")),
     tags$ul(lapply(seq_along(parts), function(k) {
-      kids <- seq_len(nrow(toc))[seq_len(nrow(toc)) > parts[k] &
+      kids = seq_len(nrow(toc))[seq_len(nrow(toc)) > parts[k] &
                                    seq_len(nrow(toc)) <= ends[k]]
       tags$li(item(parts[k]),
               if (length(kids)) tags$ul(lapply(kids, function(i) tags$li(item(i)))))
@@ -110,7 +110,7 @@ fw_privacy_contents <- function(ns, toc) {
 #' string on the way out, and follow Back and Forward
 #'
 #' Messages and one input, nothing more; app.R decides what happens.
-fw_privacy_script <- function() {
+fw_privacy_script = function() {
   tags$script(HTML("
     $(function () {
       // Scroll to one section, once its page is showing. A deep link selects

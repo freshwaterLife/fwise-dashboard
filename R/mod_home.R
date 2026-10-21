@@ -7,12 +7,12 @@
 # no scroll. Add nothing below the map without re-measuring.
 # ==============================================================================
 
-mod_home_ui <- function(id, stats) {
-  ns <- NS(id)
-  keys <- names(fw_t("home", "stories"))
+mod_home_ui = function(id, stats) {
+  ns = NS(id)
+  keys = names(fw_t("home", "stories"))
   # The two numbers are formatted before the ** pairs are turned into <strong>,
   # so each one lands inside its own bold span.
-  sentence <- fw_fill(fw_t("home", "kpi_sentence"),
+  sentence = fw_fill(fw_t("home", "kpi_sentence"),
                       attempts  = fw_fmt_num(stats$successful),
                       protected = fw_fmt_num(stats$protected))
 
@@ -49,7 +49,7 @@ mod_home_ui <- function(id, stats) {
   )
 }
 
-mod_home_server <- function(id, data) {
+mod_home_server = function(id, data) {
   moduleServer(id, function(input, output, session) {
     # Nothing reactive: the page is drawn once, with its two live figures filled
     # in mod_home_ui() from the data loaded at startup.
@@ -58,7 +58,7 @@ mod_home_server <- function(id, data) {
 
 # ---- Pieces ------------------------------------------------------------------
 
-fw_home_card_id <- function(key) paste0("fw-home-story-", key)
+fw_home_card_id = function(key) paste0("fw-home-story-", key)
 
 #' The evidence footnote, the last thing on the page above the footer
 #'
@@ -69,12 +69,12 @@ fw_home_card_id <- function(key) paste0("fw-home-story-", key)
 #' It spans the full container rather than sitting in the species/map grid, and
 #' it is the one place in the app set below the type floor - see
 #' .fw-home-footnote and $fw-size-fine in _components.scss.
-fw_home_footnote <- function() {
+fw_home_footnote = function() {
   p(class = "fw-home-footnote", HTML(fw_t("home", "footnote")))
 }
 
 #' A picture, or the placeholder box when the client has not supplied one
-fw_home_art <- function(src, alt) {
+fw_home_art = function(src, alt) {
   if (is.null(src) || is.na(src)) {
     div(class = "fw-story__placeholder", role = "img", `aria-label` = alt,
         fw_t("home", "image_placeholder"))
@@ -90,8 +90,8 @@ fw_home_art <- function(src, alt) {
 }
 
 #' One beneficiary in the strip: a button that opens its story card
-fw_home_tile <- function(key, s, img) {
-  sp <- s$beneficiary
+fw_home_tile = function(key, s, img) {
+  sp = s$beneficiary
   tags$button(
     type = "button",
     class = "fw-home-species",
@@ -112,9 +112,9 @@ fw_home_tile <- function(key, s, img) {
 #' the card while the picture stays where it is. On a narrow screen the two
 #' stack and the whole card scrolls instead - see .fw-home-card__body in
 #' _components.scss.
-fw_home_card <- function(key, s, img) {
-  sp <- s$beneficiary
-  title_id <- paste0(fw_home_card_id(key), "-title")
+fw_home_card = function(key, s, img) {
+  sp = s$beneficiary
+  title_id = paste0(fw_home_card_id(key), "-title")
 
   div(
     id = fw_home_card_id(key), popover = "auto",
@@ -158,19 +158,19 @@ fw_home_card <- function(key, s, img) {
 #' For a figure that cites its source in the text, as the Welcome footnote's
 #' do. Only an absolute http(s) address is a link; everything else is text,
 #' escaped as any other.
-fw_home_story_text <- function(text) {
-  pattern <- "\\[([^]]+)\\]\\((https?://[^) ]+)\\)"
-  hits <- gregexpr(pattern, text)
-  links <- regmatches(text, hits)[[1]]
+fw_home_story_text = function(text) {
+  pattern = "\\[([^]]+)\\]\\((https?://[^) ]+)\\)"
+  hits = gregexpr(pattern, text)
+  links = regmatches(text, hits)[[1]]
   if (!length(links)) return(text)
-  plain <- regmatches(text, hits, invert = TRUE)[[1]]
-  parts <- lapply(regmatches(links, regexec(pattern, links)), function(m) {
+  plain = regmatches(text, hits, invert = TRUE)[[1]]
+  parts = lapply(regmatches(links, regexec(pattern, links)), function(m) {
     tags$a(.noWS = "outside", href = m[3], target = "_blank",
            rel = "noopener noreferrer", m[2])
   })
-  out <- vector("list", 2L * length(parts) + 1L)
-  out[seq(1L, length(out), by = 2L)] <- plain
-  out[seq(2L, length(out), by = 2L)] <- parts
+  out = vector("list", 2L * length(parts) + 1L)
+  out[seq(1L, length(out), by = 2L)] = plain
+  out[seq(2L, length(out), by = 2L)] = parts
   do.call(tagList, out)
 }
 
@@ -178,7 +178,7 @@ fw_home_story_text <- function(text) {
 #'
 #' The same list as the About page's related resources (fw_about_related()),
 #' so it takes the same .fw-linklist styling.
-fw_home_story_links <- function(links) {
+fw_home_story_links = function(links) {
   if (!length(links)) return(NULL)
   tagList(
     tags$h3(class = "fw-home-card__links-title", fw_t("home", "story_links_heading")),
@@ -205,7 +205,7 @@ fw_home_story_links <- function(links) {
 #' on screen, fw_home_compare_script() swings the divide either way twice and
 #' settles back in the middle. It stops the moment the reader touches it, and
 #' does not move at all for a reader who has asked for reduced motion.
-fw_home_compare <- function(input_id) {
+fw_home_compare = function(input_id) {
   tags$figure(
     class = "fw-compare-wrap",
     div(
@@ -234,8 +234,8 @@ fw_home_compare <- function(input_id) {
 #' Plain DOM, no Shiny: the input is not bound to anything. Runs each time the
 #' map comes into view (the Welcome tab shown again, or scrolled back to) until
 #' the reader has used the slider once.
-fw_home_compare_script <- function(input_id) {
-  cfg <- FW_HOME_COMPARE
+fw_home_compare_script = function(input_id) {
+  cfg = FW_HOME_COMPARE
   tags$script(HTML(sprintf("
     (function () {
       var input = document.getElementById('%s');
@@ -289,10 +289,10 @@ fw_home_compare_script <- function(input_id) {
 #'
 #' The caption under the map. The named pieces of the copy become
 #' spans coloured .fw-compare__now and .fw-compare__later.
-fw_home_map_line <- function() {
-  cap <- fw_t("home", "map_caption")
+fw_home_map_line = function() {
+  cap = fw_t("home", "map_caption")
   lapply(seq_along(cap), function(i) {
-    nm <- names(cap)[i]
+    nm = names(cap)[i]
     if (nzchar(nm)) {
       tags$span(.noWS = "outside", class = paste0("fw-compare__", nm), cap[[i]])
     } else {
@@ -310,14 +310,14 @@ fw_home_map_line <- function() {
 #' still goes through here. The emphasis is applied to each stretch of plain
 #' text between the links and to each link's words, so a ** pair must sit inside
 #' one such stretch or inside one link.
-fw_home_links <- function(text) {
-  pattern <- "\\[\\[([a-z_]+)\\|([^]]+)\\]\\]"
-  hits <- gregexpr(pattern, text)
-  links <- regmatches(text, hits)[[1]]
+fw_home_links = function(text) {
+  pattern = "\\[\\[([a-z_]+)\\|([^]]+)\\]\\]"
+  hits = gregexpr(pattern, text)
+  links = regmatches(text, hits)[[1]]
   if (!length(links)) return(fw_emphasis(text))
   # One more stretch of plain text than there are links, interleaved.
-  plain <- regmatches(text, hits, invert = TRUE)[[1]]
-  parts <- lapply(regmatches(links, regexec(pattern, links)), function(m) {
+  plain = regmatches(text, hits, invert = TRUE)[[1]]
+  parts = lapply(regmatches(links, regexec(pattern, links)), function(m) {
     tags$a(
       # No whitespace around the link, or "words ," gets a space before the comma.
       .noWS = "outside",
@@ -326,8 +326,8 @@ fw_home_links <- function(text) {
       fw_emphasis(m[3])
     )
   })
-  out <- vector("list", 2L * length(parts) + 1L)
-  out[seq(1L, length(out), by = 2L)] <- lapply(plain, fw_emphasis)
-  out[seq(2L, length(out), by = 2L)] <- parts
+  out = vector("list", 2L * length(parts) + 1L)
+  out[seq(1L, length(out), by = 2L)] = lapply(plain, fw_emphasis)
+  out[seq(2L, length(out), by = 2L)] = parts
   do.call(tagList, out)
 }

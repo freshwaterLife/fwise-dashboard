@@ -31,7 +31,7 @@ suppressPackageStartupMessages({
 
 # Column order of the export, and the label each column carries. Order is the
 # order a person reads a record in: where, what, when, how, what happened, who.
-FW_EXPORT_COLUMNS <- c(
+FW_EXPORT_COLUMNS = c(
   "attempt_id",
   "site_name", "country", "region", "continent", "iso3", "latitude", "longitude",
   "waterbody_type", "water_regime", "area_treated", "area_unit", "area_notes",
@@ -71,8 +71,8 @@ FW_EXPORT_COLUMNS <- c(
 #' @param value  the column to collapse
 #' @param ids    every attempt id that must appear in the result, so an attempt
 #'   with nothing recorded comes back as NA rather than dropping out of the join
-fw_collapse <- function(bridge, value, ids) {
-  out <- bridge |>
+fw_collapse = function(bridge, value, ids) {
+  out = bridge |>
     filter(!is.na(.data[[value]]), .data[[value]] != "") |>
     group_by(attempt_id) |>
     summarise(v = paste(unique(.data[[value]]), collapse = FW_MULTI_SEP),
@@ -86,20 +86,20 @@ fw_collapse <- function(bridge, value, ids) {
 #' @param attempt_ids optional subset. NULL means every approved attempt, which
 #'   is what the Zenodo release uses. Pass ids for a filtered download.
 #' @return a data frame, one row per attempt, no list columns, no numbered slots.
-fw_export_frame <- function(data, attempt_ids = NULL) {
-  a <- data$attempt
-  if (!is.null(attempt_ids)) a <- filter(a, attempt_id %in% attempt_ids)
+fw_export_frame = function(data, attempt_ids = NULL) {
+  a = data$attempt
+  if (!is.null(attempt_ids)) a = filter(a, attempt_id %in% attempt_ids)
   # Stable, meaningful order. Not row order, which carries no meaning now that
   # ids are minted rather than positional.
-  a <- arrange(a, country, site_name, start_year)
-  ids <- a$attempt_id
+  a = arrange(a, country, site_name, start_year)
+  ids = a$attempt_id
 
-  species <- fw_species_label(data$species)
-  sp <- data$attempt_species |>
+  species = fw_species_label(data$species)
+  sp = data$attempt_species |>
     filter(attempt_id %in% ids) |>
     left_join(select(species, species_id, label, taxa), by = "species_id")
 
-  me <- data$attempt_method |>
+  me = data$attempt_method |>
     filter(attempt_id %in% ids) |>
     left_join(select(data$method, method_id, method_name, method_class),
               by = "method_id") |>
@@ -114,15 +114,15 @@ fw_export_frame <- function(data, attempt_ids = NULL) {
   # and a blank address rather than as a named person we decline to put an
   # address beside. The attempt's own row still travels in full; only who to
   # ask about it is withheld.
-  contacts <- data$contact |>
+  contacts = data$contact |>
     mutate(
       contact_name  = if_else(contact_public, contact_name,  NA_character_),
       organisation  = if_else(contact_public, organisation,  NA_character_),
       contact_email = if_else(contact_public, contact_email, NA_character_)
     ) |>
     select(contact_id, contact_name, organisation, contact_email)
-  slot <- function(id_col, prefix) {
-    m <- match(a[[id_col]], contacts$contact_id)
+  slot = function(id_col, prefix) {
+    m = match(a[[id_col]], contacts$contact_id)
     setNames(
       list(contacts$contact_name[m], contacts$organisation[m],
            contacts$contact_email[m]),
@@ -130,7 +130,7 @@ fw_export_frame <- function(data, attempt_ids = NULL) {
     )
   }
 
-  out <- a |>
+  out = a |>
     transmute(
       attempt_id, site_name, country, region, continent, iso3,
       latitude, longitude,
@@ -161,15 +161,15 @@ fw_export_frame <- function(data, attempt_ids = NULL) {
   # blank and the only copy of the note is the raw cell on the attempt. It goes
   # out as it stands, with `methods` left NA beside it, because a blank here
   # would be a value the client's export has and ours does not.
-  no_method <- !out$attempt_id %in% me$attempt_id
-  raw_notes <- a$method_notes[match(out$attempt_id[no_method], a$attempt_id)]
-  out$method_notes[no_method] <- gsub(FW_NOTES_SEP, FW_MULTI_SEP, raw_notes, fixed = TRUE)
+  no_method = !out$attempt_id %in% me$attempt_id
+  raw_notes = a$method_notes[match(out$attempt_id[no_method], a$attempt_id)]
+  out$method_notes[no_method] = gsub(FW_NOTES_SEP, FW_MULTI_SEP, raw_notes, fixed = TRUE)
 
-  out <- bind_cols(out, as_tibble(c(slot("primary_contact_id",   "primary_contact"),
+  out = bind_cols(out, as_tibble(c(slot("primary_contact_id",   "primary_contact"),
                                     slot("secondary_contact_id", "secondary_contact"))))
 
-  out <- as.data.frame(out[, FW_EXPORT_COLUMNS], stringsAsFactors = FALSE)
-  rownames(out) <- NULL
+  out = as.data.frame(out[, FW_EXPORT_COLUMNS], stringsAsFactors = FALSE)
+  rownames(out) = NULL
   fw_assert_export_safe(out, data)
   out
 }
@@ -185,15 +185,15 @@ fw_export_frame <- function(data, attempt_ids = NULL) {
 #' a private contact still went out named; the client's rule is that no
 #' personally identifying detail of theirs appears anywhere in the app or its
 #' downloads. A name is identifying on its own, so it is checked here too.
-fw_assert_export_safe <- function(x, data) {
-  hidden <- !data$contact$contact_public
-  clean <- function(v) v[!is.na(v) & nzchar(v)]
+fw_assert_export_safe = function(x, data) {
+  hidden = !data$contact$contact_public
+  clean = function(v) v[!is.na(v) & nzchar(v)]
 
-  check <- function(values, pattern, what) {
-    values <- clean(values)
+  check = function(values, pattern, what) {
+    values = clean(values)
     if (length(values) == 0) return(invisible(TRUE))
-    cols <- grep(pattern, names(x), value = TRUE)
-    leaked <- unique(unlist(lapply(cols, function(c) intersect(x[[c]], values))))
+    cols = grep(pattern, names(x), value = TRUE)
+    leaked = unique(unlist(lapply(cols, function(c) intersect(x[[c]], values))))
     if (length(leaked) > 0) {
       stop("Refusing to export: ", length(leaked), " ", what,
            " belonging to contacts who asked not to be listed.", call. = FALSE)
@@ -226,19 +226,19 @@ fw_assert_export_safe <- function(x, data) {
 #' @return a list of list(heading =, body =), in document order. ADD OR REMOVE
 #'   A BLOCK IN THE COPY AND NOTHING ELSE HAS TO CHANGE: the panel loops, the
 #'   grid reflows, and the tests count what they find.
-fw_caveat_blocks <- function(data) {
-  a <- data$attempt
-  n <- nrow(a)
-  num <- function(x) format(x, big.mark = ",")
-  pct <- function(x) paste0(round(100 * x / n), "%")
+fw_caveat_blocks = function(data) {
+  a = data$attempt
+  n = nrow(a)
+  num = function(x) format(x, big.mark = ",")
+  pct = function(x) paste0(round(100 * x / n), "%")
 
-  successful <- sum(a$outcome == "Successful", na.rm = TRUE)
-  unverified <- sum(a$outcome == "Successful" &
+  successful = sum(a$outcome == "Successful", na.rm = TRUE)
+  unverified = sum(a$outcome == "Successful" &
                       (is.na(a$verification_notes) | a$verification_notes == ""),
                     na.rm = TRUE)
-  no_size  <- sum(is.na(a$area_treated))
-  no_start <- sum(is.na(a$start_year))
-  no_end   <- sum(is.na(a$end_year))
+  no_size  = sum(is.na(a$area_treated))
+  no_start = sum(is.na(a$start_year))
+  no_end   = sum(is.na(a$end_year))
 
   lapply(fw_t("export", "caveats"), function(block) {
     list(
@@ -261,14 +261,14 @@ fw_caveat_blocks <- function(data) {
 #'
 #' A BLOCK MAY HAVE NO HEADING and then prints none, rather than a blank line
 #' where a heading would be. The client's caveats (6 Oct 2026) all have one.
-fw_caveats <- function(data) {
-  blocks <- fw_caveat_blocks(data)
-  out <- character(0)
+fw_caveats = function(data) {
+  blocks = fw_caveat_blocks(data)
+  out = character(0)
   for (i in seq_along(blocks)) {
-    h <- blocks[[i]]$heading
-    if (length(h) && nzchar(h)) out <- c(out, toupper(h))
-    out <- c(out, blocks[[i]]$body)
-    if (i < length(blocks)) out <- c(out, "")
+    h = blocks[[i]]$heading
+    if (length(h) && nzchar(h)) out = c(out, toupper(h))
+    out = c(out, blocks[[i]]$body)
+    if (i < length(blocks)) out = c(out, "")
   }
   out
 }
@@ -279,7 +279,7 @@ fw_caveats <- function(data) {
 #' first, then whatever caveats there are. Kept as its own block rather than
 #' folded into the caveats because the two are being written by different
 #' people - the methods statement is export$methods in R/copy_export.R.
-fw_methods_blocks <- function() {
+fw_methods_blocks = function() {
   list(list(heading = fw_t("export", "methods_heading"),
             body = fw_t("export", "methods")))
 }
@@ -294,7 +294,7 @@ fw_methods_blocks <- function() {
 #'
 #' @param meta the release metadata (unused)
 #' @param n the number of attempts in the database (unused)
-fw_citation_text <- function(meta = NULL, n = NULL) {
+fw_citation_text = function(meta = NULL, n = NULL) {
   fw_t("about", "citation_db")
 }
 
@@ -314,10 +314,10 @@ fw_citation_text <- function(meta = NULL, n = NULL) {
 #' already titled "Data caveats" and shows the blocks alone.
 #'
 #' @return a list of list(heading =, body =, sub =)
-fw_closing_blocks <- function(data, meta = NULL) {
-  part <- function(heading, body) list(heading = heading, body = body, sub = FALSE)
-  caveats <- lapply(fw_caveat_blocks(data), function(b) {
-    b$sub <- TRUE
+fw_closing_blocks = function(data, meta = NULL) {
+  part = function(heading, body) list(heading = heading, body = body, sub = FALSE)
+  caveats = lapply(fw_caveat_blocks(data), function(b) {
+    b$sub = TRUE
     b
   })
   c(lapply(fw_methods_blocks(), function(b) part(b$heading, b$body)),
@@ -337,18 +337,18 @@ fw_closing_blocks <- function(data, meta = NULL) {
 #' THIS USED TO BE A .txt IN EVERY DOWNLOAD. The client removed that file on
 #' 24 Sept 2026: a reader who ticks the PDF should get a PDF, not a zip holding
 #' a PDF and a text file, and the three documents can each carry the section.
-fw_methods_caveats_text <- function(data, meta = NULL) {
-  blocks <- fw_closing_blocks(data, meta)
-  out <- character(0)
+fw_methods_caveats_text = function(data, meta = NULL) {
+  blocks = fw_closing_blocks(data, meta)
+  out = character(0)
   for (i in seq_along(blocks)) {
-    b <- blocks[[i]]
-    h <- b$heading
+    b = blocks[[i]]
+    h = b$heading
     # The three parts in capitals; a caveat's own heading as written, so the
     # sheet still shows which is the part and which the block inside it.
-    if (length(h) && nzchar(h)) out <- c(out, if (isTRUE(b$sub)) h else toupper(h))
-    out <- c(out, b$body)
+    if (length(h) && nzchar(h)) out = c(out, if (isTRUE(b$sub)) h else toupper(h))
+    out = c(out, b$body)
     # A title with no body runs straight into its first block.
-    if (i < length(blocks) && length(b$body)) out <- c(out, "")
+    if (i < length(blocks) && length(b$body)) out = c(out, "")
   }
   out
 }
@@ -359,10 +359,10 @@ fw_methods_caveats_text <- function(data, meta = NULL) {
 #'
 #' The definitions live in R/copy_export.R, one per exported column. This only
 #' shapes them into the sheet.
-fw_field_definitions <- function() {
-  d <- fw_t("export", "dictionary")
-  out <- data.frame(names(d), unname(d), stringsAsFactors = FALSE)
-  names(out) <- c(fw_t("export", "col_field"), fw_t("export", "col_definition"))
+fw_field_definitions = function() {
+  d = fw_t("export", "dictionary")
+  out = data.frame(names(d), unname(d), stringsAsFactors = FALSE)
+  names(out) = c(fw_t("export", "col_field"), fw_t("export", "col_definition"))
   out
 }
 
@@ -372,7 +372,7 @@ fw_field_definitions <- function() {
 #'
 #' One row per line, NOT one cell holding the whole document. Collapsing to a
 #' single newline-joined string renders as one unreadable cell in Excel.
-fw_text_sheet <- function(lines, heading) {
+fw_text_sheet = function(lines, heading) {
   stats::setNames(data.frame(lines, stringsAsFactors = FALSE), heading)
 }
 
@@ -392,9 +392,9 @@ fw_text_sheet <- function(lines, heading) {
 #'   the reader's actual selection off the top of the page. The rule is the one
 #'   the report builder's on-screen summary already applies - see
 #'   output$filters_summary in mod_plan.R.
-fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL,
+fw_filters_sheet = function(filters, n_rows, n_total, meta = NULL,
                              applied_only = FALSE) {
-  provenance <- list(
+  provenance = list(
     list(setting = fw_t("export", "generated_at"),
          value = format(Sys.time(), "%Y-%m-%d %H:%M:%S", tz = "UTC")),
     list(setting = fw_t("export", "in_extract"),
@@ -404,26 +404,26 @@ fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL,
     list(setting = fw_t("export", "release"),
          value = meta$release %||% fw_t("export", "release_unknown"))
   )
-  set <- fw_filter_summary(filters)
+  set = fw_filter_summary(filters)
   if (applied_only) {
     # "All" is an untouched multi-select; "Yes" is an include-the-unrecorded
     # switch left at its default. Both mean the reader did not narrow on that
     # field. The provenance rows above are never dropped.
-    skip <- c(fw_t("export", "filter_all"), fw_t("export", "filter_yes"))
-    set <- Filter(function(r) {
+    skip = c(fw_t("export", "filter_all"), fw_t("export", "filter_yes"))
+    set = Filter(function(r) {
       if (isTRUE(r$untouched)) return(FALSE)
       !identical(as.character(r$value), skip[1]) &&
         !identical(as.character(r$value), skip[2])
     }, set)
   }
-  rows <- c(provenance, set)
+  rows = c(provenance, set)
 
-  out <- data.frame(
+  out = data.frame(
     vapply(rows, function(r) r$setting, character(1)),
     vapply(rows, function(r) as.character(r$value), character(1)),
     stringsAsFactors = FALSE
   )
-  names(out) <- c(fw_t("export", "col_setting"), fw_t("export", "col_value"))
+  names(out) = c(fw_t("export", "col_setting"), fw_t("export", "col_value"))
   out
 }
 
@@ -437,13 +437,13 @@ fw_filters_sheet <- function(filters, n_rows, n_total, meta = NULL,
 #' METHODS AND CAVEATS IS THE LAST TAB (client, 24 Sept 2026), where the PDF and
 #' the records HTML also close. It carries what the retired
 #' fwise-methods-and-caveats.txt used to carry out of the building on its own.
-fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
-  wb <- openxlsx::createWorkbook()
-  header <- openxlsx::createStyle(
+fw_write_workbook = function(path, data, export, filters, meta = NULL) {
+  wb = openxlsx::createWorkbook()
+  header = openxlsx::createStyle(
     fgFill = FW_COLOURS$teal_text, fontColour = FW_COLOURS$surface, textDecoration = "bold",
     halign = "left", border = "bottom", borderColour = FW_COLOURS$teal_text
   )
-  add <- function(name, x, widths = "auto") {
+  add = function(name, x, widths = "auto") {
     openxlsx::addWorksheet(wb, name)
     openxlsx::writeData(wb, name, x, headerStyle = header)
     openxlsx::freezePane(wb, name, firstRow = TRUE)
@@ -452,7 +452,7 @@ fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
 
   # THE ADD ORDER IS THE TAB ORDER, and it matches `sheets` in R/copy_export.R.
   # Move one there and move it here.
-  sheets <- fw_t("export", "sheets")
+  sheets = fw_t("export", "sheets")
   add(sheets$attempts, export)
   add(sheets$definitions, fw_field_definitions(), widths = c(26, 100))
   add(sheets$filters,
@@ -476,12 +476,12 @@ fw_write_workbook <- function(path, data, export, filters, meta = NULL) {
 #'
 #' The fw.now option pins the clock, so the tests can compare a name made
 #' before a slow download with one made after it.
-fw_file_stamp <- function(time = getOption("fw.now", Sys.time())) {
+fw_file_stamp = function(time = getOption("fw.now", Sys.time())) {
   format(time, "%Y%m%d-%H%M%S", tz = "UTC")
 }
 
 #' Filename for a download
-fw_export_filename <- function(stamp = fw_file_stamp()) {
+fw_export_filename = function(stamp = fw_file_stamp()) {
   paste0(fw_t("export", "filename_stem"), stamp, ".xlsx")
 }
 
@@ -508,16 +508,16 @@ fw_export_filename <- function(stamp = fw_file_stamp()) {
 
 # The parts a reader can choose, in the order they are written. The download
 # picker lists them in this order too - see fw_plan_download_ui() in mod_plan.R.
-FW_BUNDLE_PARTS <- c("pdf", "records", "xlsx")
+FW_BUNDLE_PARTS = c("pdf", "records", "xlsx")
 
 #' Which files a selection actually produces
 #'
 #' Anything not recognised is dropped. The PDF is dropped too when this server
 #' cannot make one (no Quarto): the picker has already told the reader so, and
 #' the rest of their download should not fail with it.
-fw_bundle_parts <- function(parts = character(0)) {
-  parts <- intersect(FW_BUNDLE_PARTS, parts %||% character(0))
-  if (!fw_pdf_available()) parts <- setdiff(parts, "pdf")
+fw_bundle_parts = function(parts = character(0)) {
+  parts = intersect(FW_BUNDLE_PARTS, parts %||% character(0))
+  if (!fw_pdf_available()) parts = setdiff(parts, "pdf")
   # A DEFENSIVE FLOOR, NOT A FEATURE. The download button is disabled while
   # nothing is ticked (see fw_plan_download_ui() in mod_plan.R), so an empty
   # selection cannot be asked for from the page. This is here so that a request
@@ -525,7 +525,7 @@ fw_bundle_parts <- function(parts = character(0)) {
   # only tick - hands back a real spreadsheet rather than a zero-byte file.
   # It also keeps fw_bundle_filename() and fw_write_bundle() answering the same
   # question, which they must: the handler names the file before it writes it.
-  if (!length(parts)) parts <- "xlsx"
+  if (!length(parts)) parts = "xlsx"
   parts
 }
 
@@ -534,7 +534,7 @@ fw_bundle_parts <- function(parts = character(0)) {
 #' The single-file case below, and the name each part is written under inside a
 #' zip. One place, so the handler's filename() and fw_write_bundle() cannot
 #' disagree about what a lone PDF is called.
-FW_BUNDLE_FILENAME <- list(
+FW_BUNDLE_FILENAME = list(
   pdf     = function(stamp) fw_pdf_filename(stamp),
   records = function(stamp) fw_records_filename(stamp),
   xlsx    = function(stamp) fw_export_filename(stamp)
@@ -546,8 +546,8 @@ FW_BUNDLE_FILENAME <- list(
 #' (client, 24 Sept 2026). Ticking the PDF and being handed a zip was the whole
 #' complaint, and it was the methods-and-caveats text - which always travelled -
 #' that made every download a zip of two things.
-fw_bundle_filename <- function(parts = character(0), stamp = fw_file_stamp()) {
-  parts <- fw_bundle_parts(parts)
+fw_bundle_filename = function(parts = character(0), stamp = fw_file_stamp()) {
+  parts = fw_bundle_parts(parts)
   if (length(parts) == 1) return(FW_BUNDLE_FILENAME[[parts]](stamp))
   paste0(fw_t("export", "bundle_stem"), stamp, ".zip")
 }
@@ -559,15 +559,15 @@ fw_bundle_filename <- function(parts = character(0), stamp = fw_file_stamp()) {
 #' @param progress called as progress(value, detail) before each step, value
 #'   running 0 to 1 across the whole bundle. The handler passes Shiny's
 #'   setProgress(); the default does nothing, so the tests need no session.
-fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL,
+fw_write_bundle = function(path, parts, data, sel, export, filters, meta = NULL,
                             progress = function(value, detail) NULL) {
-  parts <- fw_bundle_parts(parts)
+  parts = fw_bundle_parts(parts)
 
   # EVERY NAME FROM ONE STAMP. The names carry the time to the second and the
   # PDF takes several to make, so asking for its name again after writing it
   # would name a file that is not there.
-  stamp <- fw_file_stamp()
-  names <- lapply(FW_BUNDLE_FILENAME, function(f) f(stamp))
+  stamp = fw_file_stamp()
+  names = lapply(FW_BUNDLE_FILENAME, function(f) f(stamp))
 
   # THE BAR IS WEIGHTED BY WHAT TAKES THE TIME, not by the number of steps: the
   # PDF (Quarto on the server) is most of any bundle that has one, and a bar
@@ -577,16 +577,16 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
   # claimed whenever anything was ticked, which was right only because the
   # methods text guaranteed a second file; with that gone, a lone PDF never
   # reaches the zip and a bar holding a twelfth back for it would stop short.
-  steps <- c(xlsx = 2, pdf = 12, records = 3, zip = 1)
-  steps <- steps[c(parts, if (length(parts) > 1) "zip")]
-  ends <- cumsum(steps) / sum(steps)
-  starts <- stats::setNames(c(0, utils::head(ends, -1)), names(steps))
-  step <- function(id, key) progress(starts[[id]], fw_t("plan", key))
+  steps = c(xlsx = 2, pdf = 12, records = 3, zip = 1)
+  steps = steps[c(parts, if (length(parts) > 1) "zip")]
+  ends = cumsum(steps) / sum(steps)
+  starts = stats::setNames(c(0, utils::head(ends, -1)), names(steps))
+  step = function(id, key) progress(starts[[id]], fw_t("plan", key))
 
-  dir <- tempfile("fw-bundle-"); dir.create(dir)
+  dir = tempfile("fw-bundle-"); dir.create(dir)
   on.exit(unlink(dir, recursive = TRUE), add = TRUE)
 
-  files <- character(0)
+  files = character(0)
 
   # THE WRITE ORDER IS FW_BUNDLE_PARTS' ORDER, and that is load-bearing rather
   # than tidy. fw_bundle_parts() above has already sorted `parts` into the
@@ -602,20 +602,20 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
       progress = function(fraction, detail)
         progress(starts[["pdf"]] + fraction * steps[["pdf"]] / sum(steps), detail)
     )
-    files <- c(files, names$pdf)
+    files = c(files, names$pdf)
   }
   if ("records" %in% parts) {
     step("records", "progress_records")
     fw_write_records_html(file.path(dir, names$records), data, sel,
                           export, filters, meta)
-    files <- c(files, names$records)
+    files = c(files, names$records)
   }
 
   if ("xlsx" %in% parts) {
     step("xlsx", "progress_xlsx")
     fw_write_workbook(file.path(dir, names$xlsx), data, export,
                       filters, meta)
-    files <- c(files, names$xlsx)
+    files = c(files, names$xlsx)
   }
   # ONE FILE ARRIVES AS ITSELF (client, 24 Sept 2026). fw_bundle_filename() has
   # already named it, and it must reach the same conclusion as this branch.
@@ -636,9 +636,9 @@ fw_write_bundle <- function(path, parts, data, sel, export, filters, meta = NULL
   # than a condition, so the status is checked: a download that silently hands
   # back a zero-byte file is worse than one that errors. Relative paths, from
   # inside the directory, so the archive carries no absolute path.
-  archive <- tempfile(fileext = ".zip")
-  wd <- setwd(dir); on.exit(setwd(wd), add = TRUE, after = FALSE)
-  status <- utils::zip(archive, files, flags = "-q")
+  archive = tempfile(fileext = ".zip")
+  wd = setwd(dir); on.exit(setwd(wd), add = TRUE, after = FALSE)
+  status = utils::zip(archive, files, flags = "-q")
   if (!identical(as.integer(status), 0L) || !file.exists(archive)) {
     stop("Could not write the download archive (zip exit status ", status, ").",
          call. = FALSE)

@@ -13,7 +13,7 @@ library(bslib)
 # The step registry. Order here is the order of the wizard, and `id` is what the
 # validator and the progress indicator key on. `conditional` marks a step that is
 # skipped unless its predicate returns TRUE.
-FW_STEPS <- list(
+FW_STEPS = list(
   # WHO IS SENDING IT COMES FIRST (client, 29 Sept 2026): name and email, and
   # the two consent boxes with them, before a single question about the
   # attempt. It was second to last, with the consent at the foot.
@@ -35,21 +35,21 @@ FW_STEPS <- list(
 # Every label, help line, placeholder and tooltip on the form lives in
 # R/copy_contribute.R. These four are the short spellings the builders use.
 
-fw_lab  <- function(key) fw_t("contribute", "fields", key)
-fw_help <- function(key) fw_t("contribute", "help", key)
-fw_tip  <- function(key) fw_t("contribute", "tips", key)
-fw_ph   <- function(key) fw_t("contribute", "placeholder", key)
+fw_lab  = function(key) fw_t("contribute", "fields", key)
+fw_help = function(key) fw_t("contribute", "help", key)
+fw_tip  = function(key) fw_t("contribute", "tips", key)
+fw_ph   = function(key) fw_t("contribute", "placeholder", key)
 
 # ---- Small builders ----------------------------------------------------------
 
-fw_step_intro <- function(key) {
+fw_step_intro = function(key) {
   p(class = "fw-lead", fw_t("contribute", "blurb", key))
 }
 
 # A numeric input without its own label, so fw_field() owns the labelling. Shiny
 # always renders a label element, so it is hidden from view but left in the
 # accessibility tree pointing at the same text.
-fw_num_input <- function(id, value = NA, min = NA, max = NA, step = NA,
+fw_num_input = function(id, value = NA, min = NA, max = NA, step = NA,
                          placeholder = NULL) {
   div(
     class = "fw-bare-label",
@@ -58,11 +58,11 @@ fw_num_input <- function(id, value = NA, min = NA, max = NA, step = NA,
   )
 }
 
-fw_text_input <- function(id, placeholder = NULL) {
+fw_text_input = function(id, placeholder = NULL) {
   textInput(id, label = NULL, width = "100%", placeholder = placeholder)
 }
 
-fw_area_input <- function(id, rows = 3, placeholder = NULL) {
+fw_area_input = function(id, rows = 3, placeholder = NULL) {
   textAreaInput(id, label = NULL, width = "100%", rows = rows,
                 placeholder = placeholder)
 }
@@ -73,10 +73,10 @@ fw_area_input <- function(id, rows = 3, placeholder = NULL) {
 #' which would silently default every submission's country to Argentina. The
 #' blank option plus an explicit empty selection is what makes "not answered"
 #' distinguishable from "answered with the first item".
-fw_select <- function(id, choices, multiple = FALSE, selected = NULL) {
+fw_select = function(id, choices, multiple = FALSE, selected = NULL) {
   if (!multiple) {
-    choices <- c(stats::setNames("", fw_ph("select")), choices)
-    if (is.null(selected)) selected <- ""
+    choices = c(stats::setNames("", fw_ph("select")), choices)
+    if (is.null(selected)) selected = ""
   }
   selectizeInput(id, label = NULL, choices = choices, selected = selected,
                  multiple = multiple, width = "100%",
@@ -85,8 +85,8 @@ fw_select <- function(id, choices, multiple = FALSE, selected = NULL) {
 
 # An "Other (specify)" free-text box, revealed by conditionalPanel because the
 # condition is a plain input value and needs no server round trip.
-fw_other_panel <- function(ns, watch_id, target_id, label, multiple = FALSE) {
-  condition <- if (multiple) {
+fw_other_panel = function(ns, watch_id, target_id, label, multiple = FALSE) {
+  condition = if (multiple) {
     sprintf("input['%s'] && input['%s'].indexOf('%s') > -1",
             ns(watch_id), ns(watch_id), FW_OTHER)
   } else {
@@ -106,7 +106,7 @@ fw_other_panel <- function(ns, watch_id, target_id, label, multiple = FALSE) {
 
 # ---- Steps -------------------------------------------------------------------
 
-fw_step_site_ui <- function(ns, choices) {
+fw_step_site_ui = function(ns, choices) {
   tagList(
     fw_step_intro("site"),
     fw_field(fw_text_input(ns("site_name")), fw_lab("site_name"), required = TRUE,
@@ -149,7 +149,7 @@ fw_step_site_ui <- function(ns, choices) {
   )
 }
 
-fw_step_waterbody_ui <- function(ns, choices) {
+fw_step_waterbody_ui = function(ns, choices) {
   tagList(
     fw_step_intro("waterbody"),
 
@@ -213,7 +213,7 @@ fw_step_waterbody_ui <- function(ns, choices) {
   )
 }
 
-fw_step_invasive_ui <- function(ns, choices) {
+fw_step_invasive_ui = function(ns, choices) {
   tagList(
     fw_step_intro("invasive"),
     # ONE TARGET AT A TIME. This used to ask for every animal group up front and
@@ -231,8 +231,8 @@ fw_step_invasive_ui <- function(ns, choices) {
   )
 }
 
-fw_step_timeline_ui <- function(ns, choices) {
-  this_year <- as.integer(format(Sys.Date(), "%Y"))
+fw_step_timeline_ui = function(ns, choices) {
+  this_year = as.integer(format(Sys.Date(), "%Y"))
   tagList(
     fw_step_intro("timeline"),
     fw_field(fw_num_input(ns("invasion_year"), min = FW_YEAR_MIN, max = this_year),
@@ -255,7 +255,7 @@ fw_step_timeline_ui <- function(ns, choices) {
   )
 }
 
-fw_step_benefit_ui <- function(ns, choices) {
+fw_step_benefit_ui = function(ns, choices) {
   tagList(
     fw_step_intro("benefit"),
     # ONE BENEFICIARY AT A TIME, pairing the group with its species, exactly as
@@ -272,7 +272,7 @@ fw_step_benefit_ui <- function(ns, choices) {
   )
 }
 
-fw_step_methods_ui <- function(ns, choices) {
+fw_step_methods_ui = function(ns, choices) {
   tagList(
     fw_step_intro("methods"),
     tags$h3(fw_lab("methods_heading")),
@@ -301,7 +301,7 @@ fw_step_methods_ui <- function(ns, choices) {
   )
 }
 
-fw_step_chemical_ui <- function(ns, choices) {
+fw_step_chemical_ui = function(ns, choices) {
   tagList(
     fw_step_intro("chemical"),
     # THE BASIS COMES FIRST because the concentration means nothing without it:
@@ -337,7 +337,7 @@ fw_step_chemical_ui <- function(ns, choices) {
   )
 }
 
-fw_step_outcome_ui <- function(ns, choices) {
+fw_step_outcome_ui = function(ns, choices) {
   tagList(
     fw_step_intro("outcome"),
     fw_field(fw_select(ns("outcome"), choices$outcome), fw_lab("outcome"),
@@ -357,7 +357,7 @@ fw_step_outcome_ui <- function(ns, choices) {
   )
 }
 
-fw_step_contributor_ui <- function(ns, choices) {
+fw_step_contributor_ui = function(ns, choices) {
   tagList(
     fw_step_intro("contributor"),
     # ONE CONTACT (Sept 2026 user testing). The secondary contact is gone from
@@ -406,7 +406,7 @@ fw_step_contributor_ui <- function(ns, choices) {
   )
 }
 
-fw_step_other_ui <- function(ns, choices) {
+fw_step_other_ui = function(ns, choices) {
   tagList(
     fw_step_intro("other"),
     fw_field(fw_area_input(ns("notes_for_fwise"), rows = 6), fw_lab("notes"),
@@ -414,7 +414,7 @@ fw_step_other_ui <- function(ns, choices) {
   )
 }
 
-fw_step_review_ui <- function(ns, choices) {
+fw_step_review_ui = function(ns, choices) {
   tagList(
     fw_step_intro("review"),
     # ON DEMAND, not live. Rebuilding this table on every keystroke means a
@@ -428,7 +428,7 @@ fw_step_review_ui <- function(ns, choices) {
 }
 
 # Dispatch table, so the module does not carry a long if/else chain.
-FW_STEP_UI <- list(
+FW_STEP_UI = list(
   site        = fw_step_site_ui,
   waterbody   = fw_step_waterbody_ui,
   invasive    = fw_step_invasive_ui,
@@ -456,7 +456,7 @@ FW_STEP_UI <- list(
 #' list reaches several thousand.
 #'
 #' `create = TRUE` is what lets a contributor add a species we do not hold.
-fw_species_picker <- function(input_id, species) {
+fw_species_picker = function(input_id, species) {
   selectizeInput(
     input_id, label = NULL,
     # The LEADING BLANK IS LOAD-BEARING. A selectize handed choices with no
@@ -495,7 +495,7 @@ fw_species_picker <- function(input_id, species) {
 #' The only real difference is that a target is REQUIRED and a beneficiary is
 #' not. Every eradication has something it was aimed at; plenty of real records
 #' never recorded what it was meant to help.
-FW_ROW_KINDS <- list(
+FW_ROW_KINDS = list(
   target = list(
     heading      = "target_heading",
     taxa_label   = "target_taxa",
@@ -518,11 +518,11 @@ FW_ROW_KINDS <- list(
   )
 )
 
-fw_pair_row <- function(ns, index, choices, kind = "target") {
-  cfg   <- FW_ROW_KINDS[[kind]]
-  first <- index == 1
-  taxa_id    <- paste0(kind, "_taxa_", index)
-  species_id <- paste0(kind, "_species_", index)
+fw_pair_row = function(ns, index, choices, kind = "target") {
+  cfg   = FW_ROW_KINDS[[kind]]
+  first = index == 1
+  taxa_id    = paste0(kind, "_taxa_", index)
+  species_id = paste0(kind, "_species_", index)
 
   div(
     id = ns(paste0(kind, "_row_", index)),
@@ -556,12 +556,12 @@ fw_pair_row <- function(ns, index, choices, kind = "target") {
 
 # Kept as thin names because the step builders and questions_text.R read better
 # saying what they are building than passing a string.
-fw_target_row      <- function(ns, index, choices) fw_pair_row(ns, index, choices, "target")
-fw_beneficiary_row <- function(ns, index, choices) fw_pair_row(ns, index, choices, "benefit")
+fw_target_row      = function(ns, index, choices) fw_pair_row(ns, index, choices, "target")
+fw_beneficiary_row = function(ns, index, choices) fw_pair_row(ns, index, choices, "benefit")
 
-fw_method_row <- function(ns, index, choices) {
-  row_id <- paste0("method_row_", index)
-  first <- index == 1
+fw_method_row = function(ns, index, choices) {
+  row_id = paste0("method_row_", index)
+  first = index == 1
 
   div(
     id = ns(row_id),

@@ -30,7 +30,7 @@
 
 library(shiny)
 
-FW_SPECIES_UA <- paste(
+FW_SPECIES_UA = paste(
   "FWISE-dashboard/1.0 (https://www.freshwaterlife.org;",
   "freshwater invasive species eradication database)"
 )
@@ -40,7 +40,7 @@ FW_SPECIES_UA <- paste(
 #' NULL, NA and "" all mean "not present" here, and a caller holding a list from
 #' either source may hand over any of the three. `if (!is.na(x))` on a NULL is
 #' an error rather than FALSE, which is what this exists to stop.
-fw_has_str <- function(x) {
+fw_has_str = function(x) {
   !is.null(x) && length(x) == 1L && !is.na(x) && nzchar(x)
 }
 
@@ -54,11 +54,11 @@ fw_has_str <- function(x) {
 #' The twin of this lives in dev/fetch_species_images.R, which is where the
 #' cached values come from; they are kept in step deliberately, as strip() and
 #' the credit fallback already are.
-fw_licence_url <- function(x) {
+fw_licence_url = function(x) {
   if (is.null(x) || !length(x)) return(NA_character_)
-  x <- trimws(as.character(x)[1])
+  x = trimws(as.character(x)[1])
   if (is.na(x) || !nzchar(x)) return(NA_character_)
-  if (grepl("^//", x)) x <- paste0("https:", x)
+  if (grepl("^//", x)) x = paste0("https:", x)
   if (!grepl("^https?://", x)) return(NA_character_)
   x
 }
@@ -69,23 +69,23 @@ fw_licence_url <- function(x) {
 #'
 #' @return a one-row list with url, credit, licence, licence_url and page_url,
 #'   or NULL
-fw_species_image_cached <- function(species, species_id) {
+fw_species_image_cached = function(species, species_id) {
   if (!"image_url" %in% names(species)) return(NULL)
-  row <- species[species$species_id == species_id, ]
+  row = species[species$species_id == species_id, ]
   if (!nrow(row)) return(NULL)
-  get1 <- function(col) {
+  get1 = function(col) {
     if (!col %in% names(row)) return(NA_character_)
     as.character(row[[col]][1])
   }
-  url <- get1("image_url")
-  credit <- get1("image_credit")
-  licence <- get1("image_licence")
+  url = get1("image_url")
+  credit = get1("image_credit")
+  licence = get1("image_licence")
   if (is.na(url) || !nzchar(url)) return(NULL)
   # No licence, no picture. The credit always resolves to something - see the
   # fallback in fw_species_image_fetch() - but a photograph whose licence we
   # cannot state is one we have no business republishing.
   if (is.na(licence)) return(NULL)
-  if (is.na(credit) || !nzchar(credit)) credit <- fw_t("species", "credit_fallback")
+  if (is.na(credit) || !nzchar(credit)) credit = fw_t("species", "credit_fallback")
   list(url = url, credit = credit, licence = licence,
        licence_url = get1("image_licence_url"),
        page_url = get1("image_page_url"))
@@ -99,13 +99,13 @@ fw_species_image_cached <- function(species, species_id) {
 #' should be asked about once, not once per popup. Every failure path returns
 #' NULL rather than raising, because a missing photograph must never take a map
 #' down with it.
-fw_species_image_fetch <- function(scientific_name, common_name = NA) {
-  titles <- unique(stats::na.omit(c(scientific_name, common_name)))
-  titles <- titles[nzchar(titles)]
+fw_species_image_fetch = function(scientific_name, common_name = NA) {
+  titles = unique(stats::na.omit(c(scientific_name, common_name)))
+  titles = titles[nzchar(titles)]
   if (!length(titles)) return(NULL)
 
-  api <- function(base, params) {
-    out <- try(
+  api = function(base, params) {
+    out = try(
       httr2::request(base) |>
         httr2::req_url_query(!!!params) |>
         httr2::req_user_agent(FW_SPECIES_UA) |>
@@ -116,41 +116,41 @@ fw_species_image_fetch <- function(scientific_name, common_name = NA) {
     )
     if (inherits(out, "try-error")) NULL else out
   }
-  strip <- function(x) {
+  strip = function(x) {
     if (is.null(x)) return(NA_character_)
-    x <- trimws(gsub("[[:space:]]+", " ", gsub("<[^>]*>", "", x)))
+    x = trimws(gsub("[[:space:]]+", " ", gsub("<[^>]*>", "", x)))
     if (!nzchar(x)) NA_character_ else x
   }
 
   for (title in titles) {
-    j <- api("https://en.wikipedia.org/w/api.php", list(
+    j = api("https://en.wikipedia.org/w/api.php", list(
       action = "query", format = "json", redirects = 1,
       prop = "pageimages", piprop = "name|thumbnail",
       pithumbsize = 500, titles = title
     ))
-    page <- j$query$pages
+    page = j$query$pages
     if (is.null(page) || !length(page)) next
-    page <- page[[1]]
+    page = page[[1]]
     if (is.null(page$pageimage) || is.null(page$thumbnail)) next
 
-    k <- api("https://commons.wikimedia.org/w/api.php", list(
+    k = api("https://commons.wikimedia.org/w/api.php", list(
       action = "query", format = "json",
       prop = "imageinfo", iiprop = "extmetadata|url",
       titles = paste0("File:", page$pageimage)
     ))
-    cpage <- k$query$pages
+    cpage = k$query$pages
     if (is.null(cpage) || !length(cpage)) next
-    info <- cpage[[1]]$imageinfo
+    info = cpage[[1]]$imageinfo
     if (is.null(info) || !length(info)) next
-    meta <- info[[1]]$extmetadata
+    meta = info[[1]]$extmetadata
 
     # Same fallback as dev/fetch_species_images.R: a Commons file often carries
     # a licence but no Artist, and crediting the source satisfies CC where no
     # author is recorded. Only the licence is mandatory.
-    credit <- strip(meta$Artist$value)
-    if (is.na(credit)) credit <- strip(meta$Credit$value)
-    if (is.na(credit)) credit <- fw_t("species", "credit_fallback")
-    licence <- strip(meta$LicenseShortName$value)
+    credit = strip(meta$Artist$value)
+    if (is.na(credit)) credit = strip(meta$Credit$value)
+    if (is.na(credit)) credit = fw_t("species", "credit_fallback")
+    licence = strip(meta$LicenseShortName$value)
     if (is.na(licence)) next
 
     return(list(
@@ -166,7 +166,7 @@ fw_species_image_fetch <- function(scientific_name, common_name = NA) {
 # memoise caches the NULLs too, which is the point: a species with no article
 # must not be asked about again on every popup for the rest of the session.
 if (requireNamespace("memoise", quietly = TRUE)) {
-  fw_species_image_fetch <- memoise::memoise(fw_species_image_fetch)
+  fw_species_image_fetch = memoise::memoise(fw_species_image_fetch)
 }
 
 # ---- Markup ------------------------------------------------------------------
@@ -188,7 +188,7 @@ if (requireNamespace("memoise", quietly = TRUE)) {
 #'
 #' @param img  the resolved list, or NULL for the placeholder
 #' @param name what to caption it with, and what the placeholder says
-fw_species_figure <- function(img, name) {
+fw_species_figure = function(img, name) {
   if (is.null(img)) {
     return(as.character(tags$div(
       class = "fw-species-figure fw-species-figure--none",
@@ -198,7 +198,7 @@ fw_species_figure <- function(img, name) {
   }
   # A link out of a popup, wherever it goes: new tab, and never handing the
   # referrer or a window handle to Wikimedia.
-  out <- function(url, text) {
+  out = function(url, text) {
     if (!fw_has_str(url)) return(text)
     tags$a(href = url, target = "_blank", rel = "noopener noreferrer", text)
   }
@@ -222,12 +222,12 @@ fw_species_figure <- function(img, name) {
 #'
 #' @param live whether to fall back to the network. FALSE everywhere a lot of
 #'   these are built at once.
-fw_species_figure_for <- function(species, species_id, name, live = FALSE) {
-  img <- fw_species_image_cached(species, species_id)
+fw_species_figure_for = function(species, species_id, name, live = FALSE) {
+  img = fw_species_image_cached(species, species_id)
   if (is.null(img) && isTRUE(live)) {
-    row <- species[species$species_id == species_id, ]
+    row = species[species$species_id == species_id, ]
     if (nrow(row)) {
-      img <- fw_species_image_fetch(row$scientific_name[1], row$common_name[1])
+      img = fw_species_image_fetch(row$scientific_name[1], row$common_name[1])
     }
   }
   fw_species_figure(img, name)

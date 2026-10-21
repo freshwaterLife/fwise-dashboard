@@ -20,24 +20,24 @@
 # and reach the data through dev/qa.R. See fw_data_mode() in data_load.R and
 # R/github.R.
 
-FW_ROOT       <- getwd()
-FW_DEV_DIR    <- file.path(FW_ROOT, "dev")
+FW_ROOT       = getwd()
+FW_DEV_DIR    = file.path(FW_ROOT, "dev")
 
 # The development default: the sibling checkout. Overridden by FWISE_DATA_SOURCE.
-FW_DATA_DIR   <- normalizePath(file.path(FW_ROOT, "..", "fwise-data"),
+FW_DATA_DIR   = normalizePath(file.path(FW_ROOT, "..", "fwise-data"),
                                mustWork = FALSE)
 
 # THE THREE FILES THAT ARE THE DATA. One wide table of attempts and two lookups
 # it references by id. Everything else in fwise-data/ is provenance or a
 # standard. Relative to the data root, because in production the
 # same names are fetched over the GitHub API - see fw_data_path().
-FW_ATTEMPTS_FILE <- "attempts.csv"
-FW_SPECIES_FILE  <- "species.csv"
-FW_CONTACTS_FILE <- "contacts.csv"
+FW_ATTEMPTS_FILE = "attempts.csv"
+FW_SPECIES_FILE  = "species.csv"
+FW_CONTACTS_FILE = "contacts.csv"
 
-FW_ATTEMPTS_CSV <- file.path(FW_DATA_DIR, FW_ATTEMPTS_FILE)
-FW_SPECIES_CSV  <- file.path(FW_DATA_DIR, FW_SPECIES_FILE)
-FW_CONTACTS_CSV <- file.path(FW_DATA_DIR, FW_CONTACTS_FILE)
+FW_ATTEMPTS_CSV = file.path(FW_DATA_DIR, FW_ATTEMPTS_FILE)
+FW_SPECIES_CSV  = file.path(FW_DATA_DIR, FW_SPECIES_FILE)
+FW_CONTACTS_CSV = file.path(FW_DATA_DIR, FW_CONTACTS_FILE)
 
 # ---- Multi-value cells -------------------------------------------------------
 
@@ -46,12 +46,12 @@ FW_CONTACTS_CSV <- file.path(FW_DATA_DIR, FW_CONTACTS_FILE)
 # commas, and over the source's underscore because species names contain them
 # far less predictably than they contain spaces. A semicolon never occurs in a
 # species or method name in the data.
-FW_MULTI_SEP <- "; "
+FW_MULTI_SEP = "; "
 
 # The delimiter between per-method notes in attempts.csv, where each entry is
 # "Method name: note". A different character from FW_MULTI_SEP on purpose: 32 of
 # the method notes contain a semicolon and none contain a pipe.
-FW_NOTES_SEP <- " | "
+FW_NOTES_SEP = " | "
 
 # ---- Methods -----------------------------------------------------------------
 
@@ -64,7 +64,7 @@ FW_NOTES_SEP <- " | "
 # A method that arrives from a submission and is not listed here is still
 # loaded - it gets an id derived from its name and the class "other" - and
 # dev/qa.R flags it for the reviewer. Add it here once it is accepted.
-FW_METHODS <- data.frame(
+FW_METHODS = data.frame(
   method_id    = c("ME01", "ME02", "ME03", "ME04", "ME05", "ME06", "ME07"),
   method_name  = c("Antimycin-A", "Draining", "Electrofishing", "Netting / Trapping",
                    "Other chemical", "Other mechanical", "Rotenone"),
@@ -79,13 +79,13 @@ FW_METHODS <- data.frame(
 # client's standard, and the same rule fw_chart_category() applies to its own
 # "Other" bar. Held as ids, not names: renaming either above must not quietly
 # unpin it. See fw_chart_method() in charts.R.
-FW_METHOD_OTHER <- c("ME05", "ME06")
+FW_METHOD_OTHER = c("ME05", "ME06")
 
 # ---- Environment -------------------------------------------------------------
 
 # Small helper so a missing or empty environment variable behaves the same way.
-fw_env <- function(name, default = NULL) {
-  value <- Sys.getenv(name, unset = "")
+fw_env = function(name, default = NULL) {
+  value = Sys.getenv(name, unset = "")
   if (identical(value, "")) default else value
 }
 
@@ -95,8 +95,8 @@ fw_env <- function(name, default = NULL) {
 # going to move, and its name is not a secret. Making it something the client has
 # to type into a deployment console would add a way to get the app wrong without
 # adding anything you can do with it.
-FW_DATA_REPO <- "freshwaterLife/fwise-data"
-FW_DATA_REF  <- "main"
+FW_DATA_REPO = "freshwaterLife/fwise-data"
+FW_DATA_REF  = "main"
 
 # THE ONE SECRET, and the switch. Set FWISE_DATA_TOKEN and the app reads the
 # repository above over the GitHub API. Leave it unset and the data comes from
@@ -108,7 +108,7 @@ FW_DATA_REF  <- "main"
 # owner freshwaterLife, scoped to that one repository. The app no longer writes
 # to the repository (submissions go to the inbox sheet, Oct 2026), so read
 # access is enough. IT EXPIRES, and when it does the app stops reading data.
-FWISE_DATA_TOKEN <- fw_env("FWISE_DATA_TOKEN", default = NULL)
+FWISE_DATA_TOKEN = fw_env("FWISE_DATA_TOKEN", default = NULL)
 
 # THE OVERRIDE, and it is not needed in production. Set it to point a test deploy
 # at a fork, a branch or a local path without touching code. Three shapes, all
@@ -120,7 +120,7 @@ FWISE_DATA_TOKEN <- fw_env("FWISE_DATA_TOKEN", default = NULL)
 #
 # Point it at the directory holding attempts.csv and metadata.json. A trailing
 # slash is tolerated.
-FWISE_DATA_SOURCE <- fw_env("FWISE_DATA_SOURCE", default = NULL)
+FWISE_DATA_SOURCE = fw_env("FWISE_DATA_SOURCE", default = NULL)
 
 # WHERE NEWSLETTER SIGN-UPS AND FEEDBACK GO (Oct 2026). One private Google
 # Sheet, one tab each, written by a service account. BOTH must be set for the
@@ -133,15 +133,15 @@ FWISE_DATA_SOURCE <- fw_env("FWISE_DATA_SOURCE", default = NULL)
 #                      survives a deployment console's single-line field
 #
 # The sheet must be shared with the key's client_email as an Editor.
-FWISE_FORMS_SHEET_ID   <- fw_env("FWISE_FORMS_SHEET_ID", default = NULL)
-GS4_SA_KEY_B64 <- fw_env("GS4_SA_KEY_B64", default = NULL)
+FWISE_FORMS_SHEET_ID   = fw_env("FWISE_FORMS_SHEET_ID", default = NULL)
+GS4_SA_KEY_B64 = fw_env("GS4_SA_KEY_B64", default = NULL)
 
 # WHERE SUBMISSIONS GO (Oct 2026): the `submissions` and `new_species` tabs of
 # a Google Sheet, which the reviewer QAs and dev/qa.R imports from. OPTIONAL:
 # unset, it is the forms sheet. Signed in with the same GS4_SA_KEY_B64. With no
 # sheet or no key, submissions go to dev/forms/ on this machine - see
 # fw_inbox_mode() in R/forms_store.R.
-FWISE_INBOX_SHEET_ID <- fw_env("FWISE_INBOX_SHEET_ID", default = FWISE_FORMS_SHEET_ID)
+FWISE_INBOX_SHEET_ID = fw_env("FWISE_INBOX_SHEET_ID", default = FWISE_FORMS_SHEET_ID)
 
 # USAGE TRACKING (Oct 2026). See R/tracking.R and TRACKING.md.
 #
@@ -153,16 +153,16 @@ FWISE_INBOX_SHEET_ID <- fw_env("FWISE_INBOX_SHEET_ID", default = FWISE_FORMS_SHE
 #                       `events` tab beside `newsletter` and `feedback`).
 #                       Signed in with the
 #                       same GS4_SA_KEY_B64 as the forms.
-FWISE_LOG_MODE     <- fw_env("FWISE_LOG_MODE", default = NULL)
-FWISE_LOG_SHEET_ID <- fw_env("FWISE_LOG_SHEET_ID", default = FWISE_FORMS_SHEET_ID)
+FWISE_LOG_MODE     = fw_env("FWISE_LOG_MODE", default = NULL)
+FWISE_LOG_SHEET_ID = fw_env("FWISE_LOG_SHEET_ID", default = FWISE_FORMS_SHEET_ID)
 
 # The GoatCounter site code, the part before .goatcounter.com. Not a secret:
 # it is served in every page. While it is the placeholder no script is added.
-FW_GOATCOUNTER_CODE <- "fwise-stats"
+FW_GOATCOUNTER_CODE = "fwise-stats"
 
 # Written on every event row, so figures can be split by release. Bump it by
 # hand when a release changes what is logged or how.
-FW_APP_VERSION <- "1.0.0"
+FW_APP_VERSION = "1.0.0"
 
 # ---- Data visualisation palette ----------------------------------------------
 
@@ -172,7 +172,7 @@ FW_APP_VERSION <- "1.0.0"
 #
 # These are DATA colours. Never use them as interface chrome, and never use the
 # interface teals to encode data.
-FW_PALETTE <- c(
+FW_PALETTE = c(
   successful = "#009E73",
   failed     = "#E69F00",
   ongoing    = "#56B4E9",
@@ -185,7 +185,7 @@ FW_PALETTE <- c(
 # Outcome values as they appear in the data, mapped to palette keys. Keeping the
 # mapping explicit means a renamed outcome category fails loudly here rather than
 # silently falling through to grey.
-FW_OUTCOME_COLOURS <- c(
+FW_OUTCOME_COLOURS = c(
   "Successful" = unname(FW_PALETTE["successful"]),
   "Failed"     = unname(FW_PALETTE["failed"]),
   "Ongoing"    = unname(FW_PALETTE["ongoing"]),
@@ -201,7 +201,7 @@ FW_OUTCOME_COLOURS <- c(
 #
 # Kept as a named vector rather than one constant so that dev/check_palette.R
 # can check them one by one, and so a future palette change fails loudly here.
-FW_OUTCOME_LABEL_INK <- c(
+FW_OUTCOME_LABEL_INK = c(
   "Successful" = FW_COLOURS$ink,
   "Failed"     = FW_COLOURS$ink,
   "Ongoing"    = FW_COLOURS$ink,
@@ -225,7 +225,7 @@ FW_OUTCOME_LABEL_INK <- c(
 
 # Coordinates are shown and stored at six decimal places, roughly 0.1m. More
 # precision than that is false confidence for a treated waterbody.
-FW_COORD_DP <- 6
+FW_COORD_DP = 6
 
 # ---- Behaviour ---------------------------------------------------------------
 # Numbers that shape what the reader sees but are neither design tokens (those
@@ -234,26 +234,26 @@ FW_COORD_DP <- 6
 # "The ten most common." Every chart and tile grid that names the top n and
 # gathers the rest into Other. The copy that says "ten" in words is filled from
 # this as well, so changing it here changes the sentence under the chart.
-FW_TOP_N <- 10L
+FW_TOP_N = 10L
 
 # The newsletter and feedback forms. Character limits per field (the email
 # limit is the RFC maximum), and how long one session waits between two pieces
 # of feedback, which stops a double press or an impatient resend writing the
 # same message twice. More than one piece of feedback per visit is fine.
-FW_FORM_LIMITS <- list(name = 100L, organisation = 200L, email = 254L,
+FW_FORM_LIMITS = list(name = 100L, organisation = 200L, email = 254L,
                        message = 2000L)
-FW_FEEDBACK_COOLDOWN_S <- 30
+FW_FEEDBACK_COOLDOWN_S = 30
 
 # How stale the "records in review" count may get, in seconds. The inbox sheet
 # is read at most this often for the whole app, however many people have it
 # open; each open page asks again on the same beat. A submission made in this
 # app shows at once without waiting for it. See fw_review_count_live().
-FW_REVIEW_REFRESH_S <- 300
+FW_REVIEW_REFRESH_S = 300
 
 # The sections of the privacy page a link may jump to with ?section=. Each is
 # the anchor of one heading in content/privacy_and_data_terms.md, and
 # dev/plan_test.R checks every one of them exists there.
-FW_PRIVACY_SECTIONS <- c("newsletter", "feedback", "submissions", "contacts",
+FW_PRIVACY_SECTIONS = c("newsletter", "feedback", "submissions", "contacts",
                          "usage", "data-terms")
 
 # ---- Logo files ---------------------------------------------------------------
@@ -293,20 +293,20 @@ FW_PRIVACY_SECTIONS <- c("newsletter", "feedback", "submissions", "contacts",
 # spinner wherever something takes a moment, and at 400 a redraw that took a
 # third of a second showed nothing at all. Still long enough that a redraw
 # finishing within a couple of frames never flashes a badge at anyone.
-FW_SPINNER_DELAY_MS <- 150
+FW_SPINNER_DELAY_MS = 150
 
 # The Welcome map reveal's opening sway (client, 30 Sept 2026): where the divide
 # starts and rests (% from the left), how far it swings either side, how long
 # one full swing takes, how many swings, and the pause before the first. See
 # fw_home_compare_script() in R/mod_home.R. The swing went from 30 to 40 (client,
 # 1 Oct 2026): the divide now reaches 10% and 90% of the map.
-FW_HOME_COMPARE <- list(start = 50L, swing = 40L, period_ms = 2600L,
+FW_HOME_COMPARE = list(start = 50L, swing = 40L, period_ms = 2600L,
                         cycles = 2L, delay_ms = 500L)
 
 # How often an open tab tells the server it is still there, so an idle
 # connection is not closed by the hosting proxy. See the keepalive in
 # fw_client_script(). Well under the minute most proxies allow a silent socket.
-FW_KEEPALIVE_MS <- 30000
+FW_KEEPALIVE_MS = 30000
 
 # WHICH BUILD OF THE APP THIS IS, as a short hash of every file that shapes the
 # page: the R, the Sass, the client JS and the copy. Visitors were seeing old
@@ -318,11 +318,11 @@ FW_KEEPALIVE_MS <- 30000
 # what to ask a visitor to read out of the page source when they report a look
 # you have already fixed. Computed once at start-up, so it costs a visitor
 # nothing.
-FW_BUILD_ID <- local({
-  dirs  <- file.path(FW_ROOT, c("R", "www/scss", "resources/js", "content"))
-  files <- sort(c(file.path(FW_ROOT, "app.R"),
+FW_BUILD_ID = local({
+  dirs  = file.path(FW_ROOT, c("R", "www/scss", "resources/js", "content"))
+  files = sort(c(file.path(FW_ROOT, "app.R"),
                   list.files(dirs, full.names = TRUE)))
-  files <- files[file.exists(files)]
+  files = files[file.exists(files)]
   substr(digest::digest(unname(tools::md5sum(files))), 1, 10)
 })
 
@@ -330,7 +330,7 @@ FW_BUILD_ID <- local({
 # the canonical link, the Open Graph tags and the structured data, which all
 # need absolute URLs; www/robots.txt and www/sitemap.xml are static files and
 # carry it written out, so change them too if the domain ever moves.
-FW_SITE_URL <- "https://fwise.org/"
+FW_SITE_URL = "https://fwise.org/"
 
 # How long the loader may cover the page if Shiny never reports idle, in
 # seconds. A real visitor's session is idle within a couple of seconds and the
@@ -338,9 +338,9 @@ FW_SITE_URL <- "https://fwise.org/"
 # connects - a URL-categorisation crawler rendering the page, or a network that
 # blocks WebSockets. Without it they would see the badge and nothing else
 # (Alex, 4 Oct 2026: firewalls were rating the site as "insufficient content").
-FW_LOADER_TIMEOUT_S <- 8
+FW_LOADER_TIMEOUT_S = 8
 
-FW_LOGO <- list(
+FW_LOGO = list(
   mark_web   = "img/FWISE-SIMPLE.png",
   mark_file  = "www/img/FWISE-SIMPLE-1200.png",
   badge_web  = "img/FWISE-BADGE-256.png",
@@ -391,7 +391,7 @@ FW_LOGO <- list(
 # The two sets spell their filenames differently - underscores for the
 # thumbnails, hyphens for the lettered plates. That is how the client sent them
 # and how they already sit in www/; the build script preserves it on purpose.
-FW_HOME_IMG <- list(
+FW_HOME_IMG = list(
   map_now  = "img/home/map-now.png",
   map_next = "img/home/map-next.png",
   stories = c(
@@ -417,7 +417,7 @@ FW_HOME_IMG <- list(
 # frog, fiery redfin on the left; little grebe, golden galaxias, pearl mussel on
 # the right. The grid flows by column (.fw-home-species-grid), so this is also
 # the tab order.
-FW_HOME_ORDER <- c("north_america", "latin_america", "africa",
+FW_HOME_ORDER = c("north_america", "latin_america", "africa",
                    "asia", "oceania", "europe")
 
 # The species photo grids on the report builder, which show FEWER than FW_TOP_N.
@@ -432,11 +432,11 @@ FW_HOME_ORDER <- c("north_america", "latin_america", "africa",
 # NOTHING IN THE COPY COUNTS THIS OUT IN WORDS ANY MORE. The notes under the two
 # grids used to be filled from it; they are gone, so this number can move again
 # without a sentence to keep in step with it.
-FW_PLAN_SPECIES_N <- 3L
+FW_PLAN_SPECIES_N = 3L
 
 # The country table in the PDF report. Longer than FW_TOP_N because a printed
 # list is scanned rather than read off a bar.
-FW_REPORT_COUNTRY_ROWS <- 15L
+FW_REPORT_COUNTRY_ROWS = 15L
 
 # THE PDF REPORT. Rendered by Quarto (Typst engine) on the server - see the
 # header of R/report_pdf.R.
@@ -457,7 +457,7 @@ FW_REPORT_COUNTRY_ROWS <- 15L
 # error, rather than leaving the reader waiting on a download that will not
 # come. `image_timeout_s` is the same for each species photograph fetched from
 # Wikimedia; one that does not arrive in time prints as the page's placeholder.
-FW_PDF <- list(
+FW_PDF = list(
   warn_mb = 5,
   warn_pages = 20,
   timeout_s = 120,
@@ -505,7 +505,7 @@ FW_PDF <- list(
 # THE CONTACTS DIRECTORY on the Networking page. That page IS the directory, so
 # a reader arrives there to browse a list and 25 rows is a list; ten would be a
 # pager with a table attached.
-FW_CONTACTS_PAGE_SIZES <- c(25L, 50L, 100L)
+FW_CONTACTS_PAGE_SIZES = c(25L, 50L, 100L)
 
 # THE CONTACTS BLOCK ON THE REPORT BUILDER, which is a different question and
 # now has its own sizes rather than borrowing the directory's. It is the eighth
@@ -513,28 +513,28 @@ FW_CONTACTS_PAGE_SIZES <- c(25L, 50L, 100L)
 # situation, so it opens at ten - a glance at who is worth writing to, with the
 # pager and the "see every contact" link below for anyone who wants the rest.
 # The client asked for ten specifically.
-FW_PLAN_CONTACTS_PAGE_SIZES <- c(10L, 25L, 50L, 100L)
+FW_PLAN_CONTACTS_PAGE_SIZES = c(10L, 25L, 50L, 100L)
 
 # THE RECORD SEARCH ON THE REPORT BUILDER (client, 1 Oct 2026): ten attempts
 # a page, and no choice of size. The Detailed report lists every record in
 # full; this is a table to find one in, short enough that the footer and its
 # links stay within reach below it.
-FW_PLAN_RECORDS_PAGE_SIZE <- 10L
+FW_PLAN_RECORDS_PAGE_SIZE = 10L
 # How long the search box waits after the last keystroke before it filters.
-FW_PLAN_RECORDS_DEBOUNCE_MS <- 300L
+FW_PLAN_RECORDS_DEBOUNCE_MS = 300L
 
 # The years a contributor may enter. Nothing before FW_YEAR_MIN is plausible,
 # and an end year may run this many years past today for planned work.
-FW_YEAR_MIN    <- 1500L
-FW_YEAR_FUTURE <- 20L
+FW_YEAR_MIN    = 1500L
+FW_YEAR_FUTURE = 20L
 
 # Above this many options a field's answer list is summarised in the question
 # list downloads rather than printed in full. The country dropdown alone runs
 # to about 200 entries and would bury the questions.
-FW_QUESTION_OPTION_CAP <- 18L
+FW_QUESTION_OPTION_CAP = 18L
 
 # Maps.
-FW_MAP <- list(
+FW_MAP = list(
   # Where a map with nothing on it points: the whole world. Zoom 0 is a
   # request for the zoom-out limit, whatever the map's width makes that (see
   # min_zoom), and the pan limits centre the band in it.
@@ -608,7 +608,7 @@ FW_MAP <- list(
 )
 
 # Charts.
-FW_CHART <- list(
+FW_CHART = list(
   # A chart's height grows with its number of rows, so eight methods are not
   # crushed into the space two would use: max(min, per_row * rows + pad).
   # `cumulative` is the one fixed-height chart.

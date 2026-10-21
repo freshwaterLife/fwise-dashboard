@@ -13,9 +13,9 @@ library(dplyr)
 #' Counts, not rates. There is deliberately no success percentage here: the
 #' page's job is to show what has happened, and a single number at the top
 #' invites the reader to stop there.
-fw_plan_summary <- function(data, sel) {
-  ids <- sel$attempt_id
-  sp <- data$attempt_species |> filter(attempt_id %in% ids)
+fw_plan_summary = function(data, sel) {
+  ids = sel$attempt_id
+  sp = data$attempt_species |> filter(attempt_id %in% ids)
 
   # SPECIES PROTECTED COUNTS SUCCESSFUL ATTEMPTS ONLY (client, 23 Sept 2026),
   # which is what fw_headline_stats()$protected has always done for the Welcome
@@ -23,11 +23,11 @@ fw_plan_summary <- function(data, sel) {
   # not counted here - and this is the only figure in the strip that narrows to
   # one outcome, which is why it is computed from its own id set rather than
   # from `sp`.
-  won <- sel$attempt_id[sel$outcome %in% "Successful"]
-  protected <- n_distinct(sp$species_id[sp$role == "beneficiary" &
+  won = sel$attempt_id[sel$outcome %in% "Successful"]
+  protected = n_distinct(sp$species_id[sp$role == "beneficiary" &
                                           sp$attempt_id %in% won])
 
-  years <- sel$start_year[!is.na(sel$start_year)]
+  years = sel$start_year[!is.na(sel$start_year)]
   list(
     attempts  = nrow(sel),
     countries = n_distinct(sel$country),
@@ -40,8 +40,8 @@ fw_plan_summary <- function(data, sel) {
   )
 }
 
-fw_plan_summary_ui <- function(s) {
-  item <- function(value, label) div(
+fw_plan_summary_ui = function(s) {
+  item = function(value, label) div(
     class = "fw-summary-strip__item",
     span(class = "fw-summary-strip__value", value),
     span(class = "fw-summary-strip__label", label)
@@ -50,7 +50,7 @@ fw_plan_summary_ui <- function(s) {
   # labelled "countries"). Two of the four do not change form in English, and
   # they still go through fw_plural() so that adding a form later is a copy
   # edit rather than a code change. "Year range" is a range whatever it spans.
-  lab <- function(n, key) fw_plural(n, fw_t("plan", paste0(key, "_one")),
+  lab = function(n, key) fw_plural(n, fw_t("plan", paste0(key, "_one")),
                                     fw_t("plan", key))
   div(
     class = "fw-summary-strip", role = "status",
@@ -68,14 +68,14 @@ fw_plan_summary_ui <- function(s) {
 #' The label and the count are TEXT; the bar and its colour are decoration. A
 #' reader who cannot separate the colours loses nothing. All four levels are
 #' always drawn, at zero if need be - see fw_outcome_counts() in charts.R.
-fw_outcome_bars_ui <- function(sel) {
-  o <- fw_outcome_counts(sel)
-  total <- sum(o$n)
+fw_outcome_bars_ui = function(sel) {
+  o = fw_outcome_counts(sel)
+  total = sum(o$n)
   div(
     class = "fw-outcome-bars",
     lapply(seq_len(nrow(o)), function(i) {
-      n <- o$n[i]
-      pc <- if (total > 0) 100 * n / total else 0
+      n = o$n[i]
+      pc = if (total > 0) 100 * n / total else 0
       div(
         class = "fw-outcome-bars__row",
         span(class = "fw-outcome-bars__label", o$outcome[i]),
@@ -105,12 +105,12 @@ fw_outcome_bars_ui <- function(sel) {
 #' @param f the filter state, or NULL for every species
 #' @return NULL when the selection has no species in that role, or when the
 #'   reader picked species for it and the row is not drawn
-fw_species_top_title <- function(data, sel, role_name, limit = FW_PLAN_SPECIES_N,
+fw_species_top_title = function(data, sel, role_name, limit = FW_PLAN_SPECIES_N,
                                  f = NULL) {
   if (!fw_species_row_shown(role_name, f)) return(NULL)
-  total <- dplyr::n_distinct(fw_species_rows(data, sel, role_name, f)$species_id)
+  total = dplyr::n_distinct(fw_species_rows(data, sel, role_name, f)$species_id)
   if (!total) return(NULL)
-  key <- if (role_name == "invasive") "r_species_top_inv" else "r_species_top_ben"
+  key = if (role_name == "invasive") "r_species_top_inv" else "r_species_top_ben"
   fw_fill(fw_t("plan", key), n_word = fw_num_word(min(limit, total)),
           total = fw_fmt_num(total))
 }
@@ -122,8 +122,8 @@ fw_species_top_title <- function(data, sel, role_name, limit = FW_PLAN_SPECIES_N
 #' THE BAR IS A SUCCESS RATE: green and orange only (client, 30 Sept 2026),
 #' Successful against Failed. The count beside it is still every attempt, so a
 #' species with ongoing work shows it there. See fw_tile_rate().
-fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N, f = NULL) {
-  top <- fw_species_top_n(data, sel, role_name, limit, f)
+fw_species_tiles_ui = function(data, sel, role_name, limit = FW_TOP_N, f = NULL) {
+  top = fw_species_top_n(data, sel, role_name, limit, f)
   if (!nrow(top)) return(NULL)
 
   # THE COLUMN COUNT IS THE TILE COUNT.
@@ -131,9 +131,9 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N, f = NULL
     class = "fw-species-tiles",
     style = sprintf("--fw-tiles:%d;", nrow(top)),
     lapply(seq_len(nrow(top)), function(i) {
-      row <- top[i, ]
-      counts <- fw_tile_rate(row)
-      total <- sum(counts)
+      row = top[i, ]
+      counts = fw_tile_rate(row)
+      total = sum(counts)
 
       div(
         class = "fw-species-tile",
@@ -165,7 +165,7 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N, f = NULL
             `aria-label` = paste(paste0(names(counts), ": ", counts),
                                  collapse = ", "),
             lapply(names(counts), function(o) {
-              n <- counts[[o]]
+              n = counts[[o]]
               if (n == 0L) return(NULL)
               div(
                 class = "fw-species-tile__seg",
@@ -192,7 +192,7 @@ fw_species_tiles_ui <- function(data, sel, role_name, limit = FW_TOP_N, f = NULL
 #' A species tile's success-rate counts: Successful and Failed, named
 #'
 #' @param row one row of fw_species_top_n()
-fw_tile_rate <- function(row) {
+fw_tile_rate = function(row) {
   vapply(FW_RATE_LEVELS, function(o) as.integer(row[[o]]), 1L)
 }
 
@@ -206,7 +206,7 @@ fw_tile_rate <- function(row) {
 #' @param detail,detail_input passed to fw_add_attempt_markers(): the page
 #'   fetches each record on click; "embed" carries every record inside its
 #'   marker, for a map with no server behind it.
-fw_plan_map <- function(data, sel, detail = c("embed", "lazy", "anchor"),
+fw_plan_map = function(data, sel, detail = c("embed", "lazy", "anchor"),
                         detail_input = NULL) {
   fw_leaflet() |>
     fw_add_basemaps() |>
@@ -228,7 +228,7 @@ fw_plan_map <- function(data, sel, detail = c("embed", "lazy", "anchor"),
 # Not a table of truncated cells, which is what the CSV already does better.
 
 #' How many pages a selection needs
-fw_plan_pages <- function(n_rows, per_page) {
+fw_plan_pages = function(n_rows, per_page) {
   max(1L, as.integer(ceiling(n_rows / per_page)))
 }
 
@@ -246,14 +246,14 @@ fw_plan_pages <- function(n_rows, per_page) {
 #' @param haystack fw_record_search() of each export row, lower case
 #' @param q what was typed. Blank matches every row.
 #' @return row indices, in the export's order
-fw_plan_records_find <- function(haystack, q) {
-  q <- tolower(trimws(q %||% ""))
+fw_plan_records_find = function(haystack, q) {
+  q = tolower(trimws(q %||% ""))
   if (!nzchar(q)) return(seq_along(haystack))
   which(grepl(q, haystack, fixed = TRUE))
 }
 
 #' The search strings of an export frame, one per row. Built once per report.
-fw_plan_records_haystack <- function(export) {
+fw_plan_records_haystack = function(export) {
   vapply(seq_len(nrow(export)), function(i) {
     fw_record_search(as.list(export[i, , drop = FALSE]))
   }, character(1))
@@ -269,24 +269,24 @@ fw_plan_records_haystack <- function(export) {
 #' @param export fw_export_frame() of the report
 #' @param rows the matching row indices (fw_plan_records_find())
 #' @param species data$species, for the protected species' Red List codes
-fw_plan_records_ui <- function(export, rows, page = 1L,
+fw_plan_records_ui = function(export, rows, page = 1L,
                                per_page = FW_PLAN_RECORDS_PAGE_SIZE,
                                species = NULL) {
   if (!length(rows)) return(p(class = "fw-caption", fw_t("plan", "r_records_none")))
-  from <- (page - 1L) * per_page + 1L
-  to <- min(length(rows), page * per_page)
-  shown <- if (from > length(rows)) integer(0) else rows[seq(from, to)]
+  from = (page - 1L) * per_page + 1L
+  to = min(length(rows), page * per_page)
+  shown = if (from > length(rows)) integer(0) else rows[seq(from, to)]
 
-  copy <- fw_record_copy(species)
-  lab <- copy$labels
-  n_cols <- 6L
+  copy = fw_record_copy(species)
+  lab = copy$labels
+  n_cols = 6L
   # Each column's class sizes it, and hides it on a phone, where only the
   # site and the outcome are shown - the rest is in the card a tap away.
-  cls <- function(k) paste0("fw-records__c-", k)
-  body <- lapply(shown, function(i) {
-    r <- as.list(export[i, , drop = FALSE])
-    detail_id <- paste0("fw-records-", r$attempt_id)
-    site <- if (fw_record_blank(r$site_name)) copy$none else r$site_name
+  cls = function(k) paste0("fw-records__c-", k)
+  body = lapply(shown, function(i) {
+    r = as.list(export[i, , drop = FALSE])
+    detail_id = paste0("fw-records-", r$attempt_id)
+    site = if (fw_record_blank(r$site_name)) copy$none else r$site_name
     tagList(
       tags$tr(
         class = "fw-records__row", tabindex = "0", role = "button",
@@ -333,7 +333,7 @@ fw_plan_records_ui <- function(export, rows, page = 1L,
 #' DELEGATED, from the document, so it survives every re-render of the table
 #' (a new search or page replaces the rows, not the listener). Enter and Space
 #' do what a click does, since each row is announced as a button.
-fw_plan_records_script <- function() {
+fw_plan_records_script = function() {
   tags$script(HTML("
     (function () {
       if (window.fwRecordsWired) return;
@@ -372,16 +372,16 @@ fw_plan_records_script <- function() {
 #'
 #' @return one row per contact, most involved in THIS selection first, with
 #'   attempt_count replaced by the count within the selection.
-fw_plan_contacts <- function(data, sel) {
-  contacts <- fw_contacts_summary(data)
-  ids <- sel$attempt_id
+fw_plan_contacts = function(data, sel) {
+  contacts = fw_contacts_summary(data)
+  ids = sel$attempt_id
 
-  here <- vapply(contacts$attempt_ids, function(x) length(intersect(x, ids)),
+  here = vapply(contacts$attempt_ids, function(x) length(intersect(x, ids)),
                  integer(1))
-  out <- contacts[here > 0, , drop = FALSE]
+  out = contacts[here > 0, , drop = FALSE]
   # The count the reader is shown is the count IN FRONT OF THEM. Carrying the
   # whole-database figure through would say 40 beside a selection of three.
-  out$attempt_count <- here[here > 0]
+  out$attempt_count = here[here > 0]
   out[order(-out$attempt_count, out$contact_name), , drop = FALSE]
 }
 
@@ -389,14 +389,14 @@ fw_plan_contacts <- function(data, sel) {
 #'
 #' @param reveal FALSE in the downloaded report, which writes each address out
 #'   rather than behind a button. See fw_contact_action().
-fw_plan_contacts_ui <- function(contacts, page = 1L,
+fw_plan_contacts_ui = function(contacts, page = 1L,
                                 per_page = FW_PLAN_CONTACTS_PAGE_SIZES[1],
                                 reveal = TRUE) {
   if (!nrow(contacts)) return(p(fw_t("plan", "r_contacts_none")))
 
-  from <- (page - 1L) * per_page + 1L
-  to <- min(nrow(contacts), page * per_page)
-  rows <- if (from > nrow(contacts)) contacts[0, ] else contacts[seq(from, to), ]
+  from = (page - 1L) * per_page + 1L
+  to = min(nrow(contacts), page * per_page)
+  rows = if (from > nrow(contacts)) contacts[0, ] else contacts[seq(from, to), ]
 
   tags$table(
     class = "fw-table",
@@ -409,7 +409,7 @@ fw_plan_contacts_ui <- function(contacts, page = 1L,
       tags$th(scope = "col", fw_t("plan", "col_contact_email"))
     )),
     tags$tbody(lapply(seq_len(nrow(rows)), function(i) {
-      r <- rows[i, ]
+      r = rows[i, ]
       tags$tr(
         tags$td(r$contact_name %|na|% ""),
         tags$td(r$organisation %|na|% fw_t("networking", "no_organisation")),

@@ -8,7 +8,7 @@
 # The section names `export` and `questions` must not also appear in copy.R or
 # copy_contribute.R: fw_copy_all() would silently keep the first one it met.
 
-FW_COPY_EXPORT <- list(
+FW_COPY_EXPORT = list(
 
   # ---- The spreadsheet -------------------------------------------------------
 

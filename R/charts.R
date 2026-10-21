@@ -45,14 +45,14 @@ library(dplyr)
 # A function rather than a constant: this file sorts before R/brand.R would
 # have been read if it were not first, and a function reads the tokens when it
 # is called, which is after every file has been sourced.
-fw_plot_font <- function() {
+fw_plot_font = function() {
   list(family = FW_TYPE$font_plot, size = FW_TYPE$floor_px,
        color = FW_COLOURS$ink)
 }
 
 #' A chart's height from its row count, per FW_CHART$height
-fw_chart_height <- function(chart, rows) {
-  h <- FW_CHART$height[[chart]]
+fw_chart_height = function(chart, rows) {
+  h = FW_CHART$height[[chart]]
   max(h[["min"]], h[["per_row"]] * rows + h[["pad"]])
 }
 
@@ -72,30 +72,30 @@ fw_chart_height <- function(chart, rows) {
 #' @param width the plot width to assume, in px. Charts here are fluid, so this
 #'   is the narrow end of the range rather than the average: the overlap only
 #'   ever happened in the narrow case.
-fw_legend_margin <- function(labels = NULL, width = 640) {
+fw_legend_margin = function(labels = NULL, width = 640) {
   if (!length(labels)) return(FW_CHART$legend_min_top)
-  entry <- nchar(labels) * FW_CHART$legend_char_px + FW_CHART$legend_entry_px
+  entry = nchar(labels) * FW_CHART$legend_char_px + FW_CHART$legend_entry_px
   # Pack entries onto lines the way a flow layout would.
-  lines <- 1L
-  used <- 0
+  lines = 1L
+  used = 0
   for (w in entry) {
-    if (used > 0 && used + w > width) { lines <- lines + 1L; used <- 0 }
-    used <- used + w
+    if (used > 0 && used + w > width) { lines = lines + 1L; used = 0 }
+    used = used + w
   }
   max(FW_CHART$legend_min_top,
       lines * FW_CHART$legend_line + FW_CHART$legend_pad)
 }
 
-FW_OUTCOME_LEVELS <- c("Successful", "Failed", "Ongoing", "Unknown")
+FW_OUTCOME_LEVELS = c("Successful", "Failed", "Ongoing", "Unknown")
 
 # The two outcomes a success rate is made of. See the note at the top.
-FW_RATE_LEVELS <- c("Successful", "Failed")
+FW_RATE_LEVELS = c("Successful", "Failed")
 
 #' The outcomes a chart draws in a mode
 #'
 #' All four when counting, Successful and Failed when the chart is a success
 #' rate (client, 30 Sept 2026) - see the note at the top of this file.
-fw_outcome_levels <- function(mode = c("count", "share")) {
+fw_outcome_levels = function(mode = c("count", "share")) {
   if (match.arg(mode) == "share") FW_RATE_LEVELS else FW_OUTCOME_LEVELS
 }
 
@@ -115,8 +115,8 @@ fw_outcome_levels <- function(mode = c("count", "share")) {
 #' of these same values and a rule that missed its label would be worse than no
 #' rule at all. 20 is what plotly picks for 0-100 unprompted; stating it means
 #' the two can never disagree.
-fw_bar_x_axis <- function(mode = c("count", "share")) {
-  mode <- match.arg(mode)
+fw_bar_x_axis = function(mode = c("count", "share")) {
+  mode = match.arg(mode)
   if (mode == "share") {
     list(title = fw_axis_title(fw_t("charts", "x_share")), range = c(0, 100), ticksuffix = "%",
          zeroline = FALSE, showgrid = FALSE,
@@ -152,9 +152,9 @@ fw_bar_x_axis <- function(mode = c("count", "share")) {
 #' @param mode the chart's mode
 #' @return a list of plotly shapes, spanning the plot's full height (yref
 #'   "paper", so it does not matter that the y axis is category names)
-fw_bar_rules <- function(mode = c("count", "share")) {
-  mode <- match.arg(mode)
-  at <- if (mode == "share") seq(0, 100, FW_CHART$share_dtick) else 0
+fw_bar_rules = function(mode = c("count", "share")) {
+  mode = match.arg(mode)
+  at = if (mode == "share") seq(0, 100, FW_CHART$share_dtick) else 0
   lapply(at, function(v) {
     list(type = "line", layer = "below", xref = "x", yref = "paper",
          x0 = v, x1 = v, y0 = 0, y1 = 1,
@@ -181,19 +181,19 @@ fw_bar_rules <- function(mode = c("count", "share")) {
 #' @param n,total,share the segment's count, its bar's total, and n/total as a
 #'   percentage. Vectors, one element per segment in the trace.
 #' @param mode "count" or "share", as the chart
-fw_hover_counts <- function(outcome, n, total, share, mode = c("count", "share")) {
-  mode <- match.arg(mode)
+fw_hover_counts = function(outcome, n, total, share, mode = c("count", "share")) {
+  mode = match.arg(mode)
   if (mode == "count") {
-    tpl <- fw_t("plan", "r_bar_count_seg")
+    tpl = fw_t("plan", "r_bar_count_seg")
     return(vapply(n, function(x) fw_fill(tpl, outcome = outcome, n = fw_fmt_num(x)),
                   character(1)))
   }
-  tpl <- fw_t("plan", "r_tile_seg")
+  tpl = fw_t("plan", "r_tile_seg")
   # share is 100 * n / total and total is a bar's own total, which is never
   # zero for a bar that exists - a bar is drawn because something counted into
   # it. max() is the floor anyway, so a future empty category rounds to 0%
   # rather than printing NA at a reader.
-  pc <- sprintf("%.0f", pmax(0, round(share)))
+  pc = sprintf("%.0f", pmax(0, round(share)))
   vapply(seq_along(n), function(i) {
     fw_fill(tpl, outcome = outcome, pc = pc[i],
             n = fw_fmt_num(n[i]), total = fw_fmt_num(total[i]))
@@ -209,7 +209,7 @@ fw_hover_counts <- function(outcome, n, total, share, mode = c("count", "share")
 #'
 #' A LIST, so every axis title in the app has to come through here: a plain
 #' string passed to layout() would replace it, standoff and all.
-fw_axis_title <- function(text) {
+fw_axis_title = function(text) {
   list(text = text, standoff = FW_CHART$title_gap)
 }
 
@@ -222,7 +222,7 @@ fw_axis_title <- function(text) {
 #' client ended the axis-line A/B test (Sept 2026) in favour of bare axes.
 #'
 #' @param axis an axis list to add the gap to
-fw_tick_gap <- function(axis = list()) {
+fw_tick_gap = function(axis = list()) {
   modifyList(axis, list(ticks = "outside", ticklen = FW_CHART$tick_gap,
                         tickcolor = FW_TRANSPARENT))
 }
@@ -242,13 +242,13 @@ fw_tick_gap <- function(axis = list()) {
 #' @param filename what a downloaded PNG of this chart is called, without the
 #'   extension or the time stamp. Every chart should pass its own: a reader who
 #'   exports four of these wants four distinguishable files, not newplot (1..4).
-fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
+fw_plotly_style = function(p, legend = TRUE, legend_labels = NULL,
                             legend_side = c("top", "right"),
                             filename = "fwise-chart") {
-  legend_side <- match.arg(legend_side)
-  side <- identical(legend_side, "right")
+  legend_side = match.arg(legend_side)
+  side = identical(legend_side, "right")
 
-  legend_layout <- if (side) {
+  legend_layout = if (side) {
     list(orientation = "v", x = FW_CHART$donut_legend_x, xanchor = "left",
          y = 0.5, yanchor = "middle",
          traceorder = "normal", font = fw_plot_font())
@@ -300,7 +300,7 @@ fw_plotly_style <- function(p, legend = TRUE, legend_labels = NULL,
 #' as YYYYMMDD-HHMMSS in UTC to match fw_file_stamp() in R/export.R. Plain
 #' browser JS with nothing from the app, because the detailed report carries
 #' these charts into a saved file with no server behind it.
-fw_png_button <- function(filename) {
+fw_png_button = function(filename) {
   list(
     name  = "toImage",
     title = fw_t("charts", "save_png"),
@@ -323,7 +323,7 @@ fw_png_button <- function(filename) {
 #' in the output's own slot, so this needs no second output and no second id.
 #' The PDF report does not use it: fw_typ_figure() skips a NULL chart,
 #' heading and all.
-fw_chart_or_empty <- function(p) {
+fw_chart_or_empty = function(p) {
   shiny::validate(shiny::need(!is.null(p), fw_t("charts", "empty")))
   p
 }
@@ -332,11 +332,11 @@ fw_chart_or_empty <- function(p) {
 #'
 #' A level with no rows still appears, at zero. Dropping it would let a slice
 #' silently look unanimous when it is only small.
-fw_outcome_factor <- function(x) {
+fw_outcome_factor = function(x) {
   factor(ifelse(is.na(x), "Unknown", x), levels = FW_OUTCOME_LEVELS)
 }
 
-fw_outcome_counts <- function(sel) {
+fw_outcome_counts = function(sel) {
   tibble(outcome = FW_OUTCOME_LEVELS,
          n = as.integer(table(fw_outcome_factor(sel$outcome))))
 }
@@ -345,13 +345,13 @@ fw_outcome_counts <- function(sel) {
 
 #' Cumulative attempts by start year, stacked by outcome
 
-fw_chart_cumulative <- function(sel) {
-  y <- sel[!is.na(sel$start_year), c("start_year", "outcome")]
+fw_chart_cumulative = function(sel) {
+  y = sel[!is.na(sel$start_year), c("start_year", "outcome")]
   if (!nrow(y)) return(NULL)
-  this_year <- as.integer(format(Sys.Date(), "%Y"))
-  last_year <- max(max(y$start_year), this_year)
-  years <- seq(min(y$start_year), last_year)
-  d <- y |>
+  this_year = as.integer(format(Sys.Date(), "%Y"))
+  last_year = max(max(y$start_year), this_year)
+  years = seq(min(y$start_year), last_year)
+  d = y |>
     mutate(outcome = fw_outcome_factor(outcome)) |>
     count(start_year, outcome, name = "n") |>
     tidyr::complete(start_year = years, outcome = FW_OUTCOME_LEVELS,
@@ -361,10 +361,10 @@ fw_chart_cumulative <- function(sel) {
     mutate(cumulative = cumsum(n)) |>
     ungroup()
 
-  p <- plotly::plot_ly(height = FW_CHART$height$cumulative)
+  p = plotly::plot_ly(height = FW_CHART$height$cumulative)
   for (o in FW_OUTCOME_LEVELS) {
-    dd <- d[d$outcome == o, ]
-    p <- plotly::add_trace(
+    dd = d[d$outcome == o, ]
+    p = plotly::add_trace(
       p, data = dd, x = ~start_year, y = ~cumulative,
       type = "scatter", mode = "lines", name = o,
       stackgroup = "one",
@@ -406,10 +406,10 @@ fw_chart_cumulative <- function(sel) {
 #'
 #' In share mode only Successful and Failed are drawn and the bar's total, the
 #' n in its label, is the attempts that finished - see fw_outcome_levels().
-fw_method_data <- function(data, sel, mode = c("count", "share")) {
-  mode <- match.arg(mode)
-  one <- fw_single_method_ids(data, sel)
-  me <- data$attempt_method |>
+fw_method_data = function(data, sel, mode = c("count", "share")) {
+  mode = match.arg(mode)
+  one = fw_single_method_ids(data, sel)
+  me = data$attempt_method |>
     filter(attempt_id %in% one) |>
     left_join(select(data$method, method_id, method_name), by = "method_id") |>
     distinct(attempt_id, method_name, method_id) |>
@@ -418,12 +418,12 @@ fw_method_data <- function(data, sel, mode = c("count", "share")) {
     filter(outcome %in% fw_outcome_levels(mode))
   if (nrow(me) == 0) return(NULL)
 
-  totals <- me |>
+  totals = me |>
     count(method_name, method_id, name = "total") |>
     mutate(is_other = method_id %in% FW_METHOD_OTHER) |>
     arrange(desc(is_other), total) |>
     select(method_name, total)
-  d <- me |>
+  d = me |>
     count(method_name, outcome, name = "n") |>
     left_join(totals, by = "method_name") |>
     mutate(share = 100 * n / total,
@@ -443,41 +443,41 @@ fw_method_data <- function(data, sel, mode = c("count", "share")) {
 #' dates to split it with. See fw_duration_sel() for the case that started it.
 #'
 #' @return attempt ids from `sel`
-fw_single_method_ids <- function(data, sel) {
-  am <- data$attempt_method[data$attempt_method$attempt_id %in% sel$attempt_id, ]
-  am <- unique(am[, c("attempt_id", "method_id")])
-  n <- table(am$attempt_id)
+fw_single_method_ids = function(data, sel) {
+  am = data$attempt_method[data$attempt_method$attempt_id %in% sel$attempt_id, ]
+  am = unique(am[, c("attempt_id", "method_id")])
+  n = table(am$attempt_id)
   names(n)[n == 1L]
 }
 
 #' How many of a selection's attempts are left off the method charts because
 #' they recorded more than one method. The caption under the chart says so.
-fw_n_multi_method <- function(data, sel) {
-  with_method <- unique(data$attempt_method$attempt_id[
+fw_n_multi_method = function(data, sel) {
+  with_method = unique(data$attempt_method$attempt_id[
     data$attempt_method$attempt_id %in% sel$attempt_id])
   length(with_method) - length(fw_single_method_ids(data, sel))
 }
 
-fw_chart_method <- function(data, sel, mode = c("count", "share")) {
-  mode <- match.arg(mode)
-  md <- fw_method_data(data, sel, mode)
+fw_chart_method = function(data, sel, mode = c("count", "share")) {
+  mode = match.arg(mode)
+  md = fw_method_data(data, sel, mode)
   if (is.null(md)) return(NULL)
-  d <- md$d
-  order_lv <- md$order_lv
+  d = md$d
+  order_lv = md$order_lv
   # Grows with the number of methods, so eight methods are not crushed into the
   # space two would use.
-  font <- fw_plot_font()
-  p <- plotly::plot_ly(height = fw_chart_height("method", length(order_lv)))
-  levels <- fw_outcome_levels(mode)
+  font = fw_plot_font()
+  p = plotly::plot_ly(height = fw_chart_height("method", length(order_lv)))
+  levels = fw_outcome_levels(mode)
   for (o in levels) {
-    dd <- d[d$outcome == o, ]
+    dd = d[d$outcome == o, ]
     if (!nrow(dd)) next
     # COMPUTED HERE, NOT AS A ~FORMULA. A formula is evaluated when plotly
     # builds the figure, by which time this loop has finished and `o` is the
     # last outcome - so every trace would hover as "Unknown". The frame is
     # already subset to this outcome, so there is nothing to defer for.
-    hover <- fw_hover_counts(o, dd$n, dd$total, dd$share, mode)
-    p <- plotly::add_trace(
+    hover = fw_hover_counts(o, dd$n, dd$total, dd$share, mode)
+    p = plotly::add_trace(
       p, data = dd, type = "bar", orientation = "h",
       y = ~factor(method_label, levels = order_lv), x = ~value, name = o,
       marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
@@ -550,7 +550,7 @@ fw_chart_method <- function(data, sel, mode = c("count", "share")) {
 #' If it ever does, this filter is what should be removed first.
 #'
 #' @return the rows of `sel` this chart draws, which is what the caption counts
-fw_duration_sel <- function(data, sel) {
+fw_duration_sel = function(data, sel) {
   sel |>
     filter(attempt_id %in% fw_single_method_ids(data, sel),
            outcome %in% "Successful",
@@ -583,9 +583,9 @@ fw_duration_sel <- function(data, sel) {
 #'
 #' The pad is a fraction of the span rather than a fixed number of decades, so a
 #' selection spanning one order of magnitude is not given four.
-fw_duration_range <- function(days) {
-  lx <- log10(range(days))
-  pad <- max(FW_CHART$duration_pad_min, diff(lx) * FW_CHART$duration_pad)
+fw_duration_range = function(days) {
+  lx = log10(range(days))
+  pad = max(FW_CHART$duration_pad_min, diff(lx) * FW_CHART$duration_pad)
   c(lx[1] - pad, lx[2] + pad)
 }
 
@@ -610,14 +610,14 @@ fw_duration_range <- function(days) {
 #' @param days every duration in the selection, all > 0
 #' @return list(vals = tick positions in DAYS, text = their labels). Days, not
 #'   log10: plotly logs tickvals itself. See the long note at the call site.
-fw_duration_ticks <- function(days) {
-  mx <- max(days)
-  vals <- FW_CHART$duration_ticks
-  text <- fw_t("charts", "duration_ticks")
+fw_duration_ticks = function(days) {
+  mx = max(days)
+  vals = FW_CHART$duration_ticks
+  text = fw_t("charts", "duration_ticks")
 
-  keep <- vals <= mx
-  vals <- vals[keep]
-  text <- text[keep]
+  keep = vals <= mx
+  vals = vals[keep]
+  text = text[keep]
 
   # The longest attempt already sits on a named break - nothing to add.
   if (length(vals) && isTRUE(all.equal(vals[length(vals)], mx))) {
@@ -628,13 +628,13 @@ fw_duration_ticks <- function(days) {
   # from there - so the last tick and the hover over the box name the same
   # length the same way (client, 30 Sept 2026: the hover said 5475 and the
   # axis said 15 years). See fw_popup_duration() in R/maps.R.
-  label <- fw_popup_duration(mx)
+  label = fw_popup_duration(mx)
 
-  crowded <- length(vals) > 0 &&
+  crowded = length(vals) > 0 &&
     (log10(mx) - log10(vals[length(vals)])) < FW_CHART$duration_tick_gap
   if (crowded) {
-    vals <- vals[-length(vals)]
-    text <- text[-length(text)]
+    vals = vals[-length(vals)]
+    text = text[-length(text)]
   }
 
   list(vals = c(vals, mx), text = c(text, label))
@@ -654,17 +654,17 @@ fw_duration_ticks <- function(days) {
 #' @param days durations in days, all > 0.
 #' @param row the row each dot belongs to.
 #' @return an offset per dot, in rows, within +/- FW_CHART$duration_swarm$spread.
-fw_duration_swarm <- function(days, row) {
-  cfg <- FW_CHART$duration_swarm
-  bin <- floor(log10(days) / cfg$bin)
-  out <- numeric(length(days))
+fw_duration_swarm = function(days, row) {
+  cfg = FW_CHART$duration_swarm
+  bin = floor(log10(days) / cfg$bin)
+  out = numeric(length(days))
   for (idx in split(seq_along(days), list(row, bin), drop = TRUE)) {
-    m <- length(idx)
+    m = length(idx)
     if (m < 2) next
-    half <- ceiling((m - 1) / 2)
-    step <- min(cfg$step, cfg$spread / half)
-    k <- seq_len(m) - 1L
-    out[idx] <- step * ceiling(k / 2) * ifelse(k %% 2 == 1, 1, -1)
+    half = ceiling((m - 1) / 2)
+    step = min(cfg$step, cfg$spread / half)
+    k = seq_len(m) - 1L
+    out[idx] = step * ceiling(k / 2) * ifelse(k %% 2 == 1, 1, -1)
   }
   out
 }
@@ -676,10 +676,10 @@ fw_duration_swarm <- function(days, row) {
 #'
 #' @return list(d = one row per attempt with row and y_dot, order_lv = the row
 #'   labels bottom to top), or NULL when fewer than two dots would be drawn
-fw_duration_data <- function(data, sel) {
-  sel <- fw_duration_sel(data, sel)
+fw_duration_data = function(data, sel) {
+  sel = fw_duration_sel(data, sel)
   if (!nrow(sel)) return(NULL)
-  d <- data$attempt_method |>
+  d = data$attempt_method |>
     filter(attempt_id %in% sel$attempt_id) |>
     left_join(select(data$method, method_id, method_name), by = "method_id") |>
     distinct(attempt_id, method_name, method_id) |>
@@ -700,20 +700,20 @@ fw_duration_data <- function(data, sel) {
   # sort fw_chart_method() uses puts them first in order_lv, which is the row
   # plotly and ggplot both draw at the BOTTOM. Everything else stays ordered by
   # how many durations it has, which is what its label counts.
-  totals <- d |>
+  totals = d |>
     count(method_name, method_id, name = "n") |>
     mutate(is_other = method_id %in% FW_METHOD_OTHER) |>
     arrange(desc(is_other), n)
-  d <- d |>
+  d = d |>
     left_join(select(totals, method_name, n), by = "method_name") |>
     mutate(method_label = paste0(method_name, "  (", n, ")"))
-  order_lv <- paste0(totals$method_name, "  (", totals$n, ")")
+  order_lv = paste0(totals$method_name, "  (", totals$n, ")")
   # A NUMERIC ROW PER METHOD, not a category axis: a category can only be hit
   # dead centre, and the dots need to sit either side of it. The names come
   # back as the y axis's tick text in fw_chart_duration().
-  d <- d |> arrange(method_label, duration_days, attempt_id)
-  d$row <- match(d$method_label, order_lv)
-  d$y_dot <- d$row + fw_duration_swarm(d$duration_days, d$row)
+  d = d |> arrange(method_label, duration_days, attempt_id)
+  d$row = match(d$method_label, order_lv)
+  d$y_dot = d$row + fw_duration_swarm(d$duration_days, d$row)
 
   list(d = d, order_lv = order_lv)
 }
@@ -728,22 +728,22 @@ fw_duration_data <- function(data, sel) {
 #' @param d fw_duration_data()$d
 #' @return one row per method row: row, q1, median, q3, lowerfence, upperfence,
 #'   hover
-fw_duration_box_stats <- function(d) {
-  rows <- sort(unique(d$row))
-  out <- lapply(rows, function(r) {
-    x <- d$duration_days[d$row == r]
-    q <- unname(stats::quantile(x, c(0.25, 0.5, 0.75), type = 7))
-    iqr <- q[3] - q[1]
+fw_duration_box_stats = function(d) {
+  rows = sort(unique(d$row))
+  out = lapply(rows, function(r) {
+    x = d$duration_days[d$row == r]
+    q = unname(stats::quantile(x, c(0.25, 0.5, 0.75), type = 7))
+    iqr = q[3] - q[1]
     data.frame(row = r, label = d$method_label[d$row == r][1], n = length(x),
                q1 = q[1], median = q[2], q3 = q[3],
                lowerfence = min(x[x >= q[1] - 1.5 * iqr]),
                upperfence = max(x[x <= q[3] + 1.5 * iqr]),
                shortest = min(x), longest = max(x))
   })
-  st <- do.call(rbind, out)
-  fmt <- function(v) vapply(v, fw_popup_duration, character(1))
-  tpl <- fw_t("charts", "duration_hover")
-  st$hover <- vapply(seq_len(nrow(st)), function(i) {
+  st = do.call(rbind, out)
+  fmt = function(v) vapply(v, fw_popup_duration, character(1))
+  tpl = fw_t("charts", "duration_hover")
+  st$hover = vapply(seq_len(nrow(st)), function(i) {
     fw_fill(tpl, method = sub("  \\([0-9]+\\)$", "", st$label[i]),
             n = fw_fmt_num(st$n[i]), median = fmt(st$median[i]),
             q1 = fmt(st$q1[i]), q3 = fmt(st$q3[i]),
@@ -752,13 +752,13 @@ fw_duration_box_stats <- function(d) {
   st
 }
 
-fw_chart_duration <- function(data, sel) {
-  dd <- fw_duration_data(data, sel)
+fw_chart_duration = function(data, sel) {
+  dd = fw_duration_data(data, sel)
   if (is.null(dd)) return(NULL)
-  d <- dd$d
-  order_lv <- dd$order_lv
+  d = dd$d
+  order_lv = dd$order_lv
 
-  ticks <- fw_duration_ticks(d$duration_days)
+  ticks = fw_duration_ticks(d$duration_days)
 
   # THE BOX FROM ITS OWN NUMBERS, and the hover from the same numbers. plotly's
   # box hover prints the raw x, which on this axis is days: the client saw
@@ -766,9 +766,9 @@ fw_chart_duration <- function(data, sel) {
   # no way to reformat its own statistics, so they are computed here, handed
   # to the box as precomputed q1/median/q3/fences, and printed in words by
   # invisible markers on the box - see fw_duration_box_stats().
-  st <- fw_duration_box_stats(d)
-  p <- plotly::plot_ly(height = fw_chart_height("duration", length(order_lv)))
-  p <- plotly::add_trace(
+  st = fw_duration_box_stats(d)
+  p = plotly::plot_ly(height = fw_chart_height("duration", length(order_lv)))
+  p = plotly::add_trace(
     p, type = "box", orientation = "h",
     y = st$row, q1 = st$q1, median = st$median, q3 = st$q3,
     lowerfence = st$lowerfence, upperfence = st$upperfence,
@@ -784,7 +784,7 @@ fw_chart_duration <- function(data, sel) {
   # so nothing on them invites a click. ONE COLOUR, because every dot is a
   # successful attempt now (client, 30 Sept 2026) and a key saying so would
   # be a legend with one entry.
-  p <- plotly::add_trace(
+  p = plotly::add_trace(
     p, data = d, type = "scatter", mode = "markers",
     x = ~duration_days, y = ~y_dot,
     name = "", showlegend = FALSE, hoverinfo = "skip",
@@ -799,14 +799,14 @@ fw_chart_duration <- function(data, sel) {
   # attempt to longest, each carrying the whole summary. It used to be three,
   # at the quartiles and median, and the client found the summary came up too
   # rarely (30 Sept 2026). Drawn last, so it is on top of the dots.
-  hc <- FW_CHART$duration_hover
-  hv <- do.call(rbind, lapply(seq_len(nrow(st)), function(i) {
-    lx <- log10(c(st$shortest[i], st$longest[i]))
-    n <- max(3L, ceiling(diff(lx) / hc$step) + 1L)
+  hc = FW_CHART$duration_hover
+  hv = do.call(rbind, lapply(seq_len(nrow(st)), function(i) {
+    lx = log10(c(st$shortest[i], st$longest[i]))
+    n = max(3L, ceiling(diff(lx) / hc$step) + 1L)
     data.frame(x = 10^seq(lx[1], lx[2], length.out = n),
                row = st$row[i], hover = st$hover[i])
   }))
-  p <- plotly::add_trace(
+  p = plotly::add_trace(
     p, type = "scatter", mode = "markers", x = hv$x, y = hv$row,
     name = "", showlegend = FALSE,
     marker = list(size = hc$size, opacity = 0),
@@ -905,57 +905,57 @@ fw_chart_duration <- function(data, sel) {
 #'
 #' fw_category_data() is the counting half, shared with the PDF's static twin
 #' (fw_gg_category() in R/charts_static.R); fw_chart_category() draws it.
-fw_category_data <- function(d, limit = NA_integer_, mode = c("count", "share")) {
-  mode <- match.arg(mode)
+fw_category_data = function(d, limit = NA_integer_, mode = c("count", "share")) {
+  mode = match.arg(mode)
   if (!nrow(d)) return(NULL)
-  d$outcome <- as.character(fw_outcome_factor(d$outcome))
+  d$outcome = as.character(fw_outcome_factor(d$outcome))
   # A success rate is Successful against Failed - see fw_outcome_levels().
-  d <- d[d$outcome %in% fw_outcome_levels(mode), , drop = FALSE]
+  d = d[d$outcome %in% fw_outcome_levels(mode), , drop = FALSE]
   if (!nrow(d)) return(NULL)
-  other <- fw_t("charts", "other")
+  other = fw_t("charts", "other")
 
-  totals <- d |> count(category, name = "total") |> arrange(desc(total))
+  totals = d |> count(category, name = "total") |> arrange(desc(total))
   if (!is.na(limit) && nrow(totals) > limit) {
-    keep <- totals$category[seq_len(limit)]
+    keep = totals$category[seq_len(limit)]
     # "Other" is a real bar, not a dropped remainder. A reader has to be able to
     # see how much of the picture the named categories actually cover.
-    d$category <- ifelse(d$category %in% keep, d$category, other)
-    totals <- d |> count(category, name = "total")
+    d$category = ifelse(d$category %in% keep, d$category, other)
+    totals = d |> count(category, name = "total")
   }
   # Ascending, because plotly draws the first category at the bottom.
-  totals <- totals |>
+  totals = totals |>
     mutate(is_other = category == other) |>
     arrange(desc(is_other), total)
 
-  d <- d |>
+  d = d |>
     count(category, outcome, name = "n") |>
     left_join(select(totals, category, total), by = "category") |>
     mutate(share = 100 * n / total,
            value = if (mode == "share") share else n,
            label = paste0(category, "  (", total, ")"))
-  order_lv <- paste0(totals$category, "  (", totals$total, ")")
+  order_lv = paste0(totals$category, "  (", totals$total, ")")
 
   list(d = d, order_lv = order_lv)
 }
 
-fw_chart_category <- function(d, limit = NA_integer_,
+fw_chart_category = function(d, limit = NA_integer_,
                               filename = "fwise-categories",
                               mode = c("count", "share")) {
-  mode <- match.arg(mode)
-  cd <- fw_category_data(d, limit, mode)
+  mode = match.arg(mode)
+  cd = fw_category_data(d, limit, mode)
   if (is.null(cd)) return(NULL)
-  d <- cd$d
-  order_lv <- cd$order_lv
-  font <- fw_plot_font()
+  d = cd$d
+  order_lv = cd$order_lv
+  font = fw_plot_font()
 
-  p <- plotly::plot_ly(height = fw_chart_height("category", length(order_lv)))
-  levels <- fw_outcome_levels(mode)
+  p = plotly::plot_ly(height = fw_chart_height("category", length(order_lv)))
+  levels = fw_outcome_levels(mode)
   for (o in levels) {
-    dd <- d[d$outcome == o, ]
+    dd = d[d$outcome == o, ]
     if (!nrow(dd)) next
     # Eager, not a ~formula - see the note in fw_chart_method().
-    hover <- fw_hover_counts(o, dd$n, dd$total, dd$share, mode)
-    p <- plotly::add_trace(
+    hover = fw_hover_counts(o, dd$n, dd$total, dd$share, mode)
+    p = plotly::add_trace(
       p, data = dd, type = "bar", orientation = "h",
       y = ~factor(label, levels = order_lv), x = ~value, name = o,
       marker = list(color = unname(FW_OUTCOME_COLOURS[[o]]),
@@ -1005,13 +1005,13 @@ fw_chart_category <- function(d, limit = NA_integer_,
 #' @param mode "count" for attempts, "share" for the success rate in each as a
 #'   100% bar. The bar labels keep their totals in both modes, so the evidence
 #'   behind a rate is never off the chart.
-fw_chart_waterbody <- function(sel, mode = c("count", "share")) {
-  mode <- match.arg(mode)
+fw_chart_waterbody = function(sel, mode = c("count", "share")) {
+  mode = match.arg(mode)
   fw_chart_category(fw_waterbody_rows(sel), filename = "fwise-waterbody", mode = mode)
 }
 
 #' The still/flowing chart's input: one row per attempt with a regime
-fw_waterbody_rows <- function(sel) {
+fw_waterbody_rows = function(sel) {
   sel |>
     filter(!is.na(water_regime)) |>
     transmute(category = fw_regime_label(water_regime), outcome)
@@ -1021,7 +1021,7 @@ fw_waterbody_rows <- function(sel) {
 #'
 #' Not when exactly one regime is picked: every bar but one would be empty.
 #' Both picked is the same as neither, and the chart stays.
-fw_show_waterbody <- function(filters) {
+fw_show_waterbody = function(filters) {
   length(filters$regime %||% character(0)) != 1L
 }
 
@@ -1038,13 +1038,13 @@ fw_show_waterbody <- function(filters) {
 #'
 #' @param role_name "invasive" or "beneficiary"
 #' @param f a filter state (fw_filter_state()), or NULL for every species
-fw_species_rows <- function(data, sel, role_name = c("invasive", "beneficiary"),
+fw_species_rows = function(data, sel, role_name = c("invasive", "beneficiary"),
                             f = NULL) {
-  role_name <- match.arg(role_name)
-  species <- fw_species_in_filter(fw_species_label(data$species), role_name, f)
+  role_name = match.arg(role_name)
+  species = fw_species_in_filter(fw_species_label(data$species), role_name, f)
   # `shown` is what a tile prints: a protected species carries its Red List
   # code, an invasive one does not. See fw_species_shown().
-  species <- if (role_name == "beneficiary") fw_species_shown(species) else
+  species = if (role_name == "beneficiary") fw_species_shown(species) else
     mutate(species, shown = label)
   data$attempt_species |>
     filter(role == role_name, attempt_id %in% sel$attempt_id) |>
@@ -1055,7 +1055,7 @@ fw_species_rows <- function(data, sel, role_name = c("invasive", "beneficiary"),
 }
 
 # Each role's kind-of-animal, family and species filters, by FW_FILTERS id.
-FW_SPECIES_ROLE_FILTERS <- list(
+FW_SPECIES_ROLE_FILTERS = list(
   invasive    = c(taxa = "taxa", family = "family", species = "species"),
   beneficiary = c(taxa = "taxa_beneficiary", family = "family_beneficiary",
                   species = "beneficiary")
@@ -1067,10 +1067,10 @@ FW_SPECIES_ROLE_FILTERS <- list(
 #' the pickers already follow. A species pick is not applied here: when one is
 #' set the tiles for that role are not drawn at all - see
 #' fw_species_row_shown().
-fw_species_in_filter <- function(species, role_name, f = NULL) {
+fw_species_in_filter = function(species, role_name, f = NULL) {
   if (is.null(f)) return(species)
-  ids <- FW_SPECIES_ROLE_FILTERS[[role_name]]
-  keep <- fw_species_allowed(species, f[[ids[["taxa"]]]] %||% character(0),
+  ids = FW_SPECIES_ROLE_FILTERS[[role_name]]
+  keep = fw_species_allowed(species, f[[ids[["taxa"]]]] %||% character(0),
                              f[[ids[["family"]]]] %||% character(0), species$label)
   species[species$label %in% keep, , drop = FALSE]
 }
@@ -1080,7 +1080,7 @@ fw_species_in_filter <- function(species, role_name, f = NULL) {
 #' Not when the reader has picked species for that role (client, 30 Sept
 #' 2026): the tiles would show back the species they chose. The other role's
 #' row stays - a pick of invasive species still leaves the protected row.
-fw_species_row_shown <- function(role_name, f = NULL) {
+fw_species_row_shown = function(role_name, f = NULL) {
   if (is.null(f)) return(TRUE)
   !length(f[[FW_SPECIES_ROLE_FILTERS[[role_name]][["species"]]]] %||% character(0))
 }
@@ -1094,15 +1094,15 @@ fw_species_row_shown <- function(role_name, f = NULL) {
 #'
 #' @return a tibble of species_id, label, shown, n and one column per outcome, ordered
 #'   by n descending; zero rows if the role has none in this selection.
-fw_species_top_n <- function(data, sel, role_name, limit = FW_TOP_N, f = NULL) {
-  d <- fw_species_rows(data, sel, role_name, f)
+fw_species_top_n = function(data, sel, role_name, limit = FW_TOP_N, f = NULL) {
+  d = fw_species_rows(data, sel, role_name, f)
   if (!nrow(d)) return(d[0, ])
-  d$outcome <- as.character(fw_outcome_factor(d$outcome))
+  d$outcome = as.character(fw_outcome_factor(d$outcome))
 
-  totals <- d |> count(species_id, label, shown, name = "n") |> arrange(desc(n), label)
-  keep <- head(totals, limit)
+  totals = d |> count(species_id, label, shown, name = "n") |> arrange(desc(n), label)
+  keep = head(totals, limit)
 
-  splits <- d |>
+  splits = d |>
     filter(species_id %in% keep$species_id) |>
     count(species_id, outcome, name = "n_outcome")
 
@@ -1116,7 +1116,7 @@ fw_species_top_n <- function(data, sel, role_name, limit = FW_TOP_N, f = NULL) {
     # A level with no rows in this selection still needs its column, because the
     # tile bar always draws all four segments.
     (\(x) {
-      for (o in FW_OUTCOME_LEVELS) if (is.null(x[[o]])) x[[o]] <- 0L
+      for (o in FW_OUTCOME_LEVELS) if (is.null(x[[o]])) x[[o]] = 0L
       x
     })()
 }

@@ -15,13 +15,13 @@
 # and neither varies. Leave the token unset and nothing in this file is ever
 # called - see fw_data_mode() in data_load.R.
 
-FW_GH_API <- "https://api.github.com"
+FW_GH_API = "https://api.github.com"
 
 #' The contents endpoint for one path inside the data repository
 #'
 #' Paths here are always code-generated - a table name - so there is nothing
 #' user-supplied to escape.
-fw_gh_url <- function(path) {
+fw_gh_url = function(path) {
   sprintf("%s/repos/%s/contents/%s", FW_GH_API, FW_DATA_REPO, path)
 }
 
@@ -31,7 +31,7 @@ fw_gh_url <- function(path) {
 #' status itself, because a 404 means "not there" in some places and "the token
 #' cannot see the repository" in others, and httr2's default error would collapse
 #' that distinction into one unhelpful abort.
-fw_gh_request <- function(path, accept = "application/vnd.github+json") {
+fw_gh_request = function(path, accept = "application/vnd.github+json") {
   httr2::request(fw_gh_url(path)) |>
     httr2::req_headers(
       Authorization = paste("Bearer", FWISE_DATA_TOKEN),
@@ -49,7 +49,7 @@ fw_gh_request <- function(path, accept = "application/vnd.github+json") {
 }
 
 # Seconds before a GitHub call is abandoned. See fw_gh_request().
-FW_GH_TIMEOUT_S <- 15
+FW_GH_TIMEOUT_S = 15
 
 #' What a failed call actually means, in words someone can act on
 #'
@@ -57,8 +57,8 @@ FW_GH_TIMEOUT_S <- 15
 #' anyone deploying this will have. The 404 case earns its length: GitHub returns
 #' 404 rather than 403 for a private repository a token cannot see, so the
 #' obvious reading of it is the wrong one.
-fw_gh_message <- function(verb, path, status) {
-  hint <- switch(
+fw_gh_message = function(verb, path, status) {
+  hint = switch(
     as.character(status),
     "401" = "FWISE_DATA_TOKEN is not a valid token, or it has expired.",
     "403" = paste("The token is valid but lacks permission. It needs Contents:",
@@ -80,13 +80,13 @@ fw_gh_message <- function(verb, path, status) {
 #' and the temporary path is what callers hand to read_csv() or fromJSON(). That
 #' keeps every reader in data_load.R identical across local and remote reads -
 #' they all open a path.
-fw_gh_download <- function(path, ref = FW_DATA_REF) {
-  dest <- tempfile(fileext = paste0(".", tools::file_ext(path)))
-  resp <- fw_gh_request(path, accept = "application/vnd.github.raw") |>
+fw_gh_download = function(path, ref = FW_DATA_REF) {
+  dest = tempfile(fileext = paste0(".", tools::file_ext(path)))
+  resp = fw_gh_request(path, accept = "application/vnd.github.raw") |>
     httr2::req_url_query(ref = ref) |>
     httr2::req_perform(path = dest)
 
-  status <- httr2::resp_status(resp)
+  status = httr2::resp_status(resp)
   if (status == 404) return(NULL)
   if (status != 200) stop(fw_gh_message("read", path, status), call. = FALSE)
   dest

@@ -8,8 +8,8 @@ library(dplyr)
 #' The report builder page
 #'
 
-mod_plan_ui <- function(id) {
-  ns <- NS(id)
+mod_plan_ui = function(id) {
+  ns = NS(id)
   tagList(
     fw_page_header(fw_t("plan", "title"), fw_t("plan", "description"),
                    show_title = FALSE),
@@ -43,7 +43,7 @@ mod_plan_ui <- function(id) {
   )
 }
 
-fw_plan_results_ui <- function(ns) {
+fw_plan_results_ui = function(ns) {
   tagList(
     # THE DOWNLOAD FLOATS OVER THE RESULTS (client, 24 Sept 2026). It used to
     # be the last thing on the page, below two tables, and the client's
@@ -208,16 +208,16 @@ fw_plan_results_ui <- function(ns) {
   )
 }
 
-mod_plan_server <- function(id, data, meta = NULL) {
+mod_plan_server = function(id, data, meta = NULL) {
   moduleServer(id, function(input, output, session) {
-    ns <- session$ns
+    ns = session$ns
 
     # Built once from the approved data. fw_load_data() has already removed
     # anything unapproved, so no option list here can leak a pending record.
-    choices <- fw_filter_choices(data)
-    ids <- fw_plan_filter_ids()
+    choices = fw_filter_choices(data)
+    ids = fw_plan_filter_ids()
 
-    output$filters <- renderUI(fw_plan_filters_ui(ns, choices))
+    output$filters = renderUI(fw_plan_filters_ui(ns, choices))
 
     # ---- The two geography filters, linked ----------------------------------
     # Same call as mod_explore.R. The reasoning, and why it cannot loop, is at
@@ -234,16 +234,16 @@ mod_plan_server <- function(id, data, meta = NULL) {
     fw_filter_when_observers(input, session, ids)
 
 
-    output$filters_summary <- renderUI({
+    output$filters_summary = renderUI({
       if (!built()) return(NULL)
-      f <- report()$filters
-      rows <- fw_filter_summary(f)
+      f = report()$filters
+      rows = fw_filter_summary(f)
 
       # An untouched year slider is not a filter. fw_filter_summary() already
       # says which it is; comparing the bounds here with identical() never
       # matched, because the slider sends doubles and the data's ends are
       # integers, so every build listed "1934 to 2025".
-      set <- Filter(function(r) {
+      set = Filter(function(r) {
         if (identical(r$value, fw_t("export", "filter_all"))) return(FALSE)
         if (identical(r$value, fw_t("export", "filter_yes"))) return(FALSE)
         if (isTRUE(r$untouched)) return(FALSE)
@@ -265,8 +265,8 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
     # The slider's own tick labels are switched off because they pile up over a
     # 90-year span, so the chosen range is printed in words instead.
-    output$years_readout <- renderText({
-      y <- input$years
+    output$years_readout = renderText({
+      y = input$years
       if (is.null(y)) return("")
       paste(y[1], fw_t("filters", "range_of"), y[2])
     })
@@ -274,7 +274,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # ---- The size control ---------------------------------------------------
     #
     # ITS OWN uiOutput, NESTED INSIDE THE PANEL
-    output$size_control <- renderUI({
+    output$size_control = renderUI({
       fw_plan_size_ui(
         ns, choices,
         fw_size_units(input$regime %||% character(0))
@@ -284,9 +284,9 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # Real units under each log slider - mo log units.
     for (unit in FW_SIZE_UNITS) {
       local({
-        u <- unit
-        output[[paste0("size_readout_", u)]] <- renderText({
-          v <- input[[paste0("size_", u)]]
+        u = unit
+        output[[paste0("size_readout_", u)]] = renderText({
+          v = input[[paste0("size_", u)]]
           if (is.null(v)) return("")
           paste(fw_size_label(fw_size_unlog(v[1])), fw_t("filters", "range_of"),
                 fw_size_label(fw_size_unlog(v[2])))
@@ -303,14 +303,14 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # CLEAR BUILDS FROM fw_filter_defaults(), NOT FROM THE INPUTS. The update
     # calls in fw_filter_clear() only reach the browser at the end of this
     # flush, so the inputs still hold the old selection while this runs.
-    report <- reactiveVal(NULL)
-    build_from <- function(f) {
+    report = reactiveVal(NULL)
+    build_from = function(f) {
       # AN ERROR HERE MUST NOT END THE SESSION. fw_export_frame() refuses, by
       # design, to hand over anything that fails its privacy check, and an
       # uncaught error in an observer closes the connection - the reader saw
       # "Disconnected from the server". See fw_safely() in R/ui_helpers.R.
       fw_safely(session, {
-        sel <- fw_filter_apply(data, f)
+        sel = fw_filter_apply(data, f)
         report(list(
           filters = f,
           sel     = sel,
@@ -322,7 +322,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
       })
     }
 
-    built <- reactive(!is.null(report()))
+    built = reactive(!is.null(report()))
 
     observeEvent(input$build, {
       if (!isTRUE(build_from(fw_filter_state(input, ids, ch = choices)))) return()
@@ -338,33 +338,33 @@ mod_plan_server <- function(id, data, meta = NULL) {
       session$sendCustomMessage("fw-announce", fw_fill(fw_t("plan", "built_announce"), n = fw_fmt_num(nrow(report()$sel))))
     })
 
-    output$state <- renderText({
+    output$state = renderText({
       if (!built()) return("none")
       if (nrow(report()$sel) == 0) "zero" else "results"
     })
     outputOptions(output, "state", suspendWhenHidden = FALSE)
 
     # NOTHING here before a build.
-    output$zero <- renderUI({
+    output$zero = renderUI({
       if (!built()) return(NULL)
-      r <- report()
+      r = report()
       if (nrow(r$sel) > 0) return(NULL)
       fw_plan_zero_ui(fw_filter_zero_hints(data, r$filters))
     })
 
-    results <- reactive({
+    results = reactive({
       req(built())
-      r <- report()
+      r = report()
       req(nrow(r$sel) > 0)
       r
     })
 
     # A count caption, or nothing when there is nothing to say.
-    caption <- function(key, n) {
+    caption = function(key, n) {
       if (n > 0) p(class = "fw-caption", fw_fill(fw_t("plan", key), n = fw_fmt_num(n)))
     }
 
-    output$summary <- renderUI(fw_plan_summary_ui(fw_plan_summary(data, results()$sel)))
+    output$summary = renderUI(fw_plan_summary_ui(fw_plan_summary(data, results()$sel)))
 
     # ---- What these attempts were about -------------------------------------
     #
@@ -375,11 +375,11 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # INSIDE THE BUILD'S OWN FILTERS (client, 30 Sept 2026): a family or kind
     # of animal narrows the species counted, and a species pick removes that
     # role's row. See fw_species_rows() and fw_species_row_shown().
-    output$species <- renderUI({
-      sel <- results()$sel
-      f <- results()$filters
-      role_block <- function(role_name) {
-        title <- fw_species_top_title(data, sel, role_name, f = f)
+    output$species = renderUI({
+      sel = results()$sel
+      f = results()$filters
+      role_block = function(role_name) {
+        title = fw_species_top_title(data, sel, role_name, f = f)
         if (is.null(title)) return(NULL)
         fw_block(title, NULL,
                  fw_species_tiles_ui(data, sel, role_name, limit = FW_PLAN_SPECIES_N,
@@ -388,20 +388,20 @@ mod_plan_server <- function(id, data, meta = NULL) {
       tagList(role_block("invasive"), role_block("beneficiary"))
     })
 
-    output$outcome_bars <- renderUI(fw_outcome_bars_ui(results()$sel))
+    output$outcome_bars = renderUI(fw_outcome_bars_ui(results()$sel))
 
-    output$map_missing <- renderUI({
-      sel <- results()$sel
+    output$map_missing = renderUI({
+      sel = results()$sel
       caption("r_map_missing", sum(is.na(sel$latitude) | is.na(sel$longitude)))
     })
-    output$method_caption <- renderUI({
-      txt <- fw_method_caption_text(data, results()$sel)
+    output$method_caption = renderUI({
+      txt = fw_method_caption_text(data, results()$sel)
       if (!is.null(txt)) p(class = "fw-caption", txt)
     })
-    output$waterbody_shown <- renderText(
+    output$waterbody_shown = renderText(
       if (built() && fw_show_waterbody(report()$filters)) "yes" else "no")
     outputOptions(output, "waterbody_shown", suspendWhenHidden = FALSE)
-    output$duration_missing <- renderUI(p(
+    output$duration_missing = renderUI(p(
       class = "fw-caption",
       fw_fill(fw_t("plan", "r_duration_missing"),
               n = fw_fmt_num(nrow(fw_duration_sel(data, results()$sel))))))
@@ -436,10 +436,10 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # of which are known creation. See fw_pdf_size_estimate() in R/report_pdf.R.
     #
     # Once per build, not once per tick: the estimate reads the selection only.
-    pdf_estimate <- reactive(fw_pdf_size_estimate(data, results()$sel, results()$filters))
-    output$download_warn <- renderUI({
+    pdf_estimate = reactive(fw_pdf_size_estimate(data, results()$sel, results()$filters))
+    output$download_warn = renderUI({
       if (!"pdf" %in% (input$download_parts %||% character(0))) return(NULL)
-      est <- pdf_estimate()
+      est = pdf_estimate()
       if (est$mb < FW_PDF$warn_mb && est$pages < FW_PDF$warn_pages) return(NULL)
       p(class = "fw-plan__download-warn", role = "status",
         icon("triangle-exclamation"), " ",
@@ -450,7 +450,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # ---- The map: drawn once, markers swapped -------------------------------
     #
     # THE SAME PATTERN AS THE EXPLORE PAGE.
-    output$map <- leaflet::renderLeaflet({
+    output$map = leaflet::renderLeaflet({
       fw_leaflet() |>
         fw_add_basemaps() |>
         fw_add_outcome_legend() |>
@@ -461,24 +461,24 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
     # Waits for the widget, and skips a redraw of what is already there. See
     # the same three pieces in mod_explore.R.
-    map_ready <- reactiveVal(FALSE)
+    map_ready = reactiveVal(FALSE)
     observeEvent(input$map_bounds, map_ready(TRUE))
-    drawn <- NULL
+    drawn = NULL
     # fw_safely(): a failed redraw leaves the old markers up and says so,
     # rather than ending the session. See R/ui_helpers.R.
     observe(fw_safely(session, {
       req(map_ready())
-      s <- results()$sel
+      s = results()$sel
       if (isTRUE(session$clientData[[paste0("output_", ns("map"), "_hidden")]])) return()
-      key <- s$attempt_id
+      key = s$attempt_id
       if (identical(key, drawn)) return()
       drawn <<- key
 
-      pts <- fw_map_points(data, s)
-      proxy <- leaflet::leafletProxy("map", session = session) |>
+      pts = fw_map_points(data, s)
+      proxy = leaflet::leafletProxy("map", session = session) |>
         leaflet::clearMarkerClusters()
       if (!nrow(pts)) {
-        v <- FW_MAP$empty_view
+        v = FW_MAP$empty_view
         leaflet::setView(proxy, v$lng, v$lat, zoom = v$zoom)
         return()
       }
@@ -489,46 +489,46 @@ mod_plan_server <- function(id, data, meta = NULL) {
 
     # The mode toggle is the ONE control that redraws without a rebuild. It does
     # not change the selection, only how the same numbers are drawn.
-    output$methods <- plotly::renderPlotly({
+    output$methods = plotly::renderPlotly({
       fw_chart_or_empty(
         fw_chart_method(data, results()$sel, mode = input$method_mode %||% "count"))
     })
     # Its own toggle, same reason: it redraws the same numbers a different way
     # and does not change the selection.
-    output$chart_waterbody <- plotly::renderPlotly(
+    output$chart_waterbody = plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_waterbody(results()$sel,
                                            mode = input$waterbody_mode %||% "count")))
-    output$duration <- plotly::renderPlotly(
+    output$duration = plotly::renderPlotly(
       fw_chart_or_empty(fw_chart_duration(data, results()$sel)))
 
     # THE RESULTS TABLE'S PAGING WENT WITH THE TABLE.
-    contacts <- reactive(fw_plan_contacts(data, results()$sel))
+    contacts = reactive(fw_plan_contacts(data, results()$sel))
 
-    contacts_per_page <- reactive(
+    contacts_per_page = reactive(
       as.integer(input$contacts_size %||% FW_PLAN_CONTACTS_PAGE_SIZES[1]))
 
     # THE PAGE IS STATE THE SERVER OWNS,
-    contacts_page <- reactiveVal(1L)
+    contacts_page = reactiveVal(1L)
     observeEvent(input$contacts_page_to, {
-      n <- suppressWarnings(as.integer(input$contacts_page_to))
+      n = suppressWarnings(as.integer(input$contacts_page_to))
       if (length(n) == 1 && !is.na(n)) contacts_page(max(1L, n))
     })
     observeEvent(report(), contacts_page(1L))
     observeEvent(input$contacts_size, contacts_page(1L), ignoreInit = TRUE)
 
-    contacts_shown <- reactive(
+    contacts_shown = reactive(
       min(contacts_page(), fw_plan_pages(nrow(contacts()), contacts_per_page())))
 
-    output$contacts_body <- renderUI({
+    output$contacts_body = renderUI({
       fw_plan_contacts_ui(contacts(), contacts_shown(), contacts_per_page())
     })
 
-    output$contacts_pager <- renderUI({
-      n_rows <- nrow(contacts())
+    output$contacts_pager = renderUI({
+      n_rows = nrow(contacts())
       if (n_rows == 0) return(NULL)
-      n_pages <- fw_plan_pages(n_rows, contacts_per_page())
-      from <- (contacts_shown() - 1L) * contacts_per_page() + 1L
-      to <- min(n_rows, contacts_shown() * contacts_per_page())
+      n_pages = fw_plan_pages(n_rows, contacts_per_page())
+      from = (contacts_shown() - 1L) * contacts_per_page() + 1L
+      to = min(n_rows, contacts_shown() * contacts_per_page())
       div(
         class = "fw-pager",
         p(class = "fw-caption",
@@ -544,13 +544,13 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # The same paging as the contacts above. The search strings are built once
     # per report, not per keystroke; the box is debounced so typing a word is
     # one search, not one per letter.
-    records_haystack <- reactive(fw_plan_records_haystack(results()$export))
-    records_q <- debounce(reactive(input$records_q %||% ""), FW_PLAN_RECORDS_DEBOUNCE_MS)
-    records_rows <- reactive(fw_plan_records_find(records_haystack(), records_q()))
+    records_haystack = reactive(fw_plan_records_haystack(results()$export))
+    records_q = debounce(reactive(input$records_q %||% ""), FW_PLAN_RECORDS_DEBOUNCE_MS)
+    records_rows = reactive(fw_plan_records_find(records_haystack(), records_q()))
 
-    records_page <- reactiveVal(1L)
+    records_page = reactiveVal(1L)
     observeEvent(input$records_page_to, {
-      n <- suppressWarnings(as.integer(input$records_page_to))
+      n = suppressWarnings(as.integer(input$records_page_to))
       if (length(n) == 1 && !is.na(n)) records_page(max(1L, n))
     })
     observeEvent(report(), records_page(1L))
@@ -560,20 +560,20 @@ mod_plan_server <- function(id, data, meta = NULL) {
     observeEvent(report(), updateTextInput(session, "records_q", value = ""),
                  ignoreInit = TRUE)
 
-    records_shown <- reactive(
+    records_shown = reactive(
       min(records_page(), fw_plan_pages(length(records_rows()), FW_PLAN_RECORDS_PAGE_SIZE)))
 
-    output$records_body <- renderUI(
+    output$records_body = renderUI(
       fw_plan_records_ui(results()$export, records_rows(), records_shown(),
                          species = data$species))
 
-    output$records_pager <- renderUI({
-      n_rows <- length(records_rows())
+    output$records_pager = renderUI({
+      n_rows = length(records_rows())
       if (n_rows == 0) return(NULL)
-      per <- FW_PLAN_RECORDS_PAGE_SIZE
-      n_pages <- fw_plan_pages(n_rows, per)
-      from <- (records_shown() - 1L) * per + 1L
-      to <- min(n_rows, records_shown() * per)
+      per = FW_PLAN_RECORDS_PAGE_SIZE
+      n_pages = fw_plan_pages(n_rows, per)
+      from = (records_shown() - 1L) * per + 1L
+      to = min(n_rows, records_shown() * per)
       div(
         class = "fw-pager",
         p(class = "fw-caption",
@@ -606,10 +606,10 @@ mod_plan_server <- function(id, data, meta = NULL) {
     # progress messages straight away, while ordinary output updates wait for
     # a flush that does not happen until the download is done. The bar wears
     # the FWISE badge (.shiny-notification in _components.scss).
-    output$download <- downloadHandler(
+    output$download = downloadHandler(
       filename = function() fw_bundle_filename(input$download_parts),
       content = function(file) {
-        r <- report()
+        r = report()
         withProgress(message = fw_t("plan", "progress_title"), value = 0, {
           fw_write_bundle(
             path = file, parts = input$download_parts, data = data,
@@ -639,7 +639,7 @@ mod_plan_server <- function(id, data, meta = NULL) {
 #' because a 100% bar answers "how often did this work" before the reader has
 #' been told how much evidence is behind it. The labels are the only thing a
 #' caller chooses, because the two charts count different things.
-fw_mode_toggle <- function(id, count_label, share_label) {
+fw_mode_toggle = function(id, count_label, share_label) {
   div(
     class = "fw-segmented",
     radioButtons(
@@ -650,39 +650,39 @@ fw_mode_toggle <- function(id, count_label, share_label) {
   )
 }
 
-fw_n_no_method <- function(data, sel) {
+fw_n_no_method = function(data, sel) {
   sum(!sel$attempt_id %in% data$attempt_method$attempt_id)
 }
 
 # ONE LINE UNDER THE METHOD CHART (client, 30 Sept 2026): the no-method and
 # more-than-one-method counts, joined by " - " when both apply. NULL when
 # neither does. Plan page, Detailed report and PDF all print this.
-fw_method_caption_text <- function(data, sel) {
-  parts <- c(
-    if ((n <- fw_n_no_method(data, sel)) > 0)
+fw_method_caption_text = function(data, sel) {
+  parts = c(
+    if ((n = fw_n_no_method(data, sel)) > 0)
       fw_fill(fw_t("plan", "r_method_missing"), n = fw_fmt_num(n)),
-    if ((n <- fw_n_multi_method(data, sel)) > 0)
+    if ((n = fw_n_multi_method(data, sel)) > 0)
       fw_fill(fw_t("plan", "r_method_multi"), n = fw_fmt_num(n))
   )
   if (length(parts)) paste0(paste(sub("\\.$", "", parts), collapse = " - "), ".")
 }
 
-fw_plan_download_ui <- function(ns, pdf = fw_pdf_available()) {
-  part <- function(id, label, note) {
+fw_plan_download_ui = function(ns, pdf = fw_pdf_available()) {
+  part = function(id, label, note) {
     list(id = id, label = label, note = note)
   }
   # THE READING ORDER, NOT THE FILE-SIZE ORDER (client, 23 Sept 2026): the
   # finished report first, then every record in full, then the raw spreadsheet
   # last. It matches FW_BUNDLE_PARTS in R/export.R, which is the order the
   # files are written and named in; keep the two in step.
-  parts <- list(
+  parts = list(
     part("pdf",  fw_t("plan", "download_pdf"),  fw_t("plan", "download_pdf_note")),
     part("records", fw_t("plan", "download_records"), fw_t("plan", "download_records_note")),
     part("xlsx", fw_t("plan", "download_xlsx"), fw_t("plan", "download_xlsx_note"))
   )
   # NO PDF CHECKBOX WHERE NO PDF CAN BE MADE. Only tickable is quarto is present - it is in
   # Posit - sometimes not locally if working locally. 
-  if (!pdf) parts <- Filter(function(p) p$id != "pdf", parts)
+  if (!pdf) parts = Filter(function(p) p$id != "pdf", parts)
 
   div(
     class = "fw-plan__download",
@@ -749,7 +749,7 @@ fw_plan_download_ui <- function(ns, pdf = fw_pdf_available()) {
 # The picker's default selection is never empty, so there is no initial state
 # to set: no aria-disabled attribute means enabled, which is correct on open.
 
-fw_plan_zero_ui <- function(hints) {
+fw_plan_zero_ui = function(hints) {
   div(
     class = "fw-plan__zero fw-prose", role = "status",
     h2(fw_t("plan", "zero_heading")),

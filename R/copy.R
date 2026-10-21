@@ -2,7 +2,7 @@
 # EVERY user-facing string in the app lives in the copy deck. No module file
 # contains hardcoded English.
 
-FW_COPY <- list(
+FW_COPY = list(
 
   # ---- Application chrome ----------------------------------------------------
 
@@ -1148,7 +1148,7 @@ FW_COPY <- list(
 #' byte order; a test script using list.files() gets the locale's order), and a
 #' merge cached on the first call could be missing a file. It is three list
 #' concatenations, which costs nothing.
-fw_copy_all <- function() {
+fw_copy_all = function() {
   c(FW_COPY, FW_COPY_CONTRIBUTE, FW_COPY_EXPORT, FW_COPY_FORMS)
 }
 
@@ -1157,11 +1157,11 @@ fw_copy_all <- function() {
 #' Stops with the path if it is not defined, so a typo fails at render rather
 #' than printing NULL. NEVER call this at the top level of a file in R/: the
 #' deck is not complete until every file has been sourced.
-fw_t <- function(...) {
-  path <- c(...)
-  out <- fw_copy_all()
+fw_t = function(...) {
+  path = c(...)
+  out = fw_copy_all()
   for (p in path) {
-    out <- out[[p]]
+    out = out[[p]]
     if (is.null(out)) stop("No copy defined at: ", paste(path, collapse = " > "),
                            call. = FALSE)
   }
@@ -1173,10 +1173,10 @@ fw_t <- function(...) {
 #' fw_fill(fw_t("plan", "r_table_note"), n = 42). Every occurrence of a slot is
 #' filled, values are coerced to character, and a slot with no value supplied
 #' is left in place so it is visible rather than silently blank.
-fw_fill <- function(text, ...) {
-  values <- list(...)
+fw_fill = function(text, ...) {
+  values = list(...)
   for (nm in names(values)) {
-    text <- gsub(paste0("{", nm, "}"), as.character(values[[nm]]), text,
+    text = gsub(paste0("{", nm, "}"), as.character(values[[nm]]), text,
                  fixed = TRUE)
   }
   text
@@ -1187,10 +1187,10 @@ fw_fill <- function(text, ...) {
 #' "the ten most common" reads better than "the 10 most common", and the copy
 #' is filled from FW_TOP_N rather than carrying the number itself. Beyond
 #' twenty the digits are used, which is also house style.
-fw_num_word <- function(n) {
-  words <- c("one", "two", "three", "four", "five", "six", "seven", "eight",
+fw_num_word = function(n) {
+  words = c("one", "two", "three", "four", "five", "six", "seven", "eight",
              "nine", "ten", "eleven", "twelve", "thirteen", "fourteen",
              "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty")
-  n <- as.integer(n)
+  n = as.integer(n)
   if (!is.na(n) && n >= 1L && n <= length(words)) words[n] else as.character(n)
 }

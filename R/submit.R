@@ -22,28 +22,28 @@
 
 # The submissions tab, in order. Built from FW_ATTEMPT_COLUMNS so a column
 # added to the database arrives here without a second list to keep in step.
-FW_INBOX_STATE_COLUMNS <- c("qa_status", "imported")
-FW_INBOX_CONTACT_COLUMNS <- c("contact_id", "contact_name", "contact_organisation",
+FW_INBOX_STATE_COLUMNS = c("qa_status", "imported")
+FW_INBOX_CONTACT_COLUMNS = c("contact_id", "contact_name", "contact_organisation",
                               "contact_email", "contact_public")
-FW_INBOX_DERIVED <- c("iso3", "continent", "last_updated", "secondary_contact_id")
-FW_INBOX_COLUMNS <- local({
-  cols <- setdiff(FW_ATTEMPT_COLUMNS, FW_INBOX_DERIVED)
-  i <- match("primary_contact_id", cols)
+FW_INBOX_DERIVED = c("iso3", "continent", "last_updated", "secondary_contact_id")
+FW_INBOX_COLUMNS = local({
+  cols = setdiff(FW_ATTEMPT_COLUMNS, FW_INBOX_DERIVED)
+  i = match("primary_contact_id", cols)
   c(FW_INBOX_STATE_COLUMNS, append(cols[-i], FW_INBOX_CONTACT_COLUMNS, after = i - 1L))
 })
 
-FW_NEW_SPECIES_COLUMNS <- c("label", "common_name", "scientific_name", "taxa",
+FW_NEW_SPECIES_COLUMNS = c("label", "common_name", "scientific_name", "taxa",
                             "family", "from_attempt")
 
 # The values of the two reviewer columns. The app writes the first of each.
-FW_QA_STATUS <- c("not done", "done")
-FW_IMPORTED  <- c("no", "yes", "rejected")
+FW_QA_STATUS = c("not done", "done")
+FW_IMPORTED  = c("no", "yes", "rejected")
 
 # ---- Identifiers -------------------------------------------------------------
 
 # Ambiguous characters are left out - no I, O, 0 or 1 - because these ids get
 # read aloud, retyped and pasted into spreadsheets by people.
-FW_ID_ALPHABET <- c(as.character(2:9), setdiff(LETTERS, c("I", "O")))
+FW_ID_ALPHABET = c(as.character(2:9), setdiff(LETTERS, c("I", "O")))
 
 #' Mint n ids that collide with nothing already in use
 #'
@@ -56,39 +56,18 @@ FW_ID_ALPHABET <- c(as.character(2:9), setdiff(LETTERS, c("I", "O")))
 #' @param exclude ids already in use, so a collision is impossible rather than
 #'   merely unlikely (32^6 is about a billion, so the loop effectively never
 #'   runs twice).
-fw_mint_ids <- function(prefix, n, exclude = character(0), date = Sys.Date()) {
+fw_mint_ids = function(prefix, n, exclude = character(0), date = Sys.Date()) {
   if (n == 0) return(character(0))
-  stamp <- format(date, "%Y%m%d")
-  out <- character(0)
+  stamp = format(date, "%Y%m%d")
+  out = character(0)
   while (length(out) < n) {
-    cand <- replicate(n - length(out), paste0(
+    cand = replicate(n - length(out), paste0(
       prefix, "-", stamp, "-",
       paste(sample(FW_ID_ALPHABET, 6, replace = TRUE), collapse = "")
     ))
-    out <- setdiff(unique(c(out, cand)), exclude)
+    out = setdiff(unique(c(out, cand)), exclude)
   }
   out[seq_len(n)]
-}
-
-# ---- Unresolved references (the old inbox) -----------------------------------
-
-# Before Oct 2026 a submission was a CSV in fwise-data/inbox/ in the exact
-# shape of attempts.csv, and a species or contact the database did not hold
-# travelled in the id cell as `new:` followed by what the reviewer needed, with
-# FW_NEW_SEP between the parts. Kept only so fw_inbox_from_legacy() can move
-# the last of those files into the sheet at cutover.
-FW_NEW_PREFIX <- "new:"
-FW_NEW_SEP    <- "|"
-
-fw_is_new_ref <- function(x) !is.na(x) & startsWith(x, FW_NEW_PREFIX)
-
-#' The parts of an unresolved reference, as a character vector
-fw_parse_new_ref <- function(x, n) {
-  body <- substring(x, nchar(FW_NEW_PREFIX) + 1)
-  parts <- strsplit(body, FW_NEW_SEP, fixed = TRUE)[[1]]
-  length(parts) <- n
-  parts[is.na(parts)] <- ""
-  trimws(parts)
 }
 
 #' A species label split into its names
@@ -96,9 +75,9 @@ fw_parse_new_ref <- function(x, n) {
 #' "Arctic charr (Salvelinus alpinus)" -> common "Arctic charr", scientific
 #' "Salvelinus alpinus". A label with no parenthesis is all common name, as
 #' fw_species_label() treats one.
-fw_split_species_label <- function(label) {
-  sci <- stringr::str_match(label, "\\(([^()]*)\\)\\s*$")[, 2]
-  com <- trimws(sub("\\s*\\(([^()]*)\\)\\s*$", "", label))
+fw_split_species_label = function(label) {
+  sci = stringr::str_match(label, "\\(([^()]*)\\)\\s*$")[, 2]
+  com = trimws(sub("\\s*\\(([^()]*)\\)\\s*$", "", label))
   list(common = ifelse(is.na(com) | !nzchar(com), NA_character_, com),
        scientific = ifelse(is.na(sci) | !nzchar(trimws(sci)), NA_character_, trimws(sci)))
 }
@@ -106,9 +85,9 @@ fw_split_species_label <- function(label) {
 # ---- Writing a submission ----------------------------------------------------
 
 #' One record as a character vector in the given column order, blank where absent
-fw_flatten_record <- function(record, columns = FW_INBOX_COLUMNS) {
+fw_flatten_record = function(record, columns = FW_INBOX_COLUMNS) {
   vapply(columns, function(col) {
-    v <- record[[col]]
+    v = record[[col]]
     if (is.null(v) || length(v) == 0) return("")
     if (length(v) > 1) return(paste(v, collapse = FW_MULTI_SEP))
     if (is.na(v)) return("")
@@ -119,11 +98,11 @@ fw_flatten_record <- function(record, columns = FW_INBOX_COLUMNS) {
 #' The new_species rows for the species a contributor typed in
 #'
 #' @param typed a data frame of label and taxa, from fw_collect_submission()
-fw_new_species_rows <- function(typed, attempt_id) {
+fw_new_species_rows = function(typed, attempt_id) {
   if (is.null(typed) || !nrow(typed)) return(list())
-  typed <- typed[!duplicated(typed$label), , drop = FALSE]
+  typed = typed[!duplicated(typed$label), , drop = FALSE]
   lapply(seq_len(nrow(typed)), function(i) {
-    nm <- fw_split_species_label(typed$label[i])
+    nm = fw_split_species_label(typed$label[i])
     fw_flatten_record(list(label = typed$label[i], common_name = nm$common,
                            scientific_name = nm$scientific, taxa = typed$taxa[i],
                            family = "", from_attempt = attempt_id),
@@ -137,24 +116,24 @@ fw_new_species_rows <- function(typed, attempt_id) {
 #' @param data   the loaded tables, for the confirmation counts
 #' @return list(success, message, attempt_id, submission_id, total_attempts,
 #'              country_attempts, country)
-fw_submit_attempt <- function(record, data = NULL) {
+fw_submit_attempt = function(record, data = NULL) {
 
   # THE ATTEMPT ID IS MINTED HERE and travels with the row from the sheet into
   # attempts.csv unchanged, so a reviewer, a contributor's confirmation screen
   # and the published data all name the same record. Collisions are excluded
   # against the ids the app is holding; dev/qa.R checks again against the file.
-  in_use <- if (is.null(data)) character(0) else data$attempt$attempt_id
-  record$attempt_id   <- fw_mint_ids("FW", 1, exclude = in_use)
-  record$status       <- "pending"
-  record$submitted_at <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-  record$qa_status    <- FW_QA_STATUS[1]
-  record$imported     <- FW_IMPORTED[1]
+  in_use = if (is.null(data)) character(0) else data$attempt$attempt_id
+  record$attempt_id   = fw_mint_ids("FW", 1, exclude = in_use)
+  record$status       = "pending"
+  record$submitted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+  record$qa_status    = FW_QA_STATUS[1]
+  record$imported     = FW_IMPORTED[1]
 
   # NO FALLBACK TO THE LOCAL FILE IF THE SHEET WRITE FAILS. On Connect Cloud
   # the container filesystem is thrown away on restart, so a fallback would
   # report success for a submission that is already gone. Telling the
   # contributor to try again is worth more than a receipt for nothing.
-  written <- tryCatch({
+  written = tryCatch({
     fw_inbox_append(FW_INBOX_TABS$submissions, list(fw_flatten_record(record)),
                     FW_INBOX_COLUMNS)
     message("Submission ", record$attempt_id, " written to ", fw_inbox_mode(), " inbox")
@@ -188,7 +167,7 @@ fw_submit_attempt <- function(record, data = NULL) {
   # contributor sees their own record counted straight away.
   fw_review_count_invalidate()
 
-  counts <- fw_submission_counts(data, record$country)
+  counts = fw_submission_counts(data, record$country)
 
   list(
     success = TRUE,
@@ -206,17 +185,17 @@ fw_submit_attempt <- function(record, data = NULL) {
 #'
 #' The published database plus everything waiting in the inbox, so a
 #' contributor who submits twice in a row sees the number move.
-fw_submission_counts <- function(data, country) {
-  total <- if (is.null(data)) 0L else nrow(data$attempt)
-  in_country <- if (is.null(data) || is.null(country)) {
+fw_submission_counts = function(data, country) {
+  total = if (is.null(data)) 0L else nrow(data$attempt)
+  in_country = if (is.null(data) || is.null(country)) {
     0L
   } else {
     sum(data$attempt$country == country, na.rm = TRUE)
   }
 
-  pending <- tryCatch(fw_pending_submissions(), error = function(e) data.frame())
-  pending_total <- nrow(pending)
-  pending_country <- if (pending_total > 0 && !is.null(country) &&
+  pending = tryCatch(fw_pending_submissions(), error = function(e) data.frame())
+  pending_total = nrow(pending)
+  pending_country = if (pending_total > 0 && !is.null(country) &&
                          "country" %in% names(pending)) {
     sum(pending$country == country, na.rm = TRUE)
   } else {
@@ -233,10 +212,10 @@ fw_submission_counts <- function(data, country) {
 #'
 #' Feeds the in-review count and the confirmation screen's totals. One read of
 #' the submissions tab.
-fw_pending_submissions <- function() {
-  inbox <- fw_inbox_read(FW_INBOX_TABS$submissions)
+fw_pending_submissions = function() {
+  inbox = fw_inbox_read(FW_INBOX_TABS$submissions)
   if (!nrow(inbox) || !all(c("imported", "status") %in% names(inbox))) return(data.frame())
-  waiting <- inbox$imported %in% "no" & !inbox$status %in% "rejected"
+  waiting = inbox$imported %in% "no" & !inbox$status %in% "rejected"
   inbox[waiting, , drop = FALSE]
 }
 
@@ -247,7 +226,7 @@ fw_pending_submissions <- function() {
 # new process (client, 14 Oct 2026: a submission did not show). Every open page
 # now asks every FW_REVIEW_REFRESH_S, and the sheet is read at most that often
 # between them all.
-FW_REVIEW_CACHE <- new.env(parent = emptyenv())
+FW_REVIEW_CACHE = new.env(parent = emptyenv())
 
 #' The in-review count, at most FW_REVIEW_REFRESH_S old
 #'
@@ -255,23 +234,23 @@ FW_REVIEW_CACHE <- new.env(parent = emptyenv())
 #' say the queue had emptied. The fw.now option pins the clock for the tests.
 #'
 #' @param data the loaded data, for the pending rows already in attempts.csv
-fw_review_count_live <- function(data, now = getOption("fw.now", Sys.time())) {
-  fresh <- !is.null(FW_REVIEW_CACHE$at) &&
+fw_review_count_live = function(data, now = getOption("fw.now", Sys.time())) {
+  fresh = !is.null(FW_REVIEW_CACHE$at) &&
     as.numeric(difftime(now, FW_REVIEW_CACHE$at, units = "secs")) < FW_REVIEW_REFRESH_S
   if (fresh) return(FW_REVIEW_CACHE$n)
-  n <- tryCatch(fw_review_count(data, strict = TRUE), error = function(e) {
+  n = tryCatch(fw_review_count(data, strict = TRUE), error = function(e) {
     warning("In-review count not refreshed: ", conditionMessage(e), call. = FALSE)
     NULL
   })
   if (is.null(n)) return(FW_REVIEW_CACHE$n %||% 0L)
-  FW_REVIEW_CACHE$n  <- n
-  FW_REVIEW_CACHE$at <- now
+  FW_REVIEW_CACHE$n  = n
+  FW_REVIEW_CACHE$at = now
   n
 }
 
 #' Make the next fw_review_count_live() read the inbox again
-fw_review_count_invalidate <- function() {
-  FW_REVIEW_CACHE$at <- NULL
+fw_review_count_invalidate = function() {
+  FW_REVIEW_CACHE$at = NULL
   invisible(NULL)
 }
 
@@ -291,20 +270,20 @@ fw_review_count_invalidate <- function() {
 #' @param input   the module's input object
 #' @param rows    the reactiveValues holding which repeatable rows are on screen
 #' @param choices the startup choices, for the species we already hold
-fw_collect_submission <- function(input, rows, choices = NULL) {
+fw_collect_submission = function(input, rows, choices = NULL) {
 
-  get_in <- function(nm) {
-    v <- input[[nm]]
+  get_in = function(nm) {
+    v = input[[nm]]
     if (is.null(v) || (length(v) == 1 && is.na(v))) return("")
     as.character(v)
   }
   # A picker's value, or the typed value when "Other (specify)" was chosen.
-  pick <- function(nm, other_nm) {
-    v <- get_in(nm)
+  pick = function(nm, other_nm) {
+    v = get_in(nm)
     if (identical(v, FW_OTHER)) get_in(other_nm) else v
   }
 
-  held <- names(choices$species_ids %||% character(0))
+  held = names(choices$species_ids %||% character(0))
 
   # ONE ENTRY PER ROW, as the species' LABEL, which is what the reviewer reads
   # and what dev/qa.R resolves to an id. A label we do not hold is one the
@@ -312,34 +291,34 @@ fw_collect_submission <- function(input, rows, choices = NULL) {
   # new_species tab. IDENTICAL FOR BOTH ROLES: invasive targets and
   # beneficiaries are the same question asked about two sides of the same
   # eradication.
-  typed <- data.frame(label = character(0), taxa = character(0))
-  collect_species <- function(kind, indices) {
-    out <- character(0)
+  typed = data.frame(label = character(0), taxa = character(0))
+  collect_species = function(kind, indices) {
+    out = character(0)
     for (i in indices) {
-      species <- trimws(get_in(paste0(kind, "_species_", i)))
+      species = trimws(get_in(paste0(kind, "_species_", i)))
       if (!nzchar(species)) next
       if (!species %in% held) {
-        taxa <- pick(paste0(kind, "_taxa_", i), paste0(kind, "_taxa_other_", i))
+        taxa = pick(paste0(kind, "_taxa_", i), paste0(kind, "_taxa_other_", i))
         typed <<- rbind(typed, data.frame(label = species, taxa = taxa))
       }
-      out <- c(out, species)
+      out = c(out, species)
     }
     paste(out, collapse = FW_MULTI_SEP)
   }
 
   # Methods travel by NAME; the notes cell pairs each note with its method in
   # the same order, so the map popup can still say which note belongs where.
-  method_names <- character(0); method_notes <- character(0)
+  method_names = character(0); method_notes = character(0)
   for (i in rows$method) {
-    nm <- pick(paste0("method_", i), paste0("method_other_", i))
+    nm = pick(paste0("method_", i), paste0("method_other_", i))
     if (!nzchar(nm)) next
-    method_names <- c(method_names, nm)
-    method_notes <- c(method_notes, paste0(nm, ": ", get_in(paste0("method_notes_", i))))
+    method_names = c(method_names, nm)
+    method_notes = c(method_notes, paste0(nm, ": ", get_in(paste0("method_notes_", i))))
   }
-  any_notes <- any(nzchar(trimws(sub("^[^:]*:", "", method_notes))))
+  any_notes = any(nzchar(trimws(sub("^[^:]*:", "", method_notes))))
 
-  invasive    <- collect_species("target", rows$target)
-  beneficiary <- collect_species("benefit", rows$benefit)
+  invasive    = collect_species("target", rows$target)
+  beneficiary = collect_species("benefit", rows$benefit)
 
   list(
     consent_data_use = if (isTRUE(input$consent_data_use)) "yes" else "no",

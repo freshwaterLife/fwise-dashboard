@@ -33,8 +33,8 @@
 
 library(shiny)
 
-mod_about_ui <- function(id) {
-  ns <- NS(id)
+mod_about_ui = function(id) {
+  ns = NS(id)
   tagList(
     fw_page_header(fw_t("about", "title"), fw_t("about", "description"),
                    show_title = FALSE),
@@ -56,14 +56,14 @@ mod_about_ui <- function(id) {
   )
 }
 
-mod_about_server <- function(id, data, meta = NULL) {
+mod_about_server = function(id, data, meta = NULL) {
   moduleServer(id, function(input, output, session) {
-    ns <- session$ns
+    ns = session$ns
 
-    output$body <- renderUI({
-      s <- fw_headline_stats(data)
+    output$body = renderUI({
+      s = fw_headline_stats(data)
 
-      para <- function(key) p(fw_t("about", key))
+      para = function(key) p(fw_t("about", key))
 
       tagList(
         div(
@@ -144,7 +144,7 @@ mod_about_server <- function(id, data, meta = NULL) {
       )
     })
 
-    output$feedback <- renderUI(fw_feedback_panel())
+    output$feedback = renderUI(fw_feedback_panel())
   })
 }
 
@@ -155,7 +155,7 @@ mod_about_server <- function(id, data, meta = NULL) {
 #' The button opens the "Get FWISE updates" dialog (R/mod_newsletter.R). It
 #' used to be a link to a mailing list that did not exist yet, which with no
 #' address opened the app's own home page in a new tab.
-fw_about_signup <- function() {
+fw_about_signup = function() {
   div(
     class = "fw-panel fw-signup",
     # Visible since 24 Sept 2026 (client): the card needs a name now it leads
@@ -171,7 +171,7 @@ fw_about_signup <- function() {
 #' ONE CITATION, FOR THE DATABASE, in the client's literal form - see
 #' about$citation_db in R/copy.R, and fw_citation_text() in R/export.R, which
 #' the downloads' closing section shares.
-fw_about_citations <- function(meta, s) {
+fw_about_citations = function(meta, s) {
   tagList(
     tags$pre(class = "fw-citation", fw_citation_text(meta, s$attempts)),
     p(fw_doi_link(fw_t("footer", "doi_label")))
@@ -184,8 +184,8 @@ fw_about_citations <- function(meta, s) {
 #' each one; the client's own list (23 Sept 2026) is eight well-known resources
 #' by name and URL, with no characterisation of ours attached. An entry that
 #' does carry a `note` still draws it, so a future list can mix the two.
-fw_about_related <- function() {
-  items <- fw_t("about", "related_items")
+fw_about_related = function() {
+  items = fw_t("about", "related_items")
   tags$ul(
     class = "fw-linklist",
     lapply(items, function(it) {
@@ -199,8 +199,8 @@ fw_about_related <- function() {
 }
 
 #' What each method on the charts actually means
-fw_about_glossary <- function() {
-  items <- fw_t("about", "glossary_items")
+fw_about_glossary = function() {
+  items = fw_t("about", "glossary_items")
   tags$dl(
     class = "fw-glossary",
     lapply(items, function(it) {
@@ -215,7 +215,7 @@ fw_about_glossary <- function() {
 #' Tell us it is wrong
 #'
 #' The paragraph and a button that opens the feedback dialog.
-fw_feedback_panel <- function() {
+fw_feedback_panel = function() {
   div(
     class = "fw-feedback",
     # NO HIDDEN HEADING (client, 23 Sept 2026). fb_heading - "Tell us what is

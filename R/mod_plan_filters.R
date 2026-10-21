@@ -32,17 +32,17 @@ library(shiny)
 # family filters were dropped here after Sept 2026 user testing and came back
 # at the client's request (24 Sept 2026), shown only while Fish is picked, as
 # on Explore.
-FW_PLAN_DROP <- c("outcome", "method")
+FW_PLAN_DROP = c("outcome", "method")
 
-fw_plan_filter_ids <- function() fw_filter_ids(drop = FW_PLAN_DROP)
+fw_plan_filter_ids = function() fw_filter_ids(drop = FW_PLAN_DROP)
 
-fw_plan_filters_ui <- function(ns, ch) {
+fw_plan_filters_ui = function(ns, ch) {
   # fw_field() rather than a hand-built div.fw-field: it puts the label and the
   # information icon on one row (.fw-field__label-row) and is the same wrapper
   # the contribute form uses, so a filter and a form field behave identically
   # for a keyboard and a screen reader. This panel was the last place in the app
   # duplicating that markup by hand.
-  multi <- function(id) {
+  multi = function(id) {
     fw_field(
       selectizeInput(
         ns(id), label = NULL, choices = ch[[id]], selected = NULL,
@@ -56,7 +56,7 @@ fw_plan_filters_ui <- function(ns, ch) {
     )
   }
 
-  years <- function() {
+  years = function() {
     # The year range and its "include undated" companion are ONE cell of the
     # grid, not two. They are a single question, and a checkbox that wraps onto
     # a different row from the slider it qualifies reads as unrelated to it.
@@ -107,11 +107,11 @@ fw_plan_filters_ui <- function(ns, ch) {
   # cannot be built here: rebuilding this whole panel to swap a slider would
   # return every selectize above to its default and throw away the reader's
   # other nine answers. See output$size_control in mod_plan.R.
-  size <- function() {
+  size = function() {
     div(class = "fw-plan-filters__span", uiOutput(ns("size_control")))
   }
 
-  controls <- lapply(fw_filter_draw_order(drop = FW_PLAN_DROP), function(id) {
+  controls = lapply(fw_filter_draw_order(drop = FW_PLAN_DROP), function(id) {
     switch(FW_FILTERS[[id]]$kind,
            range = years(),
            size  = size(),
@@ -167,17 +167,17 @@ fw_plan_filters_ui <- function(ns, ch) {
 #' _components.scss and fw_range_ends() prints them as a fixed line instead.
 #'
 #' @param units "ha", "km", or both, from fw_size_units()
-fw_plan_size_ui <- function(ns, ch, units = FW_SIZE_UNITS) {
-  units <- intersect(FW_SIZE_UNITS, units)
+fw_plan_size_ui = function(ns, ch, units = FW_SIZE_UNITS) {
+  units = intersect(FW_SIZE_UNITS, units)
   # The heading carries the unit when there is one unit to carry. With both on
   # the page it names them both and each slider keeps its own label, because a
   # heading cannot say which of two sliders it is describing.
-  one_unit <- length(units) == 1
-  unit_phrase <- if (one_unit) fw_t("filters", paste0("size_in_", units)) else
+  one_unit = length(units) == 1
+  unit_phrase = if (one_unit) fw_t("filters", paste0("size_in_", units)) else
     fw_t("filters", "size_in_both")
 
-  slider <- function(unit) {
-    r <- fw_size_log_range(ch$size[[unit]])
+  slider = function(unit) {
+    r = fw_size_log_range(ch$size[[unit]])
     # A unit with no rows in the data has no range to offer. Drawing a dead
     # slider would invite the reader to set a bound that matches nothing.
     if (is.null(r)) return(NULL)
@@ -237,7 +237,7 @@ fw_plan_size_ui <- function(ns, ch, units = FW_SIZE_UNITS) {
 #'
 #' Always the whole scale, whatever the handles are set to. See the note on
 #' fw_plan_size_ui(); the year slider shares it.
-fw_range_ends <- function(lo, hi) {
+fw_range_ends = function(lo, hi) {
   div(class = "fw-field__range-ends", `aria-hidden` = "true",
       span(lo), span(hi))
 }

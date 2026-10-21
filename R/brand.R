@@ -41,7 +41,7 @@
 # the same hue stepped down until it passes. Never set body-sized text in
 # brand_teal. dev/check_contrast.R lists every pair the interface uses and is
 # the arbiter; re-run it after touching any value here.
-FW_COLOURS <- list(
+FW_COLOURS = list(
   # Text
   ink             = "#191144",  # CLIENT VALUE. Body text and headings
   ink_muted       = "#4a4468",  # secondary text, captions, help
@@ -100,7 +100,7 @@ FW_COLOURS <- list(
 # steps are unchanged; only `min`, `popup` and `credit` stayed where they were,
 # because those are the floor and its two exemptions rather than steps on the
 # scale. `caption` is now separated from body text by size AS WELL AS by colour.
-FW_TYPE <- list(
+FW_TYPE = list(
   font_body = paste0('"Ubuntu", -apple-system, BlinkMacSystemFont, "Segoe UI", ',
                      'Roboto, "Helvetica Neue", Arial, sans-serif'),
   font_mono = paste0('"Ubuntu Mono", ui-monospace, SFMono-Regular, "SF Mono", ',
@@ -206,7 +206,7 @@ FW_TYPE <- list(
 # because the page is printed - and the headings step up from it. The charts
 # are drawn at their printed size, so a label set at `floor` in ggplot prints
 # at `floor`.
-fw_rem_pt <- function(rem) 12 * as.numeric(sub("rem$", "", rem))
+fw_rem_pt = function(rem) 12 * as.numeric(sub("rem$", "", rem))
 # THE PRINTED MAP'S OWN COLOURS, and the one place in the app where water and
 # land are drawn as themselves rather than as surface tones (client, 23 Sept
 # 2026). Everywhere else the map is a ground for data - light land, slightly
@@ -220,14 +220,14 @@ fw_rem_pt <- function(rem) 12 * as.numeric(sub("rem$", "", rem))
 #
 # `frame` is the figure's border, its ticks and the scale bar: one dark grey,
 # stated once, so the three read as parts of the same edge.
-FW_MAP_PRINT <- list(
+FW_MAP_PRINT = list(
   land    = "#dbe6d4",   # pale green
   water   = "#cfe0ea",   # pale blue - the sea, and every lake
   outline = "#9aa89a",   # coastlines and lake edges
   frame   = "#4a4f53"    # the border, the ticks and the scale bar
 )
 
-FW_PRINT <- list(
+FW_PRINT = list(
   floor   = fw_rem_pt(FW_TYPE$size_min),
   title   = 24,
   h2      = 17,
@@ -239,7 +239,7 @@ FW_PRINT <- list(
 # ---- Space -------------------------------------------------------------------
 
 # An 8px scale. The content column is a share of the viewport, not a pixel cap.
-FW_SPACE <- list(
+FW_SPACE = list(
   s1 = "0.5rem", s2 = "1rem", s3 = "1.5rem", s4 = "2rem",
   s5 = "3rem",   s6 = "4rem", s7 = "6rem",
   container_width = "95%"
@@ -249,7 +249,7 @@ FW_SPACE <- list(
 
 # Radius varies by hierarchy on purpose: one radius everywhere flattens the
 # difference between a control and a container.
-FW_RADIUS <- list(
+FW_RADIUS = list(
   input = "8px",
   card  = "12px",
   round = "999px"
@@ -260,7 +260,7 @@ FW_RADIUS <- list(
 # Surfaces sit on the page by tone and by these. `card` is the resting state of
 # a card; `raised` is for things that genuinely float (popups, the map card).
 # Turn either down here and every surface follows.
-FW_SHADOW <- list(
+FW_SHADOW = list(
   card   = "0 1px 2px rgba(25, 17, 68, 0.05), 0 6px 20px rgba(25, 17, 68, 0.08)",
   raised = "0 12px 32px rgba(25, 17, 68, 0.18)"
 )
@@ -269,7 +269,7 @@ FW_SHADOW <- list(
 
 # Motion only ever answers a user action. No page-load or scroll motion, no
 # count-ups.
-FW_MOTION <- list(
+FW_MOTION = list(
   fast   = "150ms",
   base   = "200ms",
   easing = "cubic-bezier(0.22, 0.61, 0.36, 1)"
@@ -279,14 +279,14 @@ FW_MOTION <- list(
 
 # Named so a media query says what it is for. `xl_max` is the top of the band
 # where the navbar brand and the six nav items compete for one row.
-FW_BREAKPOINTS <- list(
+FW_BREAKPOINTS = list(
   xs = "480px", sm = "600px", md = "768px", lg = "900px",
   xl = "992px", xl_max = "1099px"
 )
 
 # Fully transparent, for plotly's paper and plot backgrounds so a chart takes
 # the colour of whatever surface it sits on.
-FW_TRANSPARENT <- "rgba(0,0,0,0)"
+FW_TRANSPARENT = "rgba(0,0,0,0)"
 
 # ---- Helpers -----------------------------------------------------------------
 
@@ -294,8 +294,8 @@ FW_TRANSPARENT <- "rgba(0,0,0,0)"
 #'
 #' For the places that need a colour at partial opacity in R rather than in
 #' Sass: plotly fills, inline styles.
-fw_rgba <- function(hex, alpha) {
-  rgb <- grDevices::col2rgb(hex)[, 1]
+fw_rgba = function(hex, alpha) {
+  rgb = grDevices::col2rgb(hex)[, 1]
   sprintf("rgba(%d,%d,%d,%s)", rgb[1], rgb[2], rgb[3], format(alpha))
 }
 
@@ -310,12 +310,12 @@ fw_rgba <- function(hex, alpha) {
 #' need a data colour (validation, the check panel) read the same values the
 #' charts do. It lives in R/config.R and is read at call time, which is after
 #' every file in R/ has been sourced.
-fw_sass_variables <- function() {
-  flatten <- function(prefix, x) {
+fw_sass_variables = function() {
+  flatten = function(prefix, x) {
     stats::setNames(as.list(unname(unlist(x))),
                     paste0(prefix, gsub("_", "-", names(x))))
   }
-  vars <- c(
+  vars = c(
     flatten("fw-",        FW_COLOURS),
     flatten("fw-",        FW_TYPE[grepl("^(font|size|weight|leading|measure)", names(FW_TYPE))]),
     flatten("fw-space-",  FW_SPACE[grepl("^s[0-9]$", names(FW_SPACE))]),
@@ -327,9 +327,9 @@ fw_sass_variables <- function() {
     flatten("fw-bp-",     FW_BREAKPOINTS)
   )
   if (exists("FW_PALETTE")) {
-    vars <- c(vars, flatten("fw-data-", as.list(FW_PALETTE)))
+    vars = c(vars, flatten("fw-data-", as.list(FW_PALETTE)))
   }
   # `s1` was flattened as `fw-space-s1`; Sass wants `fw-space-1`.
-  names(vars) <- sub("^fw-space-s", "fw-space-", names(vars))
+  names(vars) = sub("^fw-space-s", "fw-space-", names(vars))
   vars
 }

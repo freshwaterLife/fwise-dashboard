@@ -24,8 +24,8 @@ library(bslib)
 library(shinyvalidate)
 library(leaflet)
 
-mod_contribute_ui <- function(id) {
-  ns <- NS(id)
+mod_contribute_ui = function(id) {
+  ns = NS(id)
   tagList(
     fw_page_header(fw_t("contribute", "title"), fw_t("contribute", "description"),
                    show_title = FALSE),
@@ -43,35 +43,35 @@ mod_contribute_ui <- function(id) {
 
 #' @param on_submit called with no arguments after a submission is safely
 #'   written; app.R uses it to refresh the in-review count at once.
-mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
+mod_contribute_server = function(id, data, choices, on_submit = NULL) {
   moduleServer(id, function(input, output, session) {
-    ns <- session$ns
+    ns = session$ns
 
-    stage <- reactiveVal("intro")     # intro | form | done
-    result <- reactiveVal(NULL)
+    stage = reactiveVal("intro")     # intro | form | done
+    result = reactiveVal(NULL)
 
     # Counters driving the repeatable blocks. Each holds the indices currently on
     # screen, so removing a row in the middle does not renumber the others.
-    rows <- reactiveValues(
+    rows = reactiveValues(
       target  = 1L,
       benefit = 1L,
       method  = 1L
     )
-    next_index <- reactiveValues(target = 2L, benefit = 2L, method = 2L)
+    next_index = reactiveValues(target = 2L, benefit = 2L, method = 2L)
 
     # ---- The conditional section ----------------------------------------------
 
     # The chemical section appears only when a chemical method has been chosen.
     # It is shown and hidden in the browser rather than rendered in and out, so
     # anything already answered there survives a change of mind about the method.
-    chemical_selected <- reactive({
-      picked <- vapply(rows$method, function(i) {
+    chemical_selected = reactive({
+      picked = vapply(rows$method, function(i) {
         input[[paste0("method_", i)]] %||% ""
       }, character(1))
       any(picked %in% choices$chemical_methods)
     })
 
-    output$chemical_needed <- reactive(chemical_selected())
+    output$chemical_needed = reactive(chemical_selected())
     # Without this the output is suspended while its panel is hidden, and a
     # suspended output never reports the value that would unhide it.
     outputOptions(output, "chemical_needed", suspendWhenHidden = FALSE)
@@ -80,9 +80,9 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
 
     # One validator per step. Keeping them separate is what lets Next block on
     # just this step's required fields rather than on the whole form.
-    iv <- InputValidator$new()
+    iv = InputValidator$new()
 
-    iv_site <- InputValidator$new()
+    iv_site = InputValidator$new()
     iv_site$add_rule("site_name", sv_required(message = fw_t("contribute", "validate", "site_name")))
     iv_site$add_rule("country", sv_required(message = fw_t("contribute", "validate", "country")))
     iv_site$add_rule("latitude", sv_required(message = fw_t("contribute", "validate", "latitude")))
@@ -90,25 +90,25 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     iv_site$add_rule("longitude", sv_required(message = fw_t("contribute", "validate", "longitude")))
     iv_site$add_rule("longitude", sv_between(-180, 180, message = fw_t("contribute", "validate", "longitude_range")))
 
-    iv_waterbody <- InputValidator$new()
+    iv_waterbody = InputValidator$new()
     iv_waterbody$add_rule("waterbody_type", sv_required(message = fw_t("contribute", "validate", "waterbody_type")))
     iv_waterbody$add_rule("water_regime", sv_required(message = fw_t("contribute", "validate", "water_regime")))
     # The unit becomes required only once a size has been entered.
     iv_waterbody$add_rule("area_unit", function(value) {
-      size <- input$area_treated
+      size = input$area_treated
       if (!is.null(size) && !is.na(size) && (is.null(value) || !nzchar(value))) {
         fw_t("contribute", "validate", "area_unit")
       }
     })
 
-    iv_invasive <- InputValidator$new()
+    iv_invasive = InputValidator$new()
     iv_invasive$add_rule("target_taxa_1", sv_required(message = fw_t("contribute", "validate", "target_taxa")))
     iv_invasive$add_rule("target_species_1", sv_required(message = fw_t("contribute", "validate", "target_species")))
 
-    this_year <- as.integer(format(Sys.Date(), "%Y"))
-    iv_timeline <- InputValidator$new()
+    this_year = as.integer(format(Sys.Date(), "%Y"))
+    iv_timeline = InputValidator$new()
     iv_timeline$add_rule("start_year", sv_required(message = fw_t("contribute", "validate", "start_year")))
-    year_range_msg <- fw_fill(fw_t("contribute", "validate", "year_range"),
+    year_range_msg = fw_fill(fw_t("contribute", "validate", "year_range"),
                               min = FW_YEAR_MIN, year = this_year)
     iv_timeline$add_rule("start_year", sv_between(FW_YEAR_MIN, this_year,
       message = year_range_msg))
@@ -122,25 +122,25 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
         return(fw_fill(fw_t("contribute", "validate", "end_year_range"),
                        min = FW_YEAR_MIN))
       }
-      start <- input$start_year
+      start = input$start_year
       if (!is.null(start) && !is.na(start) && value < start) {
         fw_t("contribute", "validate", "end_before_start")
       }
     })
     iv_timeline$add_rule("driver", sv_required(message = fw_t("contribute", "validate", "driver")))
 
-    iv_methods <- InputValidator$new()
+    iv_methods = InputValidator$new()
     iv_methods$add_rule("method_1", sv_required(message = fw_t("contribute", "validate", "method")))
 
-    iv_outcome <- InputValidator$new()
+    iv_outcome = InputValidator$new()
     iv_outcome$add_rule("outcome", sv_required(message = fw_t("contribute", "validate", "outcome")))
 
-    iv_contributor <- InputValidator$new()
+    iv_contributor = InputValidator$new()
     iv_contributor$add_rule("primary_contact_name", sv_required(message = fw_t("contribute", "validate", "contact_name")))
     iv_contributor$add_rule("primary_contact_email", sv_required(message = fw_t("contribute", "validate", "contact_email")))
     iv_contributor$add_rule("primary_contact_email", sv_email(message = fw_t("contribute", "validate", "email_format")))
 
-    step_validators <- list(
+    step_validators = list(
       site = iv_site, waterbody = iv_waterbody, invasive = iv_invasive,
       timeline = iv_timeline, methods = iv_methods, outcome = iv_outcome,
       contributor = iv_contributor
@@ -149,10 +149,10 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     # red before the contributor has typed anything, which reads as being told
     # off for arriving. Each step's validator is enabled the first time they try
     # to move on from it, and stays enabled after that so corrections show live.
-    touched <- reactiveVal(character(0))
+    touched = reactiveVal(character(0))
 
-    fw_touch_step <- function(id) {
-      v <- step_validators[[id]]
+    fw_touch_step = function(id) {
+      v = step_validators[[id]]
       if (is.null(v)) return(invisible(NULL))
       if (!id %in% touched()) {
         touched(c(touched(), id))
@@ -162,7 +162,7 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     }
 
     # The consent controls gate the whole submission, not one step.
-    iv_consent <- InputValidator$new()
+    iv_consent = InputValidator$new()
     iv_consent$add_rule("consent_data_use", function(value) {
       if (!isTRUE(value)) fw_t("contribute", "validate", "consent")
     })
@@ -183,17 +183,17 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     # fw_is_email() is shared with the newsletter and feedback forms; it lives
     # in R/forms.R.
 
-    filled <- function(nm) {
-      v <- input[[nm]]
+    filled = function(nm) {
+      v = input[[nm]]
       !is.null(v) && length(v) > 0 && !all(is.na(v)) &&
         any(nzchar(as.character(v[!is.na(v)])))
     }
-    in_range <- function(nm, lo, hi) {
-      v <- suppressWarnings(as.numeric(input[[nm]]))
+    in_range = function(nm, lo, hi) {
+      v = suppressWarnings(as.numeric(input[[nm]]))
       length(v) == 1 && !is.na(v) && v >= lo && v <= hi
     }
 
-    all_valid <- reactive({
+    all_valid = reactive({
       isTRUE(input$consent_data_use) &&
         filled("site_name") && filled("country") &&
         in_range("latitude", -90, 90) && in_range("longitude", -180, 180) &&
@@ -223,16 +223,16 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     # ongoing, unmeasured or unpublished, and refusing those records would bias
     # the database towards the tidy ones - which is precisely the reporting bias
     # the caveats warn readers about.
-    fw_check <- function() {
-      msg <- function(key, ...) {
-        out <- fw_t("contribute", "check", key)
-        subs <- list(...)
-        for (nm in names(subs)) out <- sub(paste0("{", nm, "}"), subs[[nm]], out, fixed = TRUE)
+    fw_check = function() {
+      msg = function(key, ...) {
+        out = fw_t("contribute", "check", key)
+        subs = list(...)
+        for (nm in names(subs)) out = sub(paste0("{", nm, "}"), subs[[nm]], out, fixed = TRUE)
         out
       }
-      errors <- list(); notes <- list()
-      err  <- function(id, m) errors <<- c(errors, list(list(id = id, msg = m)))
-      note <- function(id, m) notes  <<- c(notes,  list(list(id = id, msg = m)))
+      errors = list(); notes = list()
+      err  = function(id, m) errors <<- c(errors, list(list(id = id, msg = m)))
+      note = function(id, m) notes  <<- c(notes,  list(list(id = id, msg = m)))
 
       # ---- Hard: the record is unusable without these ----
       if (!filled("site_name"))      err("site_name", msg("e_site_name"))
@@ -293,7 +293,7 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
 
     # ---- Stages ---------------------------------------------------------------
 
-    output$stage <- renderUI({
+    output$stage = renderUI({
       switch(stage(),
         intro = fw_intro_panel(ns),
         form  = tagList(fw_form_shell(ns, choices), fw_form_script(ns)),
@@ -324,17 +324,17 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     #' swap rather than a search round trip. A species the contributor typed in
     #' themselves is carried across, otherwise changing the group after naming a
     #' species would silently discard it.
-    bind_pair_row <- function(i, kind) {
-      taxa_id    <- paste0(kind, "_taxa_", i)
-      species_id <- paste0(kind, "_species_", i)
+    bind_pair_row = function(i, kind) {
+      taxa_id    = paste0(kind, "_taxa_", i)
+      species_id = paste0(kind, "_species_", i)
 
       observeEvent(input[[taxa_id]], ignoreInit = TRUE, {
-        taxa <- input[[taxa_id]] %||% ""
-        lst <- choices$species_by_taxa[[taxa]]
-        if (is.null(lst) || !length(lst)) lst <- choices$species_by_taxa[[FW_ALL]]
+        taxa = input[[taxa_id]] %||% ""
+        lst = choices$species_by_taxa[[taxa]]
+        if (is.null(lst) || !length(lst)) lst = choices$species_by_taxa[[FW_ALL]]
 
-        current <- input[[species_id]] %||% ""
-        if (nzchar(current) && !current %in% lst) lst <- c(current, lst)
+        current = input[[species_id]] %||% ""
+        if (nzchar(current) && !current %in% lst) lst = c(current, lst)
 
         # The blank stays at the front for the same reason it is there in
         # fw_species_picker(): without it selectize picks the first species by
@@ -351,12 +351,12 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     # Narrow the waterbody types to the regime. Still water should not be
     # offered "River", and flowing water should not be offered "Lake".
     observeEvent(input$water_regime, ignoreInit = TRUE, {
-      rg <- input$water_regime %||% ""
-      lst <- choices$waterbody_by_regime[[rg]]
-      if (is.null(lst) || !length(lst)) lst <- choices$waterbody_by_regime[[FW_ALL]]
+      rg = input$water_regime %||% ""
+      lst = choices$waterbody_by_regime[[rg]]
+      if (is.null(lst) || !length(lst)) lst = choices$waterbody_by_regime[[FW_ALL]]
 
-      current <- input$waterbody_type %||% ""
-      keep <- if (nzchar(current) && current %in% lst) current else ""
+      current = input$waterbody_type %||% ""
+      keep = if (nzchar(current) && current %in% lst) current else ""
       if (nzchar(current) && !nzchar(keep)) {
         fw_announce(session, fw_fill(
           fw_t("contribute", "announce", "waterbody_changed"),
@@ -379,12 +379,12 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     # answer is worse than free text. So this narrows the likely answers without
     # ever blocking an unlikely one.
     observeEvent(input$country, ignoreInit = TRUE, {
-      subs <- fw_subdivisions_for(choices, input$country %||% "")
+      subs = fw_subdivisions_for(choices, input$country %||% "")
 
-      current <- input$region %||% ""
+      current = input$region %||% ""
       # Keep what they typed if it still applies; a country change that silently
       # emptied an answered field would lose work without saying so.
-      keep <- if (nzchar(current) && (!length(subs) || current %in% subs)) {
+      keep = if (nzchar(current) && (!length(subs) || current %in% subs)) {
         current
       } else {
         ""
@@ -404,33 +404,33 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     })
 
     observeEvent(input$add_target, {
-      i <- next_index$target
+      i = next_index$target
       insertUI(paste0("#", ns("target_rows")), where = "beforeEnd",
                ui = fw_target_row(ns, i, choices))
-      rows$target <- c(rows$target, i)
-      next_index$target <- i + 1L
+      rows$target = c(rows$target, i)
+      next_index$target = i + 1L
       bind_pair_row(i, "target")
       fw_bind_remove(session, ns, input, i, "target", rows)
       fw_announce(session, fw_fill(fw_t("contribute", "announce", "target_added"), n = i))
     })
 
     observeEvent(input$add_beneficiary, {
-      i <- next_index$benefit
+      i = next_index$benefit
       insertUI(paste0("#", ns("benefit_rows")), where = "beforeEnd",
                ui = fw_beneficiary_row(ns, i, choices))
-      rows$benefit <- c(rows$benefit, i)
-      next_index$benefit <- i + 1L
+      rows$benefit = c(rows$benefit, i)
+      next_index$benefit = i + 1L
       bind_pair_row(i, "benefit")
       fw_bind_remove(session, ns, input, i, "benefit", rows)
       fw_announce(session, fw_fill(fw_t("contribute", "announce", "beneficiary_added"), n = i))
     })
 
     observeEvent(input$add_method, {
-      i <- next_index$method
+      i = next_index$method
       insertUI(paste0("#", ns("method_rows")), where = "beforeEnd",
                ui = fw_method_row(ns, i, choices))
-      rows$method <- c(rows$method, i)
-      next_index$method <- i + 1L
+      rows$method = c(rows$method, i)
+      next_index$method = i + 1L
       fw_bind_remove(session, ns, input, i, "method", rows)
     })
 
@@ -439,9 +439,9 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     # The map and the two numeric boxes stay in step in both directions. The
     # guard flag stops a map click updating the boxes, which updates the map,
     # which fires another click handler.
-    syncing <- reactiveVal(FALSE)
+    syncing = reactiveVal(FALSE)
 
-    output$picker <- renderLeaflet({
+    output$picker = renderLeaflet({
       # THE SAME GROUND AS EVERY OTHER MAP. This used to pick its own basemap -
       # a lone Esri.WorldGrayCanvas - so a contributor placed their pin on a
       # different-looking world from the one the dashboard would show it on.
@@ -455,14 +455,14 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     })
 
     observeEvent(input$picker_click, {
-      click <- input$picker_click
+      click = input$picker_click
       req(click)
       syncing(TRUE)
       updateNumericInput(session, "latitude",  value = round(click$lat, FW_COORD_DP))
       updateNumericInput(session, "longitude", value = round(click$lng, FW_COORD_DP))
       syncing(FALSE)
       fw_place_pin(session, click$lat, click$lng)
-      fmt <- paste0("%.", FW_COORD_DP, "f")
+      fmt = paste0("%.", FW_COORD_DP, "f")
       fw_announce(session, fw_fill(fw_t("contribute", "announce", "location_set"),
                                    lat = sprintf(fmt, click$lat),
                                    lng = sprintf(fmt, click$lng)))
@@ -470,7 +470,7 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
 
     observeEvent(list(input$latitude, input$longitude), {
       if (isTRUE(syncing())) return()
-      lat <- input$latitude; lng <- input$longitude
+      lat = input$latitude; lng = input$longitude
       if (is.null(lat) || is.null(lng) || is.na(lat) || is.na(lng)) return()
       if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return()
       fw_place_pin(session, lat, lng)
@@ -484,7 +484,7 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     observeEvent(input$check_answers, {
       for (nm in names(step_validators)) fw_touch_step(nm)
       iv_consent$enable()
-      res <- fw_check()
+      res = fw_check()
       fw_announce(session, if (length(res$errors) == 0) {
         fw_t("contribute", "check", "heading_clear")
       } else {
@@ -499,11 +499,11 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     })
 
     # bindEvent, so this renders when asked for and never while typing.
-    output$review_summary <- bindEvent(renderUI({
-      res <- fw_check()
-      n_err <- length(res$errors)
+    output$review_summary = bindEvent(renderUI({
+      res = fw_check()
+      n_err = length(res$errors)
 
-      item <- function(x, kind) {
+      item = function(x, kind) {
         tags$li(
           class = paste0("fw-check__item fw-check__item--", kind),
           # An actionLink per row would leave a dead observer behind every time
@@ -520,7 +520,7 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
         )
       }
 
-      errors_block <- if (n_err > 0) {
+      errors_block = if (n_err > 0) {
         div(
           class = "fw-check fw-check--errors", role = "alert",
           h3(if (n_err == 1) fw_t("contribute", "check", "heading_errors_one")
@@ -537,7 +537,7 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
         )
       }
 
-      notes_block <- if (length(res$notes) > 0) {
+      notes_block = if (length(res$notes) > 0) {
         div(
           class = "fw-check fw-check--notes",
           h3(fw_t("contribute", "check", "heading_notes")),
@@ -547,13 +547,13 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
         )
       }
 
-      rec <- assemble_record()
-      shown <- Filter(function(x) nzchar(x), lapply(rec, function(v) {
+      rec = assemble_record()
+      shown = Filter(function(x) nzchar(x), lapply(rec, function(v) {
         if (is.null(v) || length(v) == 0) return("")
         paste(as.character(v), collapse = "; ")
       }))
 
-      answers <- if (length(shown) == 0) {
+      answers = if (length(shown) == 0) {
         p(class = "fw-caption", fw_t("contribute", "announce", "nothing_entered"))
       } else {
         tagList(
@@ -581,7 +581,7 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     # The record is shaped by fw_collect_submission() in submit.R, next to the
     # code that writes it, so the column set and the thing that fills it stay
     # side by side.
-    assemble_record <- reactive({
+    assemble_record = reactive({
       fw_collect_submission(input, rows, choices)
     })
 
@@ -600,7 +600,7 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
       # fw_safely(): only the sheet write inside fw_submit_attempt() was
       # guarded, and an error while assembling the record ended the session
       # with the contributor's answers still on the page.
-      out <- fw_safely(session, fw_submit_attempt(assemble_record(), data))
+      out = fw_safely(session, fw_submit_attempt(assemble_record(), data))
       if (is.null(out)) return()
       if (!isTRUE(out$success)) {
         showNotification(out$message, type = "error", duration = NULL)
@@ -635,7 +635,7 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     # Generated from the step builders themselves rather than kept as a separate
     # document, so it cannot fall out of step with the form. See
     # R/questions_text.R.
-    output$download_questions <- downloadHandler(
+    output$download_questions = downloadHandler(
       filename = function() paste0("fwise-submission-questions_", fw_file_stamp(), ".docx"),
       contentType = paste0("application/vnd.openxmlformats-officedocument.",
                            "wordprocessingml.document"),
@@ -648,7 +648,7 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
     # The plain-text list stays alongside the Word one. It is the version that
     # opens on anything, prints predictably, and can be read by a screen reader
     # without Word - and it costs one handler to keep.
-    output$download_questions_txt <- downloadHandler(
+    output$download_questions_txt = downloadHandler(
       filename = function() paste0("fwise-submission-questions_", fw_file_stamp(), ".txt"),
       contentType = "text/plain",
       content = function(file) {
@@ -662,28 +662,28 @@ mod_contribute_server <- function(id, data, choices, on_submit = NULL) {
 # ---- Helpers -----------------------------------------------------------------
 
 #' Write a message into the page's live region so it is announced
-fw_announce <- function(session, text) {
+fw_announce = function(session, text) {
   session$sendCustomMessage("fw-announce", text)
 }
 
 #' Move the single pin on the location picker
-fw_place_pin <- function(session, lat, lng) {
+fw_place_pin = function(session, lat, lng) {
   leafletProxy("picker", session = session) |>
     clearMarkers() |>
     addMarkers(lng = lng, lat = lat)
 }
 
 #' Wire up a repeatable row's removal control
-fw_bind_remove <- function(session, ns, input, index, kind, rows) {
+fw_bind_remove = function(session, ns, input, index, kind, rows) {
   observeEvent(input[[paste0("remove_", kind, "_", index)]], once = TRUE, {
     removeUI(paste0("#", ns(paste0(kind, "_row_", index))))
-    rows[[kind]] <- setdiff(rows[[kind]], index)
+    rows[[kind]] = setdiff(rows[[kind]], index)
   })
 }
 
 #' Turn a record key into a readable label for the review table
-fw_prettify_key <- function(k) {
-  k <- gsub("_", " ", k)
+fw_prettify_key = function(k) {
+  k = gsub("_", " ", k)
   paste0(toupper(substr(k, 1, 1)), substr(k, 2, nchar(k)))
 }
 
