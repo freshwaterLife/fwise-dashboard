@@ -67,6 +67,16 @@ fw_qa_git_state = function() {
        behind = suppressWarnings(as.integer(behind[1])))
 }
 
+#' A table in the IDE's data viewer, titled; printed in full when R isn't
+#' interactive (Rscript) or the table is empty
+fw_qa_show = function(df, title) {
+  if (interactive() && nrow(df)) View(df, title) else {
+    message("-- ", title, " (", nrow(df), " row(s))")
+    print(df, n = Inf)
+  }
+  invisible(df)
+}
+
 git = fw_qa_git_state()
 message("Data checkout: ", FW_DATA_DIR, "  (branch ", git$branch, ")")
 if (length(git$changes)) message("  ! it has uncommitted changes - section 4 will not write until they are committed or undone")
