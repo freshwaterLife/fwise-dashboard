@@ -141,7 +141,6 @@ Run `check_contrast.R` after changing any interface colour and
 │   └── archive/             those listed in .gitignore); one-off build scripts
 ├── manifest.json            what Connect Cloud deploys from
 ├── renv.lock                what local development restores from
-├── TRACKING.md              usage tracking: events, privacy rules, metrics
 └── .Renviron.example        every environment variable
 ```
 
@@ -396,8 +395,33 @@ fills an empty row 1).
 newsletter and feedback row. Every change needs a dated line under "Changes
 to this notice" (`dev/plan_test.R` checks).
 
-Usage tracking (GoatCounter for visits, an event log in the `events` tab) is
-described in [TRACKING.md](TRACKING.md).
+### Usage tracking
+
+Two layers, both in `R/tracking.R`: GoatCounter counts arrivals (one script in
+the page head, site code `FW_GOATCOUNTER_CODE` in `R/config.R`; count.js skips
+localhost), and an event log writes one row per action to the `events` tab.
+The events, their `detail` formats, the privacy rules, the `?campaign=` names
+in use and the metric definitions are in the FWISE handover document (kept
+outside this repo). A new event goes in `FW_TRACK_EVENTS` and the handover's
+events table.
+
+Events are held in memory per session (capped at 500) and written in one
+append when the session ends, through the forms' sign-in (`fw_google_token()`
+in `R/forms_store.R`): 5 s timeout, no retry. On failure the session's rows are
+dropped and the server log gets one line with the reason, never row contents.
+The write blocks the R process, so other sessions can wait up to the timeout,
+and rows still in memory are lost if the process stops (e.g. a redeploy).
+
+`FWISE_LOG_MODE` is `sheet` in production, `console` to print rows locally, or
+`off`; unset is off. `sheet` with no sheet id or key is also off, and the
+startup line names the setting at fault, e.g. `FWISE startup: event log off
+(FWISE_LOG_MODE is not set)`. To test locally:
+
+```
+FWISE_LOG_MODE=console Rscript -e 'shiny::runApp(port = 8790)'
+```
+
+Use the app, close the tab, and each row prints as `FWISE event: ...`.
 
 ---
 
@@ -414,7 +438,7 @@ settings.
 | `FWISE_FORMS_SHEET_ID` | Connect Cloud | Sheet for newsletter and feedback. |
 | `GS4_SA_KEY_B64` | Connect Cloud | Service account JSON key, raw or base64. |
 | `FWISE_INBOX_SHEET_ID` | optional | Sheet for submissions; defaults to the forms sheet. |
-| `FWISE_LOG_MODE` | Connect Cloud | `sheet`, `console` or `off` (default). See TRACKING.md. |
+| `FWISE_LOG_MODE` | Connect Cloud | `sheet`, `console` or `off` (default). See Usage tracking. |
 | `FWISE_LOG_SHEET_ID` | optional | Sheet for the `events` tab; defaults to the forms sheet. |
 | `FWISE_CARTO_KEY` | optional | Overrides the built-in Carto key. |
 | `QUARTO_PATH` | optional | A Quarto CLI not on the PATH. |
@@ -534,7 +558,7 @@ outputs are committed; none needs rerunning in normal use.
   `R/copy_contribute.R`), and the privacy terms version, still "Draft 0.1"
   (`privacy$version` in `R/copy_forms.R`). Any `[TO CONFIRM: ...]` written into
   the privacy text is highlighted on the page.
-- **Metric definitions** in TRACKING.md are drafts for Freshwater Life to
+- **Metric definitions** in the handover document are drafts for Freshwater Life to
   confirm.
 - Optional: reversed (light) logo artwork would allow an indigo navbar.
 

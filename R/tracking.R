@@ -1,5 +1,5 @@
 # tracking.R
-# Usage tracking (details in TRACKING.md):
+# Usage tracking (details in the README's Usage tracking section):
 #   1. GoatCounter counts arrivals: one script in the page head.
 #   2. A server-side event log, one row per event in the `events` tab.
 #
@@ -11,7 +11,7 @@
 # only. No IP, user agent, referrer, cookie or free text. The session id is
 # Shiny's random token. Uses the forms' Google sign-in (forms_store.R).
 
-# The allowed events. Add new ones here and in TRACKING.md.
+# The allowed events. Add new ones here and in the handover's events table.
 FW_TRACK_EVENTS = c("session_start", "report_built", "download",
                      "contact_click", "form_submit", "session_end")
 

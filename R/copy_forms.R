@@ -82,7 +82,7 @@ FW_COPY_FORMS = list(
     # Terms version, stored on every newsletter and feedback row. When it
     # changes, add a dated line under "Changes to this notice" in the privacy
     # page: submissions are matched to terms by date. plan_test.R checks it.
-    version       = "Draft 0.1",
+    version       = "1",
     last_updated  = "2026-10-02",
     version_label = "Version",
     updated_label = "Last updated",

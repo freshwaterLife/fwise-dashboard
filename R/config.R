@@ -91,7 +91,7 @@ GS4_SA_KEY_B64 = fw_env("GS4_SA_KEY_B64", default = NULL)
 # forms sheet. See fw_inbox_mode().
 FWISE_INBOX_SHEET_ID = fw_env("FWISE_INBOX_SHEET_ID", default = FWISE_FORMS_SHEET_ID)
 
-# Usage log. See R/tracking.R and TRACKING.md.
+# Usage log. See R/tracking.R and the README's Usage tracking section.
 #   FWISE_LOG_MODE      "sheet", "console" or "off" (default, so local runs
 #                       never write to the live sheet)
 #   FWISE_LOG_SHEET_ID  sheet with the `events` tab; defaults to the forms sheet
