@@ -77,13 +77,6 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
     iv_waterbody = InputValidator$new()
     iv_waterbody$add_rule("waterbody_type", sv_required(message = fw_t("contribute", "validate", "waterbody_type")))
     iv_waterbody$add_rule("water_regime", sv_required(message = fw_t("contribute", "validate", "water_regime")))
-    # The unit becomes required only once a size has been entered.
-    iv_waterbody$add_rule("area_unit", function(value) {
-      size = input$area_treated
-      if (!is.null(size) && !is.na(size) && (is.null(value) || !nzchar(value))) {
-        fw_t("contribute", "validate", "area_unit")
-      }
-    })
 
     iv_invasive = InputValidator$new()
     iv_invasive$add_rule("target_taxa_1", sv_required(message = fw_t("contribute", "validate", "target_taxa")))
@@ -115,6 +108,13 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
 
     iv_methods = InputValidator$new()
     iv_methods$add_rule("method_1", sv_required(message = fw_t("contribute", "validate", "method")))
+    # The currency becomes required only once a cost has been entered.
+    iv_methods$add_rule("cost_currency", function(value) {
+      cost = input$cost_estimate
+      if (!is.null(cost) && !is.na(cost) && (is.null(value) || !nzchar(value))) {
+        fw_t("contribute", "validate", "cost_currency")
+      }
+    })
 
     iv_outcome = InputValidator$new()
     iv_outcome$add_rule("outcome", sv_required(message = fw_t("contribute", "validate", "outcome")))
@@ -168,8 +168,6 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
         filled("site_name") && filled("country") &&
         in_range("latitude", -90, 90) && in_range("longitude", -180, 180) &&
         filled("waterbody_type") && filled("water_regime") &&
-        # The unit is required only once an area has been entered.
-        (!filled("area_treated") || filled("area_unit")) &&
         filled("target_taxa_1") && filled("target_species_1") &&
         in_range("start_year", 1500, this_year) &&
         # An end year is optional, but must not precede the start year.
@@ -177,6 +175,8 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
            (in_range("end_year", 1500, this_year + 20) &&
               as.numeric(input$end_year) >= as.numeric(input$start_year))) &&
         filled("driver") && filled("method_1") && filled("outcome") &&
+        # The currency is required only once a cost has been entered.
+        (!filled("cost_estimate") || filled("cost_currency")) &&
         filled("primary_contact_name") &&
         fw_is_email(input$primary_contact_email)
     })
@@ -204,8 +204,6 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
       if (!in_range("longitude", -180, 180)) err("longitude", msg("e_longitude"))
       if (!filled("water_regime"))   err("water_regime",   msg("e_regime"))
       if (!filled("waterbody_type")) err("waterbody_type", msg("e_waterbody"))
-      if (filled("area_treated") && !filled("area_unit"))
-        err("area_unit", msg("e_area_unit"))
       if (!filled("target_taxa_1"))    err("target_taxa_1",    msg("e_target_taxa"))
       if (!filled("target_species_1")) err("target_species_1", msg("e_target_sp"))
 
@@ -223,6 +221,8 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
       if (!filled("driver"))   err("driver",   msg("e_driver"))
       if (!filled("method_1")) err("method_1", msg("e_method"))
       if (!filled("outcome"))  err("outcome",  msg("e_outcome"))
+      if (filled("cost_estimate") && !filled("cost_currency"))
+        err("cost_currency", msg("e_cost_currency"))
 
       if (!filled("primary_contact_name"))
         err("primary_contact_name", msg("e_contact_name"))
@@ -242,6 +242,7 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
                       logical(1))))
         note("benefit_species_1", msg("w_beneficiary"))
       if (!filled("reference"))      note("reference",     msg("w_reference"))
+      if (!filled("reference_link")) note("reference_link", msg("w_reference_link"))
       if (!filled("verification"))   note("verification",  msg("w_verification"))
       if (!filled("duration_days"))  note("duration_days", msg("w_duration"))
       if (!filled("method_description"))
@@ -298,6 +299,12 @@ mod_contribute_server = function(id, data, choices, on_submit = NULL) {
 
     bind_pair_row(1L, "target")
     bind_pair_row(1L, "benefit")
+
+    # The area unit follows the regime; a dash until one is chosen.
+    output$area_unit_suffix = renderText({
+      unit = fw_regime_unit(input$water_regime)
+      if (nzchar(unit)) unit else "\u2014"
+    })
 
     # Narrow waterbody types to the regime.
     observeEvent(input$water_regime, ignoreInit = TRUE, {

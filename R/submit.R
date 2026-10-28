@@ -289,7 +289,8 @@ fw_collect_submission = function(input, rows, choices = NULL) {
     waterbody_type = pick("waterbody_type", "waterbody_type_other"),
     water_regime   = get_in("water_regime"),
     area_treated   = get_in("area_treated"),
-    area_unit      = get_in("area_unit"),
+    # No unit control: the regime fixes it (ha still, km flowing).
+    area_unit      = if (nzchar(get_in("area_treated"))) fw_regime_unit(get_in("water_regime")) else "",
     area_notes     = get_in("area_notes"),
     depth_m        = get_in("depth_m"),
     depth_notes    = get_in("depth_notes"),
@@ -318,6 +319,7 @@ fw_collect_submission = function(input, rows, choices = NULL) {
     method_description = get_in("method_description"),
     labour_person_days = get_in("labour_person_days"),
     cost_estimate = get_in("cost_estimate"),
+    cost_currency = get_in("cost_currency"),
     cost_notes    = get_in("cost_notes"),
 
     target_ingredient_basis  = get_in("target_ingredient_basis"),
@@ -343,7 +345,7 @@ fw_collect_submission = function(input, rows, choices = NULL) {
     source = get_in("source"),
     sent   = "",
     reference      = get_in("reference"),
-    reference_link = "",
+    reference_link = get_in("reference_link"),
     notes_for_fwise = get_in("notes_for_fwise"),
 
     # Not a column: the new_species rows fw_submit_attempt() writes.

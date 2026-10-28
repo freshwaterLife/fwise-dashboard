@@ -57,8 +57,12 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   ok("site alone is not enough", all_valid(), FALSE)
 
   session$setInputs(waterbody_type="Pond", water_regime="Lentic", area_treated=2)
-  ok("area entered without a unit blocks", all_valid(), FALSE)
-  session$setInputs(area_unit="ha")
+  ok("the form has no unit control", grepl("c-area_unit\"",
+     as.character(fw_step_waterbody_ui(NS("c"), ch)), fixed = TRUE), FALSE)
+  ok("the area suffix reads ha for still water", output$area_unit_suffix, "ha")
+  session$setInputs(water_regime="Lotic")
+  ok("and km for flowing water", output$area_unit_suffix, "km")
+  session$setInputs(water_regime="Lentic")
 
   # The targets block: one taxa + species pair per target row.
   session$setInputs(target_taxa_1="Fish",
@@ -83,6 +87,27 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   session$setInputs(consent_data_use = TRUE, contact_public = FALSE)
   ok("a complete form without display consent sends", all_valid(), TRUE)
   session$setInputs(contact_public = TRUE)
+
+  cat("\n-- a cost needs its currency --\n")
+  session$setInputs(cost_estimate = 5000)
+  ok("a cost without a currency blocks", all_valid(), FALSE)
+  ok("and is a sending error on the currency",
+     "cost_currency" %in% vapply(fw_check()$errors, `[[`, "", "id"), TRUE)
+  session$setInputs(cost_currency = "EUR")
+  ok("with a currency it sends", all_valid(), TRUE)
+
+  cat("\n-- reference title and link --\n")
+  ok("no link is a note, not an error",
+     c("reference_link" %in% vapply(fw_check()$notes,  `[[`, "", "id"),
+       "reference_link" %in% vapply(fw_check()$errors, `[[`, "", "id")), c(TRUE, FALSE))
+  session$setInputs(source = "Literature", reference = "Carp removal from Test Tarn",
+                    reference_link = "https://doi.org/10.1000/test")
+  ok("the outcome step asks source, then title, then link", local({
+    h = as.character(fw_step_outcome_ui(NS("c"), ch))
+    pos = vapply(c("c-source", "c-reference\"", "c-reference_link"),
+                 function(x) regexpr(x, h, fixed = TRUE)[[1]], numeric(1))
+    all(pos > 0) && !is.unsorted(pos)
+  }), TRUE)
 
   cat("\n-- conditional chemical section --\n")
   ok("chemical section live for Rotenone", chemical_selected(), TRUE)
@@ -111,6 +136,13 @@ testServer(mod_contribute_server, args = list(data = d, choices = ch), {
   ok("the method note is paired with its method",
      identical(row$method_notes, "Rotenone: CFT Legumine"), TRUE)
   ok("ingredient basis is recorded", identical(row$target_ingredient_basis, "Product"), TRUE)
+  ok("the area unit comes from the regime", c(row$area_treated, row$area_unit), c("2", "ha"))
+  ok("cost and currency are written", c(row$cost_estimate, row$cost_currency), c("5000", "EUR"))
+  ok("cost_currency sits right after cost_estimate",
+     match("cost_currency", FW_INBOX_COLUMNS) - match("cost_estimate", FW_INBOX_COLUMNS), 1L)
+  ok("the reference title, link and source are written",
+     c(row$reference, row$reference_link, row$source),
+     c("Carp removal from Test Tarn", "https://doi.org/10.1000/test", "Literature"))
   ok("a held species adds no new_species row",
      nrow(fw_inbox_read(FW_INBOX_TABS$new_species)), 0L)
   ok("the confirmation counts include the waiting row", r$total_attempts, nrow(d$attempt) + 1L)
@@ -127,6 +159,16 @@ contact_of = function(extra) {
 }
 ok("unticked -> the address is private", contact_of(list()), "no")
 ok("ticked -> the address is public", contact_of(list(contact_public = TRUE)), "yes")
+
+cat("\n-- the area unit follows the regime, never a typed unit --\n")
+unit_of = function(extra) fw_collect_submission(extra, rows = list(), choices = ch)$area_unit
+ok("flowing water with an area -> km",
+   unit_of(list(water_regime = "Lotic", area_treated = 3.5)), "km")
+ok("still water with an area -> ha",
+   unit_of(list(water_regime = "Lentic", area_treated = 3.5)), "ha")
+ok("no area -> no unit", unit_of(list(water_regime = "Lotic")), "")
+ok("a currency with no cost is kept, not refused",
+   fw_collect_submission(list(cost_currency = "GBP"), rows = list(), choices = ch)$cost_currency, "GBP")
 
 cat("\n-- a typed species is written as typed and listed for the reviewer --\n")
 typed = fw_collect_submission(

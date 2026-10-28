@@ -137,8 +137,9 @@ FW_COPY_EXPORT = list(
       method_notes        = "Free text on how each method was applied.",
       method_description  = "A fuller description of the approach at this site.",
       labour_person_days  = "Effort required, person-days. Free text where the source gave a range or a description rather than a number.",
-      cost_estimate       = "Estimated cost, where recorded.",
-      cost_notes          = "Free text on cost, including the currency.",
+      cost_estimate       = "Estimated cost, where recorded, in cost_currency.",
+      cost_currency       = "ISO 4217 code of the currency the cost is in, or Other (named in cost_notes).",
+      cost_notes          = "Free text on cost.",
       target_ingredient_basis = "Whether the target concentration refers to the Active ingredient or the commercial Product. The two differ by the product's dilution, so do not compare concentrations across this column.",
       toxin_conc_target_mg_l  = "Target toxin concentration, mg/L, on the basis given in target_ingredient_basis. Text, because the source records ranges and inequalities. Chemical methods only.",
       conc_target_notes   = "Free text on the target concentration.",
@@ -198,7 +199,7 @@ FW_COPY_EXPORT = list(
         "invasion_year", "start_year", "end_year", "duration_days", "reason")),
       list(heading = "How", fields = c(
         "methods", "method_classes", "method_notes", "method_description",
-        "labour_person_days", "cost_estimate", "cost_notes")),
+        "labour_person_days", "cost_estimate", "cost_currency", "cost_notes")),
       # Dropped for attempts with no chemical method. Matched by id, not
       # heading. See fw_record_group_drop().
       list(id = "chemical", heading = "Chemical detail", fields = c(
@@ -248,6 +249,7 @@ FW_COPY_EXPORT = list(
       method_description  = "What was done",
       labour_person_days  = "Effort (person-days)",
       cost_estimate       = "Cost",
+      cost_currency       = "Currency",
       cost_notes          = "Notes on cost",
       target_ingredient_basis  = "Target concentration basis",
       toxin_conc_target_mg_l   = "Target concentration (mg/L)",

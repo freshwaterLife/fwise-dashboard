@@ -44,7 +44,7 @@ FW_ATTEMPT_COLUMNS = c(
   # Methods: FW_MULTI_SEP list of names; notes as "Name: text" joined by
   # FW_NOTES_SEP, one entry per method in the same order
   "methods", "method_notes", "method_description", "labour_person_days",
-  "cost_estimate", "cost_notes",
+  "cost_estimate", "cost_currency", "cost_notes",
   # Chemical detail
   "target_ingredient_basis", "toxin_conc_target_mg_l", "conc_target_notes",
   "toxin_conc_measured_mg_l", "conc_measured_notes",

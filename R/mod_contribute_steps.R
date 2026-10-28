@@ -47,6 +47,22 @@ fw_num_input = function(id, value = NA, min = NA, max = NA, step = NA,
   )
 }
 
+#' The area unit a water regime implies: ha for still, km for flowing
+#'
+#' The form has no unit control (client, 28 Oct); the suffix on the area box
+#' and the submitted area_unit both come from here. "" before a regime.
+fw_regime_unit = function(regime) {
+  regime = regime %||% ""
+  if (identical(regime, "Lentic")) "ha" else if (identical(regime, "Lotic")) "km" else ""
+}
+
+#' Currency dropdown choices: "US dollar (USD)" = "USD", copy order
+fw_currency_choices = function() {
+  names_ = unlist(fw_t("contribute", "currencies"))
+  codes = names(names_)
+  stats::setNames(codes, ifelse(codes == "Other", names_, paste0(names_, " (", codes, ")")))
+}
+
 fw_text_input = function(id, placeholder = NULL) {
   textInput(id, label = NULL, width = "100%", placeholder = placeholder)
 }
@@ -141,16 +157,15 @@ fw_step_waterbody_ui = function(ns, choices) {
     fw_other_panel(ns, "waterbody_type", "waterbody_type_other",
                    fw_lab("waterbody_other")),
 
-    div(
-      class = "fw-coord-row",
-      fw_field(fw_num_input(ns("area_treated"), min = 0),
-               fw_lab("area_treated"), tooltip = fw_tip("area"),
-               input_id = ns("area_treated")),
-      # Required once a value is entered (in the validator).
-      fw_field(fw_select(ns("area_unit"), choices$area_unit), fw_lab("area_unit"),
-               help = fw_help("area_unit"),
-               input_id = ns("area_unit"))
-    ),
+    # No unit control: still water is ha, flowing is km (fw_regime_unit()),
+    # shown as a suffix the server fills from the regime.
+    fw_field(div(class = "fw-unit-input",
+                 fw_num_input(ns("area_treated"), min = 0),
+                 tags$span(class = "fw-unit-input__suffix", `aria-hidden` = "true",
+                           textOutput(ns("area_unit_suffix"), inline = TRUE))),
+             fw_lab("area_treated"), tooltip = fw_tip("area"),
+             help = fw_help("area_treated"),
+             input_id = ns("area_treated")),
     fw_field(fw_area_input(ns("area_notes"), placeholder = fw_ph("area_notes")),
              fw_lab("area_notes"), tooltip = fw_tip("area_notes"),
              input_id = ns("area_notes")),
@@ -244,10 +259,17 @@ fw_step_methods_ui = function(ns, choices) {
     fw_field(fw_text_input(ns("labour_person_days")),
              fw_lab("labour"), tooltip = fw_tip("labour"),
              input_id = ns("labour_person_days")),
-    fw_field(fw_num_input(ns("cost_estimate"), min = 0),
-             fw_lab("cost"),
-             help = fw_help("cost"),
-             tooltip = fw_tip("cost"), input_id = ns("cost_estimate")),
+    div(
+      class = "fw-coord-row",
+      fw_field(fw_num_input(ns("cost_estimate"), min = 0),
+               fw_lab("cost"),
+               help = fw_help("cost"),
+               tooltip = fw_tip("cost"), input_id = ns("cost_estimate")),
+      # Required once a cost is entered (in the validator).
+      fw_field(fw_select(ns("cost_currency"), fw_currency_choices()),
+               fw_lab("cost_currency"), tooltip = fw_tip("cost_currency"),
+               input_id = ns("cost_currency"))
+    ),
     fw_field(fw_area_input(ns("cost_notes"), rows = 2), fw_lab("cost_notes"),
              input_id = ns("cost_notes"))
   )
@@ -294,13 +316,19 @@ fw_step_outcome_ui = function(ns, choices) {
     fw_field(fw_area_input(ns("verification"), rows = 4),
              fw_lab("verification"),
              tooltip = fw_tip("verification"), input_id = ns("verification")),
-    fw_field(fw_area_input(ns("reference"), rows = 3),
+    # Source, then the reference as a title and a link: the map card shows
+    # the title and makes the link its button.
+    fw_field(fw_text_input(ns("source")), fw_lab("source"),
+             help = fw_help("source"),
+             tooltip = fw_tip("source"), input_id = ns("source")),
+    fw_field(fw_text_input(ns("reference")),
              fw_lab("reference"),
              help = fw_help("reference"), tooltip = fw_tip("reference"),
              input_id = ns("reference")),
-    fw_field(fw_text_input(ns("source")), fw_lab("source"),
-             help = fw_help("source"),
-             tooltip = fw_tip("source"), input_id = ns("source"))
+    fw_field(fw_text_input(ns("reference_link"), placeholder = fw_ph("reference_link")),
+             fw_lab("reference_link"),
+             help = fw_help("reference_link"), tooltip = fw_tip("reference_link"),
+             input_id = ns("reference_link"))
   )
 }
 

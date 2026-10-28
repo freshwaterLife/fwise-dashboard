@@ -323,7 +323,7 @@ FW_COPY = list(
       "found that invasive species have contributed to 55% of freshwater ",
       "extinctions, second only to dams. Dam removal is scaling fast; ",
       "freshwater eradications are next. ",
-      "<a href=\"https://doi.org/10.1126/science.adj6598\" ",
+      "<a href=\"https://www.researchgate.net/publication/380102380_The_positive_impact_of_conservation_action\" ",
       "target=\"_blank\" rel=\"noopener noreferrer\">A meta-analysis in ",
       "Science</a> found that managing invasive species has the “largest ",
       "impact of [all possible] conservation action”. Eradication is the most ",
