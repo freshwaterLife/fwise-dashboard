@@ -1,34 +1,25 @@
 # copy.R
-# EVERY user-facing string in the app lives in the copy deck. No module file
-# contains hardcoded English.
+# The copy deck, part 1: chrome and pages. Every user-facing string lives in
+# the deck (this file plus copy_contribute.R, copy_export.R, copy_forms.R).
 
-FW_COPY <- list(
+FW_COPY = list(
 
   # ---- Application chrome ----------------------------------------------------
 
   app = list(
     title      = "FWISE",
     full_title = "FWISE: Freshwater Invasive Species Eradication Database",
-    tagline    = "A world evidence base for freshwater invasive species eradication",
-    # THE LINK PREVIEW'S WORDS: the meta description and og:description, so
-    # what WhatsApp and the rest show under the title (client, 14 Oct 2026:
-    # "Just change to ..."). Plain words, no markup.
+    # Link preview text (meta and og:description). Plain words, no markup.
     meta_description = "Freshwater Invasive Species Eradication Database",
-    # FOR MACHINES: the schema.org WebSite and Dataset description. It keeps
-    # the longer sentence the preview had until 14 Oct 2026, because Google
-    # Dataset Search wants 50 characters or more, and a firewall's
-    # categorisation crawler reads it to decide what the site is - a Shiny
-    # page is otherwise mostly script, and "insufficient content" gets a new
-    # domain blocked (Alex, 4 Oct 2026). The noscript block below does the same.
+    # schema.org description for crawlers. 50+ characters for Google Dataset
+    # Search, and enough text that firewall crawlers don't block the domain.
     dataset_description = paste(
       "FWISE is a free, open world database of freshwater invasive species",
       "eradication attempts, their methods and outcomes, built by Freshwater",
       "Life and partners."
     ),
-    # THE <noscript> BLOCK. Shown to a browser with JavaScript off, and read by
-    # any crawler that does not run the app. Plain text, no ** or [[ ]]: it is
-    # written into the page as it stands. DRAFTED FROM THE DECK, not supplied
-    # by the client - one for the copy review.
+    # The <noscript> block, for JS-off browsers and crawlers. Plain text, no
+    # ** or [[ ]]. Drafted by us, not the client.
     noscript_heading = "FWISE: the Freshwater Invasive Species Eradication Database",
     noscript_body = c(
       paste(
@@ -53,8 +44,7 @@ FW_COPY <- list(
     noscript_link_fwl     = "Freshwater Life",
     noscript_link_github  = "Source code on GitHub",
     noscript_link_privacy = "Privacy and data terms",
-    # Read out by a screen reader while the app is starting, and on nothing
-    # else - the loader is the badge and a bar. See fw_loader().
+    # Screen-reader text for the loader. See fw_loader().
     loading    = "Loading FWISE",
     built_by   = "This app was built by **Weird Fishes Advisory**.",
     data_by    = "FWISE database is built and maintained by **Freshwater Life and friends**.",
@@ -69,8 +59,7 @@ FW_COPY <- list(
     contribute = "Add a record",
     networking = "Connect with community",
     about      = "About",
-    # Not in the navbar: the link is hidden by CSS and the page is reached
-    # from the footer and from ?page=privacy links. See R/mod_privacy.R.
+    # Hidden from the navbar; reached from the footer and ?page=privacy.
     privacy    = "Privacy and data terms"
   ),
 
@@ -79,9 +68,8 @@ FW_COPY <- list(
     in_review_one  = "record in review",
     in_review_many = "records in review",
     doi_label     = "DOI on Zenodo",
-    # "#" until the dataset is on Zenodo: every DOI link opens the "coming
-    # soon" card below instead (client, 1 Oct 2026). Put the real address here
-    # at launch and they become plain links. See fw_doi_link().
+    # "#" until the dataset is on Zenodo; DOI links open the "coming soon"
+    # card until then. Put the real address here. See fw_doi_link().
     doi_url       = "#",
     doi_soon_title = "Coming soon",
     doi_soon      = paste(
@@ -91,14 +79,8 @@ FW_COPY <- list(
     github_label  = "Source code on GitHub",
     github_url    = "https://github.com/freshwaterLife/fwise-dashboard", 
     licence       = "Data released under CC BY-NC 4.0 (non-commercial data). Code released under the MIT license.",
-    # THE ONE COPY OF THE FWISE ADDRESS. The footer, the About page's feedback
-    # band and the Networking outro all read it from here. It is never served
-    # as written: fw_email_reveal() encodes it into the page and decodes it on
-    # a click.
-    #
-    # PASTED TOGETHER RATHER THAN WRITTEN WHOLE because this file is public on
-    # GitHub, and repository scrapers pattern-match x@y exactly as page
-    # scrapers do.
+    # The one copy of the FWISE address. Never served as written:
+    # fw_email_reveal() encodes it. Pasted together so repo scrapers miss it.
     contact_email  = paste0("fwise", "@", "fwlife.org"),
     contact_label  = "Contact FWISE",
     contact_aria   = "Show the FWISE contact email address",
@@ -111,9 +93,7 @@ FW_COPY <- list(
     logo_alt_issg    = "IUCN SSC Invasive Species Specialist Group",
     logo_alt_unil    = "University of Lausanne",
     logo_alt_vetinst = "Norwegian Veterinary Institute",
-    # Collaborator logo links out to the organisation it belongs to. The FWISE
-    # logo does not: it goes to this app's own Welcome page, as the navbar's
-    # does.
+    # Collaborator logo links. The FWISE logo links to the Welcome page.
     wfa_url       = "https://www.weirdfishes.fish",
     ucsc_url      = "https://www.ucsc.edu/",
     scripps_url   = "https://scripps.ucsd.edu/",
@@ -134,8 +114,7 @@ FW_COPY <- list(
     info_icon_label = "More information about this field",
     # What an empty cell or a missing figure shows.
     empty_value  = "-",
-    # Shown when something on the server went wrong but the session survived.
-    # See fw_safely() in R/ui_helpers.R.
+    # A server error the session survived. See fw_safely().
     went_wrong   = "Something went wrong there. Please try again.",
     # The revealed email address's Copy button. See fw_email_reveal().
     email_copy       = "Copy",
@@ -157,97 +136,68 @@ FW_COPY <- list(
   ),
 
   # ---- Charts --------------------------------------------------------------------
-  # Axis titles, tick labels and hover fragments. The %{x}-style placeholders
-  # in hover templates belong to plotly and are assembled in charts.R;
+  # Axis titles, tick labels and hover text. %{x}-style placeholders are
+  # plotly's.
   charts = list(
     x_year        = "Year the attempt began",
     y_cumulative  = "Attempts to date",
     x_attempts    = "Attempts",
-    # SUCCESS RATE, NOT "SHARE OF ATTEMPTS" (client, 23 Sept 2026). The
-    # toggles beside these charts read "Success rate", so the axis has to say
-    # the same thing; two names for one view is how a reader ends up thinking
-    # they are looking at two different quantities. The bar is Successful
-    # against Failed only - see the note at the head of charts.R.
+    # Matches the "Success rate" toggle. Successful against Failed only.
     x_share       = "Success rate (%)",
-    # NO X AXIS TITLE ON THE DURATION CHART (client, 23 Sept 2026). The named
-    # ticks below say what the axis is; a title under them said it twice.
-    # Named ticks on the log axis, in step with FW_CHART$duration_ticks.
+    # Duration axis ticks, in step with FW_CHART$duration_ticks. The axis has
+    # no title.
     duration_ticks = c("1 day", "1 week", "1 month", "1 year", "5 years", "10 years"),
-    # THE TERMINAL TICK is written by fw_popup_duration(), the map card's
-    # formatter, so it reads the way the box's hover does (client, 30 Sept
-    # 2026). duration_max_days/months/years went with the old rule.
-    #
-    # The duration box's hover, every length in the map card's units. See
+    # The duration box's hover, in the map card's units. See
     # fw_duration_box_stats().
     duration_hover = paste0(
       "<b>{method}</b> ({n} successful)<br>",
       "Typical (median): {median}<br>",
-      # "Box", not "Middle half" (client, 30 Sept 2026): the word for the
-      # shape the reader is pointing at.
       "Box: {q1} to {q3}<br>",
       "Range: {shortest} to {longest}"
     ),
-    # Under the scale bar on the PDF report's map. It NAMES THE LATITUDE the
-    # bar is correct at, because the map is unprojected longitude/latitude and
-    # a bar drawn on one cannot be right everywhere - see fw_gg_scale_bar().
+    # PDF map scale bar, naming the latitude it holds at. See fw_gg_scale_bar().
     scale_bar     = "{km} km at {lat}",
     other         = "Other",
-    hover_days    = " days",
-    # The stacked bars' hover is no longer assembled from fragments here: it
-    # reuses plan$r_tile_seg, the species tile's popover template, so the two
-    # cannot drift apart (client, 24 Sept 2026). hover_of and hover_share went
-    # with the assembly. See fw_hover_counts() in R/charts.R.
-    # Shown in a chart's own slot when the selection gives it nothing to draw.
+    # Shown in a chart's slot when there's nothing to draw.
     empty         = "Nothing to draw for this selection.",
-    # The camera button's tooltip. See fw_plotly_style() in R/charts.R.
+    # The camera button's tooltip. See fw_png_button().
     save_png      = "Download chart as a PNG"
   ),
 
   # ---- Maps ----------------------------------------------------------------------
   maps = list(
-    # ONE TITLE AND ONE (i) FOR EVERY MAP IN THE APP (client, 23 Sept 2026).
-    # The dashboard's map and the report builder's both read these, so the two
-    # cannot drift apart. The PDF's static map is a different picture with a
-    # different caption - see plan$pdf_map_note.
+    # Title and (i) for every interactive map. The PDF map uses
+    # plan$pdf_map_note.
     title = "Where attempts happened",
     note = paste(
       "Each marker is one eradication attempt, coloured and labelled by",
-      # A LINE OF ITS OWN for the layers sentence (client, 1 Oct 2026). The
-      # note is drawn with white-space: pre-line, so the \n is the break.
+      # The \n is a line break (the note is white-space: pre-line).
       "outcome. Hover for a summary, select for the full record.\nToggle",
       "between layers for hydrological, topographic, and satellite imagery."
     ),
-    # The basemap switcher. Named so it reads as a question the reader might
-    # ask rather than as a list of vendors.
+    # The basemap switcher.
     basemap_plain     = "Plain",
     basemap_water     = "Water",
     basemap_terrain   = "Terrain",
     basemap_satellite = "Satellite",
     year_one  = "year",
     year_many = "years",
-    # The Duration field on the hover card and the record: days under a year,
-    # years to one decimal place from there, without a ".0" on a whole number
-    # (client, 1 Oct 2026). See fw_popup_duration().
+    # Duration units for the hover card and record. See fw_popup_duration().
     day_one   = "day",
     day_many  = "days",
-    # Under both interactive maps. Worded by the client. Set below the type
-    # floor - see $fw-size-fine in _tokens.scss.
+    # Under both interactive maps (client wording), at $fw-size-fine.
     mercator_note = paste(
       "Leaflet currently requires the use of Mercator. This map will be",
       "updated to Equal Earth when it becomes available."
     ),
-    # The accessible name of a group of markers. The count is drawn inside the
-    # circle, so this is what says what the number means - to a screen reader,
-    # and on hover. {n} is the number of attempts grouped at that point.
+    # Accessible name and hover title of a marker group.
     stack_title = "{n} attempts at this point - zoom in or click to open them"
   ),
 
   # ---- Home (the Welcome page) -----------------------------------------------
 
   home = list(
-    # ONE SENTENCE PER LINE (client, 30 Sept 2026). Two strings, not one:
-    # fw_page_header() starts each on its own line, so "Eradicating..." never
-    # follows on after "species." whatever the zoom or screen width.
+    # One string per line: fw_page_header() puts each on its own line.
     title = c(
       "Freshwaters cover **<1%** of earth yet are home to **45% of all Threatened animal species**.",
       "Eradicating freshwater invasives is **the most effective way to save them from extinction**."
@@ -260,31 +210,19 @@ FW_COPY <- list(
         "and [[networking|connect with community]]."
       )
     ),
-    # THE ">" IS INSIDE THE BOLD (client, 24 Sept 2026), so it is teal and in the
-    # numeric face with the figure it qualifies rather than sitting outside in
-    # plain ink. The report builder and the PDF already build theirs this way -
-    # paste0(">", fw_fmt_num(...)) in mod_plan_results.R and report_pdf.R.
+    # The ">" sits inside the bold so it's styled with its figure.
     kpi_sentence = paste(
       "**{attempts}** successful eradications recorded so far have protected **>{protected}** species.",
       "Click the species to read worldwide success stories."
     ),
 
     # ---- Success stories ----
-    # ONE ENTRY PER STORY, A-Z by continent LABEL, keyed as FW_HOME_IMG$stories
-    # is - so latin_america, labelled South America, sits last. The order on
-    # the page is FW_HOME_ORDER's, not this. Every word is the client's (6 Oct
-    # 2026, revised 14 Oct 2026), with only plain slips mended ("involved [in]
-    # each extinction", "Lake Sorell" as in its URL, "plant-based", the pearl
-    # mussel's "alone — they", "on [the] gills", "Atlantic", double spaces).
-    #
-    # `body` IS ONE STRING PER PARAGRAPH, and [words](https://...) in it is a
-    # link in the text - the Valcheta downlisting figure cites its paper that
-    # way (14 Oct 2026; see fw_home_story_text()). `links` are what the client
-    # listed under "Links:": `name` is the link's words, `note` the
-    # parenthetical after it.
-    #
-    # `title` may differ from `beneficiary$name` - the grebe's card title adds
-    # its Japanese name. The beneficiary's name is the one the tile announces.
+    # Client copy, one entry per story, A-Z by continent label (so South
+    # America is last), keyed like FW_HOME_IMG$stories. Page order is
+    # FW_HOME_ORDER. `body` is one string per paragraph; [words](https://...)
+    # is an inline link (fw_home_story_text()). `links`: `name` is the link
+    # text, `note` the parenthetical. `title` may differ from
+    # `beneficiary$name`, which is what the tile announces.
     stories_open = "Read the {continent} success story: {name}",
     card_close = "Close story",
     image_placeholder = "Image to come",
@@ -368,8 +306,7 @@ FW_COPY <- list(
     ),
 
     # ---- Current work and gaps ----
-    # The caption IS the legend: the two named pieces are set in the map's
-    # blue and amber (map_now_text, map_next_text). No swatches.
+    # The caption is the legend: `now` and `later` are set in the map's colours.
     map_slider_label = "Reveal the priority countries map over the successful eradications map",
     map_caption = c(
       "Move the slider from ",
@@ -386,7 +323,7 @@ FW_COPY <- list(
       "found that invasive species have contributed to 55% of freshwater ",
       "extinctions, second only to dams. Dam removal is scaling fast; ",
       "freshwater eradications are next. ",
-      "<a href=\"https://doi.org/10.1126/science.adj6598\" ",
+      "<a href=\"https://www.researchgate.net/publication/380102380_The_positive_impact_of_conservation_action\" ",
       "target=\"_blank\" rel=\"noopener noreferrer\">A meta-analysis in ",
       "Science</a> found that managing invasive species has the “largest ",
       "impact of [all possible] conservation action”. Eradication is the most ",
@@ -405,7 +342,7 @@ FW_COPY <- list(
     ),
 
     # ---- The database panel --------------------------------------------------
-    # The whole database, never filtered. Counts, all the same size, no rate.
+    # Whole database, never filtered. Counts only, no rate.
     db_heading = "The database",
     db_attempts    = "recorded attempts",
     db_countries   = "countries",
@@ -429,8 +366,7 @@ FW_COPY <- list(
 
     # ---- The summary graphics ------------------------------------------------
 
-    # ONE BLOCK, THREE VIEWS (client, 30 Sept 2026). The heading asks the three
-    # questions; the "Show" switch under it picks which one the charts answer.
+    # One block, three views, picked by the "Show" switch.
     views_title = paste(
       "How many eradications have been recorded? How well do they work?",
       "How long do they take?"
@@ -454,16 +390,11 @@ FW_COPY <- list(
     cumulative = "Eradication attempts over time",
     duration = "How long successful eradications took",
 
-    # THE WAY ON, under the charts (client, 29 Sept 2026). [[plan|...]] is a
-    # link to that tab - see fw_home_links().
+    # Under the charts. [[plan|...]] links to that tab (fw_home_links()).
     to_plan = "[[plan|Dig deeper into the data to **plan your own eradication**]].",
 
-    # THE THIRD LINE ABOVE THE MAP, Explore only (client, 14 Oct 2026): its
-    # own paragraph, so it always starts a line of its own under maps$note.
-    # "add them", not the client's "add it", to agree with "attempts".
+    # Explore only: its own paragraph under maps$note.
     map_contribute = "Don't see your own eradication attempts on here? [[contribute|Please add them now!]]"
-
-    # NO map / map_note HERE EITHER - see maps$title and maps$note.
   ),
 
   # ---- Species and map popups ------------------------------------------------
@@ -472,11 +403,8 @@ FW_COPY <- list(
     no_image   = "No photograph available",
     fig_none   = "None noted",
     alt_prefix = "Photograph of",
-    # EVERY FIELD IS ALWAYS DRAWN, on the hover card and in the record, and a
-    # field with nothing in it says this (client, 21 Sept 2026). The photograph
-    # tile for a role with no species says the same, so tile and row agree.
+    # Every field is always drawn; empty ones say this (cards, records, tiles).
     p_not_noted = "Not noted",
-    p_none     = "Not noted",
     p_species  = "Invasive species targeted",
     p_beneficiary = "Species protected",
     # The hover card's shorter pair, the same words as the photograph captions.
@@ -484,12 +412,9 @@ FW_COPY <- list(
     p_protected = "Protected",
     fig_invasive = "Targeted",
     fig_beneficiary = "Protected",
-    # After a protected species' name wherever the app SHOWS one (Alex, 5 and
-    # 6 Oct 2026): the map's hover card and record, the protected-species tiles
-    # on the Plan page and in both reports, and the attempts .html record cards.
-    # Never on the invasive side, in a filter picker, on the form or in a
-    # download. {code} is the Red List code (LC, EN...); no status, no suffix.
-    # See fw_species_shown(). The story cards show the code as a badge instead.
+    # After a protected species' name on cards, records, tiles and reports.
+    # Never on invasive species, pickers, the form or downloads. {code} is the
+    # Red List code. See fw_species_shown().
     iucn_suffix = " (IUCN: {code})",
     p_outcome  = "Outcome",
     p_began    = "Years",
@@ -527,9 +452,7 @@ FW_COPY <- list(
 
   # ---- Filters ---------------------------------------------------------------
   #
-  # ONE set of labels for the one filter engine in R/filters.R, shared by the
-  # report builder and the dashboard. Keys match the `copy` field of each entry
-  # in FW_FILTERS. A page-specific heading lives with that page.
+  # Labels for the filter engine (R/filters.R). Keys match FW_FILTERS$copy.
 
   filters = list(
     continent   = "Continent",
@@ -557,12 +480,7 @@ FW_COPY <- list(
     unit_short_km = "km",
 
     # ---- The tips -------------------------------------------------------------
-    #
-
-    # NO tip_continent (client, 23 Sept 2026). Its tooltip only restated the
-    # label, so the (i) has gone from that filter; FW_FILTERS carries tip = NULL
-    # for it and fw_field() draws no button when there is nothing to say. The
-    # waterbody filter it shared this note with went on 1 Oct 2026.
+    # Continent has no tip, so no (i).
     tip_country = paste(
       "Country of the eradication attempt(s). Only countries with attempts",
       "recorded in FWISE are listed. If the country you are looking for is not",
@@ -637,20 +555,11 @@ FW_COPY <- list(
     title = "Plan an eradication",
 
     # ---- The introduction ----------------------------------------------------
-    # ONE LINE, at the client's request. The filters and the Build report
-    # button explain the rest of the page by being there.
     description = "View attempts similar to your situation or interest via filter selections, then click **Build report**.",
 
     # ---- The callout ---------------------------------------------------------
-    # THE CLIENT'S OWN WORDING (24 Sept 2026), in the green card above the
-    # filters: what the report contains, what it deliberately does not, and how
-    # the filters behave. One string per paragraph - fw_emphasis() takes the
-    # ** pairs and mod_plan_ui() draws one <p> each.
-    #
-    # It repeats plan$description above it, and it is now the ONLY place the
-    # "all fields are optional" sentence is made - the filter card's own lead
-    # came out later the same day (24 Sept 2026), so do not remove the third
-    # paragraph below without putting that sentence somewhere else.
+    # Client wording, one string per paragraph. The only place "All fields are
+    # optional" is said.
     callout = c(
       paste(
         "Recreate your situation or interest by adjusting the filters below and",
@@ -695,10 +604,7 @@ FW_COPY <- list(
       "definitions, the filters you applied, and the caveats on their own",
       "sheets."
     ),
-    # NO .csv (client, 23 Sept 2026): it was the spreadsheet's rows a second
-    # time, and the picker now offers the three documents that differ from one
-    # another. The order here is the order of FW_BUNDLE_PARTS in export.R.
-    # THE THREE NAMES ARE THE CLIENT'S (29 Sept 2026).
+    # Client names. Order follows FW_BUNDLE_PARTS in export.R.
     download_pdf = "Summary report (.pdf)",
     download_pdf_note = paste(
       "This report ready to read or share."
@@ -720,10 +626,7 @@ FW_COPY <- list(
       "The PDF report is not available on this server at the moment. The",
       "other downloads are unaffected."
     ),
-    # Under the boxes, and the Download button is disabled until one is ticked.
-    # A methods-and-caveats .txt used to travel with every download, so ticking
-    # nothing still produced a file; the client removed it (24 Sept 2026) and
-    # with it the only thing an empty selection could have been.
+    # Shown while nothing is ticked; Download stays disabled.
     download_none = "Pick at least one to download.",
 
     # ---- Inside the PDF ------------------------------------------------------
@@ -736,8 +639,7 @@ FW_COPY <- list(
     report_title    = "Eradication attempt planning report",
     report_subtitle = "Generated from the FWISE Database on {date}",
     report_selection = "What this report covers",
-    # Under the filters table (client, 23 Sept 2026): what the report is for,
-    # and what it deliberately is not.
+    # Under the filters table: what the report is and isn't for.
     report_selection_note = paste(
       "This report provides you with technical and ecological evidence to plan",
       "your own eradication, based on the specific situation you filtered for.",
@@ -752,8 +654,7 @@ FW_COPY <- list(
       "FWISE, the Freshwater Invasive Species Eradication database. Data",
       "released under CC BY-NC 4.0."
     ),
-    # Above the PDF's contacts table, which holds the six busiest contacts
-    # rather than the Plan page's full paged list - see r_contacts_note.
+    # Above the PDF's contacts table (the six busiest contacts).
     report_contacts_note = paste(
       "The up to six most involved people recorded against the attempts above.",
       "An address here means either that it is publicly associated with an",
@@ -762,33 +663,22 @@ FW_COPY <- list(
     ),
 
     # ---- Filters -------------------------------------------------------------
-    # NO LEAD LINE UNDER THE HEADING (client, 24 Sept 2026). f_lead stood here
-    # reading "All fields are optional. Fields default to 'All'." and was the
-    # third copy of that sentence on the page - the green callout above the
-    # filters says it, with the part about multiple selections that this one
-    # did not have. The client removed the one inside the filter card.
     f_heading   = "Describe your situation",
-    # Leads the line under Build that says what the report on screen was
-    # built from (client, 29 Sept 2026).
+    # Leads the line under Build listing the filters the report used.
     f_applied   = "Built from:",
     built_announce = "Report built. {n} attempts match your description.",
 
     # ---- Results -------------------------------------------------------------
     r_heading    = "What the matching attempts show",
-    # EACH LABEL IS A PAIR, singular and plural, and fw_plural() picks between
-    # them against the figure above it (client, 23 Sept 2026: one country was
-    # labelled "countries"). "year range" has no singular - it is a range
-    # whatever it spans - so it stays a single string.
+    # Singular/plural pairs, picked by fw_plural().
     r_attempts_one  = "attempt",
     r_attempts      = "attempts",
     r_countries_one = "country",
     r_countries     = "countries",
     r_species_one   = "invasive species",
     r_species       = "invasive species",
-    # Shown after a ">" on the figure: beneficiaries are under-recorded, so the
-    # count is a floor rather than a total. See db_beneficiary_tip. The figure
-    # counts only species protected by SUCCESSFUL attempts (client, 23 Sept
-    # 2026) - see fw_plan_summary().
+    # Shown after ">": beneficiaries are under-recorded. Counts species
+    # protected by successful attempts only (fw_plan_summary()).
     r_beneficiaries_one = "species protected",
     r_beneficiaries = "species protected",
     r_years      = "year range",
@@ -796,24 +686,17 @@ FW_COPY <- list(
     r_outcome_note = paste(
       "All four states are shown. Failure is as important to know about as success."
     ),
-    # NO r_map / r_map_note HERE. Every map in the app carries the same
-    # heading and the same (i) (client, 23 Sept 2026), so both live in the
-    # `maps` block as maps$title and maps$note. Reword them there and both
-    # maps follow.
+    # Map title and note are maps$title and maps$note.
     r_map_missing = "{n} of these attempts have no coordinates and are not on the map.",
 
-    # STILL AGAINST FLOWING, not the kind of waterbody (client, 30 Sept 2026).
-    # Not drawn when the reader filtered to one of the two.
+    # Hidden when one regime is filtered.
     r_waterbody  = "Still and flowing water (frequency and success)",
     r_waterbody_note = paste(
       "Attempts in still water (lakes, ponds, reservoirs) and flowing water",
       "(rivers, streams), with the outcomes in each. The success rate counts",
       "successful against failed attempts; ongoing and unknown are left out."
     ),
-    # Its own pair, though the words match r_method_count/share today. The two
-    # charts agree on their denominator by coincidence - both count attempts -
-    # and sharing one key would tie the wording of two blocks together for a
-    # reason that is not about either of them.
+    # Own keys, though the words currently match r_method_*.
     r_waterbody_share = "Success rate",
     r_waterbody_count = "Number of attempts",
 
@@ -832,22 +715,15 @@ FW_COPY <- list(
 
     # ---- The species tiles ----------------------------------------------------
 
-    # Two plain block titles (client, 21 Sept 2026). {n_word} is how many tiles
-    # are shown, {total} how many species of that role the selection holds.
-    # The protected total carries a ">" because beneficiaries are
-    # under-recorded - see db_beneficiary_tip.
+    # {n_word}: tiles shown; {total}: species of that role in the selection.
+    # ">" because beneficiaries are under-recorded.
     r_species_top_inv = "Top {n_word} invasive species targeted (of {total} total)",
     r_species_top_ben = "Top {n_word} species protected (of >{total} total)",
     r_tile_attempt  = "attempt",
     r_tile_attempts = "attempts",
-    # A species tile's outcome bar, one segment on hover - AND THE HOVER ON
-    # EVERY STACKED BAR CHART (client, 24 Sept 2026). The tiles said
-    # "Successful: 25% (3 of 12)" while the bars said "Successful: 3 of 12" and
-    # only added a percentage in share mode. One template, so the reader meets
-    # one sentence wherever they hover. See fw_hover_counts() in R/charts.R.
+    # Hover for a tile segment and every success-rate bar. See fw_hover_counts().
     r_tile_seg = "{outcome}: {pc}% ({n} of {total})",
-    # A NUMBER OF ATTEMPTS HOVERS AS A NUMBER (client, 30 Sept 2026): the
-    # count views of the stacked bars. See fw_hover_counts().
+    # Hover on count-view bars.
     r_bar_count_seg = "{outcome}: {n}",
     # In a tile's bar's place when none of the species' attempts has finished.
     r_tile_none = "No finished attempts yet",
@@ -863,9 +739,8 @@ FW_COPY <- list(
     ),
     r_table_showing = "Showing",
 
-    # ---- The record search (client, 1 Oct 2026) ------------------------------
-    # The last block of the results: the attempts behind the report, ten a
-    # page, each opening in full. See fw_plan_records_ui().
+    # ---- The record search ---------------------------------------------------
+    # Last results block. See fw_plan_records_ui().
     r_records = "Find a record",
     r_records_note = paste(
       "Every attempt in this report. Search by site, country, species, method",
@@ -887,15 +762,13 @@ FW_COPY <- list(
       "None of the attempts in this selection has a contact recorded against it."
     ),
     r_contacts_size = "Contacts per page",
-    # A link to the Connect page in the same green box as Explore's to_plan
-    # (client, 1 Oct 2026).
+    # Link to the Connect page, styled like Explore's to_plan.
     r_contacts_all  = "[[networking|Browse every contact in FWISE]].",
     col_contact_name = "Name",
     col_contact_org  = "Organisation",
     col_contact_n    = "# Attempts",
     col_contact_email = "Get in touch",
-    # The download's progress bar (fw_write_bundle() names each step as it
-    # starts it; the PDF report adds its own two).
+    # Download progress steps (fw_write_bundle() and the PDF report).
     progress_title   = "Preparing your download",
     progress_xlsx    = "Building the spreadsheet",
     progress_charts  = "Drawing the charts and map",
@@ -914,15 +787,8 @@ FW_COPY <- list(
       "was built, and more information and resources."
     ),
 
-    # NO OPENING PROSE SECTION. It held Lorem Ipsum waiting on client copy and
-    # was removed on 24 Sept 2026 rather than shipped; the page now opens on the
-    # sign-up card. When the client supplies the text, add the paragraphs and
-    # their `database_heading` back here, restore section() in mod_about.R, and
-    # add "database" to the heading list in dev/value_test.R.
-
     # ---- Sign-up -------------------------------------------------------------
-    # The button opens the newsletter dialog; its words are under `newsletter`
-    # in R/copy_forms.R.
+    # The button opens the newsletter dialog (copy in R/copy_forms.R).
     signup_heading = "Keep up with FWISE",
     signup_body = paste(
       "We send an occasional update when a new release of the",
@@ -937,39 +803,26 @@ FW_COPY <- list(
     cite = paste(
       "FWISE data is open source and freely available for use. Please cite it in any publication that uses it with the below citation."
     ),
-    # THE CLIENT'S OWN, WORD FOR WORD (6 Oct 2026), and literal: nothing in it
-    # is filled from the data. The year and "Version 1" do not move with a new
-    # release, so edit them here by hand when one goes out. The About page and
-    # the closing section of every download both read it through
-    # fw_citation_text() in R/export.R.
+    # Client wording, literal. Edit the year and version by hand at a new
+    # release. Read via fw_citation_text() by About and every download.
     citation_db = paste(
       "FWISE (2026). FWISE: Freshwater Invasive Species Eradication Database",
       "(Version 1) [Web application]. https://fwise.org"
     ),
 
     # ---- The panels ----------------------------------------------------------
-    # Each is a <details>. `*_heading` is the summary, `*_summary` the one line
-    # under it that says what is inside - a reader decides whether to open a
-    # panel from those two strings alone, so neither may be decorative.
+    # Each is a <details>: `*_heading` is the summary, `*_summary` the line
+    # saying what's inside.
 
-    # MOVED HERE FROM THE REPORT BUILDER, and now behind a disclosure. They are
-    # properties of the whole database rather than of any one selection, and on
-    # Plan they sat under a result the reader had just built and read as
-    # qualifications of that selection alone. The blocks themselves are computed
-    # - see fw_caveat_blocks() in R/export.R - and the same text still travels
-    # inside every download.
+    # Caveats about the whole database. Text from fw_caveat_blocks(), also in
+    # every download.
     caveats_heading = "Data caveats",
     caveats_summary = "What to keep in mind when reading this data",
 
     method_heading = "How it was built",
     method_summary = "Where the records come from and how they were compiled",
-    # THE CLIENT'S OWN (6 Oct 2026), plain slips mended only ("literature
-    # review"). The same words are the Methods part of every download -
-    # export$methods in R/copy_export.R - so change both together.
-    #
-    # THE LAST SENTENCE IS A LINK (client, 14 Oct 2026) to the R project that
-    # works out the Welcome page's facts. method_facts is the link's words, set
-    # after `method` by mod_about.R; the downloads write the address out.
+    # Client wording. Same as export$methods in copy_export.R: change both.
+    # method_facts is a link to the project behind the Welcome page facts.
     method = paste(
       "FWISE’s data comes from two sources: a standardized literature review",
       "performed in 2026, and directly from data contributors. We will publish",
@@ -980,12 +833,8 @@ FW_COPY <- list(
     facts_url = "https://github.com/freshwaterLife/FWISE-FACTS",
 
     # ---- Methods glossary ----------------------------------------------------
-    # ONE ENTRY PER METHOD THE DATA ACTUALLY RECORDS, and the `term` strings
-    # match the values in attempts.csv$methods exactly - Rotenone, Netting /
-    # Trapping, Electrofishing, Antimycin-A, Draining, Other chemical, Other
-    # mechanical - so a reader who meets a method on a chart finds it here
-    # under the same name. If a new method is added to the vocabulary, add it
-    # here too; dev/value_test.R checks the two lists against each other.
+    # One entry per method in FW_METHODS, same names. dev/value_test.R checks
+    # the two lists match.
     glossary_heading = "Methods glossary",
     glossary_summary = "What each eradication method means",
     glossary_items = list(
@@ -1006,8 +855,6 @@ FW_COPY <- list(
       list(term = "Draining", body = paste(
         "Removing water from the entire lake or stream so that no invasive",
         "fish survive.")),
-      # [PLACEHOLDER] AWAITING AN EXAMPLE OR TWO FROM THE CLIENT (23 Sept
-      # 2026), marked the same way about$method and export$methods are.
       list(term = "Other chemical methods", body = paste(
         "Like chloramine, aluminum sulfate , toxaphene, etc.")),
       list(term = "Other mechanical methods", body = paste(
@@ -1015,10 +862,7 @@ FW_COPY <- list(
     ),
 
     # ---- Related databases ---------------------------------------------------
-    # The client's list (23 Sept 2026). Names and URLs only: these are
-    # well-known resources and the client did not want a line of our own
-    # characterising each one, so fw_about_related() draws the note only when
-    # an entry carries one.
+    # Client list: names and URLs only.
     related_heading = "Related databases",
     related_summary = "Where to look for what FWISE does not hold",
     related = paste(
@@ -1058,10 +902,8 @@ FW_COPY <- list(
     link_zenodo = "The archived dataset on Zenodo",
 
     # ---- Feedback ------------------------------------------------------------
-    # The button opens the feedback dialog (Alex, 2 Oct 2026). It sits in a
-    # band of its own at the foot of the page and is deliberately NOT one of
-    # the panels above: a reader who has found something wrong should not have
-    # to open anything to say so.
+    # Opens the feedback dialog. Its own band, not a panel, so it's always
+    # visible.
     fb_body = paste(
       "FWISE is an evolving and collective app. Please tell us how to make it better. And let us know if a record is wrong, a species is misnamed, or something on this site does not work."
     ),
@@ -1076,17 +918,14 @@ FW_COPY <- list(
       "Reach out to the people doing eradications in the places and of the",
       "species you’re interested in to learn more."
     ),
-    # Blanked by the client (24 Sept 2026) and not drawn on the page.
+    # Blank, not drawn.
     intro = "",
-    # THE BOX AT THE FOOT OF THE PAGE is a green callout about the contacts
-    # themselves (client, 1 Oct 2026). It was a lone "Email the FWISE team"
-    # button under a hidden "Not sure who to ask?" heading.
+    # The callout at the foot of the page.
     outro_text   = paste(
       "If you spot a problem with a contact, or need details updated or",
       "removed, please let us know:"
     ),
-    # The button's words. Pressing it puts footer$contact_email in its place;
-    # see fw_email_reveal().
+    # Pressing it reveals footer$contact_email (fw_email_reveal()).
     outro_action = "Contact the FWISE team",
 
     filter_continent = "Continent",
@@ -1104,12 +943,8 @@ FW_COPY <- list(
     filter_search    = "Search",
     search_placeholder = "Name or organization",
 
-    # THE COVERAGE LINE. The page must not imply reach it does not have. Most
-    # records have a named contact; a good many of those have no published
-    # address, and a substantial minority have no contact at all. Saying so is
-    # what stops a visitor concluding that an absent person is a dead end rather
-    # than simply someone we hold no address for. The numbers are computed from
-    # the data, never written down here.
+    # Honest coverage, so the directory doesn't imply reach it lacks. Numbers
+    # are computed from the data.
     coverage = paste(
       "This directory covers {reachable} of the {total} attempts in FWISE.",
       "{no_email} of the {contacts} people listed have no published email",
@@ -1143,25 +978,21 @@ FW_COPY <- list(
 
 #' The whole copy deck as one list
 #'
-#' Assembled on every call rather than once at startup, because the four files
-#' are sourced in an order that depends on who is sourcing them (Shiny uses C
-#' byte order; a test script using list.files() gets the locale's order), and a
-#' merge cached on the first call could be missing a file. It is three list
-#' concatenations, which costs nothing.
-fw_copy_all <- function() {
+#' Built on every call: source order differs between Shiny and test scripts, so
+#' a cached merge could miss a file.
+fw_copy_all = function() {
   c(FW_COPY, FW_COPY_CONTRIBUTE, FW_COPY_EXPORT, FW_COPY_FORMS)
 }
 
 #' A string from the deck: fw_t("networking", "title")
 #'
-#' Stops with the path if it is not defined, so a typo fails at render rather
-#' than printing NULL. NEVER call this at the top level of a file in R/: the
-#' deck is not complete until every file has been sourced.
-fw_t <- function(...) {
-  path <- c(...)
-  out <- fw_copy_all()
+#' Stops on an undefined path. Never call at the top level of a file in R/:
+#' the deck isn't complete until every file is sourced.
+fw_t = function(...) {
+  path = c(...)
+  out = fw_copy_all()
   for (p in path) {
-    out <- out[[p]]
+    out = out[[p]]
     if (is.null(out)) stop("No copy defined at: ", paste(path, collapse = " > "),
                            call. = FALSE)
   }
@@ -1170,27 +1001,21 @@ fw_t <- function(...) {
 
 #' Fill the {name} slots in a string
 #'
-#' fw_fill(fw_t("plan", "r_table_note"), n = 42). Every occurrence of a slot is
-#' filled, values are coerced to character, and a slot with no value supplied
-#' is left in place so it is visible rather than silently blank.
-fw_fill <- function(text, ...) {
-  values <- list(...)
+#' Fills every occurrence; a slot with no value is left visible.
+fw_fill = function(text, ...) {
+  values = list(...)
   for (nm in names(values)) {
-    text <- gsub(paste0("{", nm, "}"), as.character(values[[nm]]), text,
+    text = gsub(paste0("{", nm, "}"), as.character(values[[nm]]), text,
                  fixed = TRUE)
   }
   text
 }
 
-#' A small number in words, for prose that names a limit
-#'
-#' "the ten most common" reads better than "the 10 most common", and the copy
-#' is filled from FW_TOP_N rather than carrying the number itself. Beyond
-#' twenty the digits are used, which is also house style.
-fw_num_word <- function(n) {
-  words <- c("one", "two", "three", "four", "five", "six", "seven", "eight",
+#' A number from 1 to 20 in words ("ten"); digits beyond that
+fw_num_word = function(n) {
+  words = c("one", "two", "three", "four", "five", "six", "seven", "eight",
              "nine", "ten", "eleven", "twelve", "thirteen", "fourteen",
              "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty")
-  n <- as.integer(n)
+  n = as.integer(n)
   if (!is.na(n) && n >= 1L && n <= length(words)) words[n] else as.character(n)
 }

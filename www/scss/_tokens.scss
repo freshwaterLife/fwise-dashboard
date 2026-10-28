@@ -1,19 +1,9 @@
 // _tokens.scss
-// Derived tokens only. NOTHING IN THIS FILE IS A LITERAL VALUE.
+// Derived tokens only; no literal values. Every `$fw-*` variable comes from
+// R/brand.R via fw_compile_css(). "Undefined variable" means a token is
+// missing from brand.R.
 //
-// WHERE THE VALUES ARE. R/brand.R is the single source of every design value:
-// colour, type, spacing, radius, shadow, motion and breakpoints. At startup
-// fw_compile_css() (R/ui_helpers.R) hands fw_sass_variables() to sass::sass()
-// ahead of this stylesheet, so every `$fw-*` variable used below and in
-// _components.scss is already defined by the time this file is read. To change
-// a colour, edit FW_COLOURS in R/brand.R and restart; do not add a value here.
-//
-// If the compiler stops with "Undefined variable", the token is missing from
-// R/brand.R (or was renamed there and not here). That failure is deliberate:
-// it is what stops a stale fallback in this file quietly disagreeing with the
-// value the app was told to use.
-//
-// The variables available, by prefix (see fw_sass_variables() for the list):
+// Available, by prefix (see fw_sass_variables()):
 //
 //   $fw-ink $fw-ink-muted                       text
 //   $fw-brand-indigo $fw-brand-teal             the two client values
@@ -22,86 +12,45 @@
 //   $fw-page $fw-surface $fw-sunken             grounds
 //   $fw-border $fw-border-input                 lines
 //   $fw-on-indigo $fw-on-indigo-muted           text on the indigo ground
-//   $fw-map-now $fw-map-next                    the Welcome map fills. NON-TEXT ONLY
+//   $fw-map-now $fw-map-next                    Welcome map fills, non-text only
 //   $fw-map-now-text $fw-map-next-text          the same hues as caption text
-//   $fw-data-*                                  the Wong palette. DATA ONLY
+//   $fw-data-*                                  the Wong palette, data only
 //   $fw-font-body $fw-font-mono                 type
 //   $fw-size-* $fw-weight-* $fw-leading-*       the type scale
-//   $fw-space-1 .. $fw-space-7                  the 8px scale
+//   $fw-space-1 .. $fw-space-6                  the 8px scale
 //   $fw-radius-input $fw-radius-card $fw-radius-round
 //   $fw-shadow-card $fw-shadow-raised
 //   $fw-motion-fast $fw-motion-base $fw-easing
 //   $fw-bp-xs $fw-bp-sm $fw-bp-md $fw-bp-lg $fw-bp-xl $fw-bp-xl-max
 //
-// CONTRAST. $fw-brand-teal does not meet 4.5:1 as text on any light surface,
-// so it is reserved for non-text roles and every text or button role uses
-// $fw-teal-text. Do not set body-sized text in $fw-brand-teal. Re-verify with
-// `Rscript dev/check_contrast.R` after changing any colour in R/brand.R.
+// $fw-brand-teal is non-text only; text and buttons use $fw-teal-text. Run
+// dev/check_contrast.R after any colour change.
 //
-// THE FLOOR, which is $fw-size-min and is currently 1.05rem. It is a VALUE
-// THAT MOVES - it has been 1rem and is now a step above that - so never write
-// the number: no text that stays on the page may be set below $fw-size-min, and
-// the way to honour that is to use the token.
-//
-// FOUR TOKENS ARE EXEMPT FROM IT, and all are client instructions:
-//
-//   $fw-size-credit        the footer's built-by small print (and, on paper,
-//                          the photo credits).
-//
-//   $fw-size-photo-credit  the Wikimedia credit under every photograph on the
-//                          page, at 0.6rem (client, 30 Sept 2026).
-//
-//
-//   $fw-size-popup  transient overlays only - the (i) popovers and the map
-//                   hover card. If the thing you are sizing does not disappear
-//                   when the user clicks elsewhere, it is the wrong token.
-//
-//   $fw-size-fine   small print that qualifies the page without competing with
-//                   it (client, 23 Sept 2026). FOUR CALLERS, and the list is
-//                   the whole permission: .fw-home-footnote, .fw-map-note,
-//                   .fw-footer__licence (client, 24 Sept 2026), and the
-//                   report's filters table on paper (fw-small, set from
-//                   FW_TYPE$size_fine in R/report_pdf.R). Do not reach for it
-//                   for a fifth thing - ask whether the floor has moved.
-//
-// Everything else on the page, including every caption and note NOT named
-// above, holds the floor.
-//
-// $fw-size-min IS NOT THE SAME VALUE AS $fw-size-caption and the two are not
-// interchangeable: $fw-size-caption for subtitles, notes and small print that
-// should ride the scale, $fw-size-min only where something must not grow.
-// Caption sits one step above the floor and both moved up together on the
-// client's last instruction, while $fw-size-popup deliberately did not. See
-// FW_TYPE in R/brand.R.
+// The floor is $fw-size-min: no text that stays on the page goes below it. Use
+// the token, never the number. Exemptions (client):
+//   $fw-size-credit        footer small print; photo credits on paper
+//   $fw-size-photo-credit  Wikimedia credits on the page
+//   $fw-size-popup         transient overlays only (popovers, map card)
+//   $fw-size-fine          .fw-home-footnote, .fw-map-note, .fw-footer__licence
+//                          and the PDF filters table. No other callers.
+// $fw-size-caption (subtitles, notes) is one step above the floor; use
+// $fw-size-min only where something must not grow.
 
 // ---- Derived ---------------------------------------------------------------
 
-// Surfaces are separated by tone and shadow; a hairline is for lines INSIDE a
-// component (table rows, dividers). It is decorative, so WCAG 1.4.11 does not
-// apply to it. Input borders are interactive boundaries and use
-// $fw-border-input, which does meet 3:1.
+// For lines inside a component (rows, dividers). Decorative, so no 3:1 rule;
+// input edges use $fw-border-input.
 $fw-hairline: 1px solid $fw-border;
 
 // Section rhythm. One value at every width.
 $fw-section-y: $fw-space-4;
 
-// The content column is a proportion of the viewport ($fw-container-width);
-// this is the smallest gutter it keeps either side on a narrow screen. See
-// .fw-container in _components.scss.
+// Smallest side gutter of .fw-container on narrow screens.
 $fw-container-gutter: $fw-space-3;
 
-// THE ONE PLACE ANYTHING STICKS TO THE TOP OF THE PAGE. It used to be offset
-// by the navbar's height, when the navbar was sticky too; the client asked for
-// the navbar to scroll away, so these now pin to the top of the window. The
-// contribution form's progress rail is the one caller left - the report
-// builder's download row used it until the client asked for a floating button
-// (24 Sept 2026) - and the mixin stays because the offsets are the navbar's,
-// not the rail's.
-//
-// 1010, NOT 900. Leaflet's panes run 400-800, but its control corners
-// (.leaflet-top / .leaflet-bottom, which hold the outcome legend) sit at 1000,
-// and at 900 the report builder's download row slid under the legend. Still
-// under the navbar's 1030 and the map card's 1200.
+// Sticky to the top of the window (the navbar scrolls away). Used by the
+// contribute form's progress rail. z 1010: above Leaflet's control corners
+// (1000), below the navbar (1030) and the map card (1200).
 @mixin fw-sticky-under-navbar($z: 1010) {
   position: sticky;
   top: 0;

@@ -3790,145 +3790,142 @@
   },
   "files": {
     ".Rprofile": {
-      "checksum": "83384eaa07004d43b29115fc0165a08a"
+      "checksum": "c0d8deee1c0da150d0cb706fa41e79f6"
     },
     "app.R": {
-      "checksum": "d6dafc886e5e01275404bd0cc4aa1f37"
+      "checksum": "45fb33d1d71cac21cc1b26d3daeb6a05"
     },
     "content/privacy_and_data_terms.md": {
-      "checksum": "9e202c38338aa617b7010e2b9753b6ac"
-    },
-    "HANDOVER.md": {
-      "checksum": "e32cfce246d7522415e807f55a8fabb3"
+      "checksum": "1420aebde03349872b332d0a542d921e"
     },
     "LICENSE": {
       "checksum": "6e91ae45f5f62c5162562a7747ef8fbc"
     },
-    "R/analytics.R": {
-      "checksum": "34194e884a900b83bad06ccc548e78de"
-    },
     "R/brand.R": {
-      "checksum": "00906d0e5dec15fc5d1e5d1d00e73edd"
+      "checksum": "f9e83ad3f6879df61cec7c066ffad516"
     },
     "R/charts_static.R": {
-      "checksum": "dbb726fcb6f21c20e768467a09194ae5"
+      "checksum": "bfd3d68b82521b45fb97857df7b179b6"
     },
     "R/charts.R": {
-      "checksum": "0a8b72172a2f97f038663b2d9b4af753"
+      "checksum": "f3bbfb28edf5abdf6ef21829e63f6630"
     },
     "R/config.R": {
-      "checksum": "7ae34fdf3c56f289bef305dc7e6bc6c0"
+      "checksum": "4d8a6fb92dc2be8935abca11055ab57f"
     },
     "R/copy_contribute.R": {
-      "checksum": "ecc35d8d7e607206b97c6f6337de36c5"
+      "checksum": "8f87f1b45eaab11d1fd432a2e3d5bbba"
     },
     "R/copy_export.R": {
-      "checksum": "f00e5f18a609222ec467e658fbcbc89e"
+      "checksum": "148eade95713851f7e37b9412ade9a9a"
     },
     "R/copy_forms.R": {
-      "checksum": "4d2e59b596bdf3bf7b45c38b5cc39f27"
+      "checksum": "dd9819c354946dd3406578357e6b88f7"
     },
     "R/copy.R": {
-      "checksum": "ddbf0aca01bcbd3e1831622947812d59"
+      "checksum": "73e6422981cfbb75563c8d3d9f18ca46"
     },
     "R/data_load.R": {
-      "checksum": "50c9207a5fcbd2a94938c85d8cac22f8"
+      "checksum": "be14ecbd3b9f0c36dd70161ea1bec143"
     },
     "R/export.R": {
-      "checksum": "59e28961167c004ec7199b12c84336e0"
+      "checksum": "637c369243426696b018e7aa01fb0756"
     },
     "R/filters.R": {
-      "checksum": "2871d19be66b0b118bf7509001525158"
+      "checksum": "659f71824c6db1f6a4d3d6d1dc3ce91d"
     },
     "R/forms_store.R": {
-      "checksum": "4db2524f7c81e6417c44e28f374e0b08"
+      "checksum": "8fa985db3b13c34b8816a49fd6680e28"
     },
     "R/forms.R": {
-      "checksum": "ee24b39ac7d8201777e617373ad8f3f5"
+      "checksum": "017d6b68cf7796f92e562a9e8223936f"
     },
     "R/github.R": {
-      "checksum": "c8a861fdc303cfae7d13809fd619cae5"
+      "checksum": "7739ad21189239ab9b1ac2bce43f98c6"
     },
     "R/maps.R": {
-      "checksum": "3d00f523bf8c033ee2e602ba763dde36"
+      "checksum": "3cfd85fd3707fdbd17cc0d3f0e11c40d"
     },
     "R/mod_about.R": {
-      "checksum": "ac35641f1f7b2b5e5c558f5e9001e605"
+      "checksum": "b74cc3a88fbfd6b55acd7fa12471d671"
     },
     "R/mod_contribute_steps.R": {
-      "checksum": "590a2984a1792f791c75647ebc20a98c"
+      "checksum": "8297466076b75c3de8cf36228b3aa7ac"
     },
     "R/mod_contribute_ui.R": {
-      "checksum": "a2099680b7bc071a93af56d6faa79c41"
+      "checksum": "efbf95f0bd415a60cf744cf4fd439441"
     },
     "R/mod_contribute.R": {
-      "checksum": "aaa85a1eec4b0c29906775ff70096b77"
+      "checksum": "78b2bb8207926dfa18d812fc2a491533"
     },
     "R/mod_explore.R": {
-      "checksum": "faef7da0e4f4e44496217616405eb07f"
+      "checksum": "5cdb6d70e85311ab734723b7ea022a1a"
     },
     "R/mod_feedback.R": {
-      "checksum": "9418ac6b4ed0a2aa0324503a883fca31"
+      "checksum": "b57435af60ead183183a3f18b6742437"
     },
     "R/mod_home.R": {
-      "checksum": "ba858c9170a3f5acdafc1732281e6174"
+      "checksum": "e62f2a1786bbc952e7b33a60f747b751"
     },
     "R/mod_networking.R": {
-      "checksum": "864d9b6c1cb7187a202e9dddbcefc78b"
+      "checksum": "122d2678f623b0f8ca40ecb37b4c8159"
     },
     "R/mod_newsletter.R": {
-      "checksum": "10acf5aa593e4c23f7e55259563d6dea"
+      "checksum": "09e457cdb9d885ef9fbe1cb8b51a7141"
     },
     "R/mod_plan_filters.R": {
-      "checksum": "20f6915f342a11dac0a2fd0dbbf623bd"
+      "checksum": "4602e83944e543717d454ea88b7a9851"
     },
     "R/mod_plan_results.R": {
-      "checksum": "ab2113ba4750bd201f5e2bd365766cee"
+      "checksum": "2eac5d39785cfaf2fab358383cc5857a"
     },
     "R/mod_plan.R": {
-      "checksum": "08adcb757fef0a3dacb635f31a9c4568"
+      "checksum": "7d8f6185c201f641d85a62d0149cb225"
     },
     "R/mod_privacy.R": {
-      "checksum": "989f1c2f1f4834d894c9be0800b4fd1e"
+      "checksum": "1778bc8c43d36f95a11686596c950012"
+    },
+    "R/qa_checks.R": {
+      "checksum": "ba5a9feb2604838831c9b7e2d7ea5dac"
     },
     "R/questions_docx.R": {
-      "checksum": "71fb44e881be5580fe63affa46fd9a1d"
+      "checksum": "5f900601aaf2831bd6f5ec39de20f32f"
     },
     "R/questions_text.R": {
-      "checksum": "24313d14af5f4bc7984b6958cbaa220b"
+      "checksum": "c383a14b1d9504a8f7b8c43a30bd7eac"
     },
     "R/report_pdf.R": {
-      "checksum": "b923de3c5c25deec48d7c95d099796fb"
+      "checksum": "35bfdfed954dfa70e79bd417c30f067b"
     },
     "R/report_records.R": {
-      "checksum": "7663302f3feb61e82709ddbea0a01410"
+      "checksum": "7243598deac5b53a24d3003e798ce9d1"
     },
     "R/species_images.R": {
-      "checksum": "db59149782bdb84749f67060b14f0375"
+      "checksum": "8beee2d05f19c32a4947fca4e4858963"
     },
     "R/submit.R": {
-      "checksum": "064b5b583682919962613b2e2978d9d3"
+      "checksum": "554561c30bf4f1b5025e17900964f907"
     },
     "R/theme.R": {
-      "checksum": "38fc2dd8989e53a04fcd80875a97ee16"
+      "checksum": "5646ebfc9196c8770f0c74352da5638e"
+    },
+    "R/tracking.R": {
+      "checksum": "6bc5e250a7bf89f3914754b3bc7ae820"
     },
     "R/ui_helpers.R": {
-      "checksum": "bce806c037fd2a4dc160a73cf7a6a7ac"
+      "checksum": "947c7bc6d82542c075b1861ed0ebb1f4"
     },
     "README.md": {
-      "checksum": "e42ceb94ba283e9b7acbe49fec03eebc"
+      "checksum": "97402cf18bce48965e06b398510ba84f"
     },
     "renv.lock": {
       "checksum": "87deca0ea2d8f687119405673fe7f5b7"
     },
     "resources/js/fw_map_fit.js": {
-      "checksum": "35b229c6ba621fdf3d538c2f8f2a3cf9"
+      "checksum": "1bff6cb24adcd192698b46b0c865fc44"
     },
     "resources/report/fonts/Ubuntu-Bold.ttf": {
       "checksum": "d0fc30856a541539009e73c787a68bc1"
-    },
-    "resources/report/fonts/Ubuntu-Medium.ttf": {
-      "checksum": "335cc443917aa5c0bebfa28a64e8ad97"
     },
     "resources/report/fonts/Ubuntu-Regular.ttf": {
       "checksum": "b3488e8486d2b4e3a0666997f91c7ed9"
@@ -3943,13 +3940,13 @@
       "checksum": "aeeae6adb6a59fa64f0671d4e50c9f3c"
     },
     "resources/report/page.typ": {
-      "checksum": "8769888bbd01f9c75c35d6cb9e501587"
+      "checksum": "43c51ae2a8ad69b6d638badf1b6acf00"
     },
     "resources/report/typst-show.typ": {
-      "checksum": "92eec3046ca3f5fe0aaae46d7be80b7d"
+      "checksum": "73b886a4f3127e5bead6adc0b7dc5dfb"
     },
     "resources/report/typst-template.typ": {
-      "checksum": "cbdaf29b8699787c41b574d486528b48"
+      "checksum": "bb48c1f5b6d7e85205c2af8e610804c2"
     },
     "www/fonts/ubuntu-400.woff2": {
       "checksum": "6e27639876db7e5665251406484519c5"
@@ -3990,20 +3987,26 @@
     "www/img/collab/UCSD_SCRIPPS.png": {
       "checksum": "082e97757a107e652116f801b5d3e5b8"
     },
-    "www/img/favicon.svg": {
-      "checksum": "b327b0df7af79b185ca65633ed085595"
+    "www/img/collab/UNIL-400.png": {
+      "checksum": "dd7a090fc3935493a019cb4046f11798"
+    },
+    "www/img/collab/UNIL-TRIM.png": {
+      "checksum": "4a016739f45db651ed982bc45724332a"
+    },
+    "www/img/collab/VETINST-400.png": {
+      "checksum": "43ef32a395fa07391847a800d1876d76"
+    },
+    "www/img/collab/VETINST.png": {
+      "checksum": "9b26f213f0e64ea8e49223e5ca460706"
     },
     "www/img/FWISE-BADGE-256.png": {
       "checksum": "5a48b2e1d19758855bbd1a564fc38a89"
     },
-    "www/img/FWISE-BADGE.png": {
-      "checksum": "4c6fc9f24b7e3b2aa854611029f9316a"
+    "www/img/FWISE-EXPLICIT-2000.png": {
+      "checksum": "c87bd7cdcbc08e8bfc8fa23e8e065f15"
     },
     "www/img/FWISE-SIMPLE-1200.png": {
       "checksum": "d64136ed3262cf01dd7ace538df93f52"
-    },
-    "www/img/FWISE-SIMPLE-600.png": {
-      "checksum": "efe2323a416b9a0703f069126180b47c"
     },
     "www/img/FWISE-SIMPLE.png": {
       "checksum": "bab1ef2c0d15842eb49666b04e5109f7"
@@ -4053,20 +4056,23 @@
     "www/img/wfa-logo-rect-dark-320.png": {
       "checksum": "2dd99471a350fd49e08a2cded9508d27"
     },
-    "www/img/wfa-logo-rect-dark.png": {
-      "checksum": "84a5e18a213a7cd3a2a482b8ddaede38"
+    "www/robots.txt": {
+      "checksum": "1dcac4f70936b8360bba4f3bb043d1b7"
     },
     "www/scss/_components.scss": {
-      "checksum": "418c00da350b51242c6976c5d99e0e2a"
+      "checksum": "96e921c3d2c49f8c96e580022dc47c31"
     },
     "www/scss/_tokens.scss": {
-      "checksum": "97773557c1c8454cea1588b36f8eec36"
+      "checksum": "34c0ed08e90fb3b8e7803fccfe7ee428"
     },
     "www/scss/main.scss": {
-      "checksum": "388261f8d8ee5c4fe8d6acc590ae40b8"
+      "checksum": "593d77c21d4e447ce5c416bd04d00c34"
     },
     "www/scss/records.scss": {
-      "checksum": "d5d86e54f7a80146343da654f128920f"
+      "checksum": "4cd0ab805be7214b6f9a7377e5e90cd1"
+    },
+    "www/sitemap.xml": {
+      "checksum": "6cd433ec1ca832cddc7ae31a412faced"
     }
   },
   "users": null

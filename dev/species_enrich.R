@@ -1,54 +1,48 @@
 # species_enrich.R
-# What a NEW species needs before it joins species.csv, looked up from three
-# public sources. Sourced by dev/qa.R (section 4, the species an import adds)
-# and by dev/fetch_species_images.R (a full photograph run).
+# Lookups for new species. Sourced by dev/qa.R (section 3) and
+# dev/fetch_species_images.R.
 #
-#   family      GBIF's species-match API. No key.
-#   IUCN        the Red List API v4. Needs IUCN_API_TOKEN (free registration for
-#               non-commercial use at api.iucnredlist.org); without it the
-#               IUCN columns are left blank and listed.
-#   photograph  Wikipedia's lead image and its Commons credit and licence.
+#   family      GBIF species match. No key.
+#   IUCN        Red List API v4. Needs IUCN_API_TOKEN (free, non-commercial,
+#               api.iucnredlist.org); without it IUCN columns stay blank.
+#   photograph  Wikipedia's lead image, with Commons credit and licence.
 #
-# FILL BLANKS ONLY. A value the reviewer typed is never replaced. Anything not
-# found stays blank and is listed, never guessed: a guessed photograph of the
-# wrong fish, or a status for the wrong taxon, is worse than none.
-#
-# Network calls only. Nothing here reads or writes a file.
+# Fills blanks only; misses are listed, never guessed. Network calls only, no
+# file reads or writes.
 
-FW_UA <- paste(
+FW_UA = paste(
   "FWISE-dashboard/1.0 (https://www.freshwaterlife.org;",
   "freshwater invasive species eradication database)"
 )
-FW_WIKI_PAUSE <- 1.0
-FW_THUMB_PX <- 500
+FW_WIKI_PAUSE = 1.0
+FW_THUMB_PX = 500
 
 # ---- The API calls -----------------------------------------------------------
 
-fw_api <- function(base, params) {
-  url <- httr2::request(base) |>
+fw_api = function(base, params) {
+  url = httr2::request(base) |>
     httr2::req_url_query(!!!params) |>
     httr2::req_user_agent(FW_UA) |>
     httr2::req_timeout(20) |>
-    # A single flaky response should not abandon a 390-species run.
+    # One flaky response shouldn't abandon a long run.
     httr2::req_retry(max_tries = 3, backoff = ~ 2)
-  out <- try(httr2::req_perform(url), silent = TRUE)
+  out = try(httr2::req_perform(url), silent = TRUE)
   if (inherits(out, "try-error")) return(NULL)
   try(httr2::resp_body_json(out), silent = TRUE)
 }
 
 #' The lead image filename for a Wikipedia article
 #'
-#' redirects=1 matters: most scientific names are redirects to the common-name
-#' article, and without it two thirds of the list misses.
-fw_wiki_page_image <- function(title) {
-  j <- fw_api("https://en.wikipedia.org/w/api.php", list(
+#' redirects=1: most scientific names redirect to the common-name article.
+fw_wiki_page_image = function(title) {
+  j = fw_api("https://en.wikipedia.org/w/api.php", list(
     action = "query", format = "json", redirects = 1,
     prop = "pageimages", piprop = "name|thumbnail",
     pithumbsize = FW_THUMB_PX, titles = title
   ))
-  pages <- j$query$pages
+  pages = j$query$pages
   if (is.null(pages) || !length(pages)) return(NULL)
-  page <- pages[[1]]
+  page = pages[[1]]
   if (!is.null(page$missing) || is.null(page$pageimage)) return(NULL)
   list(
     file = page$pageimage,
@@ -59,31 +53,27 @@ fw_wiki_page_image <- function(title) {
 }
 
 #' Author, licence and file page for a Commons file
-fw_commons_credit <- function(file) {
-  j <- fw_api("https://commons.wikimedia.org/w/api.php", list(
+fw_commons_credit = function(file) {
+  j = fw_api("https://commons.wikimedia.org/w/api.php", list(
     action = "query", format = "json",
     prop = "imageinfo", iiprop = "extmetadata|url",
     titles = paste0("File:", file)
   ))
-  pages <- j$query$pages
+  pages = j$query$pages
   if (is.null(pages) || !length(pages)) return(NULL)
-  info <- pages[[1]]$imageinfo
+  info = pages[[1]]$imageinfo
   if (is.null(info) || !length(info)) return(NULL)
-  meta <- info[[1]]$extmetadata
+  meta = info[[1]]$extmetadata
 
   # Artist arrives as a fragment of HTML often wrapping a link.
-  strip <- function(x) {
+  strip = function(x) {
     if (is.null(x)) return(NA_character_)
-    x <- gsub("<[^>]*>", "", x)
-    x <- gsub("&amp;", "&", x, fixed = TRUE)
-    x <- trimws(gsub("[[:space:]]+", " ", x))
+    x = gsub("<[^>]*>", "", x)
+    x = gsub("&amp;", "&", x, fixed = TRUE)
+    x = trimws(gsub("[[:space:]]+", " ", x))
     if (!nzchar(x)) NA_character_ else x
   }
-  # ATTRIBUTION FALLS BACK, IT DOES NOT FAIL. A good many Commons files carry a
-  # licence but no Artist field - Lota lota and Ameiurus nebulosus among them.
-  # Discarding those threw away properly licensed photographs of common species.
-  # Where no author is recorded, CC attribution is satisfied by crediting the
-  # source and linking the file page, which is what the popup does.
+  # No Artist: credit the source and link the file page (satisfies CC).
   list(
     credit      = fw_first_present(strip(meta$Artist$value),
                                    strip(meta$Credit$value),
@@ -96,24 +86,21 @@ fw_commons_credit <- function(file) {
 
 #' The licence deed URL, or NA
 #'
-#' Commons hands this back as a bare URL rather than as markup, but not every
-#' file has one - public-domain tags mostly do not, and there is no deed to link
-#' to for those. A handful are protocol-relative or still on http, so they are
-#' normalised here rather than in the markup, which should only ever have to
-#' decide whether the value is present.
-fw_licence_url <- function(x) {
+#' Public-domain files usually have none. Protocol-relative and http URLs are
+#' normalised here.
+fw_licence_url = function(x) {
   if (is.null(x) || !length(x)) return(NA_character_)
-  x <- trimws(as.character(x)[1])
+  x = trimws(as.character(x)[1])
   if (!nzchar(x)) return(NA_character_)
-  if (grepl("^//", x)) x <- paste0("https:", x)
+  if (grepl("^//", x)) x = paste0("https:", x)
   if (!grepl("^https?://", x)) return(NA_character_)
   x
 }
 
-`%||%` <- function(x, y) if (is.null(x) || length(x) == 0) y else x
+`%||%` = function(x, y) if (is.null(x) || length(x) == 0) y else x
 
 #' The first argument that is neither NULL nor NA nor empty
-fw_first_present <- function(...) {
+fw_first_present = function(...) {
   for (x in list(...)) {
     if (!is.null(x) && length(x) && !is.na(x) && nzchar(x)) return(x)
   }
@@ -122,16 +109,14 @@ fw_first_present <- function(...) {
 
 #' One species, both calls, or NULL
 #'
-#' Tries the scientific name first because it is the unambiguous key, then the
-#' common name. "Barbus sp." and similar will miss both, which is correct - a
-#' guessed photograph of the wrong fish is worse than no photograph.
-fw_resolve_species <- function(scientific, common) {
+#' Scientific name first, then common name. "Barbus sp." misses, correctly.
+fw_resolve_species = function(scientific, common) {
   for (title in unique(na.omit(c(scientific, common)))) {
     if (!nzchar(title)) next
-    img <- fw_wiki_page_image(title)
+    img = fw_wiki_page_image(title)
     Sys.sleep(FW_WIKI_PAUSE)
     if (is.null(img) || is.na(img$thumb)) next
-    cr <- fw_commons_credit(img$file)
+    cr = fw_commons_credit(img$file)
     Sys.sleep(FW_WIKI_PAUSE)
     # Only the licence is mandatory; the credit always resolves to something.
     if (is.null(cr) || is.na(cr$licence)) next
@@ -147,56 +132,54 @@ fw_resolve_species <- function(scientific, common) {
 
 #' The "File:..." title inside a Commons file-page URL
 #'
-#' The URL is percent-encoded and the API wants the decoded title; httr2
-#' re-encodes it on the way out.
-fw_commons_title <- function(page_url) {
+#' Decoded; httr2 re-encodes it.
+fw_commons_title = function(page_url) {
   if (is.na(page_url) || !grepl("/wiki/", page_url, fixed = TRUE)) {
     return(NA_character_)
   }
   utils::URLdecode(sub("^.*/wiki/", "", page_url))
 }
 
-fw_backfill_licence_urls <- function(species) {
-  need <- which(
+fw_backfill_licence_urls = function(species) {
+  need = which(
     !is.na(species$image_url) & nzchar(species$image_url) &
       !is.na(species$image_page_url) &
       (is.na(species$image_licence_url) | !nzchar(species$image_licence_url))
   )
   if (!length(need)) return(species)
 
-  titles <- vapply(species$image_page_url[need], fw_commons_title, character(1),
+  titles = vapply(species$image_page_url[need], fw_commons_title, character(1),
                    USE.NAMES = FALSE)
-  need <- need[!is.na(titles)]
-  titles <- titles[!is.na(titles)]
+  need = need[!is.na(titles)]
+  titles = titles[!is.na(titles)]
   if (!length(need)) return(species)
 
   cat(sprintf("backfilling licence URLs for %d rows\n", length(need)))
-  # Matched on the title rather than on position: the API keys its response by
-  # page id, in no order we chose, and normalises spaces and underscores.
-  norm <- function(x) gsub(" ", "_", x, fixed = TRUE)
-  found <- 0L
+  # Match by title: the API keys by page id and normalises spaces.
+  norm = function(x) gsub(" ", "_", x, fixed = TRUE)
+  found = 0L
   for (start in seq(1, length(need), by = 50)) {
-    idx <- start:min(start + 49L, length(need))
-    j <- fw_api("https://commons.wikimedia.org/w/api.php", list(
+    idx = start:min(start + 49L, length(need))
+    j = fw_api("https://commons.wikimedia.org/w/api.php", list(
       action = "query", format = "json",
       prop = "imageinfo", iiprop = "extmetadata",
       titles = paste(titles[idx], collapse = "|")
     ))
     Sys.sleep(FW_WIKI_PAUSE)
-    pages <- j$query$pages
+    pages = j$query$pages
     if (is.null(pages) || !length(pages)) next
-    urls <- stats::setNames(
+    urls = stats::setNames(
       vapply(pages, function(p) {
-        info <- p$imageinfo
+        info = p$imageinfo
         if (is.null(info) || !length(info)) return(NA_character_)
         fw_licence_url(info[[1]]$extmetadata$LicenseUrl$value)
       }, character(1)),
       norm(vapply(pages, function(p) p$title %||% NA_character_, character(1)))
     )
-    hit <- urls[norm(titles[idx])]
-    got <- !is.na(hit)
-    species$image_licence_url[need[idx][got]] <- unname(hit[got])
-    found <- found + sum(got)
+    hit = urls[norm(titles[idx])]
+    got = !is.na(hit)
+    species$image_licence_url[need[idx][got]] = unname(hit[got])
+    found = found + sum(got)
     cat(sprintf("  [%3d/%3d] %d with a deed URL\n",
                 min(idx[length(idx)], length(need)), length(need), found))
   }
@@ -209,12 +192,10 @@ fw_backfill_licence_urls <- function(species) {
 
 #' GBIF's backbone match for a scientific name, or NULL
 #'
-#' Only an EXACT match is used. FUZZY and HIGHERRANK mean GBIF found something
-#' else - a misspelling's neighbour, or only the genus - and a family taken
-#' from that would be a guess.
-fw_gbif_match <- function(scientific) {
+#' EXACT matches only (FUZZY and HIGHERRANK would be guesses).
+fw_gbif_match = function(scientific) {
   if (is.na(scientific) || !nzchar(scientific)) return(NULL)
-  j <- fw_api("https://api.gbif.org/v1/species/match",
+  j = fw_api("https://api.gbif.org/v1/species/match",
               list(name = scientific, strict = "true"))
   if (is.null(j) || inherits(j, "try-error") || !identical(j$matchType, "EXACT")) return(NULL)
   list(family = j$family %||% NA_character_, matched = j$scientificName %||% NA_character_)
@@ -223,7 +204,7 @@ fw_gbif_match <- function(scientific) {
 # ---- IUCN Red List: API v4 ------------------------------------------------------
 
 # The category names species.csv stores beside the code (iucn_category).
-FW_IUCN_CATEGORIES <- c(
+FW_IUCN_CATEGORIES = c(
   EX = "Extinct", EW = "Extinct in the Wild", CR = "Critically Endangered",
   EN = "Endangered", VU = "Vulnerable", NT = "Near Threatened",
   LC = "Least Concern", DD = "Data Deficient", NE = "Not Evaluated",
@@ -233,16 +214,15 @@ FW_IUCN_CATEGORIES <- c(
 
 #' The latest GLOBAL Red List assessment for a scientific name, or NULL
 #'
-#' The token goes in the Authorization header as it is, with no "Bearer". A
-#' trinomial is looked up as genus + species + infra_name; a regional-only
-#' assessment is not a global status and is not used.
-fw_iucn_lookup <- function(scientific, token = Sys.getenv("IUCN_API_TOKEN")) {
+#' Token in Authorization with no "Bearer". Trinomials use infra_name.
+#' Regional-only assessments are ignored.
+fw_iucn_lookup = function(scientific, token = Sys.getenv("IUCN_API_TOKEN")) {
   if (!nzchar(token) || is.na(scientific)) return(NULL)
-  parts <- strsplit(trimws(scientific), "\\s+")[[1]]
+  parts = strsplit(trimws(scientific), "\\s+")[[1]]
   if (length(parts) < 2 || grepl("^sp+\\.?$", parts[2])) return(NULL)
-  params <- list(genus_name = parts[1], species_name = parts[2])
-  if (length(parts) >= 3) params$infra_name <- parts[3]
-  resp <- try(httr2::request("https://api.iucnredlist.org/api/v4/taxa/scientific_name") |>
+  params = list(genus_name = parts[1], species_name = parts[2])
+  if (length(parts) >= 3) params$infra_name = parts[3]
+  resp = try(httr2::request("https://api.iucnredlist.org/api/v4/taxa/scientific_name") |>
                 httr2::req_url_query(!!!params) |>
                 httr2::req_headers(Authorization = token) |>
                 httr2::req_user_agent(FW_UA) |>
@@ -252,14 +232,14 @@ fw_iucn_lookup <- function(scientific, token = Sys.getenv("IUCN_API_TOKEN")) {
   if (inherits(resp, "try-error")) return(NULL)
   if (httr2::resp_status(resp) == 401) stop("IUCN refused IUCN_API_TOKEN (HTTP 401).", call. = FALSE)
   if (httr2::resp_status(resp) != 200) return(NULL)
-  j <- httr2::resp_body_json(resp)
-  global <- Filter(function(a) {
+  j = httr2::resp_body_json(resp)
+  global = Filter(function(a) {
     isTRUE(a$latest) && any(vapply(a$scopes %||% list(), function(s)
       identical(as.character(s$code), "1") || identical(s$description$en, "Global"), logical(1)))
   }, j$assessments %||% list())
   if (!length(global)) return(NULL)
-  a <- global[[1]]
-  code <- a$red_list_category_code %||% NA_character_
+  a = global[[1]]
+  code = a$red_list_category_code %||% NA_character_
   list(iucn_status = code,
        iucn_category = unname(FW_IUCN_CATEGORIES[code]) %||% NA_character_,
        iucn_url = a$url %||% NA_character_,
@@ -271,23 +251,23 @@ fw_iucn_lookup <- function(scientific, token = Sys.getenv("IUCN_API_TOKEN")) {
 
 #' Fill the blanks of new species rows from GBIF, IUCN and Wikipedia/Commons
 #'
-#' The three lookups are arguments so dev/qa_test.R can stub them.
+#' The three lookups are arguments so they can be stubbed.
 #'
 #' @param species rows with FW_SPECIES_COLUMNS
 #' @return list(species = the rows, log = one row per species and source)
-fw_enrich_species <- function(species, gbif = fw_gbif_match, iucn = fw_iucn_lookup,
+fw_enrich_species = function(species, gbif = fw_gbif_match, iucn = fw_iucn_lookup,
                               photo = fw_resolve_species) {
-  log <- list()
-  note <- function(i, source, result) log[[length(log) + 1]] <<- tibble::tibble(
+  log = list()
+  note = function(i, source, result) log[[length(log) + 1]] <<- tibble::tibble(
     species_id = species$species_id[i],
     label = fw_species_label(species[i, ])$label, source = source, result = result)
-  blank <- function(x) is.na(x) | !nzchar(x)
+  blank = function(x) is.na(x) | !nzchar(x)
   for (i in seq_len(nrow(species))) {
-    sci <- species$scientific_name[i]
+    sci = species$scientific_name[i]
     if (blank(species$family[i]) && species$taxa[i] %in% "Fish") {
-      g <- gbif(sci)
+      g = gbif(sci)
       if (!is.null(g) && !blank(g$family)) {
-        species$family[i] <- g$family
+        species$family[i] = g$family
         note(i, "family (GBIF)", paste0(g$family, " (GBIF name: ", g$matched, ")"))
       } else note(i, "family (GBIF)", "NOT FOUND - fill it in species.csv or the new_species tab")
     }
@@ -295,19 +275,19 @@ fw_enrich_species <- function(species, gbif = fw_gbif_match, iucn = fw_iucn_look
       if (!nzchar(Sys.getenv("IUCN_API_TOKEN")) && identical(iucn, fw_iucn_lookup)) {
         note(i, "IUCN", "skipped - IUCN_API_TOKEN is not set")
       } else {
-        u <- iucn(sci)
+        u = iucn(sci)
         if (!is.null(u)) {
-          for (col in names(u)) species[[col]][i] <- u[[col]]
+          for (col in names(u)) species[[col]][i] = u[[col]]
           note(i, "IUCN", paste(u$iucn_status, u$iucn_year))
         } else note(i, "IUCN", "NOT FOUND - no global assessment under this name")
       }
     }
     if (blank(species$image_url[i])) {
-      p <- photo(sci, species$common_name[i])
+      p = photo(sci, species$common_name[i])
       if (!is.null(p)) {
-        species$image_url[i] <- p$url; species$image_credit[i] <- p$credit
-        species$image_licence[i] <- p$licence; species$image_licence_url[i] <- p$licence_url
-        species$image_page_url[i] <- p$page_url
+        species$image_url[i] = p$url; species$image_credit[i] = p$credit
+        species$image_licence[i] = p$licence; species$image_licence_url[i] = p$licence_url
+        species$image_page_url[i] = p$page_url
         note(i, "photo", paste(p$licence, "-", p$credit))
       } else note(i, "photo", "NOT FOUND - the app shows no photograph")
     }

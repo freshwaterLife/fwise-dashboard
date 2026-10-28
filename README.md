@@ -1,22 +1,20 @@
 # FWISE
 
-**FWISE** is the Freshwater Invasive Species Eradication database: a public,
-world evidence base of eradication attempts against freshwater invasive animals,
-built for [Freshwater Life](https://www.freshwaterlife.org). It is an R Shiny
-application that launches publicly in October 2026.
+**FWISE** is the Freshwater Invasive Species Eradication database: a public
+world evidence base of eradication attempts against freshwater invasive
+animals, built for [Freshwater Life](https://www.freshwaterlife.org) as an R
+Shiny app. It is live at https://fwise.org.
 
-It currently holds **914 eradication attempts** across **30 countries**, going
-back to **1934**.
+It holds **855 eradication attempts** in **30 countries**, from **1934**, with
+360 species and 217 contacts (release of 5 Oct 2026).
 
-> **This repository holds code only.** The data lives in a separate repository,
-> [`fwise-data`](../fwise-data), which is canonical. The two are split so the
-> client can publish new data by pushing there, without touching or redeploying
-> this app. See [How the data layer works](#how-the-data-layer-works).
+> **This repository holds code only.** The data lives in
+> [`fwise-data`](../fwise-data), which is canonical. They are split so the
+> client can publish data by pushing there, without redeploying the app.
 
-> **Status.** Contribute, Networking, About, Explore the data (the record
-> browser) and Plan an eradication (the report builder) are built. Home is a
-> deliberate stub with its intended structure recorded in comments inside the
-> module. See [HANDOVER.md](HANDOVER.md) for exactly what is and is not done.
+Running the service (accounts, the review routine, publishing) is covered in
+`HANDOVER-FWISE.md`, the operations handover for FWISE staff, kept outside this
+repository.
 
 ---
 
@@ -24,31 +22,30 @@ back to **1934**.
 
 - [Running it locally](#running-it-locally)
 - [Repository layout](#repository-layout)
-- [How the data layer works](#how-the-data-layer-works)
+- [The data layer](#the-data-layer)
 - [Updating the data](#updating-the-data)
-- [The record browser](#the-record-browser)
-- [The report builder](#the-report-builder)
-- [Submissions](#submissions)
+- [The pages](#the-pages)
+- [Downloads](#downloads)
+- [Submissions and review](#submissions-and-review)
 - [Newsletter, feedback and the privacy page](#newsletter-feedback-and-the-privacy-page)
 - [Environment variables](#environment-variables)
-- [The design system](#the-design-system)
-- [Deploying to Posit Connect Cloud](#deploying-to-posit-connect-cloud)
-- [Pointing the custom domain at it](#pointing-the-custom-domain-at-it)
-- [Known limitations](#known-limitations)
+- [Design system](#design-system)
+- [Deploying](#deploying)
+- [How the data pieces were built](#how-the-data-pieces-were-built)
+- [Open items](#open-items)
+- [Decisions and gotchas](#decisions-and-gotchas)
 
 ---
 
 ## Running it locally
 
-You need R 4.5.1 or later.
-
-**Clone both repositories as siblings.** The app looks for its data at
-`../fwise-data/` by default, so the directory layout matters:
+You need R 4.5.1 or later. Clone both repositories side by side; the app
+reads its data from `../fwise-data/` by default.
 
 ```
 fwise/
 ├── fwise-dashboard/   <- this repository
-└── fwise-data/        <- the data, canonical
+└── fwise-data/        <- the data
 ```
 
 ```bash
@@ -56,68 +53,45 @@ git clone <this repository>      fwise-dashboard
 git clone <the data repository>  fwise-data
 cd fwise-dashboard
 
-R -e 'renv::restore()'     # reconstructs the package library from renv.lock
+R -e 'renv::restore()'     # rebuilds the package library from renv.lock
 R -e 'shiny::runApp()'
 ```
 
-That is the whole setup. **No credentials are required, and the app makes no
-network calls in local development** (a PDF download is the one exception: it
-fetches its species photographs from Wikimedia). With nothing configured it reads
-`../fwise-data/attempts.csv` and its two lookups, and writes any submissions to
-`dev/forms/submissions.csv` — the same columns as the inbox sheet a deployment
-writes to, so `dev/qa.R` works the same on either.
+No credentials are needed. With nothing configured the app reads the sibling
+checkout and writes forms and submissions to `dev/forms/`. The only network
+calls are the species photographs a PDF download fetches from Wikimedia.
 
 **If your `.Renviron` holds the Google key and a sheet id, a local run writes
-submissions to that live sheet**, as the newsletter and feedback forms already
-do. The tests clear the setting for themselves; when trying the form by hand,
-comment the two variables out.
+to the live sheet.** The tests clear these for themselves; comment them out
+when trying the forms by hand.
 
-`renv::restore()` will take a while the first time. `sf` is in the dependency
-list because `leaflet` imports it, and it needs GDAL, GEOS and PROJ present on
-the machine. On macOS: `brew install gdal geos proj`.
+`renv::restore()` takes a while the first time. `sf` (imported by `leaflet`)
+needs GDAL, GEOS and PROJ: `brew install gdal geos proj` on macOS.
 
-**The PDF report needs the Quarto CLI**, 1.4 or later (for its bundled Typst):
-`brew install --cask quarto`, or point `QUARTO_PATH` at a copy. Without it the
-app runs normally and the Plan page's download picker leaves the PDF out and
-says why. The startup log's second line names the Quarto it found.
+The PDF report needs the **Quarto CLI** 1.4 or later (`brew install --cask
+quarto`, or point `QUARTO_PATH` at a copy). Without it the download picker
+leaves the PDF out and says why.
 
-### Checking your changes
+### Checks
 
-```bash
-Rscript dev/smoke_test.R      # form gating, validation and the write path
-Rscript dev/qa_test.R         # the review and import, end to end, on a copy
-Rscript dev/plan_test.R       # report builder: gate, states, filters, export
-Rscript dev/value_test.R      # every number on screen, every chart bar, every
-                              # export row, recomputed independently and compared
-Rscript dev/check_contrast.R  # every interface colour pair against WCAG AA
-Rscript dev/check_palette.R   # the chart palettes: CVD separation, bands, label ink
-Rscript dev/check_literals.R  # no stray colours or strings; every copy key resolves
-```
-
-`plan_test.R` and `value_test.R` render real PDFs, so they need Quarto (see
-above). Without it they print `PDF ASSERTIONS SKIPPED` rather than passing
-quietly - treat that line as a gap, not a pass.
-
-These scripts write into `../fwise-data/` and, with `dev/qa.R`, are the only
-things in the project that call public data services. The **app itself never
-does** (its only network calls are its own data, the Google Sheet the forms and
-submissions write to, and the species photographs a PDF download fetches from
-Wikimedia). Run them by hand and review the diff before committing:
+Run from the repository root:
 
 ```bash
-Rscript dev/fetch_species_images.R    # species photos from Wikimedia -> species.csv
-Rscript dev/build_iso_lookups.R       # ISO 3166-1 and -2 -> the two lookup files
-Rscript dev/build_report_basemap.R    # Natural Earth outlines -> resources/report/
+Rscript dev/smoke_test.R        # contribute form: gating, validation, the write
+Rscript dev/plan_test.R         # Plan page, downloads, forms, tracking, privacy page
+Rscript dev/value_test.R        # every figure, bar and export row recomputed in base R
+Rscript dev/check_contrast.R    # interface colour pairs against WCAG AA
+Rscript dev/check_palette.R     # chart palettes: CVD separation, bands, label ink
+Rscript dev/check_literals.R    # no stray colours or white; every copy key resolves
+Rscript dev/reconcile_source.R  # the data holds every column and value of the export
 ```
 
-All of them exit non-zero on failure, so they are usable from CI.
+All exit non-zero on failure. `plan_test.R` and `value_test.R` render real
+PDFs; without Quarto they print `PDF ASSERTIONS SKIPPED`, which is a gap, not
+a pass.
 
-Run `check_contrast.R` after changing **any** interface colour, and
-`check_palette.R` after changing **any** chart colour. Between them they are the
-thing that catches an inaccessible palette before a user does, and they compute
-the answer rather than leaving it to the eye - `check_palette.R` simulates
-protanopia and deuteranopia (Machado-Oliveira-Fernandes 2009) and measures
-separation in OKLab.
+Run `check_contrast.R` after changing any interface colour and
+`check_palette.R` after changing any chart colour.
 
 ---
 
@@ -125,1039 +99,525 @@ separation in OKLab.
 
 ```
 .
-├── app.R                       entry point, must stay at the repository root
-├── R/
-│   ├── brand.R                 EVERY design value: colour, type, space, radius,
-│   │                           shadow, motion, breakpoints. Sorts first on purpose
-│   ├── config.R                paths, environment variables, the data palettes,
-│   │                           and the behaviour constants (top-n, page sizes...)
-│   ├── copy.R                  EVERY user-facing string, part 1: chrome and pages
-│   ├── copy_contribute.R       ...part 2: the contribute form
-│   ├── copy_export.R           ...part 3: spreadsheet, report tables, question lists
-│   ├── copy_forms.R            ...part 4: newsletter, feedback, privacy page,
-│   │                           and the terms version
-│   ├── theme.R                 the bslib theme, mapped from brand.R
-│   ├── ui_helpers.R            reusable UI components
-│   ├── data_load.R             the data contract: reads the three data files
-│   │                           and unpacks them into the six in-memory tables
-│   ├── filters.R               ONE filter engine, shared by the report builder
-│   │                           and the dashboard. FW_FILTERS is the registry
-│   ├── charts.R                every plotly figure, shared by both pages
-│   ├── maps.R                  basemaps, markers and popups, shared likewise
-│   ├── species_images.R        the Wikimedia photo cache and its fallback
-│   ├── submit.R                the write path, and record assembly
-│   ├── forms.R                 the newsletter and feedback forms' rules,
-│   │                           records, honeypot and browser script
-│   ├── forms_store.R           where those two forms write: Google Sheets,
-│   │                           or dev/forms/ with no credentials
-│   ├── analytics.R             track_event(), a no-op until a tool is chosen
-│   ├── export.R                the export contract. SHARED with the future
-│   │                           Zenodo release, so the two cannot disagree
-│   ├── questions_text.R        the offline question list, plain text
-│   ├── questions_docx.R        the same list as Word, from the SAME walker
-│   ├── report_pdf.R            the PDF report: Typst via Quarto, rendered
-│   │                           on the server from R-drawn figures
-│   ├── charts_static.R         the PDF's figures: ggplot twins of the
-│   │                           plotly charts, and the static map
-│   ├── report_records.R        the attempts download: every attempt in the
-│   │                           selection, in full, as one .html file
-│   └── mod_*.R                 one file per page. The contribute page is split
-│                               into mod_contribute.R (server logic),
-│                               mod_contribute_steps.R (section builders) and
-│                               mod_contribute_ui.R (the three page states)
+├── app.R                    entry point (Connect Cloud expects it at the root)
+├── R/                       sourced automatically by Shiny, in byte order
+│   ├── brand.R              every design value (sorts first on purpose)
+│   ├── config.R             paths, env vars, data palettes, behaviour numbers
+│   ├── copy.R               the copy deck: chrome and pages
+│   ├── copy_contribute.R    ...the Add a record form
+│   ├── copy_export.R        ...downloads and question lists
+│   ├── copy_forms.R         ...newsletter, feedback, privacy page chrome
+│   ├── theme.R              the bslib theme, mapped from brand.R
+│   ├── ui_helpers.R         shared UI pieces and the client-side script
+│   ├── data_load.R          the data contract: reads and unpacks the files
+│   ├── github.R             read-only GitHub API client for the data repo
+│   ├── filters.R            the one filter engine (FW_FILTERS)
+│   ├── charts.R             every plotly chart
+│   ├── charts_static.R      the PDF's ggplot charts and static map
+│   ├── maps.R               basemaps, markers, hover cards, records
+│   ├── species_images.R     photo cache and live fallback
+│   ├── export.R             export frame, workbook, download bundle
+│   ├── report_pdf.R         the Summary report PDF (Quarto + Typst)
+│   ├── report_records.R     the Detailed report (.html)
+│   ├── questions_text.R     offline question list, plain text
+│   ├── questions_docx.R     the same, as Word
+│   ├── submit.R             the submission write path
+│   ├── forms.R              newsletter and feedback rules and records
+│   ├── forms_store.R        everything that talks to Google Sheets
+│   ├── tracking.R           GoatCounter tag and the event log
+│   ├── qa_checks.R          review rules and import, used by dev/qa.R
+│   └── mod_*.R              one module per page (contribute is split in three)
 ├── www/
-│   ├── scss/                   main.scss and records.scss (the two entry
-│   │                           files), _tokens.scss (derived only),
-│   │                           _components.scss
-│   ├── fonts/                  self-hosted Ubuntu woff2
-│   └── img/                    logos and favicon
-├── content/                    privacy_and_data_terms.md, the privacy page's text
-├── resources/report/           the PDF's Typst template partials, Ubuntu
-│                               TTFs and the Natural Earth world outlines
-├── dev/                        local scratch, gitignored except the scripts
-│                               named under "Checking your changes" below
-├── manifest.json               what Connect Cloud actually deploys from
-├── renv.lock                   what local development restores from
-└── .Renviron.example           documents every environment variable
+│   ├── scss/                main.scss and records.scss (entry files),
+│   │                        _tokens.scss (derived only), _components.scss
+│   ├── fonts/               self-hosted Ubuntu woff2
+│   ├── img/                 logos, collaborator logos, Welcome pictures
+│   ├── robots.txt, sitemap.xml
+├── resources/
+│   ├── js/fw_map_fit.js     fits one world to each map's width
+│   └── report/              Typst template, TTF fonts, Natural Earth basemap
+├── content/                 privacy_and_data_terms.md (the privacy page text)
+├── dev/                     checks, qa.R and helper scripts (gitignored except
+│   └── archive/             those listed in .gitignore); one-off build scripts
+├── manifest.json            what Connect Cloud deploys from
+├── renv.lock                what local development restores from
+└── .Renviron.example        every environment variable
 ```
 
-There is deliberately **no `data/` directory here.** It lives one level up:
+`../fwise-data/` holds `attempts.csv`, `species.csv`, `contacts.csv`, the two
+ISO lookups, `metadata.json`, and `source/` (the client's export and its
+row-to-id map). See its README.
 
-```
-../fwise-data/
-├── attempts.csv                THE DATA. One row per attempt, every column the
-│                               client's export has, plus id, status and dates
-├── species.csv                 one row per species: names, taxa, family, photo
-├── contacts.csv                one row per person: name, org, email, redaction
-├── lookup_iso3166.csv          the ISO 3166-1 country list, with continent.
-│                               Built by dev/build_iso_lookups.R
-├── lookup_iso3166_2.csv        ISO 3166-2 subdivisions, ditto
-├── metadata.json               release date and row counts
-├── qa/                         the lists dev/build_from_export.R wrote
-└── source/                     the client's raw export and its row-to-id map,
-                                kept so the data can be reconciled against it
-```
+### Rules that hold the code together
 
-### Two things that will bite you
+- **Shiny sources everything in `R/` at startup.** Anything there runs on
+  boot, so data scripts live in `dev/`.
+- **Every design value is in `R/brand.R`.** `fw_compile_css()` passes them to
+  Sass, `theme.R` maps them onto Bootstrap, and charts and exports read them
+  directly. `_tokens.scss` holds no literals.
+- **Every user-facing string is in the copy deck** (the four `copy*.R` files,
+  read as one list). `fw_t("section", "key")` reads it, `fw_fill()` fills
+  `{placeholders}`. Never call `fw_t()` at the top level of a file. The privacy
+  text is `content/privacy_and_data_terms.md`.
+- **Every behaviour number is in `R/config.R`** under "Behaviour".
 
-**Shiny sources everything in `R/` automatically at startup.** This is a
-documented Shiny feature, not something `app.R` does. Any file you drop into
-`R/` runs on boot. Scripts that build or change data live in `dev/` for that
-reason; if one ever has to sit in `R/`, guard its body with
-`if (sys.nframe() == 0L)` or it will run every time the app starts.
-
-**Every design value lives in `R/brand.R`, and only there.** Colour, type,
-spacing, radius, shadow, motion and breakpoints. `fw_compile_css()` hands them
-to Sass as variables ahead of the stylesheet, `R/theme.R` maps them onto
-Bootstrap, and the charts, maps, workbook and Word output read them directly.
-`www/scss/_tokens.scss` contains no literal values at all. Change a value in
-`brand.R`, restart, and re-run `dev/check_contrast.R`.
-
-**Every user-facing string lives in the copy deck**, which is four files read
-as one list: `R/copy.R` (chrome and pages), `R/copy_contribute.R` (the form),
-`R/copy_export.R` (spreadsheet, report tables, question-list downloads) and
-`R/copy_forms.R` (newsletter, feedback, privacy page). The privacy page's own
-text is the exception: it is `content/privacy_and_data_terms.md`.
-`fw_t("section", "key")` reads any of them; `fw_fill()` fills `{placeholders}`.
-
-**Every behaviour number lives in `R/config.R`** under "Behaviour": the top-n
-limit charts name before gathering into Other, page sizes, map defaults, chart
-heights and thresholds, the year bounds on the form.
-
-`dev/check_literals.R` enforces all three rules and fails if a hex colour, a
-white surface or an unresolved copy key creeps back in.
+`dev/check_literals.R` enforces the first three.
 
 ---
 
-## How the data layer works
+## The data layer
 
-Every module reads through `R/data_load.R`. **No module reads a CSV directly.**
-When the data layout changes, that file should be the only one you need to touch.
+Every module reads through `R/data_load.R`; none reads a CSV directly.
 
-**The data is one wide table and two lookups.** `attempts.csv` holds one row per
-eradication attempt with every column the client's export has - all 74 of them,
-under snake_case names - plus the handful the app owns: `attempt_id`, `status`,
-`submitted_at`, `last_updated`, `consent_data_use`. Species and contacts are
-referenced **by id** into `species.csv` and `contacts.csv`, so a species name is
-held once, a photo is held once, and an email or a redaction is corrected in one
-place rather than on every attempt the person appears on (84 of 237 people sit
-on more than one attempt; one sits on 208).
+**One wide table and two lookups.** `attempts.csv` has one row per attempt
+with every column of the client's export (67) under snake_case names, plus
+`attempt_id`, `status`, `submitted_at`, `last_updated` and
+`consent_data_use`. Species and contacts are referenced by id into
+`species.csv` and `contacts.csv`, so a name or a redaction is corrected once.
 
-Multi-value cells use `FW_MULTI_SEP` (`"; "`): `invasive_species` and
-`beneficiary_species` are lists of species ids, `methods` is a list of method
-names. Per-method notes sit in `method_notes` as `Rotenone: text | Draining:
-text`, paired by position and joined with `FW_NOTES_SEP` because 32 of the notes
-contain a semicolon. Nine attempts have no method and a note saying why; the
-note is kept verbatim.
+Multi-value cells use `FW_MULTI_SEP` (`"; "`): species are lists of ids,
+`methods` a list of names. Per-method notes sit in `method_notes` as
+`Rotenone: text | Draining: text` (`FW_NOTES_SEP`, since notes contain
+semicolons).
 
-**Values are stored as the source's text, verbatim.** `"0.010-0.020"` stays a
-range, `"≥0.5"` keeps its sign. Casting to numbers happens in memory, for the
-columns in `FW_ATTEMPT_NUMERIC` only. Two columns that look numeric are not -
-120 target concentrations are ranges or inequalities and 189 labour figures are
-sentences - and the old build had cast both to `NA`.
+**Values are stored as the source text.** `"0.010-0.020"` stays a range and
+`"≥0.5"` keeps its sign. Only `FW_ATTEMPT_NUMERIC` columns are cast, in
+memory.
 
-**The star schema still exists, in memory.** `fw_unpack()` splits the wide
-table at startup into the six tables every module was written against:
+**`fw_unpack()` builds six in-memory tables** at startup: `attempt`,
+`species`, `attempt_species` (with `role`), `method` (`FW_METHODS` plus any
+unlisted name), `attempt_method` and `contact`.
 
-| Table | Grain |
-|---|---|
-| `attempt` | one row per eradication attempt |
-| `species` | `species.csv` as read |
-| `attempt_species` | bridge, with `role` of `invasive` or `beneficiary`, from the two id lists |
-| `method` | `FW_METHODS` in `config.R`, plus any name the data holds that it does not list |
-| `attempt_method` | bridge, from the `methods` list, with the paired note |
-| `contact` | `contacts.csv` as read |
+The load stops on:
 
-Measured, the split takes under a tenth of a second at double today's row count.
+- a file whose columns don't match `FW_ATTEMPT_COLUMNS`,
+  `FW_SPECIES_COLUMNS` or `FW_CONTACT_COLUMNS` exactly;
+- an id with no row in its lookup;
+- an unknown `status`;
+- an `iso3`, continent or region that disagrees with the ISO lookup
+  (`fw_validate_geography()`).
 
-Two things the load refuses, loudly, before any module sees the data:
+**Approval gate.** `fw_filter_approved()` drops unapproved attempts and every
+species, method and contact only they reference, before any module sees the
+data. Don't reduce it to filtering the attempt table.
 
-- **A file whose columns are not the contract.** `FW_ATTEMPT_COLUMNS`,
-  `FW_SPECIES_COLUMNS` and `FW_CONTACT_COLUMNS` in `data_load.R` are checked in
-  both directions. A column with nowhere to go is how the ingredient-basis
-  column went missing from the old six-table build, and it cannot happen again
-  silently.
-- **An id with no row.** Every species and contact id in `attempts.csv` must
-  resolve to its lookup, or the load stops naming the attempts. That is the
-  integrity check a spreadsheet cannot give itself.
+**Contact redaction.** Blocker to ensure no privacy leaks: a contact with
+`contact_public` FALSE is dropped from `fw_contacts_summary()` (the directory
+and Plan's contacts), and blanked (name, organisation and email) on map
+records and in exports. `fw_assert_export_safe()` refuses any export that
+still carries one. Public addresses are encoded in the page and revealed on a
+click (`fw_email_reveal()`), which stops naive scrapers only.
 
-Two structural points that are settled and should not be generalised:
+### Where the data comes from
 
-- **Methods are an unbounded any-of set**, not a ranked hierarchy. `method_order`
-  is the position in the cell and exists only so the paper's figures can be
-  reproduced. Do not treat it as a ranking.
-- **An attempt has at most a primary and a secondary contact**, so contacts are
-  two id columns on the attempt, not a list. Do not turn this into a list.
+`fwise-data` is private, so the app reads it over the GitHub contents API.
 
-### The functions
+| Mode | When | Reads |
+|---|---|---|
+| `local` | nothing set | `../fwise-data/` |
+| `api` | `FWISE_DATA_TOKEN` set | the GitHub API |
+| `url` | `FWISE_DATA_SOURCE` is an `https://` base | plain HTTPS, no credential |
 
-| Function | Returns |
-|---|---|
-| `fw_load_data()` | the six tables, loaded once at startup |
-| `fw_contacts_summary()` | one row per contact, with countries and continents derived from their attempts, an attempt count, **and redacted emails already removed** |
-| `fw_choices(data, table, column)` | sorted unique values, for dropdowns |
-| `fw_startup_choices()` | every dropdown's options, built once |
-| `fw_last_updated()` | the date shown in the footer |
-| `fw_headline_stats()` | the five landing-page KPI figures |
-| `fw_country_burden()` | the choropleth source (currently a placeholder, see below) |
+The repository and branch are constants in `R/config.R`. The token is a
+fine-grained PAT (owner `freshwaterLife`, that one repository, Contents:
+Read). **It expires, and then the app stops serving data**: keep its expiry in
+a calendar. `FWISE_DATA_SOURCE` overrides the token for a test deploy. The
+startup log names the mode.
 
-### Contact redaction
-
-This matters, so it is worth being explicit. Where a contact's `contact_public` is
-`FALSE`, none of their contact information (name, organisation or email) appears
-anywhere in the app or its downloads. `fw_contacts_summary()` drops the row
-**before the data reaches any session**. The Networking page and the Plan
-contacts table (on screen and in the PDF) read only from that function. The map
-card and the xlsx/csv exports blank all three fields, and `fw_assert_export_safe()`
-refuses any export that still carries them. The attempt itself is still shown in
-full. It just has nobody listed to contact. The page shows an empty cell rather
-than a "hidden" badge, because a badge advertises that there is something worth
-going after.
-
-Addresses that *are* public get a small speed bump: they are split across `data-`
-attributes and reassembled in JavaScript when the link is clicked, so a naive
-scraper reading the served HTML does not harvest them in one pass. **This is not
-security.** Anyone running the page's JavaScript can recover a public address.
-The real control is the `contact_public` flag, held once per person in
-`contacts.csv`.
+The data is read **once at startup**. New data appears after a republish.
 
 ---
 
 ## Updating the data
 
-**Before launch, the data is rebuilt from the client's export.** Put the one
-export (`fwise_<date>.xlsx` or `.csv`) in `fwise-data/source/` in place of the
-old one, then:
+**After launch, `attempts.csv` is the master.** Correct a value by editing the
+row. New records come through the contribute form and review
+([below](#submissions-and-review)). Ids (`FW-20261005-7K3QX9`: prefix, date
+first assigned, random suffix without `I`, `O`, `0` or `1`) are permanent and
+never reused.
 
-```bash
-Rscript dev/build_from_export.R      # writes attempts/species/contacts, the _ids map, metadata.json
-Rscript dev/reconcile_source.R       # proves every source column and value landed
-Rscript dev/fetch_species_images.R   # photos for any new species
-```
+`dev/reconcile_source.R` checks the data still holds every column and value
+of the export in `fwise-data/source/`. It allows only the country/region
+split, the regime corrections in `FW_REGIME_BY_TYPE`, Excel float noise and
+Windows line endings.
 
-The build carries species (with taxa, family and photo) and contacts over from
-the current lookups by exact name, or for a species by the same scientific
-name; attempts get new ids, reused if the same export is built twice. It writes
-`qa/species_to_check_<date>.csv` (species with no taxa or family, to fill in
-`species.csv`) and `qa/build_issues_<date>.csv` (what it could not place, to fix
-in the export). **Once the site is live, stop rebuilding:** ids are then
-permanent and the rest of this section applies.
+Species photos are cached in `species.csv` by `dev/fetch_species_images.R`
+(credit, licence and licence URL included; no licence means no photo). The
+app falls back to a memoised live lookup for a species added since.
 
-**After launch, `attempts.csv` is the master.** The client corrects a value by editing the row; a new record
-arrives through the contribute form and the review loop below; a new species or
-contact is a new row in its lookup, added by the import or by hand, whose id
-the attempt row then cites.
+---
 
-The raw export the database was built from is kept under `source/` with its
-row-to-id map, and **`dev/reconcile_source.R` proves the data still holds every
-column and every value of it**, identically coded:
+## The pages
 
-```bash
-Rscript dev/reconcile_source.R
-```
+Navbar labels are in `fw_t("nav")`.
 
-It walks all 74 source columns with one rule each - identity for the scalars,
-round trips through the lookups for species, taxa, family and contacts, position
-for methods and their notes - and a column with no rule is itself a failure, so
-a new column in a future export cannot slip past. The only transformations it
-allows are the country/region split, the water-regime corrections named in
-`FW_REGIME_BY_TYPE` (printed, not skipped), and Windows line endings inside a
-cell read as newlines. Run it whenever someone asks whether anything was lost.
-
-### Identifiers are permanent
-
-`attempt_id`, `species_id` and `contact_id` are **minted once and never
-reassigned**. Format is `FW-20260908-7K3QX9`: a prefix, the date the id was first
-assigned, and a random suffix drawn from an alphabet with no `I`, `O`, `0` or `1`
-in it, because these get read aloud and retyped by people.
-
-Each id lives in the row or lookup that owns it, so there is no registry to keep
-in step. An attempt id is minted by the form the moment a submission is sent and
-travels with the row from the inbox sheet into `attempts.csv` unchanged; species
-and contact ids are minted by `dev/qa.R` at import, once the reviewer has
-confirmed the row is genuinely new. Only `attempt_id` ever leaves the app, in exports.
-
-### Serving data without redeploying
-
-`fwise-data` is **private**, so an unauthenticated `raw.githubusercontent.com`
-URL returns 404. The app therefore talks to the GitHub contents API, and the
-whole of its production configuration is one environment variable:
-
-```
-FWISE_DATA_TOKEN=github_pat_...
-```
-
-Set it and the app reads `freshwaterLife/fwise-data@main` over the API. Leave
-it unset and the data comes from the sibling checkout with no GitHub calls at
-all. **The repository and branch are
-constants in `R/config.R`**, not settings — neither is a secret and neither
-varies, and making them configurable would only add ways to get a deployment
-wrong.
-
-The token is a fine-grained PAT, resource owner `freshwaterLife`, scoped to that
-one repository, with **Contents: Read**. Read is enough since October 2026:
-submissions go to the inbox sheet, not the repository. It **expires**, and when
-it does the app stops serving data — so the expiry date belongs in a calendar,
-not just in this file.
-
-Every read goes through `fw_data_path()` in `R/data_load.R` and every GitHub call
-through `R/github.R`, which are the only two places that know the data is not on
-local disk. `fw_data_mode()` resolves one of three modes and the startup log
-names which one it picked, so the first line of a Connect Cloud log tells you
-whether the token was seen:
-
-| mode | when | reads |
+| Page | Module | What it is |
 |---|---|---|
-| `local` | nothing set | `../fwise-data/` |
-| `api` | `FWISE_DATA_TOKEN` set | GitHub API |
-| `url` | `FWISE_DATA_SOURCE` is an `https://` base | plain HTTPS, no credential |
+| The solution | `mod_home.R` | Welcome: the case for freshwater eradication, a figure sentence, six success-story tiles opening story cards, a before/after map reveal (static client images) and an evidence footnote. Sized for one laptop screen. |
+| Explore the database | `mod_explore.R` | Live filters (continent, country, regime, invasive and protected taxa and family), a whole-database panel (attempts, countries, invasive species, >species protected, in review), the map, and three chart views (number of attempts, success rate, duration). |
+| Plan an eradication | `mod_plan*.R` | The report builder: 11 filters, **Build report**, then outcomes, species tiles, the map, still/flowing water, methods, duration, contacts and a record search; downloads. |
+| Add a record | `mod_contribute*.R` | One scrolling form. Contributor and consent first. |
+| Connect with community | `mod_networking.R` | The contact directory, filtered and paged. |
+| About | `mod_about.R` | Sign-up card, six click-to-open panels (citation, methods, caveats, glossary, related databases, licence and links), feedback band. |
+| Privacy and data terms | `mod_privacy.R` | No navbar link; reached from the footer and `?page=privacy&section=...`. |
 
-Where submissions go is a separate switch, `fw_inbox_mode()`: see
-[Submissions](#submissions).
+### Plan: results on Build only
 
-`FWISE_DATA_SOURCE` still overrides the token if set, so a test deploy can be
-pointed at a fork, a branch or a local path without a code change. It is not
-needed in production.
+Results render only when **Build report** is pressed, deliberately: no live
+redraw to cherry-pick a slice from. Don't make them reactive. Clear resets the
+filters and builds the default report.
 
-The data is read **once at startup**, not per session and not on a poll. It
-changes quarterly and visibility comes from a deliberate republish, so re-reading
-would spend a request per visitor to discover nothing had changed. A new release
-reaches users when the app restarts.
+Plan has **no outcome or method filter** (`FW_PLAN_DROP`): those are what a
+planner comes to learn, and filtering to successes gives false optimism.
+`dev/plan_test.R` checks this. Explore is live by design.
+
+### Charts
+
+- Counts show all four outcomes. A **success rate is Successful against
+  Failed only**; Ongoing and Unknown are left out.
+- Method and duration charts use **single-method attempts only** (outcomes and
+  dates belong to the attempt). The duration chart is successful attempts
+  only.
+- No headline success rate anywhere. Rotenone (562 of 855) is never a hero
+  figure.
+- Colour is never the only encoding: values are printed in or beside bars.
+- Charts are locked down (no zoom, pan or legend toggling); one PNG button at
+  300 dpi.
+- `fw_*_data()` functions count once for both the plotly charts and the PDF's
+  ggplot versions.
+
+### Maps
+
+Leaflet, Web Mercator only (the note under each map says so). Every map shows
+the band 80N–60S at its Mercator aspect, with a fractional zoom-out limit set
+by `resources/js/fw_map_fit.js`. Identical coordinates group into counted
+rings (`FW_MAP$cluster`). Hovering a marker shows a card; clicking opens the
+full record (fetched from the server on the page, embedded in saved reports).
+The Carto basemap needs its key (`FW_CARTO_KEY` in `R/maps.R`; public by
+design, scoped by domain).
 
 ---
 
-## The record browser
+## Downloads
 
-`R/mod_explore.R`, drawing its records from `fw_attempt_records()` in `maps.R`,
-its filters from `filters.R` and its record panel from the same map card script
-everything else uses.
+One **Download this report** button, floating in the bottom corner, opens a
+picker. Parts (`FW_BUNDLE_PARTS`): the **Summary report (.pdf)**, the
+**Detailed report (.html)** and the **spreadsheet (.xlsx)**. One part
+downloads as itself; several as a zip. Names carry a UTC time stamp.
 
-**This page is about the one attempt; the report builder is about the many.**
-That is the whole distinction between them, and it is worth holding on to: the
-two pages were previously the same filters over the same charts with a Build
-button between them, which gave a reader no reason to pick one. Explore is where
-you find a single attempt, see where it is, and read everything recorded about
-it. Plan is where you ask what attempts like yours look like in aggregate and
-take a file away.
+`fw_export_frame(data, attempt_ids)` is the one flattening function, for both
+the filtered download and the full Zenodo dataset. Every export closes on the
+methods statement, the caveats and the citation (`fw_closing_blocks()`).
 
-The page, top to bottom:
+- **Spreadsheet:** attempts, field definitions, the filters applied, and
+  methods and caveats.
+- **Summary report (PDF):** `R/report_pdf.R`. R writes Typst calls (text
+  escaped by `fw_typ_str()`) against `resources/report/typst-template.typ`;
+  `fwise-tokens.typ` is written per render from `brand.R`, `config.R` and the
+  copy deck. Quarto renders it with no R chunks. Charts come from
+  `charts_static.R`; the map uses bundled Natural Earth outlines. Species
+  photos are fetched per render with a timeout. The picker warns at
+  `FW_PDF$warn_pages` or `warn_mb` using `fw_pdf_size_estimate()`.
+- **Detailed report (.html):** `R/report_records.R`. The summary figures
+  (live), then every attempt as a card from the export frame (so the same
+  redaction), with a find box. Self-contained; only tiles and photos need the
+  network. Gotcha: `jsonlite::base64_enc()` wraps lines, which breaks inlined
+  fonts; use `fw_html_base64()`.
 
-| Block | What it is |
+The caveats are client copy in `export$caveats` (`R/copy_export.R`); add or
+remove a block and every surface reflows. Their success definition matches
+the contribute form's: keep them in step.
+
+---
+
+## Submissions and review
+
+`fw_submit_attempt()` appends one row to the `submissions` tab of the inbox
+sheet (`FWISE_INBOX_SHEET_ID`, defaulting to the forms sheet), or to
+`dev/forms/submissions.csv` without a sheet. `fw_inbox_mode()` says which.
+
+A row is readable without lookups (`FW_INBOX_COLUMNS`): species as labels,
+the contact as name, organisation, email and public, plus an optional
+`contact_id`. `qa_status` and `imported` lead the row. Typed-in species also
+get a `new_species` row. Writes are RAW appends. **A failed write is reported
+to the contributor, never saved locally**: Connect Cloud's disk is wiped on
+restart.
+
+`Rscript dev/check_sheets.R --setup-inbox` prepares the two tabs (headers,
+plain-text cells, frozen header, dropdowns). Plain `dev/check_sheets.R` checks
+headers.
+
+### `dev/qa.R`
+
+Run a section at a time in RStudio (Ctrl+Alt+T). Rules are in
+`R/qa_checks.R`; new-species lookups in `dev/species_enrich.R`.
+
+| Section | Does |
 |---|---|
-| Database panel | Six figures for the **whole database**, never filtered, above the controls so it cannot be read as the size of a selection. From `fw_headline_stats()`. |
-| Filter bar | Six live filters: continent, country, invasive taxa, beneficiary taxa, method, outcome. |
-| Selection strip | `fw_plan_summary_ui()`, shared with the report, showing what the filters left. |
-| Map | The same map as everywhere else, markers coloured by outcome. |
-| List | One card per attempt, sorted and paged. Cards look like the map's hover card with the species photograph added. |
-| Record panel | The full record, opened by a card **or** a marker, with previous and next through the selection. |
+| 0 Setup | Loads the code; reports the data checkout's branch and state and which inbox it reads. |
+| 1 Read and check | `inbox`, `new_species`, `checks` (errors and warnings), `contact_matches`, `species_matches`. Fix rows in the sheet and rerun; set `qa_status` done and `status` approved or rejected. |
+| 2 Resolve | Rechecks the done rows and shows `to_add`, `species_add`, `contacts_add`. Stops on any error. |
+| 3 Enrich | Fills blanks for new species: family (GBIF), IUCN status (`IUCN_API_TOKEN`), a photo with credit and licence. |
+| 4 Write | The only write. Asks for `yes`; refuses if fwise-data is dirty or behind, or the sheet changed. Appends to the CSVs, rewrites `metadata.json`, marks `imported`. |
+| 5 Publish | Prints the git commands. The app shows the import after a republish. |
 
-**There are no charts here, on purpose.** A chart of a selection is the report
-builder's answer, and it belongs there with the caveats beside it and a
-downloadable file under it. Adding a second weaker copy to this page is what
-made the two indistinguishable before.
+Errors stop a row; warnings don't. Fuzzy matches (accents, case and word
+order ignored; small edit distances) only suggest: a contact is reused on an
+exact name and organisation or a typed `contact_id`. Private wins over public.
+Nothing imports twice; rerunning is safe.
 
-**Six filters, not ten.** Place, animal on either side, method and outcome are
-the questions someone has when looking for an attempt. Waterbody, regime, the
-named-species pickers and the year range are questions about a *group* of
-attempts and stay on the report builder. The set is `FW_EXPLORE_FILTERS`; both
-pages draw from the single registry in `filters.R`, so a filter here is the same
-filter there.
-
-**One record, one route.** A card click and a marker click write the same
-attempt id into the same Shiny input, and `fw_map_detail_server()` answers both
-out of `fw_attempt_records()`. This is what stops a record saying one thing in
-the list and another on the map. It also means previous/next follows whatever
-order the reader is looking at, because the server steps through the *sorted*
-selection.
-
-**Attempts with no coordinates are in the list.** Three of them have none. They
-have no marker, so the map cannot show them, but they are real records and the
-list and the record panel both reach them - `fw_map_points()` is just the
-located subset of `fw_attempt_records()`.
-
-**The list is live; the report builder is gated.** Browsing is watching the list
-narrow under the controls. Citing is not. Do not make the two consistent.
-
----
-
-## The report builder
-
-`R/mod_plan.R`, with filters in `mod_plan_filters.R`, rendering in
-`mod_plan_results.R`, the spreadsheet export and the download bundle in
-`export.R`, the PDF report in `report_pdf.R` (figures in `charts_static.R`) and
-the attempts file in `report_records.R`.
-
-**The questions sit above the report, not beside it.** This page is a form
-followed by its answer. The dashboard keeps its sidebar because browsing *is*
-watching the picture change under the controls; here, a sidebar would put the
-questions and the results side by side and invite reading the results first,
-then working the filters until they say something comfortable. Stacked, there is
-nothing to read until the questions have been answered, and both halves get the
-full width of the page.
-
-**Results render only when Build report is pressed.** That is a design decision
-before it is a performance one. The client's steer was "controlled, informative,
-not random clicking", and the reason is credibility: a view that redraws under
-the cursor invites someone to land on a narrow, unrepresentative slice by
-accident and then cite it. **Do not make the results reactive to the filters.**
-The gap between changing a filter and seeing a result is the feature.
-
-Three states, all of which must keep working:
-
-| State | When | What it does |
-|---|---|---|
-| Empty | before any build | nothing at all - the page's introduction is in the page header, and `dev/plan_test.R` asserts the results area is genuinely empty |
-| Zero | filters match nothing | says so plainly and **names which filter to relax** |
-| Results | otherwise | summary, outcomes, map, method comparison, cumulative, table |
-
-**All four outcomes stay visible in the counts.** Successful, Failed, Ongoing
-and Unknown are never collapsed into a headline success rate. Failure teaches
-as much as success, and ongoing attempts show where the next results will come
-from. Where a chart *is* a success rate (the "Success rate" views, the species
-tiles, the rate over time), it is Successful against Failed only (client, 30
-Sept 2026), because an attempt still running has no outcome yet.
-
-**Methods and durations are drawn from single-method attempts only.** Outcome
-and duration belong to the attempt, not to one method within it, so an attempt
-that used two methods would credit each with a result it may have had no part
-in. The duration chart also draws successful attempts only: it is for planning
-how long an eradication that works takes.
-
-**Rotenone is never a headline.** It is 544 of 914 attempts and is socially
-sensitive. It appears inside the method comparison alongside every other method,
-reached by the user's own filtering. Do not add a hero statistic about it.
-
-**Colour is never the only encoding.** Every chart carries its numbers as text,
-the map labels each marker with its outcome, and the table below holds the same
-information. Colourblind safety is a stated client requirement.
-
-**The caveats panel folds on the About page** and does not anywhere else. It was
-always visible and never an accordion; the client later asked for it to be one of
-the About page's click-to-open panels, so it is a `<details>` there whose summary
-names what is inside rather than saying "caveats". In every export it is still
-unfoldable text, and it comes from the same function in both places, so the two
-cannot say different things.
-
-**The caveats are the client's own** (6 October 2026): six headed blocks in
-`export$caveats` in `R/copy_export.R`, each `body` one string per paragraph. On
-24 September our five blocks came out for a placeholder so the FWISE team could
-write theirs without our wording in front of them; this is what they wrote. Add
-or remove a block as `list(heading =, body =)` and the About panel, the
-workbook sheet, the PDF and the records HTML all reflow. In the three exports
-they sit under a "Caveats" part title, between Methods and Citation
-(`fw_closing_blocks()`). The success definition in the first block is the
-contribute form's, word for word; keep the two in step.
-
-### The export
-
-`fw_export_frame(data, attempt_ids)` is the one flattening function. The filtered
-download and the future full Zenodo dataset are the same call with and without
-ids — if they were built separately they could disagree, and a reader comparing
-a download against the citable dataset would find different numbers with no way
-to tell which was right. `dev/plan_test.R` asserts they agree cell for cell.
-
-Multi-value fields flatten to **semicolon-delimited single columns**. Neither of
-the source's own conventions survives: the eight numbered species columns become
-one column, and the underscore-nested taxa strings become one column. The
-underscore is a legacy convention of the client's spreadsheet; the semicolon is
-the published one, and the Field definitions sheet says so.
-
-`fw_assert_export_safe()` refuses to write a workbook containing an address
-belonging to a contact who asked not to be listed. Applying the redaction is not
-the same as guaranteeing it, and an export is the one place a mistake travels
-outside the building and cannot be recalled.
-
-### The downloads
-
-One **Download this report** button, floating in the bottom-right corner from
-the moment a build matches something (client, 24 September 2026), opens a
-picker with three parts (client, 23 September 2026): the **PDF report**,
-**every attempt in full** (`.html`) and the spreadsheet (`.xlsx`). More than
-one arrive as a zip; **one arrives as itself**. The interactive HTML report
-that used to sit here - live plotly charts and a leaflet map, printed to PDF
-through the browser - was replaced by the PDF, and the CSV went with it.
-
-The button has moved three times and always for the same reason: the results
-are a long scroll and the download is what the page is for. It was the last
-block under two tables, then a sticky row at the top of the results, and it is
-now out of the flow altogether - so it costs no line of the page and is in the
-same place whatever the reader has scrolled to. It is still first in the DOM,
-which `dev/plan_test.R` asserts. See `.fw-plan__results-head` in
-`www/scss/_components.scss` for the stacking it has to respect.
-
-**Nothing travels uninvited** (client, 24 September 2026). A methods-and-
-caveats `.txt` used to go into every download whatever was ticked, which meant
-ticking the PDF handed back a zip of two files. It is gone, and each document
-now closes on that section itself: the workbook's last tab, the last section of
-the PDF and of the records `.html`. With nothing left that an empty selection
-could produce, the Download button is disabled until something is ticked - see
-`fw_download_guard()` in `R/mod_plan.R`.
-
-### The PDF report
-
-`R/report_pdf.R`. The report the reader built, on FWISE letterhead, with every
-logo the site's footer carries (FWISE on the letterhead; Weird Fishes Advisory
-and the six collaborators in the footer of every page), static charts and a
-static map, on A4. **Rendered on the server by Quarto, with its Typst engine** -
-no LaTeX, no Chrome, no Python.
-
-- **R decides everything; Quarto only typesets.** The body is written in R as
-  calls to the components in `resources/report/typst-template.typ`, with every
-  piece of text passed as an escaped string literal (`fw_typ_str()`), never
-  spliced into markup. The `.qmd` Quarto renders has no R chunks, so no second
-  R process has to find this app's library.
-- **No values in the template.** Colours, sizes, logo paths and fixed wording
-  come from `fwise-tokens.typ`, written per render by `fw_pdf_tokens()` from
-  `R/brand.R`, `R/config.R` and the copy deck. `dev/check_literals.R` refuses a
-  colour typed into a `.typ` file.
-- **The figures are ggplot twins** of the page's plotly charts
-  (`R/charts_static.R`). Each is drawn from the same counting function as its
-  original - `fw_method_data()`, `fw_category_data()`,
-  `fw_method_waterbody_data()`, `fw_duration_data()` in `charts.R` - so the two
-  cannot count differently; `dev/value_test.R` checks both against a base-R
-  recount. They are drawn at their printed size, so the 1rem floor (12.6pt on
-  paper, `FW_PRINT` in `brand.R`) holds for chart labels too. Each follows the
-  reader's count/share toggle.
-- **The map** is ggplot on Natural Earth 1:110m outlines bundled in
-  `resources/report/` (built by `dev/build_report_basemap.R`), so it needs no
-  tiles and no network.
-- **The species photographs** are fetched from Wikimedia at render time, in
-  parallel, each under `FW_PDF$image_timeout_s`; one that does not arrive prints
-  as the page's placeholder. Credits and licences print under each.
-- **The size warning.** `fw_pdf_size_estimate()` predicts pages and megabytes
-  from the selection (contacts, map dots, photographs) before anything is
-  drawn, and the picker warns at `FW_PDF$warn_pages` or `FW_PDF$warn_mb`. The
-  whole database is about 25 pages and 2 MB, most of it the contacts table.
-  The coefficients were fitted to real renders and `dev/value_test.R` fails if
-  the estimate drifts more than 30% from three re-rendered cases.
-
-### The attempts file
-
-`R/report_records.R`. Every attempt in the selection, in the spreadsheet's
-order, as one card each: all 55 exported fields, labelled
-(`FW_COPY$export$record_labels`) and grouped (`record_groups`), a blank field
-saying "Not noted". A contents list with a find box sits above the cards; the
-caveats and the logos sit below. It is built from `fw_export_frame()`, so it
-carries exactly what the spreadsheet carries, with the same redaction. The
-stylesheet (`www/scss/records.scss`) and the fonts are inlined - nothing is
-fetched when it opens. Cards are assembled as escaped strings rather than a
-tag tree: 914 cards as tags took minutes, as strings about two seconds.
-
-**`jsonlite::base64_enc()` wraps at 76 characters**, and CSS will not parse a
-newline inside `url()` - an inlined font silently goes missing.
-`fw_html_base64()` strips the wrapping; do not go around it.
-
----
-
-## Submissions
-
-`fw_submit_attempt(record, data)` is the single entry point. It appends one row
-to the `submissions` tab of the **inbox Google Sheet**, `FWISE_INBOX_SHEET_ID`
-(the forms sheet unless set), signed in with the forms' `GS4_SA_KEY_B64`. With no
-sheet or no key it appends to `dev/forms/submissions.csv` instead, in the same
-columns, so `dev/qa.R` works on either. `fw_inbox_mode()` says which, and the
-startup log names it.
-
-**A submission is one row a person can read** (`FW_INBOX_COLUMNS` in
-`R/submit.R`). It has the columns of `attempts.csv`, with three differences so
-the reviewer can QA it without looking anything up:
-
-- species are their **labels**, `Common carp (Cyprinus carpio)`, not `SP-` ids;
-- the contact is split into `contact_name`, `contact_organisation`,
-  `contact_email`, `contact_public` (`yes`/`no`), plus a blank `contact_id` the
-  reviewer fills only to point at a contact already held;
-- the columns the import derives (`iso3`, `continent`, `last_updated`) and the
-  second contact the form never asks for are not there.
-
-Two columns lead the row for the reviewer: `qa_status` (`not done`/`done`) and
-`imported` (`no`/`yes`/`rejected`). A species the contributor typed rather than
-picked also gets a row of the `new_species` tab - label, names split out, the
-taxa they chose, a blank family - for the reviewer to complete.
-
-**Appends only, RAW.** Two contributors pressing Send in the same second both
-land, and nothing typed is ever run as a formula or turned into a date. Unlike
-the newsletter rows there is no leading apostrophe on risky cells: the inbox is
-read over the API, never opened as a CSV, and the apostrophe would turn a
-latitude of `-31.24` into text.
-
-**A failed sheet write is reported to the contributor, never quietly written to
-disk instead.** On Connect Cloud the container filesystem is discarded on
-restart, so a local fallback would hand someone a confirmation screen for a
-submission that was already gone.
-
-**Setting up the sheet.** `Rscript dev/check_sheets.R --setup-inbox` creates the
-two tabs if they are missing, writes their headers, freezes row 1, formats every
-cell as **plain text** (so Sheets cannot turn `1-2` into a date or drop a
-leading zero when the reviewer types), and puts dropdowns on `qa_status`,
-`imported`, `status` and `contact_public`. Plain `Rscript dev/check_sheets.R`
-checks the headers of every tab.
-
-### The review and import: `dev/qa.R`
-
-One script, run **a section at a time in RStudio** (cursor in the section,
-Ctrl+Alt+T), not with `Rscript`. The rules it applies are functions in
-`R/qa_checks.R`; the new-species lookups are in `dev/species_enrich.R`.
-
-| § | |
-|---|---|
-| 0 Setup | Loads the app's code, names the data checkout's branch, warns if it has uncommitted changes or is behind, says which inbox it reads and whether IUCN lookups are on. |
-| 1 Read | `inbox` and `new_species` from the sheet. |
-| 2 Check | `checks` - one row per problem, `error` or `warning` - plus `contact_matches` and `species_matches`. The reviewer fixes things **in the sheet** and runs 1 and 2 again; when a row is right, sets `qa_status` to `done` and `status` to `approved` or `rejected`. |
-| 3 Resolve | Takes rows with QA done and `imported` = `no` (or only `import_ids`), checks them again, and shows `to_add`, `species_add`, `contacts_add`. Stops on any error. |
-| 4 Enrich | For new species, fills blanks only: family (fish) from GBIF, the IUCN Red List status (needs `IUCN_API_TOKEN`), a photograph with credit and licence from Wikipedia/Commons. Misses are listed in `enrich_log`. |
-| 5 Write | The only section that changes anything. Asks for `yes`, refuses if fwise-data is dirty or behind, or if the sheet changed since §3. Appends to the three CSVs (untouched rows stay byte for byte), rewrites `metadata.json`, then sets `imported` in the sheet. |
-| 6 Publish | Prints the `git add/commit/push` for fwise-data. The app shows the import once restarted. |
-| 7 Cutover | One-off: moves files left in the old `fwise-data/inbox/` into the sheet. |
-
-**Errors stop a row; warnings do not.** Errors: a malformed `qa_status`,
-`imported` or `status`; QA done with status still `pending`; no data-use consent;
-a country not in `lookup_iso3166.csv`, or a region that is a country; a
-coordinate that is not a number in range; a year that is not four digits; a
-species label that is neither held nor in `new_species` with a taxa; an unknown
-`contact_id`; a duplicated `attempt_id`; anything the app's own loader
-(`fw_unpack()`) would refuse. Warnings: no coordinates or start year; a number
-column that is not a plain number; an off-list method or vocabulary value; the
-same site and start year as a held record or another open row; a new fish with
-no family; a contact whose name and organisation match a held one but whose
-email differs; and every possible fuzzy match.
-
-**Fuzzy matches suggest, they never merge.** Names are compared lower-cased,
-accents stripped, word order ignored ("Bird, Chris" = "Chris Bird"), with base
-`adist()`: same email, a name within a typo or two (scaled to its length), same
-surname and initial, same organisation or non-webmail domain with a similar
-surname. Each submitted contact is compared with `contacts.csv` **and with the
-other open rows**, so one recorder's typos across several records show up. A
-contact is reused only on an exact name and organisation, or the `CO-` id the
-reviewer types in `contact_id`; identical new contacts in one import become one.
-If either the held contact or a submission says private, private wins. A typed
-species is compared with held common and scientific names the same way; the
-reviewer swaps in the held label in the sheet.
-
-**Nothing is imported twice.** A row is taken only while `imported` is `no` and
-its id is not in `attempts.csv`; §5 skips any attempt, species or contact
-already written. If the sheet write in §5 fails, run §3 and §5 again: every
-open row whose id is already in `attempts.csv` is marked imported. Rejected rows
-are never written to `attempts.csv`; the sheet is their record.
-
-`Rscript dev/qa_test.R` runs the whole loop on a temporary copy of fwise-data
-with a local inbox and stubbed lookups, and recomputes every value that lands.
+Not built: bulk import and edits to existing records (paste a bulk load into
+the `submissions` tab; edit rows by hand).
 
 ---
 
 ## Newsletter, feedback and the privacy page
 
-Two dialogs and a page, added October 2026.
+- **Get FWISE updates** (`mod_newsletter.R`): name, email, optional
+  organisation, consent. One sign-up per visit.
+- **Send feedback** (`mod_feedback.R`): page, message, optional email.
+  Several per visit, with a `FW_FEEDBACK_COOLDOWN_S` pause.
+- **Privacy and data terms** (`mod_privacy.R`): the text is
+  `content/privacy_and_data_terms.md`.
 
-- **"Get FWISE updates"** (`R/mod_newsletter.R`): name, email, optional
-  organisation and a consent box. One sign-up per visit; after it, every button
-  that opens the form shows the thank-you instead.
-- **"Send feedback"** (`R/mod_feedback.R`): the page it is about (pre-selected
-  from the page the reader is on), the message, and an optional email for a
-  reply. More than one per visit, with a `FW_FEEDBACK_COOLDOWN_S` pause between
-  them.
-- **"Privacy and data terms"** (`R/mod_privacy.R`): a `nav_panel` whose navbar
-  link is hidden by CSS. It is reached from the footer and from
-  `?page=privacy&section=<anchor>` links, which open the page and scroll to the
-  section. While it is open the address bar says `?page=privacy`; Back and
-  Forward work.
+Any `fw_form_open("newsletter" | "feedback", label, source)` button opens a
+form. Both have a honeypot. With `FWISE_FORMS_SHEET_ID` and `GS4_SA_KEY_B64`
+set, rows go to the `newsletter` and `feedback` tabs (RAW); otherwise to
+`dev/forms/`. No fallback between them.
 
-Any button made with `fw_form_open("newsletter" | "feedback", label, source)`
-opens a form, wherever it is; `source` is stored with a sign-up so you can see
-which button people use. Both forms carry an off-screen honeypot: a bot that
-fills it is shown the thank-you and nothing is written.
+Sheet set-up: enable the Sheets API, create a service account and JSON key,
+make the tabs with the headers in `FW_NEWSLETTER_COLUMNS` and
+`FW_FEEDBACK_COLUMNS` (`R/forms_store.R`), share the sheet with the key's
+`client_email` as Editor, then run `dev/check_sheets.R` (`--write-headers`
+fills an empty row 1).
 
-**Where the rows go.** With `FWISE_FORMS_SHEET_ID` and `GS4_SA_KEY_B64` set, one
-row is appended to the `newsletter` or `feedback` tab of a private Google Sheet
-(RAW, so nothing typed is ever run as a formula). Without them, rows go to
-`dev/forms/<tab>.csv`. There is no fallback from one to the other: a failed
-sheet write tells the visitor so and keeps what they typed.
+**Terms version:** `privacy$version` in `R/copy_forms.R`, stored on every
+newsletter and feedback row. Every change needs a dated line under "Changes
+to this notice" (`dev/plan_test.R` checks).
 
-**Setting up the sheet.**
+### Usage tracking
 
-1. In Google Cloud, enable the Google Sheets API and create a service account
-   with a JSON key.
-2. Make the sheet with two tabs, `newsletter` and `feedback`. Row 1 of each
-   holds the headers in `FW_NEWSLETTER_COLUMNS` / `FW_FEEDBACK_COLUMNS`
-   (`R/forms_store.R`). Your own columns can go to the right of them.
-3. Share the sheet with the key's `client_email` as an Editor.
-4. Set the two variables in `.Renviron` and run `Rscript dev/check_sheets.R`,
-   which reads the headers and writes nothing. Add `--write-headers` to have
-   it fill in row 1 of any tab that is still completely empty.
-5. Make one real sign-up and one real feedback locally, check the rows land,
-   delete them, then set the same two variables on Connect Cloud.
+Two layers, both in `R/tracking.R`: GoatCounter counts arrivals (one script in
+the page head, site code `FW_GOATCOUNTER_CODE` in `R/config.R`; count.js skips
+localhost), and an event log writes one row per action to the `events` tab.
+The events, their `detail` formats, the privacy rules, the `?campaign=` names
+in use and the metric definitions are in the FWISE handover document (kept
+outside this repo). A new event goes in `FW_TRACK_EVENTS` and the handover's
+events table.
 
-**The terms version** is `privacy$version` in `R/copy_forms.R`. It is written
-into every newsletter and feedback row and shown at the top of the privacy
-page. Submissions do not store it; their `submitted_at` date read against the
-dated list under "Changes to this notice" says which terms applied, so **every
-version change needs a dated line there**. `dev/plan_test.R` checks the
-current version has one.
+Events are held in memory per session (capped at 500) and written in one
+append when the session ends, through the forms' sign-in (`fw_google_token()`
+in `R/forms_store.R`): 5 s timeout, no retry. On failure the session's rows are
+dropped and the server log gets one line with the reason, never row contents.
+The write blocks the R process, so other sessions can wait up to the timeout,
+and rows still in memory are lost if the process stops (e.g. a redeploy).
 
-**Analytics.** Both forms call `track_event()` (`R/analytics.R`) on success. It
-does nothing until a tool is wired in, and its signature takes an event name
-from a fixed list and a page name, nothing else, so personal data cannot be
-passed to it by accident.
+`FWISE_LOG_MODE` is `sheet` in production, `console` to print rows locally, or
+`off`; unset is off. `sheet` with no sheet id or key is also off, and the
+startup line names the setting at fault, e.g. `FWISE startup: event log off
+(FWISE_LOG_MODE is not set)`. To test locally:
+
+```
+FWISE_LOG_MODE=console Rscript -e 'shiny::runApp(port = 8790)'
+```
+
+Use the app, close the tab, and each row prints as `FWISE event: ...`.
 
 ---
 
 ## Environment variables
 
-All optional. The app runs with none of them set. See `.Renviron.example`, and
-copy it to `.Renviron` (gitignored) for local use.
+All optional; the app runs with none. Copy `.Renviron.example` to `.Renviron`
+(gitignored) for local use. On Connect Cloud, set them in the content
+settings.
 
-| Variable | Set where | Purpose |
+| Variable | Where | Purpose |
 |---|---|---|
-| `FWISE_DATA_TOKEN` | Connect Cloud settings | **The one thing the data needs.** A fine-grained GitHub PAT with Contents: Read on `freshwaterLife/fwise-data`. Set means the data is read over the GitHub API; unset means the local sibling checkout and no GitHub calls. Expires — see "Serving data without redeploying". |
-| `FWISE_FORMS_SHEET_ID` | Connect Cloud settings | The Google Sheet the newsletter and feedback forms write to. With `GS4_SA_KEY_B64` unset as well, the forms write to `dev/forms/` instead. |
-| `FWISE_INBOX_SHEET_ID` | optional | The sheet whose `submissions` and `new_species` tabs the contribute form writes to and `dev/qa.R` reads. Unset, it is `FWISE_FORMS_SHEET_ID`. With no sheet or no key, submissions go to `dev/forms/`. |
-| `IUCN_API_TOKEN` | the reviewer's `.Renviron` only | For `dev/qa.R` section 4: the Red List status of a new species. Free for non-commercial use at api.iucnredlist.org. The app never uses it. |
-| `GS4_SA_KEY_B64` | Connect Cloud settings | The service account's JSON key, as JSON or base64 of it. See "Newsletter, feedback and the privacy page". |
-| `FWISE_DATA_SOURCE` | rarely, for a test deploy | Overrides the token. A path reads that directory; an `https://` base reads over plain HTTPS with no credential. Point it at the directory holding `attempts.csv` and `metadata.json`. |
+| `FWISE_DATA_TOKEN` | Connect Cloud | GitHub PAT (Contents: Read on `freshwaterLife/fwise-data`). Set = read over the API. Expires. |
+| `FWISE_DATA_SOURCE` | rarely | Overrides the token: a local path, or an `https://` base. |
+| `FWISE_FORMS_SHEET_ID` | Connect Cloud | Sheet for newsletter and feedback. |
+| `GS4_SA_KEY_B64` | Connect Cloud | Service account JSON key, raw or base64. |
+| `FWISE_INBOX_SHEET_ID` | optional | Sheet for submissions; defaults to the forms sheet. |
+| `FWISE_LOG_MODE` | Connect Cloud | `sheet`, `console` or `off` (default). See Usage tracking. |
+| `FWISE_LOG_SHEET_ID` | optional | Sheet for the `events` tab; defaults to the forms sheet. |
+| `FWISE_CARTO_KEY` | optional | Overrides the built-in Carto key. |
+| `QUARTO_PATH` | optional | A Quarto CLI not on the PATH. |
+| `IUCN_API_TOKEN` | reviewer only | For `dev/qa.R` section 3. The app never uses it. |
 
-**Never commit a credential.** `.Renviron` and `*.json` are gitignored, with
-`manifest.json` explicitly re-included because it is configuration rather than a
-secret.
+Never commit a credential. `.Renviron` and `*.json` are gitignored (except
+`manifest.json`, `renv.lock` and `metadata.json`).
 
 ---
 
-## The design system
+## Design system
 
 ### Where to change things
 
 | To change | Edit | Then run |
 |---|---|---|
-| a colour, a radius, a shadow, a font size | `R/brand.R` | `dev/check_contrast.R`, `dev/check_literals.R` |
-| any wording, label, tooltip, sheet name | `R/copy.R`, `R/copy_contribute.R` or `R/copy_export.R` | `dev/check_literals.R` |
-| a top-n limit, page size, map default, chart height | `R/config.R`, "Behaviour" | `dev/value_test.R` |
-| the Wong or Tol data palettes | `R/config.R` | `dev/check_palette.R` |
+| a colour, size, radius, shadow | `R/brand.R` | `dev/check_contrast.R`, `dev/check_literals.R` |
+| any wording | `R/copy.R`, `copy_contribute.R`, `copy_export.R`, `copy_forms.R` | `dev/check_literals.R` |
+| privacy text | `content/privacy_and_data_terms.md` | `dev/plan_test.R` |
+| a behaviour number | `R/config.R`, "Behaviour" | `dev/value_test.R` |
+| chart palette | `R/config.R` (`FW_PALETTE`) | `dev/check_palette.R` |
 
-Nothing else holds a value. If you find one, it is a bug: move it.
+Restart the app after editing SCSS (CSS is compiled at start-up).
 
 ### Colour
 
-**The client supplied two hex values, and they are the whole palette.**
+The client's two values, `#0F8B79` (teal) and `#191144` (indigo), are the
+palette; everything else derives from them or is a neutral tinted towards the
+indigo. **No white anywhere.** Tokens are named for their role (`ink`,
+`teal_text`, `surface`, `border_input`...); see `FW_COLOURS` in `R/brand.R`.
 
-| Source | Hex | Becomes |
-|---|---|---|
-| FWISE teal (client) | `#0F8B79` | `brand_teal` |
-| FWISE indigo (client) | `#191144` | `brand_indigo`, and `ink` |
+`brand_teal` fails AA as text, so it's for non-text only; links and buttons
+use `teal_text`. The navbar is light (the wordmark is indigo); indigo is the
+page-title band and the footer's lower tier.
 
-Everything else is derived from them or is a neutral tinted towards the
-indigo. **There is no white anywhere.** The page is a cool off-white, every
-surface on it is one tonal step lighter, and surfaces are lifted by that step
-and by a soft shadow rather than by a border.
-
-Tokens are named for their **role**, so a value can change without the name
-lying. From `FW_COLOURS` in `R/brand.R`:
-
-| Token | Hex | Role |
-|---|---|---|
-| `ink` | `#191144` | body text and headings |
-| `ink_muted` | `#4a4468` | secondary text, captions, help |
-| `brand_indigo` | `#191144` | the page-title band, the footer's lower tier |
-| `brand_teal` | `#0f8b79` | accents and markers. **Non-text only** |
-| `teal_text` | `#0c7565` | links and primary buttons: the teal that passes AA |
-| `teal_hover` | `#0a6152` | hover for links and buttons |
-| `teal_tint` | `#c9e7e3` | chips, the progress track, tinted panels |
-| `teal_wash` | `#e4f1ee` | the faintest teal: notices, hover washes |
-| `teal_light` | `#7fc5bd` | links and accents on the indigo ground |
-| `page` | `#e9ebf3` | the page ground |
-| `surface` | `#f7f8fc` | cards, tables, inputs, navbar, popups, the report sheet |
-| `sunken` | `#eef0f7` | table header rows, the citation block |
-| `border` | `#d9dcea` | hairlines, dividers, the chart grid |
-| `border_input` | `#6b6486` | input edges: an interactive boundary, needs 3:1 |
-| `on_indigo` | `#f7f8fc` | text on the indigo ground |
-| `on_indigo_muted` | `#c9c4e3` | secondary text on the indigo ground |
-
-**The brand teal fails WCAG AA as text** (3.5:1 on the page, 4.2:1 on a
-surface). It is reserved for non-text use - the active nav marker, the KPI
-rule, the focus ring - and every text or button role uses `teal_text`. Do not
-set body-sized text in `brand_teal`. `dev/check_contrast.R` lists every pair
-the interface uses and is the arbiter.
-
-**Where the indigo lives.** The navbar has to stay light: the FWISE lockup's
-wordmark is indigo and would vanish on an indigo bar. So every page opens with
-its title reversed out of an indigo band under the navbar, and the footer's
-lower tier is indigo. The footer's upper tier, which holds the two logos, is
-on the page ground for the same reason.
-
-**How the tokens reach the stylesheet.** `fw_compile_css()` in
-`R/ui_helpers.R` passes `fw_sass_variables()` to `sass::sass()` ahead of the
-entry file, so `$fw-ink` in Sass *is* `FW_COLOURS$ink`. `_tokens.scss` holds
-only derived values (`$fw-hairline: 1px solid $fw-border`). A token missing
-from `brand.R` fails the compile loudly rather than falling back to a stale
-copy. Bootstrap is compiled separately by bslib and cannot see those
-variables, which is why `R/theme.R` maps the same tokens onto Bootstrap's own
-names.
-
-### The 1rem type floor
-
-**No text in the app is set below 1rem**, captions and labels included. That is
-a client instruction, and holding it took three things:
-
-- `$fw-size-caption` is now `1.15rem` rather than `0.85rem`, and `$fw-size-min`
-  is `1rem`. **These are no longer the same value.** The client later asked for
-  subtitles - the qualifying line under a block heading, which is caption - at
-  `1.15rem`, and raising caption alone would have put it above body text at
-  `1.0625rem`; so the whole scale moved up together, keeping the ratios between
-  its steps, and the floor stayed where it was. Caption is now separated from
-  body text by size **as well as** by colour. Use `$fw-size-caption` for small
-  print that should ride the scale and `$fw-size-min` only where something must
-  not grow.
-- **Bootstrap's own small-text variables are set in `R/theme.R`.** A dozen of
-  its components size themselves off separate variables that default to
-  `0.875em` or less - form help text, validation feedback, small buttons,
-  badges, legends - and every one renders somewhere in this app. bslib also sets
-  its own `--bs-btn-font-size` of `.9375rem`, which is 15px.
-- **Three third-party stylesheets needed longer selectors, not just a value.**
-  ionRangeSlider (`.irs--shiny .irs-from`, 11px) and Leaflet
-  (`.leaflet-container .leaflet-control-attribution`, 11px; `.leaflet .info`,
-  14px, the map legend) each score two classes and load *after* our `<style>`
-  block, so a two-class rule here ties and loses. The selectors in
-  `_components.scss` are deliberately one class longer. Do not shorten them.
-
-Plotly takes pixels rather than rem, so `FW_TYPE$floor_px` is 16 and
-`uniformtext` is `minsize = FW_TYPE$floor_px, mode = "hide"` - a segment too
-narrow for the floor shows no number rather than an unreadable one, and the
-hover still carries it. That applies to every **stacked bar** in the app, which
-is now all of them: both proportion donuts were removed at the client's request
-(the outcome ring first, the method ring in September 2026), so there is no
-longer a chart that opts out of `uniformtext`.
-
-**The one exemption is pop-ups**, granted explicitly by the client: the
-information popovers behind the (i) glyphs and the map popup may sit under the
-floor, at `$fw-size-popup` (`0.9rem`). It applies to **transient overlay text
-only**. Anything that stays on the page - the map legend, the attribution line,
-photo credits, table cells, captions - is page text and sits at or above
-`$fw-size-min`.
-
-One consequence worth knowing about: the CC BY credit on a species tile used to
-be held down by size (`0.6rem`). The floor takes that lever away, so it is held
-down by weight and colour instead and the species name is stepped up to
-`$fw-size-lead` to stay clearly above it.
-
-**To verify the floor**, load the app and run this in the browser console - it
-returns any on-page text under 16px, pop-ups excluded:
-
-```js
-Array.from(document.querySelectorAll("body *")).filter(e => {
-  const r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
-  if (e.closest(".popover,.tooltip,.leaflet-popup,.fw-map-card,.fw-map-detail,.fw-popup")) return false;
-  if (parseFloat(getComputedStyle(e).fontSize) >= 16) return false;
-  return Array.from(e.childNodes).some(n => n.nodeType === 3 && n.textContent.trim());
-}).map(e => getComputedStyle(e).fontSize + " " + e.className);
-```
-
-### Data visualisation colours are separate
-
-Charts and map layers use the Wong (2011) colourblind-safe palette from
-`FW_PALETTE` in `R/config.R`, so figures match the academic paper, the app and
-exported reports:
-
-```
-Successful #009E73   Failed #E69F00   Ongoing #56B4E9   Unknown #CC79A7
-Neutral #999999      Emphasis #0072B2  Vermilion #D55E00
-```
-
-**Never encode data with the interface teals, and never use the Wong colours as
-interface chrome.**
-
-The count drawn inside each outcome segment is **indigo, not white**
-(`FW_OUTCOME_LABEL_INK`). That is measured, not stylistic: white numerals came
-to 2.25:1 on the Failed orange and 2.31:1 on the Ongoing blue, so the figure the
-reader is meant to read off the bar was the least legible thing on the page.
-None of the four Wong colours is dark enough to take white at 4.5:1.
-
-### The method palette
-
-`FW_METHOD_COLOURS` was a single-hue teal ramp, dark to light by frequency.
-**The client rejected it and they were right**: method is a nominal category,
-not a magnitude, and a ramp tells a reader the segments are ordered when they
-are not. Measured, the old ramp failed outright - its worst adjacent pair came
-to dE 9.0 against a floor of 15 under normal vision, so neighbouring segments
-genuinely were not separable.
-
-The replacement is **seven distinct hues**, taken from Paul Tol's *muted*
-qualitative palette (designed for colour-vision deficiency) with each hue
-stepped into the usable lightness band (OKLCH L 0.43–0.77) and lifted over the
-chroma floor (C ≥ 0.10). Tol's teal slot is deliberately unused, because the
-brand teal is interface chrome and must never encode data.
-
-```
-ME07 Rotenone #007da4   ME04 Netting/Trapping #a58a22   ME02 Draining #8e2a72
-ME03 Electrofishing #3f9b3f   ME01 Antimycin-A #8c4a1f
-ME05 Other chemical #534bb4   ME06 Other mechanical #cf5f6f
-```
-
-**The order of that vector is load-bearing, twice over.** It is still frequency
-order, so the stack reads most-used first; it is *also* the arrangement, out of
-all 5040, that maximises the distance between segments that physically touch.
-Reordering the entries re-colours the chart **and** degrades it.
-
-| Pairlist | Worst pair (CVD / normal) | Floors | |
-|---|---|---|---|
-| Adjacent - what a stacked bar is judged on | 12.5 / 23.0 | 8 / 15 | **pass** |
-| All pairs - the harder test | 2.7 / 12.4 | 8 / 15 | fails |
-
-The all-pairs result is expected and is **not** a defect to fix by re-picking
-colours: seven categories cannot be made pairwise-distinct at that floor by any
-palette. It only bites where two non-neighbouring segments end up touching,
-which needs an intervening method to be absent from that waterbody. The white
-separator rule and the in-segment counts are what carry that case, which is why
-both are mandatory rather than decoration.
-
-Run `Rscript dev/check_palette.R` after touching any colour or the order. It
-checks the lightness band, the chroma floor, CVD separation under simulated
-protanopia and deuteranopia, separation under normal vision, contrast against
-the surface, and the label ink inside every segment.
-
-### Width
-
-**Nothing is capped in pixels.** `.fw-container` is the one content-column rule
-and every page uses it. It takes 95% of the viewport, with a floor that keeps a
-24px gutter on a phone, resolved in one `min()` rather than a media query:
-
-```scss
-width: min(95%, calc(100% - 3rem));
-```
-
-`min()` takes whichever is smaller, so at 375px the fixed gutter wins and at
-1920px the proportion does; the crossover happens on its own at around 960px.
-The container used to stop at `max-width: 1180px`, which meant a 27-inch monitor
-showed the same column as a laptop with empty page either side.
-
-The `unquote()` around that value in `_components.scss` is load-bearing: libsass
-has its own `min()` and fails the build trying to compare `95%` with a `calc()`.
-
-**The prose measures went too.** About, the eradication preamble, the citation
-block and the feedback box used to cap their paragraphs at 68–78 `ch`. That is a
-character measure rather than a pixel one and it is normally right, but inside a
-full-width tinted box it left two thirds of the box empty and read as a bug
-rather than as typography.
-
-The honest trade is stated here so nobody re-adds them by accident: **a
-paragraph on About now runs to around 200 characters a line on a 27-inch
-monitor, which is longer than is comfortable to read.** Two ways back, in
-increasing order of effort:
-
-- `.fw-measure` is still in the stylesheet and `$fw-measure` is still a token.
-  Put the class on a block that genuinely reads better narrow.
-- Better: **give the text a narrower box rather than giving a wide box narrower
-  text.** `.fw-caveats__grid` is the worked example — short blocks laid out in
-  `repeat(auto-fit, minmax(26rem, 1fr))`, so the column sets the line length,
-  the panel fills, and nothing is capped. `auto-fit` means the block count is
-  never written down: `fw_caveat_blocks()` parses whatever `fw_caveats()`
-  returns and the grid reflows. About's sections would take the same treatment.
+Charts use the Wong (2011) colourblind-safe palette (`FW_PALETTE`), matching
+the paper. Never use data colours for interface chrome or interface teals for
+data. Counts inside outcome segments are indigo (white fails AA on every Wong
+colour).
 
 ### Type
 
-Ubuntu throughout, self-hosted in `www/fonts/` as woff2 (latin subset, 67KB for
-all five faces). No CDN request is made for type, so the app renders correctly
-with the network blocked. Ubuntu Mono is reserved for numerals in KPI figures,
-counts, coordinates and record identifiers, via the `.fw-num` class. Never use it
-for labels or body text.
+Ubuntu, self-hosted (`www/fonts/`, Latin subset). Ubuntu Mono for numerals
+only (`.fw-num`).
 
-### Motion
+**Nothing that stays on the page goes below `$fw-size-min`** (client rule).
+Exemptions, all client instructions: `size_popup` (transient overlays),
+`size_credit`, `size_photo_credit` and `size_fine` (four named callers). See
+`FW_TYPE`. Bootstrap's small-text variables are raised in `R/theme.R`, and
+ionRangeSlider and Leaflet need longer selectors because their CSS loads
+after ours. Plotly uses `FW_TYPE$floor_px` and `uniformtext` hides labels
+that won't fit.
 
-There is no page-load or scroll motion anywhere, and no count-up on any figure.
-Numbers appear at their value. This is an evidence base, and figures that perform
-their own arrival read as persuasion to exactly the audience this most needs to
-convince. Motion exists only in response to a user action, at 150 to 200ms, and
-all of it is disabled under `prefers-reduced-motion`.
+### Layout and motion
+
+`.fw-container` is 95% of the viewport with a 1.5rem minimum gutter
+(`min()`, wrapped in `unquote()` for libsass). No pixel cap and no global
+measure; `.fw-measure` is opt-in. Motion only responds to user actions; none
+on load or scroll, no count-ups, all off under `prefers-reduced-motion`.
 
 ---
 
-## Deploying to Posit Connect Cloud
+## Deploying
 
-**Connect Cloud does not read `renv.lock`.** It reads `manifest.json`, which
-carries both the package set and the R version. `renv.lock` is kept for local
-development. Both are committed.
+The app runs on Posit Connect Cloud at https://fwise.org (credentials are
+held by the client).
 
-Regenerate the manifest whenever dependencies change:
+**Connect Cloud reads `manifest.json`, not `renv.lock`.** Regenerate it
+whenever dependencies or files change:
 
 ```bash
 R -e 'renv::snapshot()'
 R -e 'rsconnect::writeManifest(appDir = ".", appPrimaryDoc = "app.R")'
-git add renv.lock manifest.json && git commit -m "Update dependencies"
 ```
 
-`.rscignore` keeps `dev/` out of the bundle. Without it the manifest lists
-gitignored files that Connect Cloud cannot find, and the deploy fails.
+`.rscignore` keeps `dev/` and `.Renviron*` out of the bundle; a manifest
+listing a file the repo lacks fails the deploy.
 
-### Publishing
+To publish: push to the public GitHub repository, then **Republish** on
+Connect Cloud (set environment variables in its UI). Check the startup log:
+it names the data mode, the forms and inbox modes, the event log, and
+`FWISE startup: quarto 1.x at ...` (NOT FOUND means no PDF).
 
-1. Push to a **public** GitHub repository, with `app.R` and `manifest.json` at
-   the root.
-2. At [connect.posit.cloud](https://connect.posit.cloud), sign in with GitHub and
-   choose **Publish**.
-3. Pick the repository, branch and `app.R` as the primary file.
-4. Add the environment variables from the table above in the deployment settings.
-   They are set in Connect Cloud's UI, never in a committed file.
-5. Publish. The first build takes a while because `sf` and its system
-   dependencies have to be resolved.
-6. Check the second line of the log: `FWISE startup: quarto 1.x at ...`. Connect
-   Cloud provides the Quarto CLI to Shiny apps; if the line says NOT FOUND, the
-   PDF report is unavailable (the other downloads still work) and `QUARTO_PATH`
-   is the setting to point at one.
+**Domain:** registered with Namecheap, held by the client. The apex points at
+Connect Cloud; `www` redirects to it. Add the custom domain in Connect Cloud's
+settings, then the CNAME/ALIAS and verification records in Namecheap
+(Advanced DNS). TLS is automatic once verified.
 
-Deployment credentials are held by the client and were not available when this
-was written, so the steps above have not been executed.
-
-## Pointing the custom domain at it
-
-The domain is registered with Namecheap and is held by the client.
-
-1. In Connect Cloud, open the content's settings and add the custom domain. It
-   will give you a target hostname and a verification record.
-2. In Namecheap, go to **Domain List**, then **Manage**, then **Advanced DNS**.
-3. Add a `CNAME` record with the host you want (`www`, or `fwise` for a
-   subdomain) pointing at the target hostname Connect Cloud gave you.
-4. Add the verification record exactly as Connect Cloud specifies, usually a
-   `TXT` record.
-5. A bare apex domain (`example.org` with no subdomain) cannot take a CNAME.
-   Use Namecheap's ALIAS record, or redirect the apex to `www`.
-6. Wait for propagation, up to 48 hours but usually far less, then confirm in
-   Connect Cloud. TLS is issued automatically once verification passes.
+**Stale pages after a deploy:** the page carries `<meta name="fw-build">`
+(`FW_BUILD_ID`) and reloads itself once if the server's build differs. To
+debug a report, ask for that value from the page source.
 
 ---
 
-## Known limitations
+## How the data pieces were built
 
-- **There is no remote submission backend.** Submissions land in a local file
-  only. The GitHub write path needs a token that does not exist yet. See
-  [Submissions](#submissions).
-- **`fw_country_burden()` returns a placeholder.** The landing page map is meant
-  to contrast the *burden* (invasive fish species per country) against the
-  *response* (recorded eradication attempts), and the mismatch between them is
-  the whole point. No per-country invasive fish file exists in the repository, so
-  the function currently derives its figures from FWISE's own records, which is
-  the response and not the burden. It does not yet tell the story. The function
-  is isolated so replacing it is a one-line change.
-- **The client's spreadsheet is no longer the master.** `attempts.csv` is. A
-  fresh export from the old spreadsheet cannot simply be dropped in; a value
-  changed there has to be changed in the row, or a new migration written and
-  reconciled with `dev/reconcile_source.R`.
-- **The FWISE lockup's wordmark is indigo**, so the navbar and the footer's
-  upper tier stay on a light ground and the indigo sits in the page-title band
-  and the footer's lower tier. Reversed artwork would open up an indigo navbar.
-- **Carto now watermarks its keyless tiles.** Every map in the app is currently
-  drawn over "API KEY REQUIRED" repeated across the basemap. `fw_carto_url()`
-  already appends `FWISE_CARTO_KEY` if it is set, so a Carto account fixes it
-  without a code change; the alternative is changing the default ground in
-  `fw_add_basemaps()`. See HANDOVER.md section 5.5, which records a September
-  2026 check that no longer holds.
-- **The PDF's species photographs need the network at download time.** They
-  are Wikimedia's, fetched when the PDF is built; one that does not arrive
-  prints as the placeholder, and the rest of the report is unaffected.
-- **The PDF needs Quarto on the server.** Assumed present on Connect Cloud; the
-  startup log confirms it. Without it the PDF is left out of the picker.
-- Every remaining placeholder and open decision is listed in
-  [HANDOVER.md](HANDOVER.md).
+One-off scripts kept in `dev/archive/` (run from the repository root). Their
+outputs are committed; none needs rerunning in normal use.
+
+| Script | Built | Rerun when |
+|---|---|---|
+| `build_from_export.R` | `attempts.csv`, `species.csv`, `contacts.csv`, `metadata.json` and the row-to-id map, from the client's export in `fwise-data/source/` | Never after launch: it replaces the data and mints new ids. |
+| `import_iucn.R` | The IUCN columns in `species.csv`, from a one-off download | Never; `dev/qa.R` now fills IUCN data for new species. |
+| `build_iso_lookups.R` | `lookup_iso3166.csv` and `lookup_iso3166_2.csv` in `fwise-data` | The ISO standard changes. |
+| `build_report_basemap.R` | `resources/report/ne_110m_basemap.rds` (Natural Earth countries, ocean, lakes) for the PDF map | The map needs new outlines. |
+| `build_success_named.R` | `www/img/home/success/*-named.png`, trimmed and downsized from the client's lettered plates | New artwork arrives (its input folder, `resources/success-pic/`, is no longer in the repo). |
+
+---
+
+## Open items
+
+**Needs the client:**
+
+- **Zenodo DOI.** `footer$doi_url` in `R/copy.R` is `#`; DOI links open a
+  "coming soon" card until it's set.
+- **Data-use consent wording** (`[NEEDS CLIENT SIGN-OFF]` in
+  `R/copy_contribute.R`), and the privacy terms version, still "Draft 0.1"
+  (`privacy$version` in `R/copy_forms.R`). Any `[TO CONFIRM: ...]` written into
+  the privacy text is highlighted on the page.
+- **Metric definitions** in the handover document are drafts for Freshwater Life to
+  confirm.
+- Optional: reversed (light) logo artwork would allow an indigo navbar.
+
+**`TODO(alex)` in the code:**
+
+- `R/mod_contribute_steps.R`: labour effort is one text box (the spec wanted
+  a number with a free-text fallback), so "20 to 30" passes to QA.
+- `R/data_load.R`: some species ("Amphipoda", "Barbus sp.") have no
+  scientific name and sit whole in `common_name`; the client's cleaning should
+  split them.
+
+**Known limitations:**
+
+- `attempts.csv`, not the client's old spreadsheet, is the master. A fresh
+  export can't simply be dropped in.
+- PDF species photos need the network at download time (a miss prints a
+  placeholder).
+- The PDF needs Quarto on the server (checked in the startup log).
+
+---
+
+## Decisions and gotchas
+
+- **Plan has no outcome or method filter; there is no success-rate headline.**
+  Both client decisions; see [The pages](#the-pages).
+- **Contacts page:** filters plus a summary strip and paging, rather than a
+  grouped table.
+- **Geography:** `country` is the ISO 3166-1 country or territory (Guam is a
+  country); `iso3` and `continent` follow it alone; `region` is free text.
+- **Methods** are an unbounded any-of set; `method_order` is not a ranking. An
+  attempt has at most a primary and a secondary contact.
+- **The contribute form is one page,** rendered once (re-rendering broke
+  repeatable rows). Send is always enabled and takes the contributor to the
+  first problem. Send gating (`all_valid()`) is separate from the validators,
+  because `is_valid()` is TRUE for a disabled validator: a new required rule
+  needs a line in both. Fish family is never asked; it comes from the
+  species.
+- **`sf` is a hard dependency** (via `leaflet`, with `raster`, `s2`,
+  `units`, `sp`, `terra`). Don't drop it without dropping leaflet.
+- **A private repo answers 404, not 403,** to a token that can't see it.
+  `fw_gh_message()` says so in the log.
+- **`\s` is not whitespace inside an R bracket expression** (default engine):
+  use `[:space:]`.
+- **A selectize without a leading blank selects its first option.**
+  `fw_select()` and the species picker add one.
+- **Fish family in the client's export** aligns to the Fish slots, not to
+  every species slot; `dev/reconcile_source.R` relies on this.
+- **`leaflet::addLayersControl(overlayGroups = NULL)`** shows a checkbox
+  named "null"; pass `character(0)`.
+- **plotly `layer = "above traces"`** doesn't lift gridlines over bars; only
+  a shape with `layer = "above"` does.
+- **The `.fw-plan` block in `_components.scss`** is still open around the
+  block-title (i) rule, so rules placed there compile as `.fw-plan ...`.
+- **libsass** evaluates `min()` itself: interpolate or `unquote()` it, or use
+  width plus max-width.
 
 ---
 
 ## Licence
 
-Code is released under the MIT licence, see [LICENSE](LICENSE). The data is
-released under CC BY-NC 4.0: attribution required, non-commercial use only. Both
-lines appear in the footer on every page, from `R/copy.R` `footer$licence`.
+Code: MIT ([LICENSE](LICENSE)). Data: CC BY-NC 4.0. Both appear in the
+footer (`footer$licence` in `R/copy.R`).

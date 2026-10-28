@@ -1,34 +1,23 @@
 # copy_export.R
-# EVERY user-facing string in the things a reader takes away: the spreadsheet
-# (sheet names, provenance labels, the caveats, the data dictionary), the HTML
-# report's own tables, and the two question-list downloads. Read through the
-# same fw_t() as the rest of the copy deck - fw_t("export", "sheets", "attempts")
-# - because fw_copy_all() in copy.R merges this list into FW_COPY at call time.
-#
-# The section names `export` and `questions` must not also appear in copy.R or
-# copy_contribute.R: fw_copy_all() would silently keep the first one it met.
+# The copy deck, part 3: strings in the downloads (spreadsheet, PDF and .html
+# reports, question lists). `export` and `questions` must not appear in another
+# copy file.
 
-FW_COPY_EXPORT <- list(
+FW_COPY_EXPORT = list(
 
   # ---- The spreadsheet -------------------------------------------------------
 
   export = list(
-    # Sheet names. Excel caps these at 31 characters.
-    # ORDER IS THE SHEET ORDER in the workbook, and `attempts` must stay first.
+    # Sheet names (max 31 characters), in workbook order. `attempts` stays first.
     sheets = list(
       attempts    = "Attempts",
       definitions = "Field definitions",
       filters     = "Filters applied",
       caveats     = "Methods, caveats and citation"
     ),
-    # The title over the closing section of EVERY export - the last sheet of the
-    # workbook, the last section of the PDF and of the records HTML. It covers
-    # both blocks below: how the database was built, then what to watch for in
-    # it. There is no longer a separate text file carrying them (client, 24 Sept
-    # 2026); each document carries its own.
+    # Title of the closing section of every export: methods, then caveats.
     closing_heading = "Methods, caveats and citation",
-    # The three parts of it, in order (client, 24 Sept 2026). methods_heading
-    # is below with the methods statement.
+    # Its parts, in order. methods_heading is with the methods statement.
     caveats_title    = "Caveats",
     citation_heading = "Citation",
     col_field      = "Field",
@@ -51,21 +40,14 @@ FW_COPY_EXPORT <- list(
     range_missing  = "-",
 
     filename_stem  = "fwise-attempts_",
-    # The one download button on the report builder produces this when more than
-    # one file was ticked. See fw_write_bundle() in R/export.R.
+    # Zip name when more than one part is ticked. See fw_write_bundle().
     bundle_stem    = "fwise-report_",
 
     # ---- The methods statement -------------------------------------------------
-    # The first half of the closing section of every export. It is NOT the
-    # caveats: the two are being written by different people, so they stay two
-    # blocks. There is no longer a .txt file carrying them out of the building
-    # (client, 24 Sept 2026) - the workbook's last sheet, the PDF's last section
-    # and the records HTML's last section each carry both.
+    # First part of every export's closing section, separate from the caveats.
     methods_heading  = "Methods",
-    # THE CLIENT'S OWN (6 Oct 2026), plain slips mended only. It is also the
-    # About page's "How it was built" panel - about$method, method_facts and
-    # facts_url in R/copy.R - so change both together. One place feeds all
-    # three exports, as text, so the address is written out (14 Oct 2026).
+    # Client wording. Same as about$method in copy.R: change both. The facts
+    # URL is written out because exports are text.
     methods = paste(
       "FWISE’s data comes from two sources: a standardized literature review",
       "performed in 2026, and directly from data contributors. We will publish",
@@ -75,23 +57,13 @@ FW_COPY_EXPORT <- list(
     ),
 
     # ---- The caveats ----------------------------------------------------------
-    # THE CLIENT'S OWN (6 Oct 2026), written by the FWISE team without our
-    # wording in front of them; plain slips mended only ("freshwater water",
-    # "published more than", "much data is lacking"). "DATA CAVEATS" above
-    # their text is the section's title, which every surface already carries.
+    # Client wording. One block per heading, `body` one string per paragraph;
+    # every surface loops over fw_caveat_blocks(), so adding or removing a block
+    # reflows everywhere. NULL heading prints none. The success definition
+    # matches the contribute form's preamble: keep in step.
     #
-    # ONE BLOCK PER HEADING, `body` ONE STRING PER PARAGRAPH. The About panel,
-    # the workbook sheet, the PDF and the records HTML all loop over whatever
-    # fw_caveat_blocks() returns, so a block added or removed here reflows
-    # everywhere. A heading of NULL prints no heading.
-    #
-    # THE SUCCESS DEFINITION IS ALSO ON THE CONTRIBUTE FORM (preamble in
-    # R/copy_contribute.R), in the same Genovesi words. Keep the two in step.
-    #
-    # A body may carry {successful} {unverified} {no_size} {pct_size}
-    # {no_start} {pct_start} {no_end} {pct_end}; fw_caveat_blocks() in
-    # R/export.R computes them from the data, so a caveat cannot go stale.
-    # The client's text uses none of them.
+    # Available slots, filled from the data: {successful} {unverified}
+    # {no_size} {pct_size} {no_start} {pct_start} {no_end} {pct_end}.
     caveats = list(
       list(
         heading = "Success and other outcomes",
@@ -127,9 +99,8 @@ FW_COPY_EXPORT <- list(
     ),
 
     # ---- The data dictionary ---------------------------------------------------
-    # One entry per exported column, in export order. fw_field_definitions()
-    # turns this into the sheet, and the tests check it covers every column in
-    # FW_EXPORT_COLUMNS and nothing else.
+    # One entry per exported column, in order. Tests check it matches
+    # FW_EXPORT_COLUMNS exactly.
     dictionary = c(
       attempt_id          = "Permanent identifier for the attempt. Minted once and never reassigned, so it is safe to join on across releases.",
       site_name           = "The treated site or waterbody, as the source described it.",
@@ -158,8 +129,7 @@ FW_COPY_EXPORT <- list(
       end_year            = "Year the attempt ended. Blank where the attempt is ongoing.",
       duration_days       = "Estimated total duration of the intervention, days.",
       reason              = "The main reason the eradication was carried out.",
-      # THESE TWO POINT AT THE CAVEATS: "Conservation impact is underestimated"
-      # and "Success and other outcomes". Reword them if either block goes.
+      # These two cite caveat blocks by name: update them if those change.
       beneficiary_species = "Species the eradication was intended to help. Semicolon-delimited. Under-reported - see the caveats.",
       beneficiary_taxa    = "Broad group of each beneficiary. Semicolon-delimited.",
       methods             = "Methods used, semicolon-delimited. An unordered set, not a ranking.",
@@ -167,8 +137,9 @@ FW_COPY_EXPORT <- list(
       method_notes        = "Free text on how each method was applied.",
       method_description  = "A fuller description of the approach at this site.",
       labour_person_days  = "Effort required, person-days. Free text where the source gave a range or a description rather than a number.",
-      cost_estimate       = "Estimated cost, where recorded.",
-      cost_notes          = "Free text on cost, including the currency.",
+      cost_estimate       = "Estimated cost, where recorded, in cost_currency.",
+      cost_currency       = "ISO 4217 code of the currency the cost is in, or Other (named in cost_notes).",
+      cost_notes          = "Free text on cost.",
       target_ingredient_basis = "Whether the target concentration refers to the Active ingredient or the commercial Product. The two differ by the product's dilution, so do not compare concentrations across this column.",
       toxin_conc_target_mg_l  = "Target toxin concentration, mg/L, on the basis given in target_ingredient_basis. Text, because the source records ranges and inequalities. Chemical methods only.",
       conc_target_notes   = "Free text on the target concentration.",
@@ -196,10 +167,8 @@ FW_COPY_EXPORT <- list(
     other_countries = "Other countries ({n})",
 
     # ---- The attempts file (.html) ---------------------------------------------
-    # Every matching attempt written out in full, one card after another. See
-    # R/report_records.R. The labels are the reader's names for the columns of
-    # FW_EXPORT_COLUMNS - one per column, in the same order, and the tests check
-    # it covers every column and nothing else, as they do `dictionary` above.
+    # Every matching attempt in full (R/report_records.R). One label per
+    # FW_EXPORT_COLUMNS column, in order; tests check the match.
     records_filename = "fwise-detailed-report_{stamp}.html",
     records_title    = "Detailed report",
     records_subtitle = "{n} attempts, generated from the FWISE database on {date}",
@@ -213,14 +182,10 @@ FW_COPY_EXPORT <- list(
     records_filter_label = "Find an attempt",
     records_filter_hint  = "Type a site, country, species or id",
     records_contents     = "Contents",
-    records_selection    = "What this selection covers",
     records_showing      = "Showing {n} of {total}",
     records_top          = "Back to the contents",
-    records_open_link    = "Open the reference",
 
-    # The sections of a card, and which columns sit in each, in reading order:
-    # where, what water, what animals, when, how, the chemical detail, what
-    # happened, the source and who to ask.
+    # Card sections and their columns, in reading order.
     record_groups = list(
       list(heading = "Where", fields = c(
         "site_name", "country", "region", "continent", "iso3", "latitude", "longitude")),
@@ -234,13 +199,9 @@ FW_COPY_EXPORT <- list(
         "invasion_year", "start_year", "end_year", "duration_days", "reason")),
       list(heading = "How", fields = c(
         "methods", "method_classes", "method_notes", "method_description",
-        "labour_person_days", "cost_estimate", "cost_notes")),
-      # THE ONE GROUP A CARD CAN DROP, and the only one carrying an id.
-      # fw_record_card() reads it to cut this section from an attempt with no
-      # chemical method (client, 23 Sept 2026: seven "Not noted" lines about
-      # neutralising agents under a netting attempt are noise). An id rather
-      # than a match on the heading, so rewording the heading cannot silently
-      # turn the rule off. See fw_record_group_drop() in report_records.R.
+        "labour_person_days", "cost_estimate", "cost_currency", "cost_notes")),
+      # Dropped for attempts with no chemical method. Matched by id, not
+      # heading. See fw_record_group_drop().
       list(id = "chemical", heading = "Chemical detail", fields = c(
         "target_ingredient_basis", "toxin_conc_target_mg_l", "conc_target_notes",
         "toxin_conc_measured_mg_l", "conc_measured_notes",
@@ -288,6 +249,7 @@ FW_COPY_EXPORT <- list(
       method_description  = "What was done",
       labour_person_days  = "Effort (person-days)",
       cost_estimate       = "Cost",
+      cost_currency       = "Currency",
       cost_notes          = "Notes on cost",
       target_ingredient_basis  = "Target concentration basis",
       toxin_conc_target_mg_l   = "Target concentration (mg/L)",
@@ -312,9 +274,7 @@ FW_COPY_EXPORT <- list(
   ),
 
   # ---- The question-list downloads --------------------------------------------
-  # The Word file and the plain-text file are generated from the rendered form,
-  # so the questions themselves come from FW_COPY_CONTRIBUTE. This is only the
-  # framing around them.
+  # Framing only: the questions come from the rendered form.
 
   questions = list(
     title_text = "FWISE - SUBMISSION QUESTION LIST",
@@ -333,8 +293,7 @@ FW_COPY_EXPORT <- list(
     section          = "SECTION {n}. {title}",
     conditional_note = "This section is only shown if your earlier answers call for it.",
     repeat_note      = "You can add as many of these as you need; the form starts with one.",
-    # How a required or conditional question is tagged. Words, not colour or
-    # symbols: they have to survive black and white and being read aloud.
+    # Required/conditional tags. Words, so they survive print and screen readers.
     required_text    = "*REQUIRED*",
     required_docx    = "REQUIRED",
     conditional_tag  = "[only if it applies]",

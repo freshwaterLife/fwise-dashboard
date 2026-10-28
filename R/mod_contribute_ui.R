@@ -1,19 +1,15 @@
 # mod_contribute_ui.R
-# The three states the contribute page can be in: the opening panel, the wizard
-# shell, and the confirmation. Pure UI builders with no reactive context, kept
-# out of mod_contribute.R so that file holds only server logic.
+# The Add a record page's three states: opening panel, form, confirmation.
+# UI only.
 
 # ---- Stage UI ----------------------------------------------------------------
 
-fw_intro_panel <- function(ns) {
-  block <- function(heading, body) {
+fw_intro_panel = function(ns) {
+  block = function(heading, body) {
     tagList(tags$h3(heading), p(body))
   }
   tagList(
-  # PINNED ABOVE EVERYTHING ELSE. What counts as an eradication, and that FWISE
-  # is about animals rather than plants, decide whether someone should be
-  # filling this form in at all - so they are the first thing on the page,
-  # not the fourth panel down where the old layout had them.
+  # The definition and scope come first: they decide whether to fill this in.
   fw_preamble(),
 
   div(
@@ -24,10 +20,7 @@ fw_intro_panel <- function(ns) {
     block(fw_t("contribute", "intro", "no_save_heading"), fw_t("contribute", "intro", "no_save")),
     block(fw_t("contribute", "intro", "time_heading"), fw_t("contribute", "intro", "time")),
 
-    # THE SAME SIZE, BOTH OF THEM. The text version was btn-sm, on the
-    # reasoning that it was the fallback to the Word file; the client read two
-    # sizes as two kinds of thing and asked for a pair. Equal width as well as
-    # equal height - see .fw-contribute__downloads.
+    # Two equal buttons (client). See .fw-contribute__downloads.
     div(
       class = "fw-contribute__downloads",
       div(
@@ -42,10 +35,7 @@ fw_intro_panel <- function(ns) {
       div(class = "fw-caption", fw_t("contribute", "intro", "download_hint"))
     ),
 
-    # NO CONSENT HERE ANY MORE (24 Sept 2026). The tick box that gated Start
-    # moved into the form, beside the display permission - since 29 Sept 2026
-    # in its first section, with the contact details. See
-    # fw_step_contributor_ui() in R/mod_contribute_steps.R.
+    # Consent is in the form's first section (fw_step_contributor_ui()).
     div(
       style = "margin-block-start:1.5rem;",
       actionButton(ns("start"), fw_t("contribute", "intro", "start_action"),
@@ -57,26 +47,13 @@ fw_intro_panel <- function(ns) {
 
 #' What counts as an eradication, and what belongs in FWISE
 #'
-#' One definition, one place, at the top of the contribute page.
-#'
-#' IT WAS ON THE ABOUT PAGE TOO, on the reasoning that a contributor and a
-#' reader have to be working from the same definition for the database to mean
-#' anything. The client removed it from there: on About it opened the page with
-#' two headings of scope rules before a reader had been told what they were
-#' reading about, and the audience that has to APPLY the definition is the one
-#' filling in this form. The helper is still shared rather than inlined, so if
-#' the definition is ever wanted in a second place there is one copy of it.
-fw_preamble <- function() {
+#' At the top of the Add a record page only.
+fw_preamble = function() {
   div(
     class = "fw-preamble",
     tags$h2(class = "fw-visually-hidden", fw_t("contribute", "preamble", "heading")),
-    # THE BOLD IS IN THE COPY, not here: the client chose where the emphasis
-    # falls and the sentence now carries a live citation after it, so the whole
-    # line goes through fw_emphasis() rather than being wrapped in a <strong>.
-    #
-    # .noWS ON THE BRACKETS, the same trap fw_emphasis() documents: a tagList
-    # joins its children with newlines, and without this the line renders as
-    # "campaign ( Genovesi 2000 )".
+    # Bold comes from ** in the copy. .noWS on the brackets, or the tagList's
+    # newlines render "( Genovesi 2000 )".
     p(class = "fw-lead",
       fw_emphasis(fw_t("contribute", "preamble", "definition")),
       span(.noWS = "outside", " ("),
@@ -86,8 +63,7 @@ fw_preamble <- function() {
         fw_t("contribute", "preamble", "cite_short")
       ),
       span(.noWS = "outside", ").")),
-    # The reference the citation above resolves to. Nowhere else in the app
-    # writes it out, so a reader who wants the source has it on the page.
+    # The full reference for the citation above.
     p(class = "fw-preamble__ref",
       tags$em(fw_t("contribute", "preamble", "citation"))),
     tags$h2(class = "fw-visually-hidden", fw_t("contribute", "preamble", "scope_heading")),
@@ -98,24 +74,15 @@ fw_preamble <- function() {
 
 #' The whole form, on one page
 #'
-#' WHY IT IS NOT A WIZARD ANY MORE. The stepped version rendered the current step
-#' through renderUI, which meant every Back and every Next destroyed and rebuilt
-#' the inputs. Values survived only because Shiny remembered them, the repeatable
-#' rows did not survive at all, and the server-side species selectize was being
-#' populated against elements that were not in the DOM yet. Rendering every
-#' section ONCE and never again removes that whole class of bug, and it is the
-#' faster option too: after this function runs there is no further UI rendering
-#' on the form at all.
-#'
-#' The progress rail is driven entirely in the browser - see fw_form_script() -
-#' so scrolling and typing never touch the server.
-fw_form_shell <- function(ns, choices) {
-  sections <- Filter(function(s) !is.null(FW_STEP_UI[[s$id]]), FW_STEPS)
+#' Every section rendered once; no further UI rendering. The progress rail
+#' runs in the browser (fw_form_script()).
+fw_form_shell = function(ns, choices) {
+  sections = Filter(function(s) !is.null(FW_STEP_UI[[s$id]]), FW_STEPS)
 
-  body <- lapply(seq_along(sections), function(i) {
-    sec <- sections[[i]]
-    title <- fw_t("contribute", "steps", sec$title_key)
-    inner <- tags$section(
+  body = lapply(seq_along(sections), function(i) {
+    sec = sections[[i]]
+    title = fw_t("contribute", "steps", sec$title_key)
+    inner = tags$section(
       class = "fw-form-section",
       id = ns(paste0("section_", sec$id)),
       `data-fw-section` = title,
@@ -126,10 +93,7 @@ fw_form_shell <- function(ns, choices) {
       ),
       FW_STEP_UI[[sec$id]](ns, choices)
     )
-    # The chemical section is only relevant once a chemical method has been
-    # named. It stays in the page and is shown or hidden, rather than being
-    # rendered in and out, so its answers are never thrown away by a change of
-    # mind further up.
+    # Chemical section: hidden, not removed, so answers survive.
     if (isTRUE(sec$conditional) && identical(sec$id, "chemical")) {
       conditionalPanel(
         condition = "output.chemical_needed === true",
@@ -168,11 +132,7 @@ fw_form_shell <- function(ns, choices) {
         class = "fw-form-footer__inner",
         tags$span(class = "fw-form-footer__note",
                   fw_t("contribute", "send_note")),
-        # ALWAYS ENABLED. A disabled Send on a form this long tells a
-        # contributor they have got something wrong without telling them what or
-        # where; pressing it and being taken to the field that needs attention
-        # is the more useful answer. It also keeps the button out of the
-        # reactive path, so nothing re-renders as they type.
+        # Always enabled: pressing it takes the contributor to the problem.
         actionButton(ns("send"), fw_t("contribute", "send_action"),
                      class = "btn btn-primary")
       )
@@ -182,15 +142,10 @@ fw_form_shell <- function(ns, choices) {
 
 #' Progress and scroll tracking, in the browser
 #'
-#' Both jobs are done client-side on purpose. Recomputing a percentage on the
-#' server on every keystroke is the difference between a form that feels instant
-#' and one that stutters on a long page, and neither number is worth a round
-#' trip: the bar is a hint, not a value anything depends on.
-fw_form_script <- function(ns) {
-  # The element ids travel as a JSON object in their own tag. The behaviour
-  # below is then a plain string: it used to be built with sprintf(), where a
-  # single unescaped per-cent sign anywhere in the JavaScript was read as a
-  # format conversion and took the whole page down with "too few arguments".
+#' Client-side, so typing never round-trips.
+fw_form_script = function(ns) {
+  # Ids go in a JSON tag so the script is a plain string (no sprintf(): a
+  # stray % broke it).
   tagList(
     tags$script(HTML(paste0(
       "window.fwFormIds = ",
@@ -213,8 +168,8 @@ fw_form_script <- function(ns) {
         return !!(el.offsetParent || el.offsetHeight);
       }
 
-      // One control counts as answered when it holds something. Radios in a
-      // group share a name and count once, answered if any is checked.
+      // A control is answered when it holds something; a radio group counts
+      // once.
       function isFilled(el) {
         if (el.type === 'checkbox' || el.type === 'radio') return el.checked;
         if (el.multiple) return el.selectedOptions && el.selectedOptions.length > 0;
@@ -226,19 +181,14 @@ fw_form_script <- function(ns) {
         scope.querySelectorAll('input, select, textarea').forEach(function (el) {
           if (el.disabled || el.type === 'hidden' || el.type === 'button' ||
               el.type === 'submit') return;
-          // Selectize builds its own inputs beside the original <select>. The
-          // original keeps the value, so only it is counted.
+          // Count the original <select>, not selectize's own inputs.
           if (el.closest('.selectize-control')) return;
           out.push(el);
         });
         return out;
       }
 
-      // THE COUNT IS OF REQUIRED FIELDS, NOT OF ALL OF THEM. Most of this form
-      // is optional by design, so a complete and perfectly valid submission
-      // touches well under a fifth of the inputs. A bar reading 17% at the
-      // point someone is ready to send tells them they have failed at
-      // something, which is the opposite of what it is for.
+      // Count required fields only: most of the form is optional.
       function requiredState(form) {
         var total = 0, done = 0;
         form.querySelectorAll('.fw-field').forEach(function (field) {
@@ -248,8 +198,7 @@ fw_form_script <- function(ns) {
           var els = controls(field);
           if (!els.length) return;
           total += 1;
-          // Every control in the field, so the map block only counts as
-          // answered once both a latitude and a longitude are present.
+          // Every control, so location needs both coordinates.
           var seen = {}, ok = true;
           els.forEach(function (el) {
             var key = el.name || el.id;
@@ -262,8 +211,7 @@ fw_form_script <- function(ns) {
         return { total: total, done: done };
       }
 
-      // The bar tracks how far through the form you have scrolled. That is the
-      // question a bar on a long page actually answers.
+      // The bar tracks scroll position.
       function scrolled(form) {
         var rect = form.getBoundingClientRect();
         var top = rect.top + window.scrollY;
@@ -299,8 +247,7 @@ fw_form_script <- function(ns) {
         if (!label) return;
         var best = null;
         sects.forEach(function (s) {
-          // A hidden conditional section reports a zero rect, which would
-          // otherwise read as 'top of the page' and win every comparison.
+          // Skip hidden sections (zero rect).
           if (!s.offsetParent && s.offsetHeight === 0) return;
           if (best === null) best = s;
           if (s.getBoundingClientRect().top <= 160) best = s;
@@ -319,18 +266,14 @@ fw_form_script <- function(ns) {
 
       document.addEventListener('input', schedule, true);
       document.addEventListener('change', schedule, true);
-      // Scroll moves the bar as well as the section name, so it runs the
-      // same refresh - still one rAF per frame at most.
+      // One rAF per frame at most.
       window.addEventListener('scroll', schedule, { passive: true });
       window.addEventListener('resize', schedule);
       $(document).on('shiny:value shiny:inputchanged shiny:visualchange', schedule);
       $(document).on('shiny:idle', schedule);
 
-      // Sending an incomplete form leaves the first problem somewhere off
-      // screen. shinyvalidate marks the CONTROL with .is-invalid - the
-      // Bootstrap 5 name, not the .has-error on the container that older
-      // versions used - so the first of those is where the contributor needs to
-      // be. The timeout lets the messages render before we look for them.
+      // Scroll to the first .is-invalid control after a refused send (the
+      // timeout lets messages render).
       // Jump to one named field, from the 'Check my answers' list.
       Shiny.addCustomMessageHandler('fw-scroll-to-field', function (id) {
         var el = document.getElementById(id);
@@ -358,10 +301,10 @@ fw_form_script <- function(ns) {
   )
 }
 
-fw_confirmation <- function(ns, res) {
+fw_confirmation = function(ns, res) {
   if (is.null(res)) return(NULL)
 
-  body <- fw_fill(fw_t("contribute", "confirm", "body_template"),
+  body = fw_fill(fw_t("contribute", "confirm", "body_template"),
                   nth = fw_ordinal(res$total_attempts),
                   nth_country = fw_ordinal(res$country_attempts),
                   country = res$country)
@@ -386,15 +329,8 @@ fw_confirmation <- function(ns, res) {
   )
 }
 
-#' The mark above the confirmation
-#'
-#' [PLACEHOLDER] A frog, standing in until the client picks the real thing -
-#' likely an animated GIF. To swap it, replace the span below with an
-#' tags$img(src = "img/whatever.gif") and keep the class and the aria-label:
-#' the sizing, the centring and the reduced-motion rule all hang off
-#' .fw-confirm__mark, and the label is what a screen reader announces in place
-#' of an image that says nothing on its own.
-fw_confirm_mark <- function() {
+#' The frog above the confirmation (styled by .fw-confirm__mark)
+fw_confirm_mark = function() {
   tags$span(
     class = "fw-confirm__mark",
     role = "img", `aria-label` = fw_t("contribute", "announce", "submission_received"),

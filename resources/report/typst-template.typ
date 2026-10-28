@@ -1,48 +1,25 @@
 // typst-template.typ
-// The FWISE PDF report's page frame and components, as a Quarto template
-// partial. R/report_pdf.R copies this beside the generated report.qmd and
-// Quarto splices it into the Typst document it hands to the Typst compiler.
-//
-// NO VALUES LIVE HERE. Every colour, size, logo path and piece of footer
-// wording comes from fwise-tokens.typ, which fw_pdf_tokens() writes from
-// R/brand.R, R/config.R and the copy deck at render time. So the report takes
-// its colours from the same tokens as the app and cannot drift from them, and
-// dev/check_literals.R has nothing here to police.
-//
-// THE BODY IS BUILT FROM THESE FUNCTIONS. R does not write Typst markup with
-// text spliced into it; it writes calls to the functions below with every
-// piece of text passed as a string literal (fw_typ_str() escapes it). A
-// species name with an asterisk or a site called "#2" cannot turn into
-// formatting, and escaping has one rule rather than Typst's dozen.
+// The PDF report's page frame and components (a Quarto template partial).
+// No values here: everything comes from fwise-tokens.typ, written by
+// fw_pdf_tokens(). R calls these functions with every text as an escaped
+// string literal (fw_typ_str()), never as markup.
 
 #import "fwise-tokens.typ": *
 
 // ---- The page ----------------------------------------------------------------
 
-// Every page: the tinted ground (no white - see R/brand.R), and a footer with
-// the logos the site's own footer carries - the FWISE mark first (client,
-// 21 Sept 2026: on every page, not only the letterhead), then Weird Fishes
-// Advisory and the six collaborators - beside the page count.
-// TWO ROWS, NOT ONE COLUMN EACH (client, 23 Sept 2026: bigger logos). The
-// logos and the page count used to share a line, which capped the logo height
-// at 8mm - any taller and they ran into the count. The count now sits under
-// them on its own line, so the logos have the full text width and fw-logo-h
-// is free to be the size the client asked for.
+// Every page: the tinted ground (no white) and a footer of the site's logos
+// (FWISE first), with the page count on its own line below.
 #let fw-footer = context {
   line(length: 100%, stroke: 0.5pt + fw-border)
   v(2mm)
-  // TWO ROWS (client, 1 Oct 2026: the six on one line were "quite squished"),
-  // of four since UNIL and the Norwegian Veterinary Institute joined (5 Oct
-  // 2026). Each logo is centred in an equal column, so the rows line up and
-  // there is clear space between every pair.
+  // Two rows of four, each logo centred in an equal column.
   grid(
     columns: (1fr, 1fr, 1fr, 1fr),
     row-gutter: 4mm,
     column-gutter: 6mm,
     align: center + horizon,
-    // CONTAINED IN THE CELL, not only fw-logo-h tall: at four to a row a wide
-    // lockup (the Norwegian Veterinary Institute's is 4:1) is wider than its
-    // column at full height, and shrinks to fit rather than overlapping.
+    // Fit to the cell, so a wide logo shrinks rather than overlapping.
     ..(fw-logo-mark, ..fw-logos).map(p => image(p, width: 100%, height: fw-logo-h, fit: "contain")),
   )
   v(1.5mm)
@@ -56,10 +33,7 @@
   set page(
     paper: "a4",
     fill: fw-page-fill,
-    // The bottom margin reserves the footer. It grew with the footer when the
-    // logos went to 11mm on a line of their own (23 Sept 2026), and again when
-    // they went to two rows (1 Oct 2026); too small a value here and the last
-    // block of a page prints over the logos.
+    // The bottom margin reserves the footer; too small and text overlaps it.
     margin: (x: fw-margin, top: fw-margin, bottom: fw-margin + 32mm),
     footer: fw-footer,
     footer-descent: 5mm,
@@ -85,16 +59,8 @@
 
 // ---- The letterhead ----------------------------------------------------------
 
-// fw-mark-h, not the footer's fw-logo-h: the mark is the masthead of the
-// document and the client asked for it bigger than the row of credits at the
-// foot of every page (23 Sept 2026). Both come from fw_pdf_tokens().
-// THE EXPLICIT LOCKUP, with the full name under the wordmark (client, 14 Oct
-// 2026): a report gets passed on to people who have never seen the site.
-//
-// THE v(2.5mm) UNDER THE TITLE is the client's "little more space between the
-// title and subtext". The level-1 show rule already puts 3mm below the
-// heading block; this is on top of that, because at the title size 3mm read
-// as the subtitle being part of the heading.
+// The explicit lockup at fw-mark-h, larger than the footer logos (client).
+// The v(2.5mm) adds space between title and subtitle (client).
 #let fw-letterhead(title: "", subtitle: "") = {
   image(fw-logo-explicit, height: fw-mark-h)
   v(7mm)
@@ -107,13 +73,8 @@
 
 // ---- Blocks ------------------------------------------------------------------
 
-// A titled block with its qualification directly beneath the heading - above
-// the figure, not below it, the same rule the page follows: a caveat printed
-// under a chart is read after the reader has drawn their conclusion from it.
-//
-// STICKY, both of them. The heading and its note are carried onto the next
-// page with whatever follows them, so a page never ends on a title whose
-// chart is overleaf.
+// A titled block, the note under the heading and above the figure. Both
+// sticky, so a page never ends on a title.
 #let fw-block(title: "", note: none, body) = {
   heading(level: 2)[#title]
   if note != none {
@@ -131,9 +92,7 @@
 
 // ---- The summary strip -------------------------------------------------------
 
-// The page's teal-tint strip: the five headline numbers.
-// On paper the five sit in a row with the label under each number: beside
-// it, as on screen, the longer labels wrapped mid-phrase at this width.
+// The five headline numbers, each label under its number.
 #let fw-stats(items) = block(
   fill: fw-teal-tint, radius: 3mm, inset: (x: 5mm, y: 4mm), width: 100%,
   breakable: false,
@@ -149,8 +108,7 @@
 
 // ---- Outcome bars ------------------------------------------------------------
 
-// All four outcomes, always, at zero if need be. The label and the count are
-// text; the bar and its colour are decoration.
+// All four outcomes; label and count are text, the bar is decoration.
 #let fw-outcome-bars(rows) = block(
   breakable: false,
   grid(
@@ -170,9 +128,8 @@
 
 // ---- Species tiles -----------------------------------------------------------
 
-// One row of photographs, the page's tiles: picture, name, count, the outcome
-// split as one bar, and the photograph's credit and licence, which travel with
-// every image as a condition of using it.
+// One row of tiles: photo, name, count, success-rate bar, and the photo's
+// credit and licence (a licence condition).
 #let fw-species-tiles(tiles) = block(
   breakable: false,
   grid(
@@ -205,12 +162,8 @@
 
 // ---- Tables ------------------------------------------------------------------
 
-// The app's table style: a sunken header row that repeats on every page the
-// table runs onto, hairlines between rows, and figures right-aligned in the
-// mono face so they compare down a column.
-// `size` sets the whole table's text. Only the report's "What this report
-// covers" table passes one (fw-small); every other table inherits the
-// document size, which is the print floor.
+// The app's table style: repeating sunken header, hairlines, mono figures.
+// `size` is only passed by the "What this report covers" table (fw-small).
 #let fw-table(headers, rows, num: (), widths: auto, size: none) = {
   let n = headers.len()
   let cols = if widths == auto { (auto,) * (n - 1) + (1fr,) } else { widths }
@@ -234,12 +187,8 @@
   heading(level: 2)[#heading-text]
   block(
     fill: fw-teal-wash, radius: 3mm, inset: 5mm, width: 100%,
-    // A BLOCK MAY CARRY NO TITLE and then gets none, rather than a bold empty
-    // line holding open 1mm of nothing. The third item marks a caveat under
-    // the "Caveats" part (fw_closing_blocks()), titled at body size; the
-    // part's own title has no body, so nothing is set under it.
-    // Code mode, not markup: markup's line breaks and indents set stray
-    // space under a title that has no text after it.
+    // No title for an empty one. The third item marks a caveat block (body
+    // size title). Code mode, since markup adds stray space.
     stack(spacing: 5mm, ..blocks.map(b => {
       if b.at(0) != "" {
         text(weight: "bold", size: if b.at(2) { 1em } else { fw-h3 }, b.at(0))

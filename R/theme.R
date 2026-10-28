@@ -1,56 +1,26 @@
 # theme.R
-# The bslib theme. Bootstrap variables are set here so that stock components
-# (buttons, form controls, the navbar) already look like FWISE before any of our
-# own CSS in www/scss/ loads. That ordering matters: overriding Bootstrap after
-# the fact leads to specificity fights.
-#
-# THERE IS NO PALETTE IN THIS FILE. Every value below is read from R/brand.R
-# (FW_COLOURS, FW_TYPE, FW_RADIUS) or R/config.R (FW_PALETTE). Bootstrap's Sass
-# is compiled by bslib separately from our own stylesheet and cannot see the
-# variables fw_compile_css() injects there, so this file maps the same tokens
-# onto Bootstrap's variable names. To change a colour, a size or a radius, edit
-# R/brand.R; nothing here is a value of its own.
+# The bslib theme: maps the R/brand.R tokens onto Bootstrap's variables, so
+# stock components look right without CSS overrides. bslib compiles Bootstrap
+# separately and can't see our Sass variables. No values of its own here.
 
 library(bslib)
 
-fw_theme <- function() {
+fw_theme = function() {
   bs_theme(
     version = 5,
 
-    # Type. The @font-face rules for Ubuntu live in www/scss/main.scss, whose
-    # relative urls resolve against the served stylesheet and so find
-    # www/fonts/. A font_face() here would be served from bslib's own generated
-    # font.css instead, where the same relative path 404s on every page load -
-    # which is exactly what it did. Name the family; do not declare it twice.
+    # Type. @font-face is in main.scss; a font_face() here 404s from bslib's
+    # font.css.
     base_font = font_collection("Ubuntu", "system-ui", "sans-serif"),
     code_font = font_collection("Ubuntu Mono", "monospace"),
     heading_font = font_collection("Ubuntu", "system-ui", "sans-serif"),
 
-    # Bootstrap sizes its own controls off this, so it has to be the body size
-    # our stylesheet uses or prose and form controls drift apart.
+    # Must match our body size.
     base_font_size = FW_TYPE$size_body,
 
-    # THE 1rem TEXT FLOOR, applied to Bootstrap's own components.
-    #
-    # Our SCSS can only hold the floor on markup we write. Bootstrap sizes a
-    # dozen of its own pieces off separate variables that default to 0.875em or
-    # smaller - form help text, validation feedback, small buttons and inputs,
-    # badges, tooltips, legends - and every one of those renders somewhere in
-    # this app. Setting the variables is what makes the floor actually hold;
-    # chasing the same values back out with CSS overrides would mean a
-    # specificity fight per component.
-    #
-    # rem and not em deliberately: an em here would compound against whatever
-    # the parent happens to be and quietly drop back under the floor inside a
-    # small container.
-    #
-    # TWO TOKENS, NOT ONE, since the scale moved up. Everything that STAYS ON
-    # THE PAGE as its own small print - a field label, help text, a validation
-    # message, a nav link - takes $size_caption, so Bootstrap's chrome rides the
-    # scale with our own markup instead of being stranded a step below it.
-    # $size_min is left only where the component is already deliberately small
-    # (the -sm variants, badges) and must not grow. Both are at or above the
-    # floor, which is the property that matters.
+    # The 1rem floor for Bootstrap's small-text variables (help text,
+    # validation, -sm controls, badges). rem, not em, so it can't compound.
+    # Page small print takes size_caption; already-small components size_min.
     "font-size-sm"            = FW_TYPE$size_min,
     "small-font-size"         = FW_TYPE$size_caption,
     "sub-sup-font-size"       = FW_TYPE$size_min,
@@ -59,27 +29,19 @@ fw_theme <- function() {
     "form-feedback-font-size" = FW_TYPE$size_caption,
     "input-font-size-sm"      = FW_TYPE$size_min,
     "btn-font-size-sm"        = FW_TYPE$size_min,
-    # bslib sets its own --bs-btn-font-size of .9375rem, which is 15px and under
-    # the floor. Buttons are set at body size so a call to action is never
-    # smaller than the sentence that introduced it.
+    # bslib's default button size (15px) is under the floor.
     "btn-font-size"           = FW_TYPE$size_body,
     "input-btn-font-size"     = FW_TYPE$size_body,
     "badge-font-size"         = FW_TYPE$size_min,
-    # THE POP-UP EXEMPTION, granted by the client: transient overlay text may sit
-    # under the floor. Tooltips and popovers only. Everything that stays on the
-    # page is still at the floor.
+    # The pop-up exemption (client): tooltips and popovers only.
     "tooltip-font-size"       = FW_TYPE$size_popup,
     "popover-font-size"       = FW_TYPE$size_popup,
     "dropdown-font-size"      = FW_TYPE$size_caption,
     "legend-font-size"        = FW_TYPE$size_caption,
-    # UP, not down, while the rest of the scale went the other way. See the note
-    # on size_nav in brand.R: the tabs used to be the smallest chrome on the
-    # page, and the client wants them and the logo carrying the top of it.
+    # Nav tabs larger than body (client).
     "nav-link-font-size"      = FW_TYPE$size_nav,
 
-    # Colour. `primary` drives Bootstrap's buttons, links and focus states, so it
-    # is set to the teal that passes AA as text rather than the brand teal. See
-    # the contrast note in R/brand.R.
+    # Colour. `primary` is teal_text, the teal that passes AA.
     bg        = FW_COLOURS$page,
     fg        = FW_COLOURS$ink,
     primary   = FW_COLOURS$teal_text,
@@ -98,9 +60,7 @@ fw_theme <- function() {
     "border-radius-sm" = FW_RADIUS$input,
     "border-color"     = FW_COLOURS$border,
 
-    # Surfaces are defined by tone and by our own shadow tokens, so Bootstrap's
-    # shadows are switched off. The places a shadow IS wanted set it themselves
-    # in _components.scss from $fw-shadow-*.
+    # Bootstrap shadows off; ours come from $fw-shadow-*.
     "box-shadow"    = "none",
     "box-shadow-sm" = "none",
     "box-shadow-lg" = "none",
@@ -120,36 +80,24 @@ fw_theme <- function() {
     "card-cap-bg"       = FW_COLOURS$surface,
     "card-bg"           = FW_COLOURS$surface,
 
-    # THE MODAL, WHICH BOOTSTRAP MAKES WHITE. The download picker moved into an
-    # overlay at the client's request, and $modal-content-bg defaults to #fff -
-    # which would put the one pure-white surface in the app on top of everything
-    # else, against the client's instruction and against dev/check_literals.R.
-    # It takes the same surface tone as a card, because that is what it is.
+    # Modals default to white; use the surface tone (no white).
     "modal-content-bg"           = FW_COLOURS$surface,
     "modal-content-border-color" = FW_COLOURS$border,
     "modal-header-border-color"  = FW_COLOURS$border,
     "modal-footer-border-color"  = FW_COLOURS$border,
-    # The backdrop is the indigo rather than Bootstrap's black, so dimming the
-    # page reads as the brand going quiet rather than as a light going out.
+    # Indigo backdrop rather than black.
     "modal-backdrop-bg"          = FW_COLOURS$brand_indigo,
     "modal-backdrop-opacity"     = "0.5",
 
-    # FIELDS TAKE THE SURFACE COLOUR, NOT THE PAGE COLOUR. Bootstrap defaults
-    # every form control's background to $body-bg. Left alone, an unchecked
-    # checkbox was a page-coloured square with a pale border, which did not read
-    # as something you could tick. Fields are always the lightest thing on the
-    # page.
+    # Fields take the surface colour, so they're the lightest thing on the page.
     "input-bg"                 = FW_COLOURS$surface,
     "form-check-input-bg"      = FW_COLOURS$surface,
     "input-border-color"       = FW_COLOURS$border_input,
     "form-check-input-border"  = paste0("1px solid ", FW_COLOURS$border_input),
     "input-focus-border-color" = FW_COLOURS$teal_text,
 
-    # Bootstrap's own focus ring. Our :focus-visible rule handles the general
-    # case; matching the colour here stops the two disagreeing on controls that
-    # Bootstrap styles directly. The brand teal rather than the hover teal: the
-    # lighter one misses the 3:1 floor a focus ring has to meet on the page
-    # ground. Verified by dev/check_contrast.R.
+    # Bootstrap's focus ring, matching our :focus-visible. Brand teal meets
+    # 3:1 (dev/check_contrast.R).
     "focus-ring-color" = FW_COLOURS$brand_teal,
     "focus-ring-width" = "3px"
   )
