@@ -2233,12 +2233,16 @@ $fw-band-scale: 0.94;
 
 // A number box with its unit fixed at the end: the area treated (ha or km,
 // from the regime). The suffix is joined to the input, so the input loses
-// its right corners.
+// its right corners. Shiny's 1rem bottom margin moves from the input's
+// container to the row, or the stretched suffix grows by that 1rem.
 .fw-unit-input {
   display: flex;
   align-items: stretch;
+  margin-block-end: 1rem;
 
   .fw-bare-label { flex: 1 1 auto; min-width: 0; }
+  .shiny-input-container,
+  .form-group { width: 100%; margin-block-end: 0; }
   .form-control {
     border-start-end-radius: 0;
     border-end-end-radius: 0;
@@ -2258,6 +2262,14 @@ $fw-band-scale: 0.94;
     color: $fw-ink;
     font-family: $fw-font-mono;
     font-size: $fw-size-min;
+  }
+
+  // An invalid input takes a 2px border; the suffix matches so both halves
+  // stay the same height.
+  &:has(.is-invalid) .fw-unit-input__suffix {
+    border-color: $fw-data-vermilion;
+    border-width: 2px;
+    border-inline-start-width: 0;
   }
 }
 
