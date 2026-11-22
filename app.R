@@ -62,7 +62,7 @@ ui = page_navbar(
 
   header = tagList(
     tags$head(
-      tags$link(rel = "icon", type = "image/png", href = FW_LOGO$badge_web),
+      tags$link(rel = "icon", type = "image/x-icon", href = FW_LOGO$favicon_ico),
       tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
       # Description, canonical, Open Graph, structured data, and the no-JS
       # loader rule. See fw_head_meta().

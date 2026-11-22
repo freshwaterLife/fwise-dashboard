@@ -207,6 +207,9 @@ FW_LOGO = list(
   mark_web   = "img/FWISE-SIMPLE.png",
   mark_file  = "www/img/FWISE-SIMPLE-1200.png",
   badge_web  = "img/FWISE-BADGE-256.png",
+  # The badge at 16, 32 and 48 px in one .ico, at the root where browsers
+  # also look for it unprompted.
+  favicon_ico = "favicon.ico",
   # Wordmark with the full name under it: report mastheads and link previews.
   explicit_file = "www/img/FWISE-EXPLICIT-2000.png",
   # The footer's other logos, in footer order, printed on the PDF and .html

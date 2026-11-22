@@ -3790,13 +3790,13 @@
   },
   "files": {
     ".Rprofile": {
-      "checksum": "c0d8deee1c0da150d0cb706fa41e79f6"
+      "checksum": "57f9047cb06fdbef821b61f49e21406e"
     },
     "app.R": {
-      "checksum": "45fb33d1d71cac21cc1b26d3daeb6a05"
+      "checksum": "006358f61b9317c19227708bade189f7"
     },
     "content/privacy_and_data_terms.md": {
-      "checksum": "1420aebde03349872b332d0a542d921e"
+      "checksum": "50ecc35ca2d8475b3b88038f68457b08"
     },
     "LICENSE": {
       "checksum": "6e91ae45f5f62c5162562a7747ef8fbc"
@@ -3811,25 +3811,25 @@
       "checksum": "f3bbfb28edf5abdf6ef21829e63f6630"
     },
     "R/config.R": {
-      "checksum": "4d8a6fb92dc2be8935abca11055ab57f"
+      "checksum": "c4efefaade721abeafb836ec95ceda83"
     },
     "R/copy_contribute.R": {
-      "checksum": "8f87f1b45eaab11d1fd432a2e3d5bbba"
+      "checksum": "2e2a82d95b008318eacead86f3c6a52a"
     },
     "R/copy_export.R": {
-      "checksum": "148eade95713851f7e37b9412ade9a9a"
+      "checksum": "eb515cbb140eb725907e0f67d1c83312"
     },
     "R/copy_forms.R": {
-      "checksum": "dd9819c354946dd3406578357e6b88f7"
+      "checksum": "938a2c9015d3b78f7745479556ddd7ea"
     },
     "R/copy.R": {
-      "checksum": "73e6422981cfbb75563c8d3d9f18ca46"
+      "checksum": "498c53315ebc2956ced76d3eab82dc44"
     },
     "R/data_load.R": {
-      "checksum": "be14ecbd3b9f0c36dd70161ea1bec143"
+      "checksum": "b9d78deb36d31ba27738f6f3eea2ec1b"
     },
     "R/export.R": {
-      "checksum": "637c369243426696b018e7aa01fb0756"
+      "checksum": "020b59e76f8ae62b55d20c8fcfc5f31b"
     },
     "R/filters.R": {
       "checksum": "659f71824c6db1f6a4d3d6d1dc3ce91d"
@@ -3850,13 +3850,13 @@
       "checksum": "b74cc3a88fbfd6b55acd7fa12471d671"
     },
     "R/mod_contribute_steps.R": {
-      "checksum": "8297466076b75c3de8cf36228b3aa7ac"
+      "checksum": "c726a2aa9e58201efcfdada8a5789aa3"
     },
     "R/mod_contribute_ui.R": {
-      "checksum": "efbf95f0bd415a60cf744cf4fd439441"
+      "checksum": "e05777308c75811436aac88c3ff15ae7"
     },
     "R/mod_contribute.R": {
-      "checksum": "78b2bb8207926dfa18d812fc2a491533"
+      "checksum": "294da03ffe017205ead4cf6d89c1a5e5"
     },
     "R/mod_explore.R": {
       "checksum": "5cdb6d70e85311ab734723b7ea022a1a"
@@ -3904,19 +3904,19 @@
       "checksum": "8beee2d05f19c32a4947fca4e4858963"
     },
     "R/submit.R": {
-      "checksum": "554561c30bf4f1b5025e17900964f907"
+      "checksum": "6a084da8ff55c6bbb3bd6a4137222191"
     },
     "R/theme.R": {
       "checksum": "5646ebfc9196c8770f0c74352da5638e"
     },
     "R/tracking.R": {
-      "checksum": "6bc5e250a7bf89f3914754b3bc7ae820"
+      "checksum": "eb49b58bcd14484f54848a41f555f4c4"
     },
     "R/ui_helpers.R": {
       "checksum": "947c7bc6d82542c075b1861ed0ebb1f4"
     },
     "README.md": {
-      "checksum": "97402cf18bce48965e06b398510ba84f"
+      "checksum": "352af2a9126d015fc30b7d44bea909fc"
     },
     "renv.lock": {
       "checksum": "87deca0ea2d8f687119405673fe7f5b7"
@@ -4060,7 +4060,7 @@
       "checksum": "1dcac4f70936b8360bba4f3bb043d1b7"
     },
     "www/scss/_components.scss": {
-      "checksum": "96e921c3d2c49f8c96e580022dc47c31"
+      "checksum": "49077034d987a5ccf8bf7c167b3668e2"
     },
     "www/scss/_tokens.scss": {
       "checksum": "34c0ed08e90fb3b8e7803fccfe7ee428"
@@ -4073,6 +4073,9 @@
     },
     "www/sitemap.xml": {
       "checksum": "6cd433ec1ca832cddc7ae31a412faced"
+    },
+    "www/favicon.ico": {
+      "checksum": "56c99a9f19db778384a0d75ce9b3c554"
     }
   },
   "users": null
